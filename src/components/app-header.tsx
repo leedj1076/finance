@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 type AppHeaderProps = {
-  active: 'budgets' | 'ledger' | 'settings'
+  active: 'budgets' | 'inbox' | 'ledger' | 'settings'
   email: string
 }
 
@@ -25,6 +25,9 @@ export function AppHeader({ active, email }: AppHeaderProps) {
           </Link>
           <Link className={navClass('budgets')} href="/budgets">
             예산
+          </Link>
+          <Link className={navClass('inbox')} href="/inbox">
+            인박스
           </Link>
           <Link className={navClass('settings')} href="/settings">
             설정
