@@ -1,3 +1,7 @@
+'use client'
+
+import { useSyncExternalStore } from 'react'
+
 import { formatRate, formatWon } from '@/lib/finance'
 
 type MonthlyCashflow = {
@@ -20,6 +24,16 @@ const LEFT = 54
 const RIGHT = 18
 const TOP = 18
 const BOTTOM = 38
+
+const subscribe = () => () => undefined
+
+function useHydrated() {
+  return useSyncExternalStore(subscribe, () => true, () => false)
+}
+
+function ChartPlaceholder() {
+  return <div aria-hidden className="h-[250px] min-w-[620px] animate-pulse rounded-xl bg-zinc-50" />
+}
 
 function compactWon(value: number) {
   const absolute = Math.abs(value)
@@ -80,11 +94,14 @@ function Grid({ maxValue }: { maxValue: number }) {
 }
 
 export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
+  const hydrated = useHydrated()
   const incomeValues = data.map((item) => item.active ? item.income : null)
   const expenseValues = data.map((item) => item.active ? item.expense : null)
   const maxValue = Math.max(1, ...incomeValues.filter((value): value is number => value !== null), ...expenseValues.filter((value): value is number => value !== null))
   const incomePoints = coordinates(incomeValues, maxValue)
   const expensePoints = coordinates(expenseValues, maxValue)
+
+  if (!hydrated) return <ChartPlaceholder />
 
   return (
     <div>
@@ -117,10 +134,13 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
 }
 
 export function FlowTrendChart({ data, label, tone }: { data: TrendPoint[]; label: string; tone: 'blue' | 'emerald' | 'rose' }) {
+  const hydrated = useHydrated()
   const values = data.map((item) => item.active ? item.amount : null)
   const maxValue = Math.max(1, ...values.filter((value): value is number => value !== null))
   const points = coordinates(values, maxValue)
   const color = tone === 'blue' ? '#2563eb' : tone === 'emerald' ? '#059669' : '#e11d48'
+
+  if (!hydrated) return <ChartPlaceholder />
 
   return (
     <svg

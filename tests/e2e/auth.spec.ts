@@ -72,6 +72,16 @@ async function createTestUser(email: string, password: string) {
     .single()
   if (categoryError) throw categoryError
 
+  const { error: transactionError } = await admin.from('transactions').insert([
+    { household_id: household.id, date: '2026-01-10', flow: 'income', amount: 5_000_000, source: 'e2e' },
+    { household_id: household.id, date: '2026-01-12', flow: 'expense', amount: 3_000_000, category_id: category.id, raw_merchant: 'E2E 마트 1호점', source: 'e2e' },
+    { household_id: household.id, date: '2026-02-10', flow: 'income', amount: 5_200_000, source: 'e2e' },
+    { household_id: household.id, date: '2026-02-12', flow: 'expense', amount: 3_100_000, category_id: category.id, raw_merchant: 'E2E 마트 2호점', source: 'e2e' },
+    { household_id: household.id, date: '2026-03-10', flow: 'income', amount: 5_300_000, source: 'e2e' },
+    { household_id: household.id, date: '2026-03-12', flow: 'expense', amount: 3_200_000, category_id: category.id, raw_merchant: 'E2E 마트 3호점', source: 'e2e' },
+  ])
+  if (transactionError) throw transactionError
+
   return {
     accountId: account.id as number,
     categoryId: category.id as number,
@@ -83,6 +93,10 @@ test('family user can manage a transaction and change their password', async ({ 
   const email = `finance-e2e-${Date.now()}-${crypto.randomUUID()}@example.com`
   const currentPassword = 'passw0rd!'
   const newPassword = 'new-passw0rd!'
+  const browserErrors: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error') browserErrors.push(message.text())
+  })
   let householdId: string | undefined
 
   try {
@@ -124,6 +138,7 @@ test('family user can manage a transaction and change their password', async ({ 
     await page.getByRole('link', { name: '대시보드' }).click()
     await expect(page).toHaveURL('/dashboard')
     await expect(page.getByRole('heading', { name: '대시보드' })).toBeVisible()
+    expect(browserErrors).toEqual([])
 
     await page.getByRole('link', { name: '분석', exact: true }).click()
     await expect(page).toHaveURL('/analysis')
