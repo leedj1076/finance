@@ -82,6 +82,23 @@ async function createTestUser(email: string, password: string) {
   ])
   if (transactionError) throw transactionError
 
+  const { data: assetRows, error: assetError } = await admin.from('asset_accounts').insert([
+    { household_id: household.id, major: '현금', name: 'E2E 예금', kind: 'asset', sort_order: 1 },
+    { household_id: household.id, major: '대출', name: 'E2E 대출', kind: 'liability', sort_order: 2 },
+  ]).select('id, name')
+  if (assetError) throw assetError
+  const assetId = assetRows.find((row) => row.name === 'E2E 예금')?.id
+  const debtId = assetRows.find((row) => row.name === 'E2E 대출')?.id
+  if (!assetId || !debtId) throw new Error('test asset accounts were not created')
+
+  const { error: snapshotError } = await admin.from('balance_snapshots').insert([
+    { household_id: household.id, account_id: assetId, month: '2026-01', amount: 1_000_000 },
+    { household_id: household.id, account_id: assetId, month: '2026-02', amount: 1_200_000 },
+    { household_id: household.id, account_id: debtId, month: '2026-01', amount: 400_000 },
+    { household_id: household.id, account_id: debtId, month: '2026-02', amount: 350_000 },
+  ])
+  if (snapshotError) throw snapshotError
+
   return {
     accountId: account.id as number,
     categoryId: category.id as number,
@@ -143,6 +160,17 @@ test('family user can manage a transaction and change their password', async ({ 
     await page.getByRole('link', { name: '분석', exact: true }).click()
     await expect(page).toHaveURL('/analysis')
     await expect(page.getByRole('heading', { name: '분석' })).toBeVisible()
+
+    await page.getByRole('link', { name: '자산', exact: true }).click()
+    await expect(page).toHaveURL('/assets')
+    await expect(page.getByRole('heading', { name: '자산', exact: true })).toBeVisible()
+    await expect(page.locator('article').filter({ hasText: '순자산' }).first()).toContainText('850,000원')
+    await page.getByLabel('E2E 예금 잔액').fill('1400000')
+    await page.getByRole('button', { name: '이달 자산 저장' }).click()
+    await expect(page).toHaveURL('/assets?month=2026-02&saved=1')
+    await expect(page.getByText('2026-02 자산 잔액을 저장했습니다.')).toBeVisible()
+    await expect(page.locator('article').filter({ hasText: '순자산' }).first()).toContainText('1,050,000원')
+    expect(browserErrors).toEqual([])
 
     await page.getByRole('link', { name: '설정' }).click()
     await expect(page).toHaveURL('/settings')
