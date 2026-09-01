@@ -93,6 +93,8 @@ test('family user can manage a transaction and change their password', async ({ 
     await page.getByPlaceholder('비밀번호').fill(currentPassword)
     await page.getByRole('button', { name: '로그인', exact: true }).click()
 
+    await expect(page).toHaveURL('/dashboard')
+    await page.getByRole('link', { name: '가계부', exact: true }).click()
     await expect(page).toHaveURL('/ledger')
     await page.getByLabel('분류').selectOption(String(setup.categoryId))
     await page.getByLabel('금액').fill('12,500')
@@ -118,6 +120,14 @@ test('family user can manage a transaction and change their password', async ({ 
     await page.getByRole('button', { name: '이달 예산 저장' }).click()
     await expect(page.getByLabel('식비 예산')).toHaveValue('500000')
     await expect(page.locator('article').filter({ hasText: '총 예산' })).toContainText('500,000원')
+
+    await page.getByRole('link', { name: '대시보드' }).click()
+    await expect(page).toHaveURL('/dashboard')
+    await expect(page.getByRole('heading', { name: '대시보드' })).toBeVisible()
+
+    await page.getByRole('link', { name: '분석', exact: true }).click()
+    await expect(page).toHaveURL('/analysis')
+    await expect(page.getByRole('heading', { name: '분석' })).toBeVisible()
 
     await page.getByRole('link', { name: '설정' }).click()
     await expect(page).toHaveURL('/settings')

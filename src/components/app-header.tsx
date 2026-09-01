@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
 type AppHeaderProps = {
-  active: 'budgets' | 'inbox' | 'ledger' | 'settings'
+  active: 'analysis' | 'budgets' | 'dashboard' | 'inbox' | 'ledger' | 'settings'
   email: string
 }
 
@@ -15,11 +15,14 @@ export function AppHeader({ active, email }: AppHeaderProps) {
 
   return (
     <header className="border-b border-zinc-200 bg-white">
-      <div className="mx-auto flex max-w-7xl items-center gap-6 px-5 py-3 sm:px-8">
-        <Link className="shrink-0 font-semibold tracking-tight text-zinc-950" href="/ledger">
+      <div className="mx-auto flex max-w-7xl items-center gap-4 px-5 py-3 sm:px-8">
+        <Link className="shrink-0 font-semibold tracking-tight text-zinc-950" href="/dashboard">
           우리집 가계부
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto">
+          <Link className={navClass('dashboard')} href="/dashboard">
+            대시보드
+          </Link>
           <Link className={navClass('ledger')} href="/ledger">
             가계부
           </Link>
@@ -28,6 +31,9 @@ export function AppHeader({ active, email }: AppHeaderProps) {
           </Link>
           <Link className={navClass('inbox')} href="/inbox">
             인박스
+          </Link>
+          <Link className={navClass('analysis')} href="/analysis">
+            분석
           </Link>
           <Link className={navClass('settings')} href="/settings">
             설정
