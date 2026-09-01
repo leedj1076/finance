@@ -154,3 +154,48 @@ export async function getLedgerData(householdId: string, requestedMonth?: string
     })),
   }
 }
+
+export async function getLedgerFormOptions(householdId: string) {
+  const [accountRows, categoryRows] = await Promise.all([
+    db
+      .select({ id: accounts.id, name: accounts.name })
+      .from(accounts)
+      .where(and(eq(accounts.householdId, householdId), eq(accounts.active, true)))
+      .orderBy(accounts.sortOrder, accounts.name),
+    db
+      .select({
+        id: categories.id,
+        kind: categories.kind,
+        major: categories.major,
+        sub: categories.sub,
+      })
+      .from(categories)
+      .where(and(eq(categories.householdId, householdId), eq(categories.hidden, false)))
+      .orderBy(categories.kind, categories.sortOrder, categories.major, categories.sub),
+  ])
+
+  return { accounts: accountRows, categories: categoryRows }
+}
+
+export async function getTransactionForEdit(householdId: string, id?: number) {
+  if (!id || !Number.isSafeInteger(id) || id <= 0) return null
+
+  const [transaction] = await db
+    .select({
+      id: transactions.id,
+      date: transactions.date,
+      flow: transactions.flow,
+      fixed: transactions.fixed,
+      categoryId: transactions.categoryId,
+      memo: transactions.memo,
+      amount: transactions.amount,
+      accountId: transactions.accountId,
+    })
+    .from(transactions)
+    .where(
+      and(eq(transactions.id, id), eq(transactions.householdId, householdId)),
+    )
+    .limit(1)
+
+  return transaction ?? null
+}

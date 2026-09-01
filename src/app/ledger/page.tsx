@@ -2,13 +2,19 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
-import { getLedgerData } from '@/features/ledger/queries'
-import { formatRate, formatWon } from '@/lib/finance'
+import { DeleteTransactionButton } from '@/features/ledger/delete-transaction-button'
+import {
+  getLedgerData,
+  getLedgerFormOptions,
+  getTransactionForEdit,
+} from '@/features/ledger/queries'
+import { TransactionForm } from '@/features/ledger/transaction-form'
+import { currentMonthInKorea, formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 import { createServerSupabase } from '@/lib/supabase/server'
 
 type LedgerPageProps = {
-  searchParams: Promise<{ month?: string | string[] }>
+  searchParams: Promise<{ edit?: string | string[]; month?: string | string[] }>
 }
 
 const flowLabel = {
@@ -76,9 +82,18 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
 
   const params = await searchParams
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
-  const data = await getLedgerData(household.householdId, requestedMonth)
+  const editId = typeof params.edit === 'string' ? Number(params.edit) : undefined
+  const [data, formOptions, editing] = await Promise.all([
+    getLedgerData(household.householdId, requestedMonth),
+    getLedgerFormOptions(household.householdId),
+    getTransactionForEdit(household.householdId, editId),
+  ])
   const maxCategoryAmount = data.topCategories[0]?.amount ?? 0
   const deltaIsUp = data.comparison.expenseDelta > 0
+  const currentMonth = currentMonthInKorea()
+  const defaultDate = data.month === currentMonth
+    ? new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+    : `${data.month}-01`
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -158,6 +173,14 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
           />
         </section>
 
+        <TransactionForm
+          accounts={formOptions.accounts}
+          categories={formOptions.categories}
+          defaultDate={defaultDate}
+          editing={editing}
+          month={data.month}
+        />
+
         <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.42fr)]">
           <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
@@ -177,6 +200,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
                     <th className="px-3 py-3 font-medium">사용내역</th>
                     <th className="px-3 py-3 text-right font-medium">금액</th>
                     <th className="px-5 py-3 font-medium">결제수단</th>
+                    <th className="px-5 py-3 text-right font-medium">관리</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
@@ -207,11 +231,22 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
                       <td className="whitespace-nowrap px-5 py-3 text-zinc-500">
                         {transaction.account ?? '-'}
                       </td>
+                      <td className="px-5 py-3">
+                        <div className="flex justify-end gap-3">
+                          <Link
+                            className="text-xs text-zinc-500 hover:text-zinc-950"
+                            href={`/ledger?month=${data.month}&edit=${transaction.id}`}
+                          >
+                            수정
+                          </Link>
+                          <DeleteTransactionButton id={transaction.id} month={data.month} />
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   {data.transactions.length === 0 && (
                     <tr>
-                      <td className="px-5 py-12 text-center text-zinc-500" colSpan={6}>
+                      <td className="px-5 py-12 text-center text-zinc-500" colSpan={7}>
                         이 달의 거래가 없습니다.
                       </td>
                     </tr>
