@@ -112,6 +112,13 @@ test('family user can manage a transaction and change their password', async ({ 
     await page.getByRole('row', { name: /E2E 장보기/ }).getByRole('button', { name: '삭제' }).click()
     await expect(page.getByText('E2E 장보기')).toHaveCount(0)
 
+    await page.getByRole('link', { name: '예산' }).click()
+    await page.getByLabel('식비 예산').fill('500000')
+    await page.getByLabel('목표 저축률').fill('35')
+    await page.getByRole('button', { name: '이달 예산 저장' }).click()
+    await expect(page.getByLabel('식비 예산')).toHaveValue('500000')
+    await expect(page.locator('article').filter({ hasText: '총 예산' })).toContainText('500,000원')
+
     await page.getByRole('link', { name: '설정' }).click()
     await expect(page).toHaveURL('/settings')
     await page.getByLabel('현재 비밀번호').fill(currentPassword)
