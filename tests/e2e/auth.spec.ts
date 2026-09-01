@@ -53,8 +53,8 @@ test('registered user can log in and change their password', async ({ page }) =>
     await page.getByPlaceholder('비밀번호').fill(currentPassword)
     await page.getByRole('button', { name: '로그인', exact: true }).click()
 
-    await expect(page).toHaveURL('/')
-    await expect(page.getByText(`로그인됨: ${email}`)).toBeVisible()
+    await expect(page).toHaveURL('/ledger')
+    await expect(page.getByText('가구에 연결되지 않았습니다')).toBeVisible()
 
     await page.getByRole('link', { name: '설정' }).click()
     await expect(page).toHaveURL('/settings')
