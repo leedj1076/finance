@@ -1,5 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase/server'
 import { requireHousehold } from '@/lib/household'
+import Link from 'next/link'
 
 export default async function Home() {
   const supabase = await createServerSupabase()
@@ -21,14 +22,22 @@ export default async function Home() {
           아직 가구에 연결되지 않았습니다. 관리자가 계정을 가구에 연결해야 합니다.
         </p>
       )}
-      <form action="/auth/signout" method="post">
-        <button
-          className="mt-6 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
-          type="submit"
+      <div className="mt-6 flex gap-3">
+        <Link
+          className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+          href="/settings"
         >
-          로그아웃
-        </button>
-      </form>
+          설정
+        </Link>
+        <form action="/auth/signout" method="post">
+          <button
+            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+            type="submit"
+          >
+            로그아웃
+          </button>
+        </form>
+      </div>
       <p className="mt-8 rounded-lg bg-zinc-100 p-4 text-sm text-zinc-600">
         대시보드와 가계부 화면은 다음 기능 단계에서 추가됩니다.
       </p>
