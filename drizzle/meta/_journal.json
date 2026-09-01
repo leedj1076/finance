@@ -8,6 +8,13 @@
       "when": 1788226381556,
       "tag": "0000_serious_doctor_faustus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788226418264,
+      "tag": "0001_rls",
+      "breakpoints": true
     }
   ]
 }
