@@ -6,7 +6,7 @@ import { sql } from 'drizzle-orm'
 import { db } from '../src/db/client'
 import { households, settings } from '../src/db/schema'
 
-const DEFAULT_HOUSEHOLD_NAME = '이동재·김유진 가구'
+export const DEFAULT_HOUSEHOLD_NAME = '이동재·김유진 가구'
 
 export type MigrationResult = {
   householdId: string
