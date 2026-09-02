@@ -46,7 +46,7 @@ function SubmitButton({ editing }: { editing: boolean }) {
   const { pending } = useFormStatus()
   return (
     <button
-      className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+      className="h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:bg-finance-blue disabled:cursor-not-allowed disabled:opacity-50"
       disabled={pending}
       type="submit"
     >
@@ -70,46 +70,46 @@ export function TransactionForm({
 
   return (
     <article
-      className={`mt-6 rounded-2xl border bg-white shadow-sm ${
-        editing ? 'border-amber-300' : 'border-zinc-200'
+      className={`mt-6 border-t ${
+        editing ? 'border-finance-amber' : 'border-finance-ink'
       }`}
     >
-      <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
+      <div className="flex items-center justify-between border-b border-finance-border py-4">
         <div>
-          <h2 className="font-semibold text-zinc-950">
+          <h2 className="text-sm font-bold text-finance-ink">
             {editing ? '거래 수정' : '거래 직접 입력'}
           </h2>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-finance-muted">
             {editing ? '선택한 거래를 수정하고 있습니다.' : '은행 가져오기 외 거래를 직접 기록합니다.'}
           </p>
         </div>
         {editing && (
-          <Link className="text-sm text-zinc-500 hover:text-zinc-950" href={ledgerUrl(month, filters)}>
+          <Link className="text-xs font-semibold text-finance-blue hover:text-finance-ink" href={ledgerUrl(month, filters)}>
             수정 취소
           </Link>
         )}
       </div>
 
-      <form action={action} className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-6">
+      <form action={action} className="grid gap-3 border-b border-finance-border py-4 md:grid-cols-2 xl:grid-cols-6">
         <input name="transactionId" type="hidden" value={editing?.id ?? ''} />
         <input name="returnAccount" type="hidden" value={filters.account} />
         <input name="returnFlow" type="hidden" value={filters.flow} />
         <input name="returnMajor" type="hidden" value={filters.major} />
         <input name="returnQ" type="hidden" value={filters.q} />
-        <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
+        <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
           날짜
           <input
-            className="rounded-lg border border-zinc-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             defaultValue={editing?.date ?? defaultDate}
             name="date"
             required
             type="date"
           />
         </label>
-        <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
+        <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
           유형
           <select
-            className="rounded-lg border border-zinc-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             name="flow"
             onChange={(event) => {
               setFlow(event.target.value as TransactionFlow)
@@ -122,10 +122,10 @@ export function TransactionForm({
             <option value="saving">저축</option>
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm font-medium text-zinc-700 xl:col-span-2">
+        <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted xl:col-span-2">
           분류
           <select
-            className="rounded-lg border border-zinc-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             name="categoryId"
             onChange={(event) => setCategoryId(event.target.value)}
             value={categoryId}
@@ -138,10 +138,10 @@ export function TransactionForm({
             ))}
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
+        <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
           금액
           <input
-            className="rounded-lg border border-zinc-300 px-3 py-2.5 text-right font-normal outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className="h-[34px] border border-finance-border bg-white px-3 text-right text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             defaultValue={editing?.amount ?? ''}
             inputMode="numeric"
             name="amount"
@@ -149,10 +149,10 @@ export function TransactionForm({
             required
           />
         </label>
-        <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
+        <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
           결제수단
           <select
-            className="rounded-lg border border-zinc-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             defaultValue={editing?.accountId ?? ''}
             name="accountId"
           >
@@ -164,10 +164,10 @@ export function TransactionForm({
             ))}
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm font-medium text-zinc-700 md:col-span-2 xl:col-span-4">
+        <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted md:col-span-2 xl:col-span-4">
           사용내역
           <input
-            className="rounded-lg border border-zinc-300 px-3 py-2.5 font-normal outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+            className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             defaultValue={editing?.memo ?? ''}
             maxLength={200}
             name="memo"
@@ -176,7 +176,7 @@ export function TransactionForm({
         </label>
         <div className="flex items-end">
           {flow === 'expense' && (
-            <label className="flex items-center gap-2 pb-2.5 text-sm text-zinc-700">
+            <label className="flex items-center gap-2 pb-2 text-xs text-finance-muted">
               <input defaultChecked={editing?.fixed ?? false} name="fixed" type="checkbox" />
               고정지출
             </label>
@@ -186,7 +186,7 @@ export function TransactionForm({
           <SubmitButton editing={Boolean(editing)} />
         </div>
         {state.error && (
-          <p className="text-sm text-red-700 md:col-span-2 xl:col-span-6">{state.error}</p>
+          <p className="text-[13px] text-finance-red md:col-span-2 xl:col-span-6">{state.error}</p>
         )}
       </form>
     </article>
