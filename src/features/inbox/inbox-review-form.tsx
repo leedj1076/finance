@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import { approveHighConfidence, demoteToReview, processInbox } from './actions'
 import type { TransactionFlow } from './banksalad'
 import {
+  formatInboxMonth,
   formatInboxPaymentSource,
-  groupInboxItemsByPaymentSource,
+  groupInboxItemsByMonthAndPaymentSource,
 } from './grouping'
 import {
   categoriesForFlow,
@@ -57,6 +58,16 @@ const flowLabel: Record<TransactionFlow, string> = {
   saving: '저축',
 }
 
+function paymentSourceLabel(
+  group: { accountId: number | null; owner: string; pay: string | null },
+  accounts: AccountOption[],
+) {
+  const accountName = group.accountId === null
+    ? undefined
+    : accounts.find((account) => account.id === group.accountId)?.name
+  return formatInboxPaymentSource(group, accountName)
+}
+
 function visibleSourceCategories(item: Pick<InboxItem, 'bsCat1' | 'bsCat2'>) {
   return [item.bsCat1, item.bsCat2]
     .filter((value): value is string => value !== null && value !== '' && !value.startsWith('__source:'))
@@ -95,10 +106,10 @@ function SuggestionBadges({ item }: { item: InboxItem }) {
   )
 }
 
-function HighConfidenceSection({ items }: { items: InboxItem[] }) {
+function HighConfidenceSection({ items, accounts }: { items: InboxItem[]; accounts: AccountOption[] }) {
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<string | null>(null)
-  const sourceGroups = useMemo(() => groupInboxItemsByPaymentSource(items), [items])
+  const monthGroups = useMemo(() => groupInboxItemsByMonthAndPaymentSource(items), [items])
   const total = items.reduce(
     (sum, item) => sum + (item.flow === 'income' ? item.amount : -item.amount),
     0,
@@ -142,38 +153,50 @@ function HighConfidenceSection({ items }: { items: InboxItem[] }) {
               <th className="px-4 py-3 text-right font-medium">수정</th>
             </tr>
           </thead>
-          {sourceGroups.map((group) => (
-          <tbody className="border-t border-emerald-100 first:border-t-0" key={group.key}>
-            <tr className="bg-emerald-50/60">
-              <th className="px-4 py-2.5 text-xs font-semibold text-emerald-900" colSpan={6}>
-                {formatInboxPaymentSource(group)} · {group.items.length}건
-              </th>
-            </tr>
-            {group.items.map((item) => (
-              <tr className="border-t border-zinc-100" key={item.id}>
-                <td className="whitespace-nowrap px-4 py-3 text-zinc-500">{item.date.slice(5)}</td>
-                <td className="px-3 py-3 font-medium text-zinc-900">{item.merchant || '-'}</td>
-                <td className="px-3 py-3"><SuggestionBadges item={item} /></td>
-                <td className="px-3 py-3 text-zinc-600">{item.categoryLabel || '미분류'}</td>
-                <td className={`whitespace-nowrap px-3 py-3 text-right font-medium ${item.flow === 'expense' ? 'text-rose-700' : item.flow === 'income' ? 'text-blue-700' : 'text-emerald-700'}`}>
-                  {item.flow === 'expense' ? '−' : '+'}{item.amount.toLocaleString('ko-KR')}원
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-                    disabled={pending}
-                    onClick={() => startTransition(async () => {
-                      const result = await demoteToReview(item.id)
-                      if (result?.error) setMessage(result.error)
-                    })}
-                    type="button"
-                  >
-                    수정
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+          {monthGroups.map((monthGroup) => (
+            <Fragment key={monthGroup.month}>
+              <tbody className="border-t border-emerald-200 first:border-t-0">
+                <tr className="bg-emerald-100/70">
+                  <th className="px-4 py-3 text-sm font-bold text-emerald-950" colSpan={6}>
+                    {formatInboxMonth(monthGroup.month)}
+                    <span className="ml-2 text-xs font-medium text-emerald-700">{monthGroup.items.length}건</span>
+                  </th>
+                </tr>
+              </tbody>
+              {monthGroup.sources.map((group) => (
+                <tbody className="border-t border-emerald-100" key={group.key}>
+                  <tr className="bg-emerald-50/60">
+                    <th className="px-4 py-2.5 text-xs font-semibold text-emerald-900" colSpan={6}>
+                      {paymentSourceLabel(group, accounts)} · {group.items.length}건
+                    </th>
+                  </tr>
+                  {group.items.map((item) => (
+                    <tr className="border-t border-zinc-100" key={item.id}>
+                      <td className="whitespace-nowrap px-4 py-3 text-zinc-500">{item.date.slice(5)}</td>
+                      <td className="px-3 py-3 font-medium text-zinc-900">{item.merchant || '-'}</td>
+                      <td className="px-3 py-3"><SuggestionBadges item={item} /></td>
+                      <td className="px-3 py-3 text-zinc-600">{item.categoryLabel || '미분류'}</td>
+                      <td className={`whitespace-nowrap px-3 py-3 text-right font-medium ${item.flow === 'expense' ? 'text-rose-700' : item.flow === 'income' ? 'text-blue-700' : 'text-emerald-700'}`}>
+                        {item.flow === 'expense' ? '−' : '+'}{item.amount.toLocaleString('ko-KR')}원
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                          disabled={pending}
+                          onClick={() => startTransition(async () => {
+                            const result = await demoteToReview(item.id)
+                            if (result?.error) setMessage(result.error)
+                          })}
+                          type="button"
+                        >
+                          수정
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              ))}
+            </Fragment>
           ))}
         </table>
       </div>
@@ -242,7 +265,11 @@ function GroupSelectionCheckbox({
 
 export function InboxReviewForm({ highItems, reviewItems, categories, accounts }: InboxReviewFormProps) {
   const items = reviewItems
-  const sourceGroups = useMemo(() => groupInboxItemsByPaymentSource(items), [items])
+  const monthGroups = useMemo(() => groupInboxItemsByMonthAndPaymentSource(items), [items])
+  const sourceGroups = useMemo(
+    () => monthGroups.flatMap((monthGroup) => monthGroup.sources),
+    [monthGroups],
+  )
   const [selected, setSelected] = useState<Set<number>>(() => new Set())
   const [expandedSources, setExpandedSources] = useState(
     () => new Set(sourceGroups.map((group) => group.key)),
@@ -310,12 +337,12 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
 
   return (
     <>
-      <HighConfidenceSection items={highItems} />
+      <HighConfidenceSection accounts={accounts} items={highItems} />
       {items.length > 0 ? (
       <section>
         <div className="mb-3">
           <h3 className="font-semibold text-zinc-950">확인 필요 {items.length}건</h3>
-          <p className="mt-1 text-xs text-zinc-500">기본 선택은 0건입니다. 결제 소스 왼쪽 체크박스로 그룹 전체를 한 번에 선택할 수 있습니다.</p>
+          <p className="mt-1 text-xs text-zinc-500">기본 선택은 0건입니다. 월 또는 결제수단 왼쪽 체크박스로 해당 그룹을 한 번에 선택할 수 있습니다.</p>
         </div>
       <form action={processInbox}>
       <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -341,7 +368,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
             onClick={() => setExpandedSources(new Set(sourceGroups.map((group) => group.key)))}
             type="button"
           >
-            소스 전체 펼치기
+            결제수단 전체 펼치기
           </button>
           <button
             className="text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950 disabled:text-zinc-300"
@@ -349,7 +376,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
             onClick={() => setExpandedSources(new Set())}
             type="button"
           >
-            소스 전체 접기
+            결제수단 전체 접기
           </button>
           <span className="text-zinc-500">
             {selected.size}건 · 합계 {selectedTotal >= 0 ? '+' : '−'}
@@ -374,7 +401,30 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                 <th className="min-w-48 px-3 py-3 font-medium">결제수단</th>
               </tr>
             </thead>
-            {sourceGroups.map((group) => {
+            {monthGroups.map((monthGroup) => (
+              <Fragment key={monthGroup.month}>
+                <tbody className="border-t border-zinc-300 first:border-t-0">
+                  <tr className="bg-zinc-800 text-white">
+                    <th className="p-0" colSpan={8}>
+                      <div className="flex min-h-14 items-center gap-3 px-4 py-3">
+                        <GroupSelectionCheckbox
+                          itemIds={monthGroup.items.map((item) => item.id)}
+                          label={formatInboxMonth(monthGroup.month)}
+                          onToggle={toggleItems}
+                          selected={selected}
+                        />
+                        <span className="font-bold">{formatInboxMonth(monthGroup.month)}</span>
+                        <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-medium text-zinc-100">
+                          {monthGroup.items.length}건
+                        </span>
+                        <span className="ml-auto text-xs font-normal text-zinc-300">
+                          결제수단 {monthGroup.sources.length}개
+                        </span>
+                      </div>
+                    </th>
+                  </tr>
+                </tbody>
+                {monthGroup.sources.map((group) => {
               const expanded = expandedSources.has(group.key)
               const selectedItems = group.items.filter((item) => selected.has(item.id))
               const selectedAmount = selectedItems.reduce(
@@ -387,15 +437,16 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
               const groupAccounts = accounts.filter(
                 (account) => !account.owner || account.owner === group.owner,
               )
+              const groupLabel = paymentSourceLabel(group, accounts)
 
               return (
-                <tbody className="border-t border-zinc-200 first:border-t-0" key={group.key}>
+                <tbody className="border-t border-zinc-200" key={group.key}>
                   <tr className="bg-zinc-100/80">
                     <th className="p-0" colSpan={8}>
                       <div className="flex min-h-16 flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center">
                         <GroupSelectionCheckbox
                           itemIds={group.items.map((item) => item.id)}
-                          label={formatInboxPaymentSource(group)}
+                          label={groupLabel}
                           onToggle={toggleItems}
                           selected={selected}
                         />
@@ -408,8 +459,8 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                           <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-zinc-500">
                             {expanded ? '▾' : '▸'}
                           </span>
-                          <span className="truncate font-semibold text-zinc-900" title={formatInboxPaymentSource(group)}>
-                            {formatInboxPaymentSource(group)}
+                          <span className="truncate font-semibold text-zinc-900" title={groupLabel}>
+                            {groupLabel}
                           </span>
                           <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-zinc-600">
                             {group.items.length}건
@@ -427,7 +478,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                         <label className="flex shrink-0 items-center gap-2 text-xs font-medium text-zinc-600">
                           그룹 결제수단
                           <select
-                            aria-label={`${formatInboxPaymentSource(group)} 그룹 결제수단`}
+                            aria-label={`${groupLabel} 그룹 결제수단`}
                             className="w-52 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs font-normal text-zinc-700"
                             onChange={(event) => setSourceAccount(
                               group.items.map((item) => item.id),
@@ -578,7 +629,9 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                   })}
                 </tbody>
               )
-            })}
+                })}
+              </Fragment>
+            ))}
           </table>
         </div>
       </div>

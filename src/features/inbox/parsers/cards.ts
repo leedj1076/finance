@@ -29,7 +29,13 @@ const SPECS: Record<CardIssuer, {
 }> = {
   samsung: { dateKeys: ['이용일'], merchantKeys: ['가맹점'], payKeys: ['이용카드', '카드명'], amountKeys: ['이용금액'], fallbackKeys: ['원금'] },
   hyundai: { dateKeys: ['이용일'], merchantKeys: ['이용가맹점'], payKeys: ['이용카드', '카드명'], amountKeys: ['이용금액'], fallbackKeys: ['결제원금'] },
-  kookmin: { dateKeys: ['이용일'], merchantKeys: ['이용하신곳'], payKeys: ['이용카드', '카드명'], amountKeys: ['이용금액'], fallbackKeys: ['청구원금'] },
+  kookmin: {
+    dateKeys: ['이용일자', '이용일'],
+    merchantKeys: ['이용가맹점', '이용하신곳'],
+    payKeys: ['이용카드', '카드명'],
+    amountKeys: ['이용금액'],
+    fallbackKeys: ['이번달결제금액', '청구원금'],
+  },
   shinhan: { dateKeys: ['이용일'], merchantKeys: ['이용가맹점'], payKeys: ['이용카드', '카드명'], amountKeys: ['이용금액'], fallbackKeys: [] },
   nonghyup: { dateKeys: ['이용일자'], merchantKeys: ['이용가맹점'], payKeys: ['이용카드', '카드명'], amountKeys: ['청구원금'], fallbackKeys: [] },
 }
@@ -52,9 +58,12 @@ function toIso(value: unknown): string | null {
     const day = value.getDate()
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
-  const match = String(value).match(/(\d{4})\D*(\d{1,2})\D*(\d{1,2})/)
+  const text = String(value).trim()
+  const compact = text.match(/(?:^|\D)(\d{4})(\d{2})(\d{2})(?:\D|$)/)
+  const match = compact ?? text.match(/(?:^|\D)(\d{4}|\d{2})\D+(\d{1,2})\D+(\d{1,2})(?:\D|$)/)
   if (!match) return null
-  return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`
+  const year = match[1].length === 2 ? String(2000 + Number(match[1])) : match[1]
+  return `${year}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`
 }
 
 function decodeHtml(value: string) {

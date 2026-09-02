@@ -2,7 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, expect, test, vi } from 'vitest'
 
 import { db } from '@/db/client'
-import { accounts, categories, households, importBatches, importInbox, transactions } from '@/db/schema'
+import { accountAliases, accounts, categories, households, importBatches, importInbox, transactions } from '@/db/schema'
 import { processInbox } from '@/features/inbox/actions'
 import { upsertMerchantLookup } from '@/features/inbox/merchant-lookup'
 import { normalizeMerchant } from '@/features/inbox/normalize'
@@ -38,6 +38,7 @@ const CARD_HTML = Buffer.from(`
 const householdIds: string[] = []
 let categoryId: number
 let accountId: number
+let otherIssuerAccountId: number
 
 function makeFormData() {
   const formData = new FormData()
@@ -85,6 +86,16 @@ beforeAll(async () => {
     })
     .returning({ id: accounts.id })
   accountId = account.id
+  const [otherIssuerAccount] = await db
+    .insert(accounts)
+    .values({
+      householdId: context.householdId,
+      name: 'DJ 신한 테스트카드',
+      owner: 'DJ',
+      type: 'card',
+    })
+    .returning({ id: accounts.id })
+  otherIssuerAccountId = otherIssuerAccount.id
   await db.insert(transactions).values({
     householdId: context.householdId,
     date: '2026-01-01',
@@ -268,6 +279,32 @@ test('card uploads stay expense when cache suggests another flow', async () => {
     sugSource: null,
     confidence: 'review',
   })
+})
+
+test('card upload ignores a submitted card id and uses the owner plus issuer match', async () => {
+  const formData = makeSingleRowFormData('자동매칭 검증 가맹점', '2026-08-24', 18_000)
+  formData.set('accountId', String(otherIssuerAccountId))
+  await db.insert(accountAliases).values({
+    householdId: context.householdId,
+    owner: 'DJ',
+    alias: '현대카드',
+    accountId: otherIssuerAccountId,
+  })
+
+  const result = await uploadCardStatement(formData)
+  expect(result.error).toBeUndefined()
+
+  const [row] = await db
+    .select({ accountId: importInbox.accountId })
+    .from(importInbox)
+    .where(
+      and(
+        eq(importInbox.householdId, context.householdId),
+        eq(importInbox.merchant, '자동매칭 검증 가맹점'),
+      ),
+    )
+
+  expect(row.accountId).toBe(accountId)
 })
 
 test('BankSalad-like pay label does not collide with the internal card source marker', async () => {

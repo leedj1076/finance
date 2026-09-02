@@ -180,9 +180,77 @@ button.finance-nav-link { cursor: pointer; }
   animation: route-progress 1s ease-in-out infinite;
 }
 
+@keyframes route-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes route-loading-label-enter {
+  from { opacity: 0; transform: translate(-50%, -5px) scale(.98); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes chart-bar-enter {
+  from { opacity: .25; transform: scaleY(0); }
+  to { opacity: 1; transform: scaleY(1); }
+}
+
+@keyframes chart-line-enter {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes chart-point-enter {
+  from { opacity: 0; transform: scale(.35); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.route-loading-spinner {
+  animation: route-loading-spin .7s linear infinite;
+}
+
+.route-loading-label {
+  animation: route-loading-label-enter .16s ease-out both;
+}
+
+.page-enter {
+  animation: page-enter .24s ease-out both;
+}
+
+.chart-bar-enter {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: chart-bar-enter .7s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.chart-line-enter {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: chart-line-enter .9s cubic-bezier(.22, 1, .36, 1) both;
+}
+
+.chart-point-enter {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: chart-point-enter .28s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .route-progress-bar {
+  .route-progress-bar,
+  .route-loading-spinner,
+  .route-loading-label,
+  .page-enter,
+  .chart-bar-enter,
+  .chart-line-enter,
+  .chart-point-enter {
     animation: none;
+  }
+
+  .route-progress-bar {
     width: 100%;
   }
 }

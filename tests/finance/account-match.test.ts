@@ -19,4 +19,8 @@ describe('card account matching', () => {
   it('does not guess when an owner has multiple cards from the issuer', () => {
     expect(suggestCardAccountId(accounts, '현대카드', 'DJ')).toBeNull()
   })
+
+  it('does not fall back to another issuer just because it is the owner only card', () => {
+    expect(suggestCardAccountId(accounts, '국민카드', 'YJ')).toBeNull()
+  })
 })

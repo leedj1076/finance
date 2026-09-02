@@ -50,12 +50,6 @@ export type UploadBanksaladState = {
 
 export type UploadCardState = UploadBanksaladState
 
-function positiveId(value: FormDataEntryValue | null) {
-  if (typeof value !== 'string' || !/^\d+$/.test(value)) return null
-  const parsed = Number(value)
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
-}
-
 function cardPaymentSource(row: CardRow, issuerLabel: string) {
   const parsed = row.pay?.trim()
   return parsed && !/^(?:본인|가족)?카드$/.test(parsed) ? parsed : issuerLabel
@@ -557,7 +551,6 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
   const file = formData.get('file')
   const issuer = String(formData.get('issuer') ?? '') as CardIssuer
   const owner = String(formData.get('owner') ?? '')
-  const requestedAccountId = positiveId(formData.get('accountId'))
   if (!(file instanceof File) || file.size === 0) return { error: '카드사 명세서 파일을 선택해 주세요.' }
   if (!CARD_ISSUERS.some((card) => card.key === issuer)) return { error: '카드사를 선택해 주세요.' }
   if (owner !== 'DJ' && owner !== 'YJ') return { error: '소유자를 선택해 주세요.' }
@@ -574,11 +567,10 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
         eq(accounts.active, true),
       ),
     )
-  const resolvedAccountId = requestedAccountId
-    ?? suggestCardAccountId(accountRows, issuerLabel, owner)
+  const resolvedAccountId = suggestCardAccountId(accountRows, issuerLabel, owner)
   const selectedAccount = accountRows.find((account) => account.id === resolvedAccountId)
   if (!selectedAccount || selectedAccount.type !== 'card') {
-    return { error: '사용 중인 카드 결제수단을 선택해 주세요.' }
+    return { error: `${owner} ${issuerLabel}와 정확히 일치하는 활성 카드가 없습니다. 결제수단 관리를 확인해 주세요.` }
   }
   if (selectedAccount.owner && selectedAccount.owner !== owner) {
     return { error: '소유자와 카드의 소유자가 일치하지 않습니다.' }
@@ -609,7 +601,7 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
 
   const householdId = household.householdId
   const stagingContext = await loadStagingContext(householdId)
-  const { aliases, categoriesById, doneUids } = stagingContext
+  const { categoriesById, doneUids } = stagingContext
   let alreadyProcessed = 0
 
   const candidates = staged.filter(({ uid }) => {
@@ -656,7 +648,7 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
       bsCat1: cardSourceMarker(issuer),
       bsCat2: null,
       pay,
-      accountId: aliases.get(`${owner}|${pay}`) ?? selectedAccount.id,
+      accountId: selectedAccount.id,
       categoryId,
       memo: '',
       sugSource,

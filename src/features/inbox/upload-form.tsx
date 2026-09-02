@@ -28,12 +28,12 @@ function suggestedCardAccount(
   return String(suggestCardAccountId(accounts, issuerLabel, owner) ?? '')
 }
 
-function UploadButton() {
+function UploadButton({ disabled = false }: { disabled?: boolean }) {
   const { pending } = useFormStatus()
   return (
     <button
       className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-      disabled={pending}
+      disabled={pending || disabled}
       type="submit"
     >
       {pending ? '파일 분석 중…' : '인박스로 불러오기'}
@@ -191,12 +191,8 @@ function CardStatementForm({
   const initialIssuer = issuers[0]?.key ?? ''
   const [issuer, setIssuer] = useState(initialIssuer)
   const [owner, setOwner] = useState('DJ')
-  const [accountId, setAccountId] = useState(
-    () => suggestedCardAccount(issuers, accounts, initialIssuer, 'DJ'),
-  )
-  const cardAccounts = accounts.filter(
-    (account) => account.type === 'card' && (!account.owner || account.owner === owner),
-  )
+  const accountId = suggestedCardAccount(issuers, accounts, issuer, owner)
+  const matchedAccount = accounts.find((account) => String(account.id) === accountId)
 
   return (
     <form action={action} className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-[160px_120px_220px_minmax(0,1fr)_auto] lg:items-end">
@@ -208,7 +204,6 @@ function CardStatementForm({
           onChange={(event) => {
             const nextIssuer = event.target.value
             setIssuer(nextIssuer)
-            setAccountId(suggestedCardAccount(issuers, accounts, nextIssuer, owner))
           }}
           required
           value={issuer}
@@ -224,7 +219,6 @@ function CardStatementForm({
           onChange={(event) => {
             const nextOwner = event.target.value
             setOwner(nextOwner)
-            setAccountId(suggestedCardAccount(issuers, accounts, issuer, nextOwner))
           }}
           required
           value={owner}
@@ -233,22 +227,21 @@ function CardStatementForm({
           <option value="YJ">YJ</option>
         </select>
       </label>
-      <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
-        기본 카드
-        <select
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-normal"
-          name="accountId"
-          onChange={(event) => setAccountId(event.target.value)}
-          required
-          value={accountId}
+      <div className="grid gap-1.5 text-sm font-medium text-zinc-700">
+        <span>기본 카드</span>
+        <div
+          aria-live="polite"
+          className={`flex min-h-[43px] items-center justify-between gap-2 rounded-lg border px-3 py-2.5 font-normal ${matchedAccount ? 'border-zinc-300 bg-zinc-50 text-zinc-800' : 'border-rose-300 bg-rose-50 text-rose-700'}`}
         >
-          <option value="">카드 선택</option>
-          {cardAccounts.map((account) => (
-            <option key={account.id} value={account.id}>{account.name}</option>
-          ))}
-        </select>
-        <span className="font-normal text-zinc-500">소유자 + 카드사로 자동 선택</span>
-      </label>
+          <span>{matchedAccount?.name ?? '일치하는 카드 없음'}</span>
+          <span className="shrink-0 text-[11px] font-semibold text-zinc-400">자동 고정</span>
+        </div>
+        <span className={`font-normal ${matchedAccount ? 'text-zinc-500' : 'text-rose-600'}`}>
+          {matchedAccount
+            ? '카드사와 소유자로 자동 선택됩니다.'
+            : '결제수단 관리에서 카드사와 소유자가 맞는 카드를 확인해 주세요.'}
+        </span>
+      </div>
       <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
         카드사 명세서
         <input
@@ -260,7 +253,7 @@ function CardStatementForm({
         />
         <span className="font-normal text-zinc-500">.xls 또는 .xlsx · 2MB 이하</span>
       </label>
-      <UploadButton />
+      <UploadButton disabled={!matchedAccount} />
       <ActionMessage state={state} />
       <UploadProgress mode="card" />
     </form>

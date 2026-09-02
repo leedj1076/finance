@@ -163,6 +163,7 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
               return (
                 <rect
                   aria-label={`${displayMonth} ${bar.label} ${formatWon(bar.value)}원`}
+                  className="chart-bar-enter"
                   fill={bar.color}
                   height={height}
                   key={`${bar.label}-${index}`}
@@ -172,6 +173,7 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
                   width={barWidth}
                   x={bar.x}
                   y={TOP + plotHeight - height}
+                  style={{ animationDelay: `${index * 35}ms` }}
                 />
               )
             })
@@ -248,6 +250,7 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
               return (
                 <rect
                   aria-label={`${monthIndex + 1}월 ${account} ${formatWon(value)}원`}
+                  className="chart-bar-enter"
                   fill={color}
                   height={height}
                   key={`${account}-${monthIndex}`}
@@ -257,6 +260,7 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
                   width={barWidth}
                   x={x}
                   y={y}
+                  style={{ animationDelay: `${monthIndex * 35}ms` }}
                 />
               )
             })
@@ -400,8 +404,10 @@ export function CategoryMonthlyChart({
               <g key={category} opacity={dimmed ? 0.16 : 1}>
                 <path
                   aria-label={`${category} 월별 금액`}
+                  className="chart-line-enter"
                   d={pathFor(points)}
                   fill="none"
+                  pathLength={1}
                   pointerEvents="none"
                   stroke={color}
                   strokeLinecap="round"
@@ -410,12 +416,14 @@ export function CategoryMonthlyChart({
                 />
                 {points.map((point, monthIndex) => point.y === null ? null : (
                   <circle
+                    className="chart-point-enter"
                     cx={point.x}
                     cy={point.y}
                     fill={color}
                     key={monthIndex}
                     pointerEvents="none"
                     r={active ? 3.5 : 2.2}
+                    style={{ animationDelay: `${180 + monthIndex * 28}ms` }}
                   />
                 ))}
               </g>
@@ -459,9 +467,9 @@ export function FlowTrendChart({ data, label, tone }: { data: TrendPoint[]; labe
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       >
         <Grid maxValue={maxValue} />
-        <path d={pathFor(points)} fill="none" stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+        <path className="chart-line-enter" d={pathFor(points)} fill="none" pathLength={1} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
         {points.map((point, index) => point.y === null ? null : (
-          <circle cx={point.x} cy={point.y} fill={color} key={index} pointerEvents="none" r="4" />
+          <circle className="chart-point-enter" cx={point.x} cy={point.y} fill={color} key={index} pointerEvents="none" r="4" style={{ animationDelay: `${180 + index * 35}ms` }} />
         ))}
         {points.map((point, index) => point.y === null ? null : (
           <rect

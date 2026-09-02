@@ -4,6 +4,7 @@ import {
   formatInboxMonth,
   formatInboxPaymentSource,
   groupInboxItemsByMonth,
+  groupInboxItemsByMonthAndPaymentSource,
   groupInboxItemsByPaymentSource,
 } from '@/features/inbox/grouping'
 
@@ -40,6 +41,52 @@ describe('inbox month grouping', () => {
       { label: 'DJ · 네이버 현대카드', ids: [3, 1] },
       { label: 'YJ · 네이버 현대카드', ids: [2] },
       { label: 'DJ · 결제 소스 미상', ids: [4] },
+    ])
+  })
+
+  it('groups different raw labels under the same resolved payment account', () => {
+    const groups = groupInboxItemsByPaymentSource([
+      { id: 1, owner: 'YJ', pay: '본인200', accountId: 12 },
+      { id: 2, owner: 'YJ', pay: '신한 교직원복지', accountId: 12 },
+      { id: 3, owner: 'YJ', pay: '다른 카드', accountId: 13 },
+    ])
+
+    expect(groups.map((group) => ({ accountId: group.accountId, ids: group.items.map((item) => item.id) })))
+      .toEqual([
+        { accountId: 12, ids: [1, 2] },
+        { accountId: 13, ids: [3] },
+      ])
+  })
+
+  it('uses month as the outer group and payment source as the inner group', () => {
+    const groups = groupInboxItemsByMonthAndPaymentSource([
+      { id: 5, date: '2026-08-10', owner: 'YJ', pay: '신한카드' },
+      { id: 4, date: '2026-08-09', owner: 'DJ', pay: '국민카드' },
+      { id: 3, date: '2026-08-08', owner: 'YJ', pay: '신한카드' },
+      { id: 2, date: '2026-07-31', owner: 'DJ', pay: '국민카드' },
+    ])
+
+    expect(groups.map((month) => ({
+      month: month.month,
+      sources: month.sources.map((source) => ({
+        key: source.key,
+        label: formatInboxPaymentSource(source),
+        ids: source.items.map((item) => item.id),
+      })),
+    }))).toEqual([
+      {
+        month: '2026-08',
+        sources: [
+          { key: '2026-08\u0000YJ\u0000신한카드', label: 'YJ · 신한카드', ids: [5, 3] },
+          { key: '2026-08\u0000DJ\u0000국민카드', label: 'DJ · 국민카드', ids: [4] },
+        ],
+      },
+      {
+        month: '2026-07',
+        sources: [
+          { key: '2026-07\u0000DJ\u0000국민카드', label: 'DJ · 국민카드', ids: [2] },
+        ],
+      },
     ])
   })
 })

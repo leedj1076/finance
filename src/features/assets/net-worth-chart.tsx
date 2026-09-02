@@ -141,15 +141,17 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
             return (
               <g key={item.key}>
                 <path
+                  className="chart-line-enter"
                   d={pathFor(rows)}
                   fill="none"
+                  pathLength={1}
                   stroke={item.color}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={item.width}
                 />
                 {rows.map((point, index) => point.y === null ? null : (
-                  <circle cx={point.x} cy={point.y} fill={item.color} key={index} pointerEvents="none" r={item.key === 'netWorth' ? 4 : 3} />
+                  <circle className="chart-point-enter" cx={point.x} cy={point.y} fill={item.color} key={index} pointerEvents="none" r={item.key === 'netWorth' ? 4 : 3} style={{ animationDelay: `${180 + index * 35}ms` }} />
                 ))}
               </g>
             )
