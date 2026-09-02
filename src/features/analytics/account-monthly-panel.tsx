@@ -32,11 +32,11 @@ function FlowButtons<T extends CategoryFlow>({
   onChange: (flow: T) => void
 }) {
   return (
-    <div aria-label="거래 유형" className="inline-flex rounded-lg bg-zinc-100 p-1" role="group">
+    <div aria-label="거래 유형" className="inline-flex border border-finance-border" role="group">
       {flows.map((option) => (
         <button
           aria-pressed={flow === option}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium ${flow === option ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+          className={`h-[30px] border-l border-finance-border px-3.5 text-xs font-medium first:border-l-0 ${flow === option ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track hover:text-finance-ink'}`}
           key={option}
           onClick={() => onChange(option)}
           type="button"
@@ -58,49 +58,49 @@ export function AccountMonthlyPanel({
   const months = accountTableMonths(selected)
 
   return (
-    <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-5 py-4">
+    <section className="mt-6 border-b border-finance-border pb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-finance-ink pt-4">
         <div>
-          <h2 className="font-semibold text-zinc-950">결제수단별 월별</h2>
-          <p className="mt-1 text-xs text-zinc-500">월별 {FLOW_LABELS[flow]} · 누적 막대와 합계표</p>
+          <h2 className="text-sm font-bold text-finance-ink">결제수단별 월별</h2>
+          <p className="mt-1 text-xs text-finance-muted">월별 {FLOW_LABELS[flow]} · 누적 막대와 합계표</p>
         </div>
         <FlowButtons flow={flow} flows={['expense', 'income']} onChange={setFlow} />
       </div>
 
       {selected.accounts.length === 0 ? (
-        <p className="px-5 py-12 text-center text-sm text-zinc-500">데이터가 없습니다.</p>
+        <p className="py-12 text-center text-[13px] text-finance-muted">데이터가 없습니다.</p>
       ) : (
         <>
-          <div className="overflow-x-auto px-5 py-5">
+          <div className="overflow-x-auto py-5">
             <AccountMonthlyChart data={selected} key={flow} />
           </div>
-          <div className="overflow-x-auto border-t border-zinc-200">
-            <table className="w-full min-w-[680px] text-left text-sm">
-              <thead className="bg-zinc-50 text-xs text-zinc-500">
+          <div className="overflow-x-auto border-t border-finance-ink">
+            <table className="w-full min-w-[680px] text-left text-[13px]">
+              <thead className="border-b border-finance-border text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
                 <tr>
-                  <th className="px-5 py-3 font-medium">결제수단</th>
-                  {months.map((month) => <th className="px-3 py-3 text-right font-medium" key={month}>{month}월</th>)}
-                  <th className="px-5 py-3 text-right font-medium">합계</th>
+                  <th className="py-[9px] pr-3 font-semibold">결제수단</th>
+                  {months.map((month) => <th className="px-3 py-[9px] text-right font-semibold" key={month}>{month}월</th>)}
+                  <th className="py-[9px] pl-3 text-right font-semibold">합계</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100">
+              <tbody className="divide-y divide-finance-track">
                 {selected.accounts.map((account) => {
                   const values = selected.series[account]
                   const total = values.reduce<number>((sum, value) => sum + (value ?? 0), 0)
                   return (
                     <tr key={account}>
-                      <th className="px-5 py-3 font-medium text-zinc-700" scope="row">{account}</th>
+                      <th className="py-3 pr-3 font-medium text-finance-ink" scope="row">{account}</th>
                       {months.map((month) => (
-                        <td className="px-3 py-3 text-right tabular-nums text-zinc-600" key={month}>
+                        <td className="px-3 py-3 text-right tabular-nums text-finance-muted" key={month}>
                           {values[month - 1] ? formatWon(values[month - 1]!) : '-'}
                         </td>
                       ))}
-                      <td className="px-5 py-3 text-right font-semibold tabular-nums text-zinc-900">{formatWon(total)}</td>
+                      <td className="py-3 pl-3 text-right font-semibold tabular-nums text-finance-ink">{formatWon(total)}</td>
                     </tr>
                   )
                 })}
-                <tr className="bg-zinc-50 font-semibold text-zinc-900">
-                  <th className="px-5 py-3" scope="row">합계</th>
+                <tr className="border-t border-finance-ink bg-finance-panel font-semibold text-finance-ink">
+                  <th className="py-3 pr-3" scope="row">합계</th>
                   {months.map((month) => (
                     <td className="px-3 py-3 text-right tabular-nums" key={month}>
                       {formatWon(selected.accounts.reduce(
@@ -109,7 +109,7 @@ export function AccountMonthlyPanel({
                       ))}
                     </td>
                   ))}
-                  <td className="px-5 py-3 text-right tabular-nums">
+                  <td className="py-3 pl-3 text-right tabular-nums">
                     {formatWon(selected.accounts.reduce(
                       (sum, account) => sum + selected.series[account].reduce<number>(
                         (accountSum, value) => accountSum + (value ?? 0),
@@ -139,18 +139,18 @@ export function CategoryMonthlyPanel({
   const selected = data[flow]
 
   return (
-    <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-5 py-4">
+    <section className="mt-6 border-b border-finance-border pb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-finance-ink pt-4">
         <div>
-          <h2 className="font-semibold text-zinc-950">분류별 월별 추이</h2>
-          <p className="mt-1 text-xs text-zinc-500">범례를 클릭해 선을 숨기고, 마우스를 올려 한 분류를 강조합니다.</p>
+          <h2 className="text-sm font-bold text-finance-ink">분류별 월별 추이</h2>
+          <p className="mt-1 text-xs text-finance-muted">범례를 클릭해 선을 숨기고, 마우스를 올려 한 분류를 강조합니다.</p>
         </div>
         <FlowButtons flow={flow} flows={['expense', 'income', 'saving']} onChange={setFlow} />
       </div>
       {selected.categories.length === 0 ? (
-        <p className="px-5 py-12 text-center text-sm text-zinc-500">데이터가 없습니다.</p>
+        <p className="py-12 text-center text-[13px] text-finance-muted">데이터가 없습니다.</p>
       ) : (
-        <div className="overflow-x-auto px-5 py-5">
+        <div className="overflow-x-auto py-5">
           <CategoryMonthlyChart
             data={selected}
             detailHref={(major) => categoryPageUrl({ flow, major, period: { year } })}

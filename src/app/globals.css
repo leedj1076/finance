@@ -35,6 +35,11 @@
   --color-finance-green: var(--finance-green);
   --color-finance-amber: var(--finance-amber);
   --color-finance-violet: var(--finance-violet);
+  --color-finance-blue-tint: var(--finance-blue-tint);
+  --color-finance-red-tint: var(--finance-red-tint);
+  --color-finance-green-tint: var(--finance-green-tint);
+  --color-finance-amber-tint: var(--finance-amber-tint);
+  --color-finance-violet-tint: var(--finance-violet-tint);
   --font-sans: var(--font-ibm-plex-sans-kr), "Apple SD Gothic Neo", sans-serif;
   --font-mono: var(--font-geist-mono);
 }

@@ -222,64 +222,64 @@ export function CategoryDetailTable({
 
   if (detail.months.length === 0) {
     return (
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <section className="border-t border-finance-ink pt-4">
         <CategoryDetailHeader flow={flow} onSelectFlow={selectFlow} />
-        <p className="py-12 text-center text-sm text-zinc-500">표시할 거래가 없습니다.</p>
+        <p className="py-12 text-center text-[13px] text-finance-muted">표시할 거래가 없습니다.</p>
       </section>
     )
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="px-5 py-4">
+    <section className="border-b border-finance-border pb-6">
+      <div className="border-t border-finance-ink pt-4">
         <CategoryDetailHeader flow={flow} onSelectFlow={selectFlow} />
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 text-[11px] text-finance-faint">
           금액 셀에 마우스를 올리거나 키보드로 이동하면 내역을 볼 수 있습니다. 터치에서는 내역 버튼을 누르세요. 금액을 클릭하면 합계와 월평균에서 제외됩니다.
         </p>
       </div>
-      <div className="overflow-x-auto border-t border-zinc-200">
-        <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
-          <thead className="bg-zinc-50 text-xs text-zinc-500">
+      <div className="mt-4 overflow-x-auto border-t border-finance-ink">
+        <table className="w-full min-w-[1080px] border-collapse text-left text-xs">
+          <thead className="border-b border-finance-border text-[11px] font-semibold uppercase tracking-[0.04em] text-finance-muted">
             <tr>
-              <th className="sticky left-0 z-20 min-w-28 border-r border-zinc-200 bg-zinc-50 px-4 py-3 font-medium">대분류</th>
-              <th className="sticky left-28 z-20 min-w-28 border-r border-zinc-200 bg-zinc-50 px-3 py-3 font-medium">소분류</th>
-              <th className="px-3 py-3 text-right font-medium">합계</th>
-              <th className="px-3 py-3 text-right font-medium">월평균</th>
+              <th className="sticky left-0 z-20 min-w-28 border-r border-finance-border bg-white px-4 py-[9px] font-semibold">대분류</th>
+              <th className="sticky left-28 z-20 min-w-28 border-r border-finance-border bg-white px-3 py-[9px] font-semibold">소분류</th>
+              <th className="px-3 py-[9px] text-right font-semibold">합계</th>
+              <th className="px-3 py-[9px] text-right font-semibold">월평균</th>
               {detail.months.map((month) => (
                 <th
-                  className={`min-w-20 px-3 py-3 text-right font-medium ${month === detail.currentMonth ? 'bg-amber-50 text-amber-800' : ''}`}
+                  className={`min-w-20 px-3 py-[9px] text-right font-semibold ${month === detail.currentMonth ? 'text-finance-blue' : ''}`}
                   key={month}
                 >
                   {month}월
-                  {month === detail.currentMonth && <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[10px]">진행</span>}
+                  {month === detail.currentMonth && <span className="ml-1 bg-finance-blue-tint px-1 py-0.5 text-[10px] text-finance-blue">진행</span>}
                 </th>
               ))}
             </tr>
           </thead>
           {computed.groups.map((group) => (
-            <tbody className="divide-y divide-zinc-100" key={group.major}>
+            <tbody className="divide-y divide-finance-track" key={group.major}>
                 {group.subs.map((sub, subIndex) => (
-                  <tr className="hover:bg-zinc-50/60" key={`${group.major}-${sub.sub}`}>
+                  <tr className="hover:bg-finance-panel" key={`${group.major}-${sub.sub}`}>
                     {subIndex === 0 && (
                       <th
-                        className="sticky left-0 z-10 border-r border-zinc-200 bg-white px-4 py-3 align-top font-semibold text-zinc-900"
+                        className="sticky left-0 z-10 border-r border-finance-border bg-white px-4 py-3 align-top font-bold text-finance-ink"
                         rowSpan={group.subs.length + 1}
                         scope="rowgroup"
                       >
                         <Link
-                          className="underline decoration-zinc-300 underline-offset-2 hover:text-emerald-700"
+                          className="hover:text-finance-blue"
                           href={categoryPageUrl({ flow, major: group.major, period: { year } })}
                         >
                           {group.major}
                         </Link>
                       </th>
                     )}
-                    <th className="sticky left-28 z-10 border-r border-zinc-200 bg-white px-3 py-3 font-normal text-zinc-700" scope="row">{sub.sub}</th>
-                    <td className="px-3 py-3 text-right font-semibold tabular-nums text-zinc-900">{formatWon(sub.total)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-zinc-600">{formatWon(categoryDetailMonthlyAverage(sub.total, sub.current, detail.divisor))}</td>
+                    <th className="sticky left-28 z-10 border-r border-finance-border bg-white px-3 py-3 font-normal text-finance-muted" scope="row">{sub.sub}</th>
+                    <td className="px-3 py-3 text-right font-semibold tabular-nums text-finance-ink">{formatWon(sub.total)}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-finance-muted">{formatWon(categoryDetailMonthlyAverage(sub.total, sub.current, detail.divisor))}</td>
                     {sub.cells.map((cell) => (
                       <td
-                        className={`p-0 text-right tabular-nums ${cell.month === detail.currentMonth ? 'bg-amber-50/60' : ''}`}
+                        className="p-0 text-right tabular-nums"
                         key={cell.month}
                       >
                         {cell.amount > 0 ? (
@@ -288,7 +288,7 @@ export function CategoryDetailTable({
                               aria-describedby={tooltip?.key === cell.key ? tooltipId : undefined}
                               aria-label={`${group.major} ${sub.sub} ${cell.month}월 ${formatWon(cell.amount)}원, ${cell.excluded ? '합계에 다시 포함' : '합계에서 제외'}`}
                               aria-pressed={cell.excluded}
-                              className={`w-full px-3 pt-2 text-right hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald-600 ${cell.excluded ? 'bg-zinc-100 text-zinc-400 line-through' : 'text-zinc-700'}`}
+                              className={`w-full px-3 pt-2 text-right hover:bg-finance-blue-tint hover:text-finance-blue focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-finance-blue ${cell.excluded ? 'bg-finance-track text-finance-faint line-through' : cell.month === detail.currentMonth ? 'text-finance-muted' : 'text-finance-ink'}`}
                               onBlur={blurCell}
                               onClick={() => toggleCell(cell.key)}
                               onFocus={(event) => focusCell(event.currentTarget, group.major, sub.sub, cell.month)}
@@ -307,7 +307,7 @@ export function CategoryDetailTable({
                               aria-describedby={tooltip?.key === cell.key ? tooltipId : undefined}
                               aria-expanded={tooltip?.key === cell.key}
                               aria-label={`${group.major} ${sub.sub} ${cell.month}월 거래 내역 ${tooltip?.key === cell.key ? '닫기' : '보기'}`}
-                              className="px-3 pb-1.5 pt-0.5 text-[10px] font-medium text-zinc-400 underline decoration-zinc-300 underline-offset-2 hover:text-emerald-700 focus-visible:rounded focus-visible:outline-2 focus-visible:outline-emerald-600"
+                              className="px-3 pb-1.5 pt-0.5 text-[10px] font-medium text-finance-faint hover:text-finance-blue focus-visible:outline-2 focus-visible:outline-finance-blue"
                               onBlur={() => { if (tooltip?.key === cell.key) scheduleHide(true) }}
                               onClick={(event) => toggleCellDetails(event.currentTarget, group.major, sub.sub, cell.month)}
                               onKeyDown={(event) => { if (event.key === 'Escape') closeTooltip() }}
@@ -317,18 +317,18 @@ export function CategoryDetailTable({
                             </button>
                           </div>
                         ) : (
-                          <span className="block px-3 py-3 text-zinc-300">0</span>
+                          <span className="block px-3 py-3 text-finance-faint">0</span>
                         )}
                       </td>
                     ))}
                   </tr>
                 ))}
-                <tr className="bg-zinc-50/80 font-medium text-zinc-700">
-                  <th className="sticky left-28 z-10 border-r border-zinc-200 bg-zinc-50/95 px-3 py-2" scope="row">소계</th>
+                <tr className="bg-finance-panel font-medium text-finance-muted">
+                  <th className="sticky left-28 z-10 border-r border-finance-border bg-finance-panel px-3 py-2" scope="row">소계</th>
                   <td className="px-3 py-2 text-right font-semibold tabular-nums">{formatWon(group.total)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{formatWon(categoryDetailMonthlyAverage(group.total, group.current, detail.divisor))}</td>
                   {detail.months.map((month) => (
-                    <td className={`px-3 py-2 text-right tabular-nums ${month === detail.currentMonth ? 'bg-amber-50/60' : ''}`} key={month}>
+                    <td className={`px-3 py-2 text-right tabular-nums ${month === detail.currentMonth ? 'text-finance-muted' : ''}`} key={month}>
                       {formatWon(group.months[month - 1])}
                     </td>
                   ))}
@@ -336,13 +336,13 @@ export function CategoryDetailTable({
             </tbody>
           ))}
           <tfoot>
-            <tr className="border-t-2 border-zinc-300 bg-zinc-100 font-semibold text-zinc-950">
-              <td className="sticky left-0 z-10 border-r border-zinc-200 bg-zinc-100 px-4 py-3" />
-              <th className="sticky left-28 z-10 border-r border-zinc-200 bg-zinc-100 px-3 py-3" scope="row">합계</th>
+            <tr className="border-t border-finance-ink bg-finance-panel font-bold text-finance-ink">
+              <td className="sticky left-0 z-10 border-r border-finance-border bg-finance-panel px-4 py-3" />
+              <th className="sticky left-28 z-10 border-r border-finance-border bg-finance-panel px-3 py-3" scope="row">합계</th>
               <td className="px-3 py-3 text-right tabular-nums">{formatWon(computed.total)}</td>
               <td className="px-3 py-3 text-right tabular-nums">{formatWon(categoryDetailMonthlyAverage(computed.total, computed.current, detail.divisor))}</td>
               {detail.months.map((month) => (
-                <td className={`px-3 py-3 text-right tabular-nums ${month === detail.currentMonth ? 'bg-amber-100/70' : ''}`} key={month}>
+                <td className={`px-3 py-3 text-right tabular-nums ${month === detail.currentMonth ? 'text-finance-muted' : ''}`} key={month}>
                   {formatWon(computed.months[month - 1])}
                 </td>
               ))}
@@ -353,7 +353,7 @@ export function CategoryDetailTable({
 
       {tooltip && (
         <div
-          className="fixed z-50 max-h-[min(420px,calc(100vh-16px))] w-[min(360px,calc(100vw-16px))] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-3 shadow-xl"
+          className="fixed z-50 max-h-[min(420px,calc(100vh-16px))] w-[min(360px,calc(100vw-16px))] overflow-y-auto bg-finance-ink p-3 text-white shadow-xl"
           key={tooltip.key}
           id={tooltipId}
           onMouseEnter={() => clearTimer(hideTimer)}
@@ -362,26 +362,26 @@ export function CategoryDetailTable({
           role="tooltip"
           style={{ left: 8, top: 8, visibility: 'hidden' }}
         >
-          <div className="border-b border-zinc-100 pb-2">
-            <p className="font-semibold text-zinc-900">{tooltip.major} › {tooltip.sub} · {tooltip.month}월</p>
-            <p className="mt-0.5 text-xs text-zinc-500">{tooltip.data.items.length}건 · {formatWon(tooltip.data.total)}원</p>
+          <div className="border-b border-zinc-700 pb-2">
+            <p className="font-semibold text-white">{tooltip.major} › {tooltip.sub} · {tooltip.month}월</p>
+            <p className="mt-0.5 text-xs text-zinc-400">{tooltip.data.items.length}건 · {formatWon(tooltip.data.total)}원</p>
           </div>
           {tooltip.data.items.length === 0 ? (
-            <p className="py-4 text-center text-sm text-zinc-500">내역 없음</p>
+            <p className="py-4 text-center text-sm text-zinc-400">내역 없음</p>
           ) : (
-            <div className="divide-y divide-zinc-100">
+            <div className="divide-y divide-zinc-700">
               {tooltip.data.items.slice(0, 15).map((item, index) => (
                 <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 py-2 text-xs" key={`${item.date}-${item.name}-${item.amount}-${index}`}>
                   <span className="text-zinc-400">{item.date.slice(5).replace('-', '/')}</span>
-                  <span className="min-w-0 truncate text-zinc-700">
+                  <span className="min-w-0 truncate text-zinc-200">
                     {item.name}
                     {item.acct && <span className="ml-1 text-[10px] text-zinc-400">{item.acct}</span>}
                   </span>
-                  <span className="font-medium tabular-nums text-zinc-900">{formatWon(item.amount)}</span>
+                  <span className="font-medium tabular-nums text-white">{formatWon(item.amount)}</span>
                 </div>
               ))}
               {tooltip.data.items.length > 15 && (
-                <p className="pt-2 text-center text-xs text-zinc-500">외 {tooltip.data.items.length - 15}건…</p>
+                <p className="pt-2 text-center text-xs text-zinc-400">외 {tooltip.data.items.length - 15}건…</p>
               )}
             </div>
           )}
@@ -401,14 +401,14 @@ function CategoryDetailHeader({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 className="font-semibold text-zinc-950">항목별 월별</h2>
-        <p className="mt-1 text-xs text-zinc-500">대분류·소분류별 월간 {FLOW_LABELS[flow]} 상세</p>
+        <h2 className="text-sm font-bold text-finance-ink">항목별 월별</h2>
+        <p className="mt-1 text-xs text-finance-muted">대분류·소분류별 월간 {FLOW_LABELS[flow]} 상세</p>
       </div>
-      <div aria-label="거래 유형" className="inline-flex rounded-lg bg-zinc-100 p-1">
+      <div aria-label="거래 유형" className="inline-flex border border-finance-border">
         {(Object.keys(FLOW_LABELS) as CategoryDetailFlow[]).map((option) => (
           <button
             aria-pressed={flow === option}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${flow === option ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-800'}`}
+            className={`h-[30px] border-l border-finance-border px-3.5 text-xs font-medium first:border-l-0 ${flow === option ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track hover:text-finance-ink'}`}
             key={option}
             onClick={() => onSelectFlow(option)}
             type="button"
