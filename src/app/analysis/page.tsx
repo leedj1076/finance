@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { AppHeader } from '@/components/app-header'
 import { SubmitButton } from '@/components/submit-button'
 import { FlowTrendChart } from '@/features/analytics/charts'
+import { categoryPageUrl } from '@/features/analytics/category-url'
 import { getAnalysisData } from '@/features/analytics/queries'
 import { formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
@@ -59,6 +60,9 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
   const comparisonGood = data.delta !== 0 && (data.flow === 'expense' ? data.delta < 0 : data.delta > 0)
   const maxRank = data.ranks[0]?.amount ?? 1
   const tone = data.flow === 'expense' ? 'rose' : data.flow === 'income' ? 'blue' : 'emerald'
+  const categoryPeriod = data.period === 'month'
+    ? { month: data.month }
+    : { year: data.year }
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -169,7 +173,20 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
                   <div key={rank.major}>
                     <div className="grid grid-cols-[24px_minmax(90px,1fr)_auto] items-center gap-2 text-sm">
                       <span className="text-zinc-400">{index + 1}</span>
-                      <div className="min-w-0"><p className="truncate font-medium text-zinc-800">{rank.major}</p><p className="mt-0.5 text-[11px] text-zinc-400">{rank.count}건 · {formatRate(rank.percent)}%</p></div>
+                      <div className="min-w-0">
+                        <Link
+                          className="truncate font-medium text-zinc-800 underline decoration-zinc-300 underline-offset-2 hover:text-emerald-700"
+                          href={categoryPageUrl({
+                            flow: data.flow,
+                            major: rank.major,
+                            period: categoryPeriod,
+                            accountId: data.selectedAccount,
+                          })}
+                        >
+                          {rank.major}
+                        </Link>
+                        <p className="mt-0.5 text-[11px] text-zinc-400">{rank.count}건 · {formatRate(rank.percent)}%</p>
+                      </div>
                       <div className="text-right"><p className="font-semibold text-zinc-950">{formatWon(rank.amount)}원</p>{data.period === 'month' && <p className={`mt-0.5 text-[11px] ${rank.delta === 0 ? 'text-zinc-400' : deltaGood ? 'text-emerald-600' : 'text-rose-600'}`}>{rank.delta === 0 ? '–' : `${rank.delta > 0 ? '▲' : '▼'} ${formatWon(Math.abs(rank.delta))}원`}</p>}</div>
                     </div>
                     <div className="ml-8 mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100"><div className={`h-full rounded-full ${data.flow === 'expense' ? 'bg-rose-500' : data.flow === 'income' ? 'bg-blue-500' : 'bg-emerald-500'}`} style={{ width: `${(rank.amount / maxRank) * 100}%` }} /></div>
@@ -216,7 +233,7 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
               <table className="w-full min-w-[940px] text-right text-xs">
                 <thead className="bg-zinc-50 text-zinc-500"><tr><th className="sticky left-0 bg-zinc-50 px-5 py-3 text-left font-medium">분류</th>{Array.from({ length: 12 }, (_, index) => <th className="px-3 py-3 font-medium" key={index}>{index + 1}월</th>)}</tr></thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {data.categoryMonthly.map((category) => <tr key={category.major}><th className="sticky left-0 bg-white px-5 py-3 text-left text-sm font-medium text-zinc-800">{category.major}</th>{category.values.map((amount, index) => <td className="px-3 py-3 text-zinc-600" key={index}>{amount ? formatWon(amount) : '–'}</td>)}</tr>)}
+                  {data.categoryMonthly.map((category) => <tr key={category.major}><th className="sticky left-0 bg-white px-5 py-3 text-left text-sm font-medium text-zinc-800"><Link className="underline decoration-zinc-300 underline-offset-2 hover:text-emerald-700" href={categoryPageUrl({ flow: data.flow, major: category.major, period: { year: data.year }, accountId: data.selectedAccount })}>{category.major}</Link></th>{category.values.map((amount, index) => <td className="px-3 py-3 text-zinc-600" key={index}>{amount ? formatWon(amount) : '–'}</td>)}</tr>)}
                 </tbody>
               </table>
             </div>

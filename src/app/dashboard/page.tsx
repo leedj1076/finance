@@ -8,6 +8,7 @@ import {
 } from '@/features/analytics/account-monthly-panel'
 import { getCategoryDetails } from '@/features/analytics/category-detail'
 import { CategoryDetailTable } from '@/features/analytics/category-detail-table'
+import { categoryPageUrl } from '@/features/analytics/category-url'
 import { MonthlyCashflowChart } from '@/features/analytics/charts'
 import { getDashboardData } from '@/features/analytics/queries'
 import { formatRate, formatWon } from '@/lib/finance'
@@ -207,7 +208,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <div className="mt-5 space-y-4">
               {data.categoryRanks.slice(0, 6).map((rank, index) => (
                 <div key={rank.major}>
-                  <div className="flex items-center justify-between gap-3 text-sm"><span className="truncate text-zinc-700">{index + 1}. {rank.major}</span><span className="shrink-0 font-medium text-zinc-950">{formatWon(rank.amount)}원</span></div>
+                  <div className="flex items-center justify-between gap-3 text-sm"><Link className="truncate text-zinc-700 underline decoration-zinc-300 underline-offset-2 hover:text-emerald-700" href={categoryPageUrl({ flow: 'expense', major: rank.major, period: { month: data.focusMonth } })}>{index + 1}. {rank.major}</Link><span className="shrink-0 font-medium text-zinc-950">{formatWon(rank.amount)}원</span></div>
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${(rank.amount / maxCategory) * 100}%` }} /></div>
                 </div>
               ))}
@@ -216,7 +217,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </section>
 
         <AccountMonthlyPanel data={data.accountMonthly} />
-        <CategoryMonthlyPanel data={data.categoryMonthly} />
+        <CategoryMonthlyPanel data={data.categoryMonthly} year={data.year} />
 
         <div className="mt-6">
           <CategoryDetailTable details={categoryDetails} key={data.year} year={data.year} />

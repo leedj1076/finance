@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useSyncExternalStore } from 'react'
 
 import type { AccountMonthlyData, CategoryMonthlyData } from './account-monthly'
@@ -199,7 +200,13 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
   )
 }
 
-export function CategoryMonthlyChart({ data }: { data: CategoryMonthlyData }) {
+export function CategoryMonthlyChart({
+  data,
+  detailHref,
+}: {
+  data: CategoryMonthlyData
+  detailHref?: (category: string) => string
+}) {
   const hydrated = useHydrated()
   const [hidden, setHidden] = useState<Set<string>>(() => new Set())
   const [hovered, setHovered] = useState<string | null>(null)
@@ -228,20 +235,30 @@ export function CategoryMonthlyChart({ data }: { data: CategoryMonthlyData }) {
         {data.categories.map((category, index) => {
           const visible = !hidden.has(category)
           return (
-            <button
-              aria-pressed={visible}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-opacity ${visible ? 'border-zinc-200 bg-white text-zinc-700' : 'border-zinc-200 bg-zinc-100 text-zinc-400 line-through'}`}
-              key={category}
-              onBlur={() => setHovered(null)}
-              onClick={() => toggle(category)}
-              onFocus={() => visible && setHovered(category)}
-              onMouseEnter={() => visible && setHovered(category)}
-              onMouseLeave={() => setHovered(null)}
-              type="button"
-            >
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PALETTE[index % PALETTE.length] }} />
-              {category}
-            </button>
+            <span className="inline-flex items-center gap-1" key={category}>
+              <button
+                aria-pressed={visible}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-opacity ${visible ? 'border-zinc-200 bg-white text-zinc-700' : 'border-zinc-200 bg-zinc-100 text-zinc-400 line-through'}`}
+                onBlur={() => setHovered(null)}
+                onClick={() => toggle(category)}
+                onFocus={() => visible && setHovered(category)}
+                onMouseEnter={() => visible && setHovered(category)}
+                onMouseLeave={() => setHovered(null)}
+                type="button"
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PALETTE[index % PALETTE.length] }} />
+                {category}
+              </button>
+              {detailHref && (
+                <Link
+                  aria-label={`${category} 상세 보기`}
+                  className="rounded-full px-1.5 py-1 text-[10px] font-medium text-zinc-400 hover:bg-emerald-50 hover:text-emerald-700"
+                  href={detailHref(category)}
+                >
+                  상세
+                </Link>
+              )}
+            </span>
           )
         })}
       </div>

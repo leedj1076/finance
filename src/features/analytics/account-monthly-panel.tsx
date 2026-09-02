@@ -10,6 +10,7 @@ import {
   type CategoryMonthlyData,
 } from './account-monthly'
 import { AccountMonthlyChart, CategoryMonthlyChart } from './charts'
+import { categoryPageUrl } from './category-url'
 
 type AccountFlow = 'expense' | 'income'
 type CategoryFlow = AccountFlow | 'saving'
@@ -128,8 +129,10 @@ export function AccountMonthlyPanel({
 
 export function CategoryMonthlyPanel({
   data,
+  year,
 }: {
   data: Record<CategoryFlow, CategoryMonthlyData>
+  year: number
 }) {
   const [flow, setFlow] = useState<CategoryFlow>('expense')
   const selected = data[flow]
@@ -147,7 +150,11 @@ export function CategoryMonthlyPanel({
         <p className="px-5 py-12 text-center text-sm text-zinc-500">데이터가 없습니다.</p>
       ) : (
         <div className="overflow-x-auto px-5 py-5">
-          <CategoryMonthlyChart data={selected} key={flow} />
+          <CategoryMonthlyChart
+            data={selected}
+            detailHref={(major) => categoryPageUrl({ flow, major, period: { year } })}
+            key={flow}
+          />
         </div>
       )}
     </section>

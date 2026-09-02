@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import {
   useId,
   useLayoutEffect,
@@ -9,6 +10,8 @@ import {
 } from 'react'
 
 import { formatWon } from '@/lib/finance'
+
+import { categoryPageUrl } from './category-url'
 
 import {
   categoryDetailMonthlyAverage,
@@ -263,7 +266,12 @@ export function CategoryDetailTable({
                         rowSpan={group.subs.length + 1}
                         scope="rowgroup"
                       >
-                        {group.major}
+                        <Link
+                          className="underline decoration-zinc-300 underline-offset-2 hover:text-emerald-700"
+                          href={categoryPageUrl({ flow, major: group.major, period: { year } })}
+                        >
+                          {group.major}
+                        </Link>
                       </th>
                     )}
                     <th className="sticky left-28 z-10 border-r border-zinc-200 bg-white px-3 py-3 font-normal text-zinc-700" scope="row">{sub.sub}</th>
