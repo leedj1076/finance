@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom'
 
 import { processInbox } from './actions'
 import type { TransactionFlow } from './banksalad'
+import { formatInboxMonth, groupInboxItemsByMonth } from './grouping'
 
 type InboxItem = {
   id: number
@@ -76,8 +77,12 @@ function ActionButtons({ selectedCount }: { selectedCount: number }) {
 }
 
 export function InboxReviewForm({ items, categories, accounts }: InboxReviewFormProps) {
+  const monthGroups = useMemo(() => groupInboxItemsByMonth(items), [items])
   const [selected, setSelected] = useState(
     () => new Set(items.filter((item) => !item.dupNote).map((item) => item.id)),
+  )
+  const [expandedMonths, setExpandedMonths] = useState(
+    () => new Set(items.map((item) => item.date.slice(0, 7))),
   )
   const [flows, setFlows] = useState<Record<number, TransactionFlow>>(
     () => Object.fromEntries(items.map((item) => [item.id, item.flow])),
@@ -104,6 +109,15 @@ export function InboxReviewForm({ items, categories, accounts }: InboxReviewForm
     })
   }
 
+  const toggleMonth = (month: string) => {
+    setExpandedMonths((current) => {
+      const next = new Set(current)
+      if (next.has(month)) next.delete(month)
+      else next.add(month)
+      return next
+    })
+  }
+
   return (
     <form action={processInbox}>
       <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -121,6 +135,23 @@ export function InboxReviewForm({ items, categories, accounts }: InboxReviewForm
             type="button"
           >
             선택 해제
+          </button>
+          <span aria-hidden="true" className="h-4 border-l border-zinc-300" />
+          <button
+            className="text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950 disabled:text-zinc-300"
+            disabled={expandedMonths.size === monthGroups.length}
+            onClick={() => setExpandedMonths(new Set(monthGroups.map((group) => group.month)))}
+            type="button"
+          >
+            월 전체 펼치기
+          </button>
+          <button
+            className="text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950 disabled:text-zinc-300"
+            disabled={expandedMonths.size === 0}
+            onClick={() => setExpandedMonths(new Set())}
+            type="button"
+          >
+            월 전체 접기
           </button>
           <span className="text-zinc-500">
             {selected.size}건 · 합계 {selectedTotal >= 0 ? '+' : '−'}
@@ -145,13 +176,50 @@ export function InboxReviewForm({ items, categories, accounts }: InboxReviewForm
                 <th className="min-w-48 px-3 py-3 font-medium">결제수단</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {items.map((item) => {
-                const flow = flows[item.id]
-                const visibleCategories = categories.filter((category) => category.kind === flow)
-                return (
+            {monthGroups.map((group) => {
+              const expanded = expandedMonths.has(group.month)
+              const selectedItems = group.items.filter((item) => selected.has(item.id))
+              const selectedAmount = selectedItems.reduce(
+                (total, item) => total + (flows[item.id] === 'income' ? item.amount : -item.amount),
+                0,
+              )
+              const duplicateCount = group.items.filter((item) => item.dupNote).length
+
+              return (
+                <tbody className="border-t border-zinc-200 first:border-t-0" key={group.month}>
+                  <tr className="bg-zinc-100/80">
+                    <th className="p-0" colSpan={8}>
+                      <button
+                        aria-expanded={expanded}
+                        className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left hover:bg-zinc-200/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
+                        onClick={() => toggleMonth(group.month)}
+                        type="button"
+                      >
+                        <span aria-hidden="true" className="w-4 text-center text-sm text-zinc-500">
+                          {expanded ? '▾' : '▸'}
+                        </span>
+                        <span className="font-semibold text-zinc-900">{formatInboxMonth(group.month)}</span>
+                        <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-zinc-600">
+                          {group.items.length}건
+                        </span>
+                        {duplicateCount > 0 && (
+                          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">
+                            중복 의심 {duplicateCount}건
+                          </span>
+                        )}
+                        <span className="ml-auto whitespace-nowrap text-xs font-normal text-zinc-500">
+                          선택 {selectedItems.length}/{group.items.length}건 · {selectedAmount >= 0 ? '+' : '−'}
+                          {Math.abs(selectedAmount).toLocaleString('ko-KR')}원
+                        </span>
+                      </button>
+                    </th>
+                  </tr>
+                  {expanded && group.items.map((item) => {
+                    const flow = flows[item.id]
+                    const visibleCategories = categories.filter((category) => category.kind === flow)
+                    return (
                   <tr
-                    className={item.dupNote ? 'bg-rose-50/70 hover:bg-rose-50' : 'hover:bg-zinc-50'}
+                    className={`border-t border-zinc-100 ${item.dupNote ? 'bg-rose-50/70 hover:bg-rose-50' : 'hover:bg-zinc-50'}`}
                     key={item.id}
                   >
                     <td className="px-4 py-3 text-center">
@@ -272,9 +340,11 @@ export function InboxReviewForm({ items, categories, accounts }: InboxReviewForm
                       {item.pay && <p className="mt-1 truncate text-[11px] text-zinc-400" title={item.pay}>{item.pay}</p>}
                     </td>
                   </tr>
-                )
-              })}
-            </tbody>
+                    )
+                  })}
+                </tbody>
+              )
+            })}
           </table>
         </div>
       </div>
