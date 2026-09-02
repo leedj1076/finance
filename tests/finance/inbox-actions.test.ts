@@ -12,7 +12,7 @@ import {
   merchantLookup,
   transactions,
 } from '@/db/schema'
-import { processInbox } from '@/features/inbox/actions'
+import { applyInboxItem, processInbox } from '@/features/inbox/actions'
 import { normalizeMerchant } from '@/features/inbox/normalize'
 
 const context = vi.hoisted(() => ({ householdId: '' }))
@@ -129,6 +129,57 @@ test('processInbox learns user merchant lookup, freezes category rules, and keep
       ),
     )
   expect(transaction.importUid).toBe(importUid)
+})
+
+test('applyInboxItem applies one edited row without redirecting', async () => {
+  const merchant = `바로반영-${crypto.randomUUID()}`
+  const importUid = `inbox-single-${crypto.randomUUID()}`
+  const [row] = await db
+    .insert(importInbox)
+    .values({
+      householdId: context.householdId,
+      importUid,
+      owner: 'DJ',
+      date: '2026-09-03',
+      merchant,
+      amount: 12_300,
+      flow: 'income',
+      confidence: 'high',
+      pay: '바로 반영 카드',
+    })
+    .returning({ id: importInbox.id })
+
+  await expect(applyInboxItem({
+    id: row.id,
+    flow: 'expense',
+    categoryId,
+    accountId,
+  })).resolves.toEqual({
+    applied: true,
+    message: '가계부에 반영했습니다.',
+  })
+
+  const [inboxRow] = await db
+    .select({ status: importInbox.status })
+    .from(importInbox)
+    .where(eq(importInbox.id, row.id))
+  expect(inboxRow.status).toBe('done')
+
+  const [transaction] = await db
+    .select({
+      flow: transactions.flow,
+      categoryId: transactions.categoryId,
+      accountId: transactions.accountId,
+      importUid: transactions.importUid,
+    })
+    .from(transactions)
+    .where(eq(transactions.importUid, importUid))
+  expect(transaction).toEqual({
+    flow: 'expense',
+    categoryId,
+    accountId,
+    importUid,
+  })
 })
 
 test('a conflicting import uid is not inserted or learned a second time', async () => {

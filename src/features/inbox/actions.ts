@@ -64,6 +64,19 @@ type ApplyResult = {
   saving: number
 }
 
+export type ApplyInboxItemInput = {
+  id: number
+  flow: TransactionFlow
+  categoryId: number | null
+  accountId: number | null
+}
+
+export type ApplyInboxItemResult = {
+  error?: string
+  applied?: boolean
+  message?: string
+}
+
 function inboxTransactionSource(row: InboxRow) {
   return cardSourceFromMarker(row.bsCat1) ?? `banksalad:${row.owner.toLowerCase()}`
 }
@@ -288,6 +301,88 @@ export async function processInbox(formData: FormData) {
     .filter(Boolean)
     .join(' · ')
   inboxRedirect('notice', `${result.inserted}건을 가계부에 반영했습니다${suffix ? ` (${suffix})` : ''}.`)
+}
+
+/** Applies one row with the values currently shown in the inbox, without a page redirect. */
+export async function applyInboxItem(
+  input: ApplyInboxItemInput,
+): Promise<ApplyInboxItemResult> {
+  const household = await requireHousehold()
+  if (!household) return { error: '가족 가계부에 연결된 계정이 아닙니다.' }
+
+  if (!Number.isSafeInteger(input.id) || input.id <= 0) {
+    return { error: '반영할 거래를 확인해 주세요.' }
+  }
+  if (input.flow !== 'expense' && input.flow !== 'income' && input.flow !== 'saving') {
+    return { error: '거래 유형을 확인해 주세요.' }
+  }
+  if (
+    input.categoryId !== null &&
+    (!Number.isSafeInteger(input.categoryId) || input.categoryId <= 0)
+  ) {
+    return { error: '거래 분류를 확인해 주세요.' }
+  }
+  if (
+    input.accountId !== null &&
+    (!Number.isSafeInteger(input.accountId) || input.accountId <= 0)
+  ) {
+    return { error: '결제수단을 확인해 주세요.' }
+  }
+
+  const householdId = household.householdId
+  const [rows, categoryRows, accountRows] = await Promise.all([
+    db
+      .select()
+      .from(importInbox)
+      .where(
+        and(
+          eq(importInbox.id, input.id),
+          eq(importInbox.householdId, householdId),
+          eq(importInbox.status, 'pending'),
+        ),
+      )
+      .limit(1),
+    db
+      .select({ id: categories.id, kind: categories.kind })
+      .from(categories)
+      .where(eq(categories.householdId, householdId)),
+    db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.householdId, householdId)),
+  ])
+  const row = rows[0]
+  if (!row) return { error: '이미 처리됐거나 찾을 수 없는 거래입니다.' }
+
+  if (input.categoryId !== null) {
+    const category = categoryRows.find((candidate) => candidate.id === input.categoryId)
+    if (!category || category.kind !== input.flow) {
+      return { error: '분류가 거래 유형과 맞지 않습니다.' }
+    }
+  }
+  if (
+    input.accountId !== null &&
+    !accountRows.some((account) => account.id === input.accountId)
+  ) {
+    return { error: '결제수단을 확인해 주세요.' }
+  }
+
+  try {
+    const result = await applyPreparedInboxRows(householdId, [{
+      row,
+      flow: input.flow,
+      categoryId: input.categoryId,
+      accountId: input.accountId,
+      source: inboxTransactionSource(row),
+    }])
+    const applied = result.inserted === 1
+    return {
+      applied: true,
+      message: applied ? '가계부에 반영했습니다.' : '이미 가계부에 반영된 거래입니다.',
+    }
+  } catch {
+    return { error: '거래를 반영하지 못했습니다. 잠시 후 다시 시도해 주세요.' }
+  }
 }
 
 export async function approveHighConfidence(): Promise<{ error?: string; applied?: number }> {

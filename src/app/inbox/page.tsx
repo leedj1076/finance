@@ -78,7 +78,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
           <div className="mb-3">
             <h2 className="font-semibold text-zinc-950">분류 확인</h2>
             <p className="mt-1 text-xs text-zinc-500">
-              거래는 기본 선택되지 않습니다. 결제 소스 그룹이나 필요한 거래만 선택해 반영해 주세요.
+              자동 분류를 포함한 모든 거래를 수정할 수 있습니다. 한 건씩 바로 반영하거나 필요한 거래를 선택해 한 번에 처리하세요.
             </p>
           </div>
 
@@ -94,7 +94,6 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
               categories={data.categories}
               highItems={data.highItems}
               reviewItems={data.reviewItems}
-              key={data.items.map((item) => `${item.id}:${item.confidence}`).join('-')}
             />
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">

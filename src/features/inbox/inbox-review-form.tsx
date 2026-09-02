@@ -1,9 +1,9 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
-import { approveHighConfidence, demoteToReview, processInbox } from './actions'
+import { applyInboxItem, processInbox } from './actions'
 import type { TransactionFlow } from './banksalad'
 import {
   formatInboxMonth,
@@ -106,129 +106,6 @@ function SuggestionBadges({ item }: { item: InboxItem }) {
   )
 }
 
-function HighConfidenceSection({ items, accounts }: { items: InboxItem[]; accounts: AccountOption[] }) {
-  const [pending, startTransition] = useTransition()
-  const [message, setMessage] = useState<string | null>(null)
-  const monthGroups = useMemo(() => groupInboxItemsByMonthAndPaymentSource(items), [items])
-  const [expandedMonths, setExpandedMonths] = useState(
-    () => new Set(monthGroups.map((group) => group.month)),
-  )
-  const total = items.reduce(
-    (sum, item) => sum + (item.flow === 'income' ? item.amount : -item.amount),
-    0,
-  )
-
-  if (items.length === 0) return null
-
-  return (
-    <details className="mb-6 overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
-      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 bg-emerald-50 px-5 py-4 marker:hidden">
-        <span aria-hidden="true" className="text-emerald-700">✓</span>
-        <span className="font-semibold text-emerald-950">자동 분류됨 {items.length}건</span>
-        <span className="text-sm text-emerald-700">
-          합계 {total >= 0 ? '+' : '−'}{Math.abs(total).toLocaleString('ko-KR')}원
-        </span>
-        <button
-          className="ml-auto rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
-          disabled={pending}
-          onClick={(event) => {
-            event.preventDefault()
-            startTransition(async () => {
-              const result = await approveHighConfidence()
-              setMessage(result.error ?? `${result.applied ?? 0}건을 가계부에 반영했습니다.`)
-            })
-          }}
-          type="button"
-        >
-          {pending ? '반영 중…' : `${items.length}건 일괄 승인`}
-        </button>
-      </summary>
-      {message && <p className="border-t border-emerald-100 px-5 py-3 text-sm text-emerald-800">{message}</p>}
-      <div className="overflow-x-auto border-t border-emerald-100">
-        <table className="w-full min-w-[820px] text-left text-sm">
-          <thead className="bg-zinc-50 text-xs text-zinc-500">
-            <tr>
-              <th className="px-4 py-3 font-medium">날짜</th>
-              <th className="px-3 py-3 font-medium">가맹점</th>
-              <th className="px-3 py-3 font-medium">근거</th>
-              <th className="px-3 py-3 font-medium">분류</th>
-              <th className="px-3 py-3 text-right font-medium">금액</th>
-              <th className="px-4 py-3 text-right font-medium">수정</th>
-            </tr>
-          </thead>
-          {monthGroups.map((monthGroup) => {
-            const expanded = expandedMonths.has(monthGroup.month)
-
-            return (
-              <Fragment key={monthGroup.month}>
-              <tbody className="border-t border-emerald-200 first:border-t-0">
-                <tr className="bg-emerald-100/70">
-                  <th className="p-0 text-sm font-bold text-emerald-950" colSpan={6}>
-                    <button
-                      aria-expanded={expanded}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
-                      onClick={() => setExpandedMonths((current) => {
-                        const next = new Set(current)
-                        if (next.has(monthGroup.month)) next.delete(monthGroup.month)
-                        else next.add(monthGroup.month)
-                        return next
-                      })}
-                      type="button"
-                    >
-                      <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-emerald-700">
-                        {expanded ? '▾' : '▸'}
-                      </span>
-                      <span>{formatInboxMonth(monthGroup.month)}</span>
-                      <span className="text-xs font-medium text-emerald-700">{monthGroup.items.length}건</span>
-                      <span className="ml-auto text-xs font-normal text-emerald-700">
-                        결제수단 {monthGroup.sources.length}개
-                      </span>
-                    </button>
-                  </th>
-                </tr>
-              </tbody>
-              {expanded && monthGroup.sources.map((group) => (
-                <tbody className="border-t border-emerald-100" key={group.key}>
-                  <tr className="bg-emerald-50/60">
-                    <th className="px-4 py-2.5 text-xs font-semibold text-emerald-900" colSpan={6}>
-                      {paymentSourceLabel(group, accounts)} · {group.items.length}건
-                    </th>
-                  </tr>
-                  {group.items.map((item) => (
-                    <tr className="border-t border-zinc-100" key={item.id}>
-                      <td className="whitespace-nowrap px-4 py-3 text-zinc-500">{item.date.slice(5)}</td>
-                      <td className="px-3 py-3 font-medium text-zinc-900">{item.merchant || '-'}</td>
-                      <td className="px-3 py-3"><SuggestionBadges item={item} /></td>
-                      <td className="px-3 py-3 text-zinc-600">{item.categoryLabel || '미분류'}</td>
-                      <td className={`whitespace-nowrap px-3 py-3 text-right font-medium ${item.flow === 'expense' ? 'text-rose-700' : item.flow === 'income' ? 'text-blue-700' : 'text-emerald-700'}`}>
-                        {item.flow === 'expense' ? '−' : '+'}{item.amount.toLocaleString('ko-KR')}원
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-                          disabled={pending}
-                          onClick={() => startTransition(async () => {
-                            const result = await demoteToReview(item.id)
-                            if (result?.error) setMessage(result.error)
-                          })}
-                          type="button"
-                        >
-                          수정
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              ))}
-              </Fragment>
-            )
-          })}
-        </table>
-      </div>
-    </details>
-  )
-}
-
 function ActionButtons({ selectedCount }: { selectedCount: number }) {
   const { pending } = useFormStatus()
   return (
@@ -289,7 +166,17 @@ function GroupSelectionCheckbox({
 }
 
 export function InboxReviewForm({ highItems, reviewItems, categories, accounts }: InboxReviewFormProps) {
-  const items = reviewItems
+  const allItems = useMemo(
+    () => [...highItems, ...reviewItems].sort(
+      (left, right) => right.date.localeCompare(left.date) || right.id - left.id,
+    ),
+    [highItems, reviewItems],
+  )
+  const [appliedIds, setAppliedIds] = useState<Set<number>>(() => new Set())
+  const items = useMemo(
+    () => allItems.filter((item) => !appliedIds.has(item.id)),
+    [allItems, appliedIds],
+  )
   const monthGroups = useMemo(() => groupInboxItemsByMonthAndPaymentSource(items), [items])
   const sourceGroups = useMemo(
     () => monthGroups.flatMap((monthGroup) => monthGroup.sources),
@@ -316,6 +203,31 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
   const [accountIds, setAccountIds] = useState<Record<number, string>>(
     () => Object.fromEntries(items.map((item) => [item.id, item.accountId ? String(item.accountId) : ''])),
   )
+  const [applyingIds, setApplyingIds] = useState<Set<number>>(() => new Set())
+  const [actionMessage, setActionMessage] = useState<{
+    kind: 'success' | 'error'
+    text: string
+  } | null>(null)
+
+  useEffect(() => {
+    const activeIds = new Set(items.map((item) => item.id))
+    setSelected((current) => new Set([...current].filter((id) => activeIds.has(id))))
+    setFlows((current) => Object.fromEntries(
+      items.map((item) => [item.id, current[item.id] ?? item.flow]),
+    ))
+    setCategoryIds((current) => Object.fromEntries(
+      items.map((item) => [
+        item.id,
+        current[item.id] ?? categorySelectionForFlow(categories, item.flow, item.categoryId),
+      ]),
+    ))
+    setAccountIds((current) => Object.fromEntries(
+      items.map((item) => [
+        item.id,
+        current[item.id] ?? (item.accountId ? String(item.accountId) : ''),
+      ]),
+    ))
+  }, [categories, items])
 
   const selectedTotal = useMemo(
     () =>
@@ -372,16 +284,89 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
     })
   }
 
+  const applySingleItem = async (item: InboxItem) => {
+    setApplyingIds((current) => new Set(current).add(item.id))
+    setActionMessage(null)
+
+    try {
+      const result = await applyInboxItem({
+        id: item.id,
+        flow: flows[item.id] ?? item.flow,
+        categoryId: categoryIds[item.id] ? Number(categoryIds[item.id]) : null,
+        accountId: accountIds[item.id] ? Number(accountIds[item.id]) : null,
+      })
+      if (result.error) {
+        setActionMessage({ kind: 'error', text: result.error })
+        return
+      }
+
+      setAppliedIds((current) => new Set(current).add(item.id))
+      setActionMessage({
+        kind: 'success',
+        text: result.message ?? `${item.merchant || '거래'}을(를) 가계부에 반영했습니다.`,
+      })
+    } catch {
+      setActionMessage({
+        kind: 'error',
+        text: '거래를 반영하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      })
+    } finally {
+      setApplyingIds((current) => {
+        const next = new Set(current)
+        next.delete(item.id)
+        return next
+      })
+    }
+  }
+
+  const highConfidenceIds = items
+    .filter((item) => item.confidence === 'high')
+    .map((item) => item.id)
+
   return (
-    <>
-      <HighConfidenceSection accounts={accounts} items={highItems} />
-      {items.length > 0 ? (
+    items.length > 0 ? (
       <section>
         <div className="mb-3">
-          <h3 className="font-semibold text-zinc-950">확인 필요 {items.length}건</h3>
-          <p className="mt-1 text-xs text-zinc-500">기본 선택은 0건입니다. 월 이름을 눌러 접거나 펼치고, 왼쪽 체크박스로 해당 월 또는 결제수단을 한 번에 선택할 수 있습니다.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold text-zinc-950">확인 대기 {items.length}건</h3>
+            {highConfidenceIds.length > 0 && (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                자동 분류 {highConfidenceIds.length}건
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-zinc-500">모든 거래를 바로 수정할 수 있습니다. 한 건씩 오른쪽에서 즉시 반영하거나, 체크박스로 여러 건을 선택해 한 번에 처리하세요.</p>
         </div>
+      {actionMessage && (
+        <div
+          aria-live="polite"
+          className={`fixed bottom-6 right-6 z-50 flex max-w-sm items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg ${
+          actionMessage.kind === 'success'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+            : 'border-rose-200 bg-rose-50 text-rose-800'
+          }`}
+          role="status"
+        >
+          <span>{actionMessage.text}</span>
+          <button
+            aria-label="알림 닫기"
+            className="-mr-1 shrink-0 rounded px-1 text-current opacity-60 hover:opacity-100"
+            onClick={() => setActionMessage(null)}
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <form action={processInbox}>
+      {items.filter((item) => selected.has(item.id)).map((item) => (
+        <Fragment key={`selected-${item.id}`}>
+          <input name="ids" type="hidden" value={item.id} />
+          <input name={`flow_${item.id}`} type="hidden" value={flows[item.id] ?? item.flow} />
+          <input name={`category_${item.id}`} type="hidden" value={categoryIds[item.id] ?? ''} />
+          <input name={`account_${item.id}`} type="hidden" value={accountIds[item.id] ?? ''} />
+        </Fragment>
+      ))}
       <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <button
@@ -398,6 +383,15 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
           >
             선택 해제
           </button>
+          {highConfidenceIds.length > 0 && (
+            <button
+              className="text-emerald-700 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-900"
+              onClick={() => toggleItems(highConfidenceIds, true)}
+              type="button"
+            >
+              자동 분류만 선택
+            </button>
+          )}
           <span aria-hidden="true" className="h-4 border-l border-zinc-300" />
           <button
             className="text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950 disabled:text-zinc-300"
@@ -425,7 +419,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
 
       <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1180px] text-left text-sm">
+          <table className="w-full min-w-[1280px] text-left text-sm">
             <thead className="bg-zinc-50 text-xs text-zinc-500">
               <tr>
                 <th className="w-10 px-4 py-3 font-medium">선택</th>
@@ -436,6 +430,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                 <th className="px-3 py-3 font-medium">뱅샐 분류</th>
                 <th className="min-w-72 px-3 py-3 font-medium">반영 분류</th>
                 <th className="min-w-48 px-3 py-3 font-medium">결제수단</th>
+                <th className="w-24 px-4 py-3 text-right font-medium">바로 반영</th>
               </tr>
             </thead>
             {monthGroups.map((monthGroup) => {
@@ -445,7 +440,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                 <Fragment key={monthGroup.month}>
                 <tbody className="border-t border-zinc-300 first:border-t-0">
                   <tr className="bg-zinc-800 text-white">
-                    <th className="p-0" colSpan={8}>
+                    <th className="p-0" colSpan={9}>
                       <div className="flex min-h-14 items-center gap-3 px-4 py-3">
                         <GroupSelectionCheckbox
                           itemIds={monthGroup.items.map((item) => item.id)}
@@ -492,7 +487,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
               return (
                 <tbody className="border-t border-zinc-200" key={group.key}>
                   <tr className="bg-zinc-100/80">
-                    <th className="p-0" colSpan={8}>
+                    <th className="p-0" colSpan={9}>
                       <div className="flex min-h-16 flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center">
                         <GroupSelectionCheckbox
                           itemIds={group.items.map((item) => item.id)}
@@ -548,7 +543,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                     </th>
                   </tr>
                   {expanded && group.items.map((item) => {
-                    const flow = flows[item.id]
+                    const flow = flows[item.id] ?? item.flow
                     const visibleCategories = categoriesForFlow(categories, flow)
                     return (
                   <tr
@@ -560,16 +555,22 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                         aria-label={`${item.merchant ?? '거래'} 선택`}
                         checked={selected.has(item.id)}
                         className="h-4 w-4 accent-emerald-700"
-                        name="ids"
                         onChange={() => toggle(item.id)}
                         type="checkbox"
-                        value={item.id}
                       />
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-zinc-500">{item.date}</td>
                     <td className="max-w-64 px-3 py-3 text-zinc-800">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <span className="break-words">{item.merchant || '-'}</span>
+                        {item.confidence === 'high' && (
+                          <span
+                            className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800"
+                            title="추천 신뢰도가 높은 거래입니다. 필요하면 직접 수정할 수 있습니다."
+                          >
+                            자동 분류
+                          </span>
+                        )}
                         {item.kind === 'transfer' && (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
                             이체 후보
@@ -615,7 +616,6 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                       <div className="flex items-center gap-2">
                         <select
                           className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
-                          name={`flow_${item.id}`}
                           onChange={(event) => {
                             const nextFlow = event.target.value as TransactionFlow
                             setFlows((current) => ({
@@ -640,7 +640,6 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                         <SuggestionBadges item={item} />
                         <select
                           className="min-w-44 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
-                          name={`category_${item.id}`}
                           onChange={(event) =>
                             setCategoryIds((current) => ({ ...current, [item.id]: event.target.value }))
                           }
@@ -658,7 +657,6 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                     <td className="px-3 py-3">
                       <select
                         className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
-                        name={`account_${item.id}`}
                         onChange={(event) => setAccountIds((current) => ({
                           ...current,
                           [item.id]: event.target.value,
@@ -673,6 +671,19 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                         ))}
                       </select>
                       {item.pay && <p className="mt-1 truncate text-[11px] text-zinc-400" title={item.pay}>{item.pay}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        aria-label={`${item.merchant || '거래'} 바로 반영`}
+                        className="inline-flex min-w-16 items-center justify-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60"
+                        disabled={applyingIds.has(item.id)}
+                        onClick={() => void applySingleItem(item)}
+                        title="현재 분류와 결제수단으로 바로 반영"
+                        type="button"
+                      >
+                        <span aria-hidden="true">✓</span>
+                        {applyingIds.has(item.id) ? '반영 중' : '반영'}
+                      </button>
                     </td>
                   </tr>
                     )
@@ -692,12 +703,11 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
       </div>
       </form>
       </section>
-      ) : highItems.length > 0 ? (
+      ) : (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-center">
-          <p className="font-medium text-emerald-900">직접 확인할 거래가 없습니다.</p>
-          <p className="mt-2 text-sm text-emerald-700">위 자동 분류 항목을 펼쳐 검토하거나 한 번에 승인할 수 있습니다.</p>
+          <p className="font-medium text-emerald-900">모든 대기 거래를 처리했습니다.</p>
+          <p className="mt-2 text-sm text-emerald-700">새 거래 파일을 올리면 이곳에서 다시 확인할 수 있습니다.</p>
         </div>
-      ) : null}
-    </>
+      )
   )
 }
