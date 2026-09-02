@@ -11,21 +11,27 @@ export const CARD_ISSUERS: { key: CardIssuer; label: string }[] = [
   { key: 'nonghyup', label: '농협카드' },
 ]
 
-export type CardRow = { date: string; merchant: string; amount: number }
+export type CardRow = {
+  date: string
+  merchant: string
+  amount: number
+  pay: string | null
+}
 
 export const CARD_SOURCE_MARKER_PREFIX = '__source:card:'
 
 const SPECS: Record<CardIssuer, {
   dateKeys: string[]
   merchantKeys: string[]
+  payKeys: string[]
   amountKeys: string[]
   fallbackKeys: string[]
 }> = {
-  samsung: { dateKeys: ['이용일'], merchantKeys: ['가맹점'], amountKeys: ['이용금액'], fallbackKeys: ['원금'] },
-  hyundai: { dateKeys: ['이용일'], merchantKeys: ['이용가맹점'], amountKeys: ['이용금액'], fallbackKeys: ['결제원금'] },
-  kookmin: { dateKeys: ['이용일'], merchantKeys: ['이용하신곳'], amountKeys: ['이용금액'], fallbackKeys: ['청구원금'] },
-  shinhan: { dateKeys: ['이용일'], merchantKeys: ['이용가맹점'], amountKeys: ['이용금액'], fallbackKeys: [] },
-  nonghyup: { dateKeys: ['이용일자'], merchantKeys: ['이용가맹점'], amountKeys: ['청구원금'], fallbackKeys: [] },
+  samsung: { dateKeys: ['이용일'], merchantKeys: ['가맹점'], payKeys: ['이용카드', '카드명'], amountKeys: ['이용금액'], fallbackKeys: ['원금'] },
+  hyundai: { dateKeys: ['이용일'], merchantKeys: ['이용가맹점'], payKeys: ['이용카드', '카드명'], amountKeys: ['이용금액'], fallbackKeys: ['결제원금'] },
+  kookmin: { dateKeys: ['이용일'], merchantKeys: ['이용하신곳'], payKeys: ['이용카드', '카드명'], amountKeys: ['이용금액'], fallbackKeys: ['청구원금'] },
+  shinhan: { dateKeys: ['이용일'], merchantKeys: ['이용가맹점'], payKeys: ['이용카드', '카드명'], amountKeys: ['이용금액'], fallbackKeys: [] },
+  nonghyup: { dateKeys: ['이용일자'], merchantKeys: ['이용가맹점'], payKeys: ['이용카드', '카드명'], amountKeys: ['청구원금'], fallbackKeys: [] },
 }
 
 const STOP_MARKS = ['합계', '소계', '없습니다']
@@ -144,6 +150,7 @@ export function parseCardStatement(buffer: Buffer, issuer: CardIssuer): CardRow[
   }
   const dateColumn = pickColumn(spec.dateKeys)
   const merchantColumn = pickColumn(spec.merchantKeys)
+  const payColumn = pickColumn(spec.payKeys)
   const amountColumn = pickColumn(spec.amountKeys)
   const fallbackColumn = pickColumn(spec.fallbackKeys)
   const parsed: CardRow[] = []
@@ -157,7 +164,8 @@ export function parseCardStatement(buffer: Buffer, issuer: CardIssuer): CardRow[
     let amount = toInt(amountColumn === null ? null : row[amountColumn])
     if ((amount === null || amount === 0) && fallbackColumn !== null) amount = toInt(row[fallbackColumn])
     if (amount === null || amount <= 0) continue
-    parsed.push({ date, merchant, amount })
+    const pay = payColumn === null ? null : row[payColumn]?.trim() || null
+    parsed.push({ date, merchant, amount, pay })
   }
   return parsed
 }
@@ -165,7 +173,7 @@ export function parseCardStatement(buffer: Buffer, issuer: CardIssuer): CardRow[
 export function cardFingerprint(
   issuer: CardIssuer,
   owner: string,
-  row: CardRow,
+  row: Pick<CardRow, 'date' | 'merchant' | 'amount'>,
   occurrenceIdx: number,
 ): string {
   return createHash('sha1')

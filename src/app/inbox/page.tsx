@@ -56,7 +56,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
               뱅크샐러드 파일은 DJ·YJ 최대 2개를, 카드사 명세서는 카드사와 소유자를 선택해 올려 주세요.
             </p>
           </div>
-          <InboxUploadForm cardIssuers={CARD_ISSUERS} />
+          <InboxUploadForm accounts={data.accounts} cardIssuers={CARD_ISSUERS} />
         </section>
 
         <section className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -78,7 +78,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
           <div className="mb-3">
             <h2 className="font-semibold text-zinc-950">분류 확인</h2>
             <p className="mt-1 text-xs text-zinc-500">
-              중복 의심 거래는 기본 선택이 해제되어 있습니다. 분류 수정은 다음 가져오기 추천에 학습됩니다.
+              거래는 기본 선택되지 않습니다. 결제 소스 그룹이나 필요한 거래만 선택해 반영해 주세요.
             </p>
           </div>
 

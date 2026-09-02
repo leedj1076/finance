@@ -26,8 +26,8 @@ const HYUNDAI_HTML = Buffer.from(`
 
 test('hyundai: HTML-as-XLS parsed and stops at total', () => {
   expect(parseCardStatement(HYUNDAI_HTML, 'hyundai')).toEqual([
-    { date: '2026-08-03', merchant: '스타벅스 강남점', amount: 6500 },
-    { date: '2026-08-05', merchant: 'GS25 역삼점', amount: 3200 },
+    { date: '2026-08-03', merchant: '스타벅스 강남점', amount: 6500, pay: '카드' },
+    { date: '2026-08-05', merchant: 'GS25 역삼점', amount: 3200, pay: '카드' },
   ])
 })
 
@@ -40,8 +40,8 @@ test('samsung: XLSX with usage date, merchant, and amount', () => {
     ['합계', '', '', '46,500', ''],
   ])
   expect(parseCardStatement(buffer, 'samsung')).toEqual([
-    { date: '2026-08-01', merchant: '쿠팡', amount: 34500 },
-    { date: '2026-08-02', merchant: '올리브영', amount: 12000 },
+    { date: '2026-08-01', merchant: '쿠팡', amount: 34500, pay: null },
+    { date: '2026-08-02', merchant: '올리브영', amount: 12000, pay: null },
   ])
 })
 
@@ -52,7 +52,7 @@ test('kookmin: legacy BIFF XLS with merchant header', () => {
     ['합계', '', '', '', '85,930', ''],
   ], 'xls')
   expect(parseCardStatement(buffer, 'kookmin')).toEqual([
-    { date: '2026-08-10', merchant: '이마트 용산점', amount: 85930 },
+    { date: '2026-08-10', merchant: '이마트 용산점', amount: 85930, pay: 'KB카드' },
   ])
 })
 
@@ -65,7 +65,7 @@ test('shinhan: HTML parser stops before later discount section', () => {
   <tr><td>2026.08.11</td><td>할인</td><td>무시할가맹점</td><td>1,000</td></tr>
   </table></body></html>`, 'utf8')
   expect(parseCardStatement(buffer, 'shinhan')).toEqual([
-    { date: '2026-08-11', merchant: '서울식당', amount: 21000 },
+    { date: '2026-08-11', merchant: '서울식당', amount: 21000, pay: '신한카드' },
   ])
 })
 
@@ -76,7 +76,7 @@ test('nonghyup: billed principal is used when usage amount is zero', () => {
     ['합계', '', '', '', '4,000'],
   ])
   expect(parseCardStatement(buffer, 'nonghyup')).toEqual([
-    { date: '2026-08-12', merchant: '늘편한약국', amount: 4000 },
+    { date: '2026-08-12', merchant: '늘편한약국', amount: 4000, pay: 'NH카드' },
   ])
 })
 

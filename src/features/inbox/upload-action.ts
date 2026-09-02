@@ -15,6 +15,7 @@ import {
 import { requireHousehold } from '@/lib/household'
 
 import { upsertBanksaladAssetSnapshots } from './asset-snapshots'
+import { suggestCardAccountId } from './account-match'
 import {
   banksaladFingerprint,
   buildAmountRepeatIndex,
@@ -48,6 +49,17 @@ export type UploadBanksaladState = {
 }
 
 export type UploadCardState = UploadBanksaladState
+
+function positiveId(value: FormDataEntryValue | null) {
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) return null
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+}
+
+function cardPaymentSource(row: CardRow, issuerLabel: string) {
+  const parsed = row.pay?.trim()
+  return parsed && !/^(?:본인|가족)?카드$/.test(parsed) ? parsed : issuerLabel
+}
 
 type DuplicateInboxRow = {
   id: number
@@ -545,11 +557,32 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
   const file = formData.get('file')
   const issuer = String(formData.get('issuer') ?? '') as CardIssuer
   const owner = String(formData.get('owner') ?? '')
+  const requestedAccountId = positiveId(formData.get('accountId'))
   if (!(file instanceof File) || file.size === 0) return { error: '카드사 명세서 파일을 선택해 주세요.' }
   if (!CARD_ISSUERS.some((card) => card.key === issuer)) return { error: '카드사를 선택해 주세요.' }
   if (owner !== 'DJ' && owner !== 'YJ') return { error: '소유자를 선택해 주세요.' }
   if (!/\.xlsx?$/i.test(file.name)) return { error: '.xls 또는 .xlsx 형식의 명세서만 올릴 수 있습니다.' }
   if (file.size > MAX_FILE_BYTES) return { error: '파일 크기는 2MB 이하여야 합니다.' }
+
+  const issuerLabel = CARD_ISSUERS.find((card) => card.key === issuer)!.label
+  const accountRows = await db
+    .select({ id: accounts.id, name: accounts.name, owner: accounts.owner, type: accounts.type })
+    .from(accounts)
+    .where(
+      and(
+        eq(accounts.householdId, household.householdId),
+        eq(accounts.active, true),
+      ),
+    )
+  const resolvedAccountId = requestedAccountId
+    ?? suggestCardAccountId(accountRows, issuerLabel, owner)
+  const selectedAccount = accountRows.find((account) => account.id === resolvedAccountId)
+  if (!selectedAccount || selectedAccount.type !== 'card') {
+    return { error: '사용 중인 카드 결제수단을 선택해 주세요.' }
+  }
+  if (selectedAccount.owner && selectedAccount.owner !== owner) {
+    return { error: '소유자와 카드의 소유자가 일치하지 않습니다.' }
+  }
 
   const buffer = Buffer.from(await file.arrayBuffer())
   if (looksLikeBanksalad(buffer)) {
@@ -577,7 +610,6 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
   const householdId = household.householdId
   const stagingContext = await loadStagingContext(householdId)
   const { aliases, categoriesById, doneUids } = stagingContext
-  const issuerLabel = CARD_ISSUERS.find((card) => card.key === issuer)!.label
   let alreadyProcessed = 0
 
   const candidates = staged.filter(({ uid }) => {
@@ -604,6 +636,7 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
 
   const values: Array<typeof importInbox.$inferInsert> = candidates.map(({ row, uid }, index) => {
     const suggestion = suggestions[index]
+    const pay = cardPaymentSource(row, issuerLabel)
     const categoryId = suggestion.categoryId !== null &&
       categoriesById.get(suggestion.categoryId)?.kind === 'expense'
       ? suggestion.categoryId
@@ -622,8 +655,8 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
       kind: 'normal',
       bsCat1: cardSourceMarker(issuer),
       bsCat2: null,
-      pay: issuerLabel,
-      accountId: aliases.get(`${owner}|${issuerLabel}`) ?? null,
+      pay,
+      accountId: aliases.get(`${owner}|${pay}`) ?? selectedAccount.id,
       categoryId,
       memo: '',
       sugSource,

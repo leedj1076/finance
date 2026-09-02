@@ -14,6 +14,16 @@ import { ledgerFiltersFromFormData, ledgerUrl } from './filters'
 
 export type TransactionActionState = {
   error?: string
+  saved?: {
+    id: number
+    date: string
+    flow: 'expense' | 'income' | 'saving'
+    fixed: boolean
+    categoryId: number | null
+    memo: string | null
+    amount: number
+    accountId: number | null
+  }
 }
 
 export async function saveTransaction(
@@ -85,6 +95,14 @@ export async function saveTransaction(
   }
 
   revalidatePath('/ledger')
+  if (formData.get('inline') === '1' && input.id !== null) {
+    return {
+      saved: {
+        id: input.id,
+        ...values,
+      },
+    }
+  }
   redirect(ledgerUrl(input.month, ledgerFiltersFromFormData(formData)))
 }
 

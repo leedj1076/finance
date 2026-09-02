@@ -79,6 +79,7 @@ async function createTestUser(
       household_id: household.id,
       name: 'Parity E2E 카드',
       owner: 'DJ',
+      type: 'card',
       active: true,
     })
     .select('id')
@@ -206,6 +207,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await page.getByRole('tab', { name: '카드사 명세서' }).click()
     await page.locator('select[name="issuer"]').selectOption('samsung')
     await page.locator('select[name="owner"]').selectOption('DJ')
+    await expect(page.locator('select[name="accountId"]')).toHaveValue(String(setup.accountId))
     const fileInput = page.locator('input[name="file"]')
     await fileInput.setInputFiles(statementPath)
     expect(await fileInput.evaluate((input) => (input as HTMLInputElement).files?.[0]?.name))
@@ -215,6 +217,8 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await expect(page.getByText(/인박스에 1건 추가/)).toBeVisible()
     const inboxRow = page.getByRole('row').filter({ hasText: merchant })
     await expect(inboxRow).toHaveCount(1)
+    await expect(inboxRow.getByRole('checkbox', { name: `${merchant} 선택` })).not.toBeChecked()
+    await page.getByRole('checkbox', { name: 'DJ · 삼성카드 그룹 선택' }).check()
     await expect(inboxRow.getByRole('checkbox', { name: `${merchant} 선택` })).toBeChecked()
     await inboxRow.locator('select[name^="category_"]').selectOption(String(setup.categoryId))
     await inboxRow.locator('select[name^="account_"]').selectOption(String(setup.accountId))
@@ -251,6 +255,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await page.getByRole('tab', { name: '카드사 명세서' }).click()
     await page.locator('select[name="issuer"]').selectOption('samsung')
     await page.locator('select[name="owner"]').selectOption('DJ')
+    await expect(page.locator('select[name="accountId"]')).toHaveValue(String(setup.accountId))
     await page.locator('input[name="file"]').setInputFiles(repeatStatementPath)
     await page.getByRole('button', { name: '인박스로 불러오기' }).click({ noWaitAfter: true })
 

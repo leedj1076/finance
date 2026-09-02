@@ -60,7 +60,7 @@ async function createTestUser(email: string, password: string) {
 
   const { data: account, error: accountError } = await admin
     .from('accounts')
-    .insert({ household_id: household.id, name: 'E2E 카드', owner: 'DJ', active: true })
+    .insert({ household_id: household.id, name: 'E2E 카드', owner: 'DJ', type: 'card', active: true })
     .select('id')
     .single()
   if (accountError) throw accountError
@@ -169,8 +169,16 @@ test('family user can manage a transaction and change their password', async ({ 
     await transactionRow.click()
     const editingRow = page.getByRole('row', { name: /E2E 장보기/ })
     await editingRow.getByLabel('금액').fill('15,000')
+    let fullPageNavigations = 0
+    const navigationCounter = (frame: import('@playwright/test').Frame) => {
+      if (frame === page.mainFrame()) fullPageNavigations += 1
+    }
+    page.on('framenavigated', navigationCounter)
     await editingRow.getByRole('button', { name: '거래 수정 저장' }).click()
     await expect(page.getByRole('row', { name: /E2E 장보기/ })).toContainText('15,000원')
+    await expect(page.getByText('저장됨')).toBeVisible()
+    page.off('framenavigated', navigationCounter)
+    expect(fullPageNavigations).toBe(0)
 
     page.once('dialog', (dialog) => dialog.accept())
     await page.getByRole('row', { name: /E2E 장보기/ }).getByRole('button', { name: '삭제' }).click()

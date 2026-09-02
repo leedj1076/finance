@@ -310,7 +310,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
               <span className="text-xs text-zinc-400">최근순</span>
             </div>
             <LedgerFilterForm accounts={formOptions.accounts} filters={filters} majorOptions={majorOptions} month={data.month} />
-            <LedgerTransactionsTable accounts={formOptions.accounts} categories={formOptions.categories} filters={filters} month={data.month} rows={data.transactions} />
+            <LedgerTransactionsTable accounts={formOptions.accounts} categories={formOptions.categories} filters={filters} key={`${data.month}:${filters.account}:${filters.flow}:${filters.major}:${filters.q}`} month={data.month} rows={data.transactions} />
           </article>
 
           <div className="grid gap-4 sm:grid-cols-2">

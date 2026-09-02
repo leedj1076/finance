@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useActionState, useEffect, useState, useTransition } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import { formatWon } from '@/lib/finance'
@@ -36,22 +37,26 @@ function RowSaveButton() {
   return <button aria-label="거래 수정 저장" className="rounded bg-zinc-800 px-2 py-1.5 text-xs font-semibold text-white hover:bg-zinc-700 disabled:opacity-50" disabled={pending} type="submit">{pending ? '…' : '✓'}</button>
 }
 
-function EditableRow({ accounts, categories, filters, onCancel, row }: {
+function EditableRow({ accounts, categories, filters, onCancel, onSaved, row }: {
   accounts: AccountOption[]
   categories: CategoryOption[]
   filters: LedgerFilters
   onCancel: () => void
+  onSaved: (saved: NonNullable<TransactionActionState['saved']>) => void
   row: LedgerRow
 }) {
-  const [state, action] = useActionState(saveTransaction, initialState)
+  const [state, action] = useActionState(async (
+    previousState: TransactionActionState,
+    formData: FormData,
+  ) => {
+    const result = await saveTransaction(previousState, formData)
+    if (result.saved) onSaved(result.saved)
+    return result
+  }, initialState)
   const [flowToken, setFlowToken] = useState(row.flow === 'expense' ? (row.fixed ? 'expense_fixed' : 'expense_variable') : row.flow)
   const flow: TransactionFlow = flowToken.startsWith('expense') ? 'expense' : flowToken as TransactionFlow
   const visibleCategories = categories.filter((category) => category.kind === flow)
   const formId = `ledger-edit-${row.id}`
-
-  function rememberScroll() {
-    sessionStorage.setItem('ledgerScrollY', String(window.scrollY))
-  }
 
   return (
     <>
@@ -78,7 +83,8 @@ function EditableRow({ accounts, categories, filters, onCancel, row }: {
           </select>
         </td>
         <td className="px-3 py-2">
-          <form action={action} className="flex justify-end gap-1" id={formId} onSubmit={rememberScroll}>
+          <form action={action} className="flex justify-end gap-1" id={formId}>
+            <input name="inline" type="hidden" value="1" />
             <input name="transactionId" type="hidden" value={row.id} /><input name="returnAccount" type="hidden" value={filters.account} /><input name="returnFlow" type="hidden" value={filters.flow} /><input name="returnMajor" type="hidden" value={filters.major} /><input name="returnQ" type="hidden" value={filters.q} />
             <RowSaveButton />
             <button aria-label="거래 수정 취소" className="rounded px-2 py-1.5 text-xs text-zinc-500 hover:bg-white hover:text-zinc-900" onClick={onCancel} type="button">✕</button>
@@ -97,7 +103,11 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
   month: string
   rows: LedgerRow[]
 }) {
+  const router = useRouter()
+  const [, startRefresh] = useTransition()
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [localRows, setLocalRows] = useState(rows)
+  const [savedId, setSavedId] = useState<number | null>(null)
 
   useEffect(() => {
     const stored = sessionStorage.getItem('ledgerScrollY')
@@ -110,15 +120,33 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
     sessionStorage.setItem('ledgerScrollY', String(window.scrollY))
   }
 
+  function applySavedRow(saved: NonNullable<TransactionActionState['saved']>) {
+    const category = categories.find((item) => item.id === saved.categoryId)
+    const account = accounts.find((item) => item.id === saved.accountId)
+    setLocalRows((current) => current.map((row) => row.id === saved.id
+      ? {
+          ...row,
+          ...saved,
+          major: category?.major ?? null,
+          sub: category?.sub ?? null,
+          account: account?.name ?? null,
+        }
+      : row))
+    setEditingId(null)
+    setSavedId(saved.id)
+    window.setTimeout(() => setSavedId((current) => current === saved.id ? null : current), 1_500)
+    startRefresh(() => router.refresh())
+  }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[850px] text-left text-sm">
         <thead className="bg-zinc-50 text-xs text-zinc-500"><tr><th className="px-4 py-2.5 font-medium">날짜</th><th className="px-2 py-2.5 font-medium">구분</th><th className="px-2 py-2.5 font-medium">분류</th><th className="px-2 py-2.5 font-medium">사용내역</th><th className="px-2 py-2.5 text-right font-medium">금액</th><th className="px-2 py-2.5 font-medium">결제수단</th><th className="px-3 py-2.5 text-right font-medium">관리</th></tr></thead>
         <tbody className="divide-y divide-zinc-100">
-          {rows.map((row) => editingId === row.id ? (
-            <EditableRow accounts={accounts} categories={categories} filters={filters} key={row.id} onCancel={() => setEditingId(null)} row={row} />
+          {localRows.map((row) => editingId === row.id ? (
+            <EditableRow accounts={accounts} categories={categories} filters={filters} key={row.id} onCancel={() => setEditingId(null)} onSaved={applySavedRow} row={row} />
           ) : (
-            <tr className="group cursor-pointer hover:bg-zinc-50" key={row.id} onClick={() => setEditingId(row.id)} title="클릭해서 수정">
+            <tr className={`group cursor-pointer transition-colors ${savedId === row.id ? 'bg-emerald-50' : 'hover:bg-zinc-50'}`} key={row.id} onClick={() => setEditingId(row.id)} title="클릭해서 수정">
               <td className="whitespace-nowrap px-4 py-2.5 text-zinc-500">{row.date.slice(5)}</td>
               <td className="px-2 py-2.5"><span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${flowStyle[row.flow]}`}>{row.flow === 'expense' && row.fixed ? '고정지출' : flowLabel[row.flow]}</span></td>
               <td className="px-2 py-2.5 text-zinc-700"><span>{row.major ?? '미분류'}</span>{row.sub && <span className="text-zinc-400"> · {row.sub}</span>}</td>
@@ -126,7 +154,8 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
               <td className="whitespace-nowrap px-2 py-2.5 text-right font-medium text-zinc-950">{formatWon(row.amount)}원</td>
               <td className="whitespace-nowrap px-2 py-2.5 text-zinc-500">{row.account ?? '-'}</td>
               <td className="px-3 py-2.5" onClick={(event) => event.stopPropagation()}>
-                <div className="flex justify-end gap-2 opacity-0 transition group-hover:opacity-100">
+                <div className={`flex justify-end gap-2 transition ${savedId === row.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  {savedId === row.id && <span className="text-xs font-medium text-emerald-700">저장됨</span>}
                   <button className="text-xs text-zinc-500 hover:text-zinc-950" onClick={() => setEditingId(row.id)} type="button">수정</button>
                   <form action={deleteTransaction} onSubmit={(event) => { if (!window.confirm('이 거래를 삭제할까요?')) event.preventDefault(); else rememberScroll() }}>
                     <input name="transactionId" type="hidden" value={row.id} /><input name="month" type="hidden" value={month} /><input name="returnAccount" type="hidden" value={filters.account} /><input name="returnFlow" type="hidden" value={filters.flow} /><input name="returnMajor" type="hidden" value={filters.major} /><input name="returnQ" type="hidden" value={filters.q} />
@@ -136,7 +165,7 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
               </td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td className="px-5 py-12 text-center text-zinc-500" colSpan={7}>조건에 맞는 거래가 없습니다.</td></tr>}
+          {localRows.length === 0 && <tr><td className="px-5 py-12 text-center text-zinc-500" colSpan={7}>조건에 맞는 거래가 없습니다.</td></tr>}
         </tbody>
       </table>
     </div>

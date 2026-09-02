@@ -56,7 +56,7 @@ export async function getInboxData(householdId: string) {
       .where(and(eq(categories.householdId, householdId), eq(categories.hidden, false)))
       .orderBy(categories.kind, categories.sortOrder, categories.major, categories.sub),
     db
-      .select({ id: accounts.id, name: accounts.name, owner: accounts.owner })
+      .select({ id: accounts.id, name: accounts.name, owner: accounts.owner, type: accounts.type })
       .from(accounts)
       .where(and(eq(accounts.householdId, householdId), eq(accounts.active, true)))
       .orderBy(accounts.sortOrder, asc(accounts.name)),

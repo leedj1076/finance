@@ -2,7 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, expect, test, vi } from 'vitest'
 
 import { db } from '@/db/client'
-import { categories, households, importBatches, importInbox, transactions } from '@/db/schema'
+import { accounts, categories, households, importBatches, importInbox, transactions } from '@/db/schema'
 import { processInbox } from '@/features/inbox/actions'
 import { upsertMerchantLookup } from '@/features/inbox/merchant-lookup'
 import { normalizeMerchant } from '@/features/inbox/normalize'
@@ -37,12 +37,14 @@ const CARD_HTML = Buffer.from(`
 
 const householdIds: string[] = []
 let categoryId: number
+let accountId: number
 
 function makeFormData() {
   const formData = new FormData()
   formData.set('file', new File([CARD_HTML], 'statement.xls', { type: 'application/vnd.ms-excel' }))
   formData.set('issuer', 'hyundai')
   formData.set('owner', 'DJ')
+  formData.set('accountId', String(accountId))
   return formData
 }
 
@@ -56,6 +58,7 @@ function makeSingleRowFormData(merchant: string, date: string, amount: number) {
   formData.set('file', new File([html], 'single-row.xls', { type: 'application/vnd.ms-excel' }))
   formData.set('issuer', 'hyundai')
   formData.set('owner', 'DJ')
+  formData.set('accountId', String(accountId))
   return formData
 }
 
@@ -72,6 +75,16 @@ beforeAll(async () => {
     .values({ householdId: context.householdId, kind: 'expense', major: '식비', sub: '카페' })
     .returning({ id: categories.id })
   categoryId = category.id
+  const [account] = await db
+    .insert(accounts)
+    .values({
+      householdId: context.householdId,
+      name: 'DJ 현대 테스트카드',
+      owner: 'DJ',
+      type: 'card',
+    })
+    .returning({ id: accounts.id })
+  accountId = account.id
   await db.insert(transactions).values({
     householdId: context.householdId,
     date: '2026-01-01',
@@ -115,6 +128,7 @@ test('stages same-row occurrences with household-scoped history suggestions', as
       categoryId: importInbox.categoryId,
       sugSource: importInbox.sugSource,
       pay: importInbox.pay,
+      accountId: importInbox.accountId,
       flow: importInbox.flow,
       confidence: importInbox.confidence,
     })
@@ -127,6 +141,7 @@ test('stages same-row occurrences with household-scoped history suggestions', as
   expect(rows.every((row) => row.categoryId === categoryId)).toBe(true)
   expect(rows.every((row) => row.sugSource === 'history')).toBe(true)
   expect(rows.every((row) => row.pay === '현대카드' && row.flow === 'expense')).toBe(true)
+  expect(rows.every((row) => row.accountId === accountId)).toBe(true)
   expect(rows.every((row) => row.bsCat1 === '__source:card:hyundai')).toBe(true)
   expect(rows.every((row) => row.confidence === 'high')).toBe(true)
 })
