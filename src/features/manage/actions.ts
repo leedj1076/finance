@@ -9,6 +9,7 @@ import { accountAliases, accounts, categories, categoryRules, transactions } fro
 import { normalizeMerchant } from '@/features/inbox/banksalad'
 import { requireHousehold } from '@/lib/household'
 
+import { classificationFromToken } from './bulk-classification'
 import { manageFlow, optionalId, optionalText, positiveId, requiredText, safePriority } from './manage-input'
 
 type ManageTab = 'accounts' | 'categories' | 'rules' | 'unclassified'
@@ -292,7 +293,6 @@ export async function bulkClassifyTransactions(formData: FormData) {
   const transactionRows = await db
     .select({
       id: transactions.id,
-      flow: transactions.flow,
       memo: transactions.memo,
       rawMerchant: transactions.rawMerchant,
     })
@@ -304,41 +304,54 @@ export async function bulkClassifyTransactions(formData: FormData) {
         inArray(transactions.id, ids),
       ),
     )
+    .orderBy(transactions.id)
   if (transactionRows.length !== ids.length) {
     finish('unclassified', 'error', '선택한 미분류 거래를 모두 찾지 못했습니다.')
   }
 
-  const requestedCategories = new Map<number, number>()
+  const requested = new Map<number, {
+    categoryId: number
+    flow: 'expense' | 'income' | 'saving'
+    fixed: boolean
+  }>()
   for (const row of transactionRows) {
     const categoryId = positiveId(formData.get(`category_${row.id}`))
     if (!categoryId) finish('unclassified', 'error', `${row.id}번 거래의 카테고리를 선택해 주세요.`)
-    requestedCategories.set(row.id, categoryId)
+    const classification = classificationFromToken(formData.get(`flow_${row.id}`))
+    if (!classification) finish('unclassified', 'error', `${row.id}번 거래의 유형을 확인해 주세요.`)
+    requested.set(row.id, { categoryId, ...classification })
   }
-  const categoryIds = [...new Set(requestedCategories.values())]
+  const categoryIds = [...new Set([...requested.values()].map((item) => item.categoryId))]
   const categoryRows = await db
     .select({ id: categories.id, kind: categories.kind })
     .from(categories)
     .where(
       and(
         eq(categories.householdId, household.householdId),
+        eq(categories.hidden, false),
         inArray(categories.id, categoryIds),
       ),
     )
   const categoriesById = new Map(categoryRows.map((row) => [row.id, row]))
   for (const row of transactionRows) {
-    const category = categoriesById.get(requestedCategories.get(row.id)!)
-    if (!category || category.kind !== row.flow) {
+    const classification = requested.get(row.id)!
+    const category = categoriesById.get(classification.categoryId)
+    if (!category || category.kind !== classification.flow) {
       finish('unclassified', 'error', `${row.id}번 거래의 카테고리와 거래 유형이 맞지 않습니다.`)
     }
   }
 
-  await db.transaction(async (tx) => {
+  const updatedCount = await db.transaction(async (tx) => {
+    let updated = 0
     for (const row of transactionRows) {
-      const categoryId = requestedCategories.get(row.id)!
-      const fixed = row.flow === 'expense' && formData.get(`fixed_${row.id}`) === 'on'
-      await tx
+      const classification = requested.get(row.id)!
+      const [changed] = await tx
         .update(transactions)
-        .set({ categoryId, fixed })
+        .set({
+          categoryId: classification.categoryId,
+          flow: classification.flow,
+          fixed: classification.fixed,
+        })
         .where(
           and(
             eq(transactions.householdId, household.householdId),
@@ -346,6 +359,9 @@ export async function bulkClassifyTransactions(formData: FormData) {
             isNull(transactions.categoryId),
           ),
         )
+        .returning({ id: transactions.id })
+      if (!changed) continue
+      updated += 1
 
       const pattern = normalizeMerchant(row.rawMerchant || row.memo || '')
       if (!pattern) continue
@@ -355,24 +371,30 @@ export async function bulkClassifyTransactions(formData: FormData) {
           householdId: household.householdId,
           matchType: 'merchant_norm',
           pattern,
-          categoryId,
-          flow: row.flow,
-          fixed,
+          categoryId: classification.categoryId,
+          flow: classification.flow,
+          fixed: classification.fixed,
           priority: 100,
           hits: 1,
         })
         .onConflictDoUpdate({
           target: [categoryRules.householdId, categoryRules.matchType, categoryRules.pattern],
           set: {
-            categoryId,
-            flow: row.flow,
-            fixed,
+            categoryId: classification.categoryId,
+            flow: classification.flow,
+            fixed: classification.fixed,
             hits: sql`${categoryRules.hits} + 1`,
           },
         })
     }
+    return updated
   })
 
+  if (updatedCount === 0) {
+    finish('unclassified', 'error', '선택한 거래가 이미 다른 화면에서 분류되었습니다.')
+  }
   refreshDataPaths()
-  finish('unclassified', 'saved', `${transactionRows.length}건을 분류하고 다음 추천에 반영했습니다.`)
+  const skipped = transactionRows.length - updatedCount
+  const suffix = skipped > 0 ? ` · 이미 분류된 ${skipped}건 제외` : ''
+  finish('unclassified', 'saved', `${updatedCount}건을 분류하고 다음 추천에 반영했습니다${suffix}.`)
 }

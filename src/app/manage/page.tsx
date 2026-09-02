@@ -4,14 +4,13 @@ import { redirect } from 'next/navigation'
 import { AppHeader } from '@/components/app-header'
 import { SubmitButton } from '@/components/submit-button'
 import {
-  bulkClassifyTransactions,
   saveAccount,
   saveAlias,
   saveCategory,
   saveRule,
 } from '@/features/manage/actions'
+import { BulkClassifyForm } from '@/features/manage/bulk-classify-form'
 import { getManageData, type ManageTab } from '@/features/manage/queries'
-import { formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 
 type ManagePageProps = {
@@ -201,41 +200,10 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
             {data.unclassified.length === 0 ? (
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-12 text-center"><p className="font-semibold text-emerald-900">미분류 거래가 없습니다.</p><p className="mt-2 text-sm text-emerald-700">현재 모든 거래에 카테고리가 연결되어 있습니다.</p></div>
             ) : (
-              <form action={bulkClassifyTransactions} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-                <div className="flex flex-col justify-between gap-3 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center">
-                  <div>
-                    <h2 className="font-semibold text-zinc-950">미분류 거래 일괄 분류</h2>
-                    <p className="mt-1 text-xs text-zinc-500">처리할 거래를 선택하고 각 거래 유형에 맞는 카테고리를 지정해 주세요.</p>
-                  </div>
-                  <SubmitButton className={saveButton} pendingLabel="분류 중…" type="submit">선택 거래 저장</SubmitButton>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[900px] text-left text-sm">
-                    <thead className="bg-zinc-50 text-xs text-zinc-500">
-                      <tr>
-                        <th className="w-14 px-4 py-3 font-medium">선택</th>
-                        <th className="px-3 py-3 font-medium">날짜·유형</th>
-                        <th className="px-3 py-3 font-medium">사용내역</th>
-                        <th className="px-3 py-3 text-right font-medium">금액</th>
-                        <th className="min-w-64 px-3 py-3 font-medium">카테고리</th>
-                        <th className="px-3 py-3 font-medium">고정비</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-100">
-                      {data.unclassified.map((transaction) => (
-                        <tr className="hover:bg-zinc-50" key={transaction.id}>
-                          <td className="px-4 py-3 text-center"><input aria-label={`${transaction.rawMerchant || transaction.memo || '거래'} 선택`} className="h-4 w-4 accent-emerald-700" name="ids" type="checkbox" value={transaction.id} /></td>
-                          <td className="whitespace-nowrap px-3 py-3"><p className="text-xs text-zinc-500">{transaction.date}</p><p className="mt-1 font-medium text-zinc-800">{flowLabels[transaction.flow]}</p></td>
-                          <td className="max-w-80 px-3 py-3"><p className="truncate font-medium text-zinc-950">{transaction.rawMerchant || transaction.memo || '내용 없음'}</p><p className="mt-1 truncate text-xs text-zinc-400">{transaction.accountName ?? '결제수단 없음'}</p></td>
-                          <td className="whitespace-nowrap px-3 py-3 text-right font-semibold text-zinc-900">{formatWon(transaction.amount)}원</td>
-                          <td className="px-3 py-3"><select className={inputClass} defaultValue="" name={`category_${transaction.id}`}><option value="">선택</option>{data.categories.filter((category) => category.kind === transaction.flow && !category.hidden).map((category) => <option key={category.id} value={category.id}>{category.major} · {category.sub}</option>)}</select></td>
-                          <td className="px-3 py-3">{transaction.flow === 'expense' ? <label className="flex items-center gap-2 whitespace-nowrap text-sm text-zinc-700"><input defaultChecked={transaction.fixed} name={`fixed_${transaction.id}`} type="checkbox" /> 고정</label> : <span className="text-xs text-zinc-400">해당 없음</span>}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </form>
+              <BulkClassifyForm
+                categories={data.categories.filter((category) => !category.hidden)}
+                rows={data.unclassified}
+              />
             )}
             {data.counts.unclassified > data.unclassified.length && <p className="text-center text-xs text-zinc-500">최근 100개만 표시됩니다. 먼저 보이는 거래를 분류하면 다음 항목이 나타납니다.</p>}
           </section>

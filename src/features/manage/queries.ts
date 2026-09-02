@@ -9,6 +9,11 @@ import {
   recurring,
   transactions,
 } from '@/db/schema'
+import {
+  buildHistorySuggester,
+  normalizeMerchant,
+  type TransactionFlow,
+} from '@/features/inbox/banksalad'
 
 export type ManageTab = 'accounts' | 'categories' | 'rules' | 'unclassified'
 
@@ -111,6 +116,125 @@ export async function getManageData(
         .limit(100)
     : []
 
+  const [suggestionRuleRows, suggestionHistoryRows] = options.tab === 'unclassified'
+    ? await Promise.all([
+        db
+          .select({
+            pattern: categoryRules.pattern,
+            flow: categoryRules.flow,
+            fixed: categoryRules.fixed,
+            categoryId: categories.id,
+            categoryKind: categories.kind,
+          })
+          .from(categoryRules)
+          .innerJoin(
+            categories,
+            and(
+              eq(categories.id, categoryRules.categoryId),
+              eq(categories.householdId, householdId),
+              eq(categories.hidden, false),
+            ),
+          )
+          .where(
+            and(
+              eq(categoryRules.householdId, householdId),
+              eq(categoryRules.matchType, 'merchant_norm'),
+            ),
+          )
+          .orderBy(desc(categoryRules.hits)),
+        db
+          .select({
+            flow: transactions.flow,
+            fixed: transactions.fixed,
+            major: categories.major,
+            sub: categories.sub,
+            rawMerchant: transactions.rawMerchant,
+            memo: transactions.memo,
+            date: transactions.date,
+          })
+          .from(transactions)
+          .innerJoin(
+            categories,
+            and(
+              eq(categories.id, transactions.categoryId),
+              eq(categories.householdId, householdId),
+              eq(categories.hidden, false),
+            ),
+          )
+          .where(eq(transactions.householdId, householdId)),
+      ])
+    : [[], []]
+
+  const activeCategories = categoryRows.filter((category) => !category.hidden)
+  const activeCategoryByTaxonomy = new Map(
+    activeCategories.map((category) => [
+      `${category.kind}|${category.major}|${category.sub}`,
+      category,
+    ]),
+  )
+  const rulesByPattern = new Map<
+    string,
+    { flow: TransactionFlow; fixed: boolean; categoryId: number }
+  >()
+  for (const rule of suggestionRuleRows) {
+    if (rulesByPattern.has(rule.pattern)) continue
+    if (!rule.flow || rule.flow !== rule.categoryKind) continue
+    rulesByPattern.set(rule.pattern, {
+      flow: rule.flow,
+      fixed: rule.flow === 'expense' && Boolean(rule.fixed),
+      categoryId: rule.categoryId,
+    })
+  }
+  const suggestFromHistory = buildHistorySuggester(
+    suggestionHistoryRows
+      .map((row) => ({
+        flow: row.flow,
+        fixed: row.fixed,
+        major: row.major,
+        sub: row.sub,
+        merchant: row.rawMerchant || row.memo || '',
+        date: row.date,
+      }))
+      .filter((row) => row.merchant),
+  )
+  const unclassifiedData = unclassifiedRows.map((row) => {
+    const merchant = row.rawMerchant || row.memo || ''
+    const rule = rulesByPattern.get(normalizeMerchant(merchant))
+    if (rule) {
+      return {
+        ...row,
+        suggestedFlow: rule.flow,
+        suggestedFixed: rule.fixed,
+        suggestedCategoryId: rule.categoryId,
+        suggestionSource: 'rule' as const,
+      }
+    }
+
+    const history = suggestFromHistory(merchant)
+    const historicalCategory = history
+      ? activeCategoryByTaxonomy.get(
+          `${history.flow}|${history.major}|${history.sub}`,
+        )
+      : null
+    if (history && historicalCategory) {
+      return {
+        ...row,
+        suggestedFlow: history.flow,
+        suggestedFixed: history.fixed,
+        suggestedCategoryId: historicalCategory.id,
+        suggestionSource: 'history' as const,
+      }
+    }
+
+    return {
+      ...row,
+      suggestedFlow: row.flow,
+      suggestedFixed: row.fixed,
+      suggestedCategoryId: null,
+      suggestionSource: null,
+    }
+  })
+
   const [recurringCountRows] = options.tab === 'categories'
     ? await Promise.all([
         db
@@ -127,7 +251,7 @@ export async function getManageData(
     categories: categoryData.map((row) => ({ ...row, recurringCount: recurringUsage.get(row.id) ?? 0 })),
     rules: ruleRows,
     aliases: aliasRows,
-    unclassified: unclassifiedRows,
+    unclassified: unclassifiedData,
     counts: {
       accounts: accountRows.length,
       categories: categoryRows.length,
