@@ -1,3 +1,5 @@
+import { roundLikePython } from '@/features/ledger/forecast'
+
 export type VariableSpendRow = {
   major: string
   average: number
@@ -19,6 +21,22 @@ function cutAmount(value: string | number | undefined) {
 
 export function quickCutAmount(average: number, percent: 10 | 20) {
   return Math.round(Math.max(average, 0) * percent / 100)
+}
+
+export function spendingCeilingForTarget({
+  averageIncome,
+  initialSavingsTarget,
+  savingsTarget,
+  serverSpendCeiling,
+}: {
+  averageIncome: number
+  initialSavingsTarget: number
+  savingsTarget: number
+  serverSpendCeiling: number
+}) {
+  return savingsTarget === initialSavingsTarget
+    ? serverSpendCeiling
+    : roundLikePython(averageIncome * (1 - savingsTarget / 100))
 }
 
 export function calculateVariableSpendSimulation({

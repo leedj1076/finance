@@ -6,9 +6,26 @@ import {
   budgetAmountsFromCuts,
   calculateVariableSpendSimulation,
   quickCutAmount,
+  spendingCeilingForTarget,
 } from '@/features/budgets/simulator-calculations'
 
 describe('variable-spend simulator calculations', () => {
+  test('uses the server-rounded spending ceiling for the initial UI target', () => {
+    expect(spendingCeilingForTarget({
+      averageIncome: 3_000_001,
+      initialSavingsTarget: 50,
+      savingsTarget: 50,
+      serverSpendCeiling: 1_500_000,
+    })).toBe(1_500_000)
+
+    expect(spendingCeilingForTarget({
+      averageIncome: 3_000_002,
+      initialSavingsTarget: 50,
+      savingsTarget: 75,
+      serverSpendCeiling: 1_500_001,
+    })).toBe(750_000)
+  })
+
   test('updates the expected net savings rate and target gap from total cuts', () => {
     const belowTarget = calculateVariableSpendSimulation({
       averageIncome: 10_000_000,

@@ -151,6 +151,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
           month={data.month}
           rows={data.rows}
           savingsTarget={data.savingsTarget}
+          spendCeiling={data.spendCeiling}
         />
       </main>
     </div>

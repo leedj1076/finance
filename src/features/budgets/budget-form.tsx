@@ -6,6 +6,7 @@ import { useFormStatus } from 'react-dom'
 import { formatRate, formatWon } from '@/lib/finance'
 
 import { saveBudgetPlan, type BudgetActionState } from './actions'
+import { spendingCeilingForTarget } from './simulator-calculations'
 import { VariableSpendSimulator } from './simulator'
 
 type BudgetRow = {
@@ -26,6 +27,7 @@ type BudgetFormProps = {
   month: string
   rows: BudgetRow[]
   savingsTarget: number
+  spendCeiling: number
 }
 
 const groups = [
@@ -56,6 +58,7 @@ export function BudgetForm({
   month,
   rows,
   savingsTarget,
+  spendCeiling,
 }: BudgetFormProps) {
   const [state, action] = useActionState(saveBudgetPlan, initialState)
   const [target, setTarget] = useState(savingsTarget)
@@ -66,8 +69,13 @@ export function BudgetForm({
     () => Object.values(amounts).reduce((sum, value) => sum + (Number(value) || 0), 0),
     [amounts],
   )
-  const spendCeiling = Math.round(averageIncome * (1 - target / 100))
-  const targetGap = Math.max(averageExpense - spendCeiling, 0)
+  const targetSpendCeiling = spendingCeilingForTarget({
+    averageIncome,
+    initialSavingsTarget: savingsTarget,
+    savingsTarget: target,
+    serverSpendCeiling: spendCeiling,
+  })
+  const targetGap = Math.max(averageExpense - targetSpendCeiling, 0)
 
   function fillFrom(key: 'average' | 'previousBudget') {
     setAmounts(Object.fromEntries(rows.map((row) => [row.major, String(row[key] || '')])))
@@ -116,7 +124,7 @@ export function BudgetForm({
             </div>
             <div className="rounded-xl bg-emerald-50 p-4">
               <p className="text-xs text-emerald-700">목표 지출 상한</p>
-              <p className="mt-1 font-semibold text-emerald-800">{formatWon(spendCeiling)}원</p>
+              <p className="mt-1 font-semibold text-emerald-800">{formatWon(targetSpendCeiling)}원</p>
             </div>
           </div>
         </div>
