@@ -1,7 +1,8 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
+import { useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from 'react'
 
+import { ChartTooltip, type ChartTooltipState } from '@/features/analytics/chart-tooltip'
 import { formatWon } from '@/lib/finance'
 
 type TrendPoint = {
@@ -31,8 +32,14 @@ function compactWon(value: number) {
   return formatWon(value)
 }
 
+function monthLabel(month: string, fallbackIndex: number) {
+  const match = month.match(/(?:^|-)0?(\d{1,2})$/)
+  return match ? `${Number(match[1])}월` : (month || `${fallbackIndex + 1}월`)
+}
+
 export function NetWorthChart({ data }: { data: TrendPoint[] }) {
   const hydrated = useHydrated()
+  const [tooltip, setTooltip] = useState<ChartTooltipState | null>(null)
   const activeValues = data
     .filter((point) => point.active)
     .flatMap((point) => [point.assets, point.debt, point.netWorth])
@@ -70,6 +77,23 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
     { key: 'assets' as const, label: '총자산', color: '#2563eb', width: 2 },
     { key: 'debt' as const, label: '부채', color: '#e11d48', width: 2 },
   ]
+  const hitWidth = plotWidth / 12
+
+  function showTooltip(event: ReactPointerEvent<SVGElement>, index: number) {
+    const svg = event.currentTarget.ownerSVGElement
+    if (!svg) return
+    const bounds = svg.getBoundingClientRect()
+    setTooltip({
+      title: monthLabel(data[index].month, index),
+      rows: series.map((item) => ({
+        color: item.color,
+        label: item.label,
+        value: data[index][item.key],
+      })),
+      x: ((event.clientX - bounds.left) / bounds.width) * WIDTH,
+      y: ((event.clientY - bounds.top) / bounds.height) * HEIGHT,
+    })
+  }
 
   return (
     <div>
@@ -81,12 +105,13 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
           </span>
         ))}
       </div>
-      <svg
-        aria-label="월별 순자산 추이"
-        className="h-auto w-full min-w-[620px]"
-        role="img"
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      >
+      <div className="relative min-w-[620px]" onPointerLeave={() => setTooltip(null)}>
+        <svg
+          aria-label="월별 순자산 추이"
+          className="h-auto w-full"
+          role="img"
+          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        >
         {[0, 0.5, 1].map((ratio) => {
           const y = TOP + plotHeight * ratio
           const value = maxValue - range * ratio
@@ -111,27 +136,40 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
             {index + 1}월
           </text>
         ))}
-        {series.map((item) => {
-          const rows = points(item.key)
-          return (
-            <g key={item.key}>
-              <path
-                d={pathFor(rows)}
-                fill="none"
-                stroke={item.color}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={item.width}
-              />
-              {rows.map((point, index) => point.y === null ? null : (
-                <circle cx={point.x} cy={point.y} fill={item.color} key={index} r={item.key === 'netWorth' ? 4 : 3}>
-                  <title>{data[index].month} {item.label} {formatWon(point.value)}원</title>
-                </circle>
-              ))}
-            </g>
-          )
-        })}
-      </svg>
+          {series.map((item) => {
+            const rows = points(item.key)
+            return (
+              <g key={item.key}>
+                <path
+                  d={pathFor(rows)}
+                  fill="none"
+                  stroke={item.color}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={item.width}
+                />
+                {rows.map((point, index) => point.y === null ? null : (
+                  <circle cx={point.x} cy={point.y} fill={item.color} key={index} pointerEvents="none" r={item.key === 'netWorth' ? 4 : 3} />
+                ))}
+              </g>
+            )
+          })}
+          {data.map((point, index) => !point.active ? null : (
+            <rect
+              aria-label={`${monthLabel(point.month, index)} 자산 요약`}
+              fill="transparent"
+              height={plotHeight}
+              key={`hit-${point.month}`}
+              onPointerEnter={(event) => showTooltip(event, index)}
+              onPointerMove={(event) => showTooltip(event, index)}
+              width={hitWidth}
+              x={Math.max(LEFT, LEFT + (plotWidth * index) / 11 - hitWidth / 2)}
+              y={TOP}
+            />
+          ))}
+        </svg>
+        <ChartTooltip chartHeight={HEIGHT} chartWidth={WIDTH} tooltip={tooltip} />
+      </div>
     </div>
   )
 }
