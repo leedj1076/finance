@@ -6,13 +6,18 @@ import { createServerSupabase } from '@/lib/supabase/server'
 
 import { PasswordChangeForm } from './password-change-form'
 
-export default async function SettingsPage() {
+type SettingsPageProps = {
+  searchParams: Promise<{ passwordChanged?: string | string[] }>
+}
+
+export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   const supabase = await createServerSupabase()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user?.email) redirect('/login')
+  const params = await searchParams
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -25,7 +30,8 @@ export default async function SettingsPage() {
           <p className="text-sm font-medium text-emerald-700">설정</p>
           <h1 className="mt-2 text-2xl font-semibold text-zinc-950">비밀번호 변경</h1>
           <p className="mt-2 text-sm text-zinc-500">로그인 계정: {user.email}</p>
-          <PasswordChangeForm email={user.email} />
+          {params.passwordChanged === '1' && <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">비밀번호를 변경했습니다.</p>}
+          <PasswordChangeForm />
         </section>
       </main>
     </div>

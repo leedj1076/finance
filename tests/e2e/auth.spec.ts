@@ -79,6 +79,7 @@ async function createTestUser(email: string, password: string) {
     { household_id: household.id, date: '2026-02-12', flow: 'expense', amount: 3_100_000, category_id: category.id, raw_merchant: 'E2E 마트 2호점', source: 'e2e' },
     { household_id: household.id, date: '2026-03-10', flow: 'income', amount: 5_300_000, source: 'e2e' },
     { household_id: household.id, date: '2026-03-12', flow: 'expense', amount: 3_200_000, category_id: category.id, raw_merchant: 'E2E 마트 3호점', source: 'e2e' },
+    { household_id: household.id, date: '2026-03-15', flow: 'expense', amount: 7_777, account_id: account.id, raw_merchant: 'E2E 미분류 가맹점', source: 'e2e' },
   ])
   if (transactionError) throw transactionError
 
@@ -205,6 +206,27 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page).toHaveURL('/assets?month=2026-02&saved=1')
     await expect(page.getByText('2026-02 자산 잔액을 저장했습니다.')).toBeVisible()
     await expect(page.locator('article').filter({ hasText: '순자산' }).first()).toContainText('1,050,000원')
+    expect(browserErrors).toEqual([])
+
+    await page.getByRole('link', { name: '관리', exact: true }).click()
+    await expect(page).toHaveURL('/manage')
+    await expect(page.getByRole('heading', { name: '가계부 관리' })).toBeVisible()
+    const accountForm = page.locator('form').filter({ has: page.locator('input[name="name"][value="E2E 카드"]') })
+    await accountForm.locator('input[name="memo"]').fill('가족 공용 테스트 카드')
+    await accountForm.getByRole('button', { name: '저장' }).click()
+    await expect(page.getByText('결제수단을 저장했습니다.')).toBeVisible()
+
+    await page.getByRole('link', { name: /미분류 거래/ }).click()
+    const unclassifiedForm = page.locator('form').filter({ hasText: 'E2E 미분류 가맹점' })
+    await unclassifiedForm.locator('select[name="categoryId"]').selectOption(String(setup.categoryId))
+    await unclassifiedForm.getByRole('button', { name: '분류' }).click()
+    await expect(page.getByText('거래를 분류하고 다음 추천에 반영했습니다.')).toBeVisible()
+    await expect(page.getByText('E2E 미분류 가맹점')).toHaveCount(0)
+
+    await page.getByRole('link', { name: /추천 규칙/ }).click()
+    await page.getByLabel('분류 규칙 검색').fill('ee미분류가맹점')
+    await page.getByRole('button', { name: '검색' }).click()
+    await expect(page.getByText('ee미분류가맹점', { exact: true })).toBeVisible()
     expect(browserErrors).toEqual([])
 
     await page.getByRole('link', { name: '설정' }).click()
