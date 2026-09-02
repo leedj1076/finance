@@ -3,7 +3,7 @@ import postgres from 'postgres'
 import { afterAll, beforeAll, expect, test, vi } from 'vitest'
 
 import { db } from '@/db/client'
-import { categories, categoryRules, households, transactions } from '@/db/schema'
+import { categories, households, merchantLookup, transactions } from '@/db/schema'
 import { normalizeMerchant } from '@/features/inbox/normalize'
 import { bulkClassifyTransactions } from '@/features/manage/actions'
 import {
@@ -42,6 +42,7 @@ let hiddenValidationTransactionId: number
 let delayTransactionId: number
 let raceTransactionId: number
 let isolationTransactionId: number
+let aiSuggestionTransactionId: number
 
 beforeAll(async () => {
   const created = await db
@@ -122,6 +123,7 @@ beforeAll(async () => {
       { householdId: context.householdId, date: '2026-08-08', flow: 'expense', fixed: false, memo: 'bulk-delay-row', rawMerchant: 'bulk-delay-row', amount: 14_000 },
       { householdId: context.householdId, date: '2026-08-09', flow: 'expense', fixed: false, memo: '동시분류대상', rawMerchant: '동시분류대상', amount: 15_000 },
       { householdId: context.householdId, date: '2026-08-10', flow: 'expense', fixed: false, memo: '격리상점', rawMerchant: '격리상점', amount: 16_000 },
+      { householdId: context.householdId, date: '2026-08-11', flow: 'expense', fixed: false, memo: 'AI전용상점', rawMerchant: 'AI전용상점', amount: 17_000 },
     ])
     .returning({ id: transactions.id })
   ;[
@@ -132,25 +134,50 @@ beforeAll(async () => {
     delayTransactionId,
     raceTransactionId,
     isolationTransactionId,
+    aiSuggestionTransactionId,
   ] = recommendationRows.map((row) => row.id)
 
-  await db.insert(categoryRules).values({
+  await db.insert(merchantLookup).values({
     householdId: context.householdId,
-    matchType: 'merchant_norm',
-    pattern: normalizeMerchant('규칙우선상점'),
+    normMerchant: normalizeMerchant('규칙우선상점'),
+    displayMerchant: '규칙우선상점',
     categoryId: alternateExpenseCategoryId,
     flow: 'expense',
-    fixed: true,
-    hits: 5,
+    source: 'user',
+    confidence: 'high',
+    hitCount: 5,
   })
-  await db.insert(categoryRules).values({
+  await db.insert(merchantLookup).values([
+    {
+      householdId: context.householdId,
+      normMerchant: normalizeMerchant('추천상점'),
+      displayMerchant: '추천상점',
+      categoryId: alternateExpenseCategoryId,
+      flow: 'expense',
+      source: 'ai',
+      confidence: 'low',
+      hitCount: 2,
+    },
+    {
+      householdId: context.householdId,
+      normMerchant: normalizeMerchant('AI전용상점'),
+      displayMerchant: 'AI전용상점',
+      categoryId: alternateExpenseCategoryId,
+      flow: 'expense',
+      source: 'ai',
+      confidence: 'low',
+      hitCount: 1,
+    },
+  ])
+  await db.insert(merchantLookup).values({
     householdId: householdIds[1],
-    matchType: 'merchant_norm',
-    pattern: normalizeMerchant('격리상점'),
+    normMerchant: normalizeMerchant('격리상점'),
+    displayMerchant: '격리상점',
     categoryId: foreignExpenseCategoryId,
     flow: 'expense',
-    fixed: true,
-    hits: 10,
+    source: 'user',
+    confidence: 'high',
+    hitCount: 10,
   })
   await db.insert(transactions).values({
     householdId: householdIds[1],
@@ -182,7 +209,7 @@ test('maps Flask classification tokens including fixed and variable expense', ()
   expect(classificationFromToken('invalid')).toBeNull()
 })
 
-test('prefills rule suggestions before history and carries the historical fixed flag', async () => {
+test('prefills user dictionary suggestions before history and preserves the row fixed flag', async () => {
   const data = await getManageData(context.householdId, { tab: 'unclassified' })
   const historySuggestion = data.unclassified.find(
     (row) => row.id === historySuggestionTransactionId,
@@ -192,6 +219,9 @@ test('prefills rule suggestions before history and carries the historical fixed 
   )
   const isolationSuggestion = data.unclassified.find(
     (row) => row.id === isolationTransactionId,
+  )
+  const aiSuggestion = data.unclassified.find(
+    (row) => row.id === aiSuggestionTransactionId,
   )
 
   expect(historySuggestion).toMatchObject({
@@ -204,11 +234,17 @@ test('prefills rule suggestions before history and carries the historical fixed 
     suggestedFlow: 'expense',
     suggestedFixed: true,
     suggestedCategoryId: alternateExpenseCategoryId,
-    suggestionSource: 'rule',
+    suggestionSource: 'user',
   })
   expect(isolationSuggestion).toMatchObject({
     suggestedCategoryId: null,
     suggestionSource: null,
+  })
+  expect(aiSuggestion).toMatchObject({
+    suggestedFlow: 'expense',
+    suggestedFixed: false,
+    suggestedCategoryId: alternateExpenseCategoryId,
+    suggestionSource: 'ai',
   })
 })
 
@@ -246,7 +282,7 @@ test('cannot classify a transaction from another household', async () => {
   expect(foreignRows).toHaveLength(1)
 })
 
-test('bulk classifies selected rows and learns merchant rules', async () => {
+test('bulk classifies selected rows and learns user merchant dictionary entries', async () => {
   const formData = new FormData()
   formData.append('ids', String(transactionIds[0]))
   formData.append('ids', String(transactionIds[1]))
@@ -268,13 +304,13 @@ test('bulk classifies selected rows and learns merchant rules', async () => {
   expect(rows.find((row) => row.id === transactionIds[0])).toMatchObject({ categoryId: expenseCategoryId, flow: 'expense', fixed: true })
   expect(rows.find((row) => row.id === transactionIds[1])).toMatchObject({ categoryId: incomeCategoryId, flow: 'income', fixed: false })
 
-  const rules = await db
-    .select({ pattern: categoryRules.pattern, flow: categoryRules.flow })
-    .from(categoryRules)
-    .where(eq(categoryRules.householdId, context.householdId))
-  expect(rules).toEqual(expect.arrayContaining([
-    expect.objectContaining({ pattern: normalizeMerchant('동네식당'), flow: 'expense' }),
-    expect.objectContaining({ pattern: normalizeMerchant('회사급여'), flow: 'income' }),
+  const dictionary = await db
+    .select({ normMerchant: merchantLookup.normMerchant, flow: merchantLookup.flow, source: merchantLookup.source })
+    .from(merchantLookup)
+    .where(eq(merchantLookup.householdId, context.householdId))
+  expect(dictionary).toEqual(expect.arrayContaining([
+    expect.objectContaining({ normMerchant: normalizeMerchant('동네식당'), flow: 'expense', source: 'user' }),
+    expect.objectContaining({ normMerchant: normalizeMerchant('회사급여'), flow: 'income', source: 'user' }),
   ]))
 })
 
@@ -306,7 +342,7 @@ test('rejects hidden categories even when the request is forged', async () => {
   expect(row.categoryId).toBeNull()
 })
 
-test('learns rules and counts success only for rows won by the conditional update', async () => {
+test('learns dictionary entries and counts success only for rows won by the conditional update', async () => {
   await raw.unsafe('drop trigger if exists test_bulk_classify_delay_trigger on transactions')
   await raw.unsafe('drop function if exists test_bulk_classify_delay()')
   await raw.unsafe(`
@@ -348,16 +384,16 @@ test('learns rules and counts success only for rows won by the conditional updat
       .where(eq(transactions.id, raceTransactionId))
     expect(raceRow.categoryId).toBe(alternateExpenseCategoryId)
 
-    const raceRules = await db
-      .select({ id: categoryRules.id })
-      .from(categoryRules)
+    const raceEntries = await db
+      .select({ id: merchantLookup.id })
+      .from(merchantLookup)
       .where(
         and(
-          eq(categoryRules.householdId, context.householdId),
-          eq(categoryRules.pattern, normalizeMerchant('동시분류대상')),
+          eq(merchantLookup.householdId, context.householdId),
+          eq(merchantLookup.normMerchant, normalizeMerchant('동시분류대상')),
         ),
       )
-    expect(raceRules).toHaveLength(0)
+    expect(raceEntries).toHaveLength(0)
   } finally {
     await raw.unsafe('drop trigger if exists test_bulk_classify_delay_trigger on transactions')
     await raw.unsafe('drop function if exists test_bulk_classify_delay()')

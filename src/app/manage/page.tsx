@@ -3,13 +3,11 @@ import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
 import { SubmitButton } from '@/components/submit-button'
-import {
-  saveAlias,
-  saveRule,
-} from '@/features/manage/actions'
+import { saveAlias } from '@/features/manage/actions'
 import { AccountsManager } from '@/features/manage/accounts-manager'
 import { BulkClassifyForm } from '@/features/manage/bulk-classify-form'
 import { CategoriesManager } from '@/features/manage/categories-manager'
+import { MerchantDictionary } from '@/features/manage/merchant-dictionary'
 import { getManageData, type ManageTab } from '@/features/manage/queries'
 import { requireHousehold } from '@/lib/household'
 
@@ -25,7 +23,7 @@ type ManagePageProps = {
 const tabs: Array<{ key: ManageTab; label: string }> = [
   { key: 'accounts', label: '결제수단' },
   { key: 'categories', label: '카테고리' },
-  { key: 'rules', label: '추천 규칙' },
+  { key: 'rules', label: '가맹점 사전' },
   { key: 'unclassified', label: '미분류 거래' },
 ]
 
@@ -58,7 +56,7 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
         <div>
           <p className="text-sm font-medium text-emerald-700">기준 정보</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">가계부 관리</h1>
-          <p className="mt-2 text-sm text-zinc-500">결제수단과 카테고리, 자동 추천 기준을 한곳에서 관리합니다.</p>
+          <p className="mt-2 text-sm text-zinc-500">결제수단과 카테고리, 가맹점별 추천 기준을 한곳에서 관리합니다.</p>
         </div>
 
         {saved && <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{saved}</p>}
@@ -88,29 +86,14 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
           <section className="mt-6 space-y-8">
             <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-                <div><h2 className="font-semibold text-zinc-950">가맹점 분류 추천</h2><p className="mt-1 text-xs text-zinc-500">총 {data.counts.rules.toLocaleString('ko-KR')}개 · 사용 횟수가 높은 순으로 100개까지 표시</p></div>
-                <form className="flex gap-2" method="get"><input name="tab" type="hidden" value="rules" /><input aria-label="분류 규칙 검색" className={inputClass} defaultValue={ruleQuery} name="q" placeholder="정규화된 가맹점 검색" /><SubmitButton className={secondaryButton} pendingLabel="검색 중…" type="submit">검색</SubmitButton></form>
+                <div><h2 className="font-semibold text-zinc-950">가맹점 사전</h2><p className="mt-1 text-xs text-zinc-500">총 {data.counts.rules.toLocaleString('ko-KR')}개 · 사용자 확정과 AI 추천을 사용 횟수 순으로 100개까지 표시</p></div>
+                <form className="flex gap-2" method="get"><input name="tab" type="hidden" value="rules" /><input aria-label="가맹점 사전 검색" className={inputClass} defaultValue={ruleQuery} name="q" placeholder="가맹점·업종 검색" /><SubmitButton className={secondaryButton} pendingLabel="검색 중…" type="submit">검색</SubmitButton></form>
               </div>
             </div>
-            <div className="space-y-3">
-              {data.rules.map((rule) => {
-                const flow = rule.flow ?? 'expense'
-                return (
-                  <form action={saveRule} className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm lg:grid-cols-[1.2fr_.7fr_1.4fr_1fr_.5fr_.45fr_auto_auto] lg:items-end" key={rule.id}>
-                    <input name="id" type="hidden" value={rule.id} />
-                    <div className="min-w-0"><p className="truncate text-sm font-medium text-zinc-950" title={rule.pattern}>{rule.pattern}</p><p className="mt-1 text-xs text-zinc-400">{rule.matchType} · {rule.hits.toLocaleString('ko-KR')}회 학습</p></div>
-                    <label className="grid gap-1 text-xs font-medium text-zinc-600">유형<select className={inputClass} defaultValue={flow} name="flow"><option value="expense">지출</option><option value="income">수입</option><option value="saving">저축</option></select></label>
-                    <label className="grid gap-1 text-xs font-medium text-zinc-600">카테고리<select className={inputClass} defaultValue={rule.categoryId ?? ''} name="categoryId"><option value="">미지정</option>{data.categories.filter((category) => category.kind === flow).map((category) => <option key={category.id} value={category.id}>{category.major} · {category.sub}</option>)}</select></label>
-                    <label className="grid gap-1 text-xs font-medium text-zinc-600">결제수단<select className={inputClass} defaultValue={rule.accountId ?? ''} name="accountId"><option value="">미지정</option>{data.accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
-                    <label className="grid gap-1 text-xs font-medium text-zinc-600">우선순위<input className={inputClass} defaultValue={rule.priority} max="999" min="0" name="priority" type="number" /></label>
-                    <label className="flex items-center gap-2 whitespace-nowrap pb-2 text-sm text-zinc-700"><input defaultChecked={rule.fixed ?? false} name="fixed" type="checkbox" /> 고정비</label>
-                    <SubmitButton className={saveButton} pendingLabel="저장 중…" type="submit">저장</SubmitButton>
-                    <SubmitButton className="rounded-lg px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60" name="intent" pendingLabel="삭제 중…" type="submit" value="delete">삭제</SubmitButton>
-                  </form>
-                )
-              })}
-              {data.rules.length === 0 && <p className="rounded-2xl border border-dashed border-zinc-300 bg-white px-5 py-10 text-center text-sm text-zinc-500">검색 조건에 맞는 추천 규칙이 없습니다.</p>}
-            </div>
+            <MerchantDictionary
+              categories={data.categories.filter((category) => !category.hidden)}
+              entries={data.dictionary}
+            />
 
             <div>
               <h2 className="text-lg font-semibold text-zinc-950">뱅크샐러드 결제수단 별칭</h2>

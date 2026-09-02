@@ -1,0 +1,175 @@
+'use client'
+
+import { useState } from 'react'
+
+import { SubmitButton } from '@/components/submit-button'
+
+import {
+  deleteMerchantLookup,
+  toggleAlwaysConfirm,
+  updateMerchantLookupCategory,
+} from './actions'
+import type { BulkClassificationFlow } from './bulk-classification'
+
+type DictionaryCategory = {
+  id: number
+  kind: BulkClassificationFlow
+  major: string
+  sub: string
+}
+
+type DictionaryEntry = {
+  id: number
+  normMerchant: string
+  displayMerchant: string | null
+  businessType: string | null
+  categoryId: number | null
+  flow: BulkClassificationFlow
+  source: string
+  confidence: string
+  aiNote: string | null
+  alwaysConfirm: boolean
+  hitCount: number
+  lastUsedAt: Date | string | null
+}
+
+type MerchantDictionaryProps = {
+  categories: DictionaryCategory[]
+  entries: DictionaryEntry[]
+}
+
+const inputClass = 'rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100'
+const saveButton = 'rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60'
+
+const flowLabels: Record<BulkClassificationFlow, string> = {
+  expense: '지출',
+  income: '수입',
+  saving: '저축',
+}
+
+function DictionaryRow({
+  categories,
+  entry,
+}: {
+  categories: DictionaryCategory[]
+  entry: DictionaryEntry
+}) {
+  const [flow, setFlow] = useState(entry.flow)
+  const [categoryId, setCategoryId] = useState(String(entry.categoryId ?? ''))
+  const visibleCategories = categories.filter((category) => category.kind === flow)
+  const merchantName = entry.displayMerchant || entry.normMerchant
+  const lastUsed = entry.lastUsedAt
+    ? new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(new Date(entry.lastUsedAt))
+    : '사용 기록 없음'
+
+  return (
+    <article className="grid gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm xl:grid-cols-[minmax(220px,1.1fr)_minmax(360px,1.6fr)_auto] xl:items-end">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="truncate font-medium text-zinc-950" title={merchantName}>{merchantName}</h3>
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+            entry.source === 'user'
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'bg-violet-50 text-violet-700'
+          }`}>
+            {entry.source === 'user' ? '사용자 확정' : 'AI'}
+          </span>
+          {entry.alwaysConfirm && (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+              항상 확인
+            </span>
+          )}
+        </div>
+        <p className="mt-1 truncate text-xs text-zinc-400" title={entry.normMerchant}>
+          정규화: {entry.normMerchant}
+        </p>
+        <p className="mt-2 text-xs text-zinc-500">
+          {entry.businessType || '업종 미확인'} · {entry.hitCount.toLocaleString('ko-KR')}회 사용 · {lastUsed}
+        </p>
+        {entry.aiNote && (
+          <p className="mt-1 line-clamp-2 text-xs text-violet-600" title={entry.aiNote}>
+            AI 근거: {entry.aiNote}{entry.confidence === 'low' ? ' · 낮은 확신' : ''}
+          </p>
+        )}
+      </div>
+
+      <form action={updateMerchantLookupCategory} className="grid gap-3 sm:grid-cols-[140px_minmax(220px,1fr)_auto] sm:items-end">
+        <input name="id" type="hidden" value={entry.id} />
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          유형
+          <select
+            className={inputClass}
+            name="flow"
+            onChange={(event) => {
+              setFlow(event.target.value as BulkClassificationFlow)
+              setCategoryId('')
+            }}
+            value={flow}
+          >
+            {(Object.keys(flowLabels) as BulkClassificationFlow[]).map((value) => (
+              <option key={value} value={value}>{flowLabels[value]}</option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+          카테고리
+          <select
+            className={inputClass}
+            name="categoryId"
+            onChange={(event) => setCategoryId(event.target.value)}
+            required
+            value={categoryId}
+          >
+            <option value="">선택</option>
+            {visibleCategories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.major} · {category.sub}
+              </option>
+            ))}
+          </select>
+        </label>
+        <SubmitButton className={saveButton} disabled={!categoryId} pendingLabel="저장 중…" type="submit">
+          분류 저장
+        </SubmitButton>
+      </form>
+
+      <div className="flex flex-wrap gap-2 xl:justify-end">
+        <form action={toggleAlwaysConfirm}>
+          <input name="id" type="hidden" value={entry.id} />
+          <SubmitButton
+            className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50"
+            pendingLabel="변경 중…"
+            type="submit"
+          >
+            {entry.alwaysConfirm ? '항상 확인 해제' : '항상 확인'}
+          </SubmitButton>
+        </form>
+        <form action={deleteMerchantLookup}>
+          <input name="id" type="hidden" value={entry.id} />
+          <SubmitButton
+            className="rounded-lg px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
+            pendingLabel="삭제 중…"
+            type="submit"
+          >
+            삭제
+          </SubmitButton>
+        </form>
+      </div>
+    </article>
+  )
+}
+
+export function MerchantDictionary({ categories, entries }: MerchantDictionaryProps) {
+  return (
+    <div className="space-y-3">
+      {entries.map((entry) => (
+        <DictionaryRow categories={categories} entry={entry} key={entry.id} />
+      ))}
+      {entries.length === 0 && (
+        <p className="rounded-2xl border border-dashed border-zinc-300 bg-white px-5 py-10 text-center text-sm text-zinc-500">
+          검색 조건에 맞는 가맹점 사전 항목이 없습니다.
+        </p>
+      )}
+    </div>
+  )
+}

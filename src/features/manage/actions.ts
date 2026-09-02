@@ -5,12 +5,13 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
-import { accountAliases, accounts, categories, categoryRules, importInbox, recurring, transactions } from '@/db/schema'
-import { normalizeMerchant } from '@/features/inbox/banksalad'
+import { accountAliases, accounts, categories, categoryRules, importInbox, merchantLookup, recurring, transactions } from '@/db/schema'
+import { isAggregatorNorm } from '@/features/inbox/merchant-lookup'
+import { normalizeMerchant } from '@/features/inbox/normalize'
 import { requireHousehold } from '@/lib/household'
 
 import { classificationFromToken } from './bulk-classification'
-import { manageFlow, optionalId, optionalText, parseBulkAccounts, parseBulkCategories, positiveId, requiredText, safePriority } from './manage-input'
+import { manageFlow, optionalText, parseBulkAccounts, parseBulkCategories, positiveId, requiredText } from './manage-input'
 
 type ManageTab = 'accounts' | 'categories' | 'rules' | 'unclassified'
 
@@ -28,6 +29,32 @@ function sameIds(left: number[], right: number[]) {
   if (left.length !== right.length) return false
   const expected = new Set(right)
   return left.every((id) => expected.has(id))
+}
+
+function learnMerchantStatement(input: {
+  householdId: string
+  normMerchant: string
+  displayMerchant: string
+  categoryId: number
+  flow: 'expense' | 'income' | 'saving'
+}) {
+  return sql`
+    insert into merchant_lookup
+      (household_id, norm_merchant, display_merchant, category_id, flow, source,
+       confidence, always_confirm, hit_count, last_used_at)
+    values
+      (${input.householdId}, ${input.normMerchant}, ${input.displayMerchant},
+       ${input.categoryId}, ${input.flow}, 'user', 'high',
+       ${isAggregatorNorm(input.normMerchant)}, 1, now())
+    on conflict (household_id, norm_merchant) do update set
+      display_merchant = excluded.display_merchant,
+      category_id = excluded.category_id,
+      flow = excluded.flow,
+      source = 'user',
+      confidence = 'high',
+      hit_count = merchant_lookup.hit_count + 1,
+      last_used_at = now()
+  `
 }
 
 export async function bulkSaveAccounts(formData: FormData) {
@@ -102,6 +129,7 @@ export async function bulkSaveCategories(formData: FormData) {
       db.select({ id: transactions.categoryId, value: count() }).from(transactions).where(and(eq(transactions.householdId, household.householdId), inArray(transactions.categoryId, existingIds))).groupBy(transactions.categoryId),
       db.select({ id: recurring.categoryId, value: count() }).from(recurring).where(and(eq(recurring.householdId, household.householdId), inArray(recurring.categoryId, existingIds))).groupBy(recurring.categoryId),
       db.select({ id: categoryRules.categoryId, value: count() }).from(categoryRules).where(and(eq(categoryRules.householdId, household.householdId), inArray(categoryRules.categoryId, existingIds))).groupBy(categoryRules.categoryId),
+      db.select({ id: merchantLookup.categoryId, value: count() }).from(merchantLookup).where(and(eq(merchantLookup.householdId, household.householdId), inArray(merchantLookup.categoryId, existingIds))).groupBy(merchantLookup.categoryId),
       db.select({ id: importInbox.categoryId, value: count() }).from(importInbox).where(and(eq(importInbox.householdId, household.householdId), inArray(importInbox.categoryId, existingIds))).groupBy(importInbox.categoryId),
     ])
     for (const rows of usageGroups) {
@@ -249,55 +277,92 @@ export async function saveCategory(formData: FormData) {
   finish('categories', 'saved', id ? '카테고리를 저장했습니다.' : '카테고리를 추가했습니다.')
 }
 
-export async function saveRule(formData: FormData) {
+export async function updateMerchantLookupCategory(formData: FormData) {
   const household = await requireHousehold()
   if (!household) redirect('/login')
   const id = positiveId(formData.get('id'))
-  if (!id) finish('rules', 'error', '분류 규칙을 찾을 수 없습니다.')
-  const existing = await db
-    .select({ id: categoryRules.id })
-    .from(categoryRules)
-    .where(and(eq(categoryRules.householdId, household.householdId), eq(categoryRules.id, id)))
-    .limit(1)
-  if (!existing[0]) finish('rules', 'error', '분류 규칙을 찾을 수 없습니다.')
-
-  if (formData.get('intent') === 'delete') {
-    await db.delete(categoryRules).where(and(eq(categoryRules.householdId, household.householdId), eq(categoryRules.id, id)))
-    revalidatePath('/manage')
-    revalidatePath('/inbox')
-    finish('rules', 'saved', '분류 규칙을 삭제했습니다.')
-  }
-
   const flow = manageFlow(formData.get('flow'))
-  const categoryId = optionalId(formData.get('categoryId'))
-  const accountId = optionalId(formData.get('accountId'))
-  const priority = safePriority(formData.get('priority'))
-  if (!flow || categoryId === undefined || accountId === undefined || priority === null) {
-    finish('rules', 'error', '규칙 설정값을 확인해 주세요.')
+  const categoryId = positiveId(formData.get('categoryId'))
+  if (!id || !flow || !categoryId) finish('rules', 'error', '가맹점 분류 정보를 확인해 주세요.')
+
+  const category = await db
+    .select({ kind: categories.kind })
+    .from(categories)
+    .where(
+      and(
+        eq(categories.householdId, household.householdId),
+        eq(categories.id, categoryId),
+        eq(categories.hidden, false),
+      ),
+    )
+    .limit(1)
+  if (category[0]?.kind !== flow) {
+    finish('rules', 'error', '카테고리와 거래 유형이 맞지 않습니다.')
   }
-  if (categoryId !== null) {
-    const category = await db
-      .select({ kind: categories.kind })
-      .from(categories)
-      .where(and(eq(categories.householdId, household.householdId), eq(categories.id, categoryId)))
-      .limit(1)
-    if (category[0]?.kind !== flow) finish('rules', 'error', '카테고리와 거래 유형이 맞지 않습니다.')
-  }
-  if (accountId !== null) {
-    const account = await db
-      .select({ id: accounts.id })
-      .from(accounts)
-      .where(and(eq(accounts.householdId, household.householdId), eq(accounts.id, accountId)))
-      .limit(1)
-    if (!account[0]) finish('rules', 'error', '가족 가계부의 결제수단이 아닙니다.')
-  }
-  await db
-    .update(categoryRules)
-    .set({ categoryId, accountId, flow, fixed: flow === 'expense' ? formData.get('fixed') === 'on' : false, priority })
-    .where(and(eq(categoryRules.householdId, household.householdId), eq(categoryRules.id, id)))
+
+  const updated = await db
+    .update(merchantLookup)
+    .set({ categoryId, flow, source: 'user', confidence: 'high' })
+    .where(
+      and(
+        eq(merchantLookup.householdId, household.householdId),
+        eq(merchantLookup.id, id),
+      ),
+    )
+    .returning({ id: merchantLookup.id })
+  if (updated.length === 0) finish('rules', 'error', '가맹점 사전 항목을 찾을 수 없습니다.')
   revalidatePath('/manage')
   revalidatePath('/inbox')
-  finish('rules', 'saved', '분류 규칙을 저장했습니다.')
+  finish('rules', 'saved', '가맹점 분류를 저장했습니다.')
+}
+
+export async function toggleAlwaysConfirm(formData: FormData) {
+  const household = await requireHousehold()
+  if (!household) redirect('/login')
+  const id = positiveId(formData.get('id'))
+  if (!id) finish('rules', 'error', '가맹점 사전 항목을 확인해 주세요.')
+
+  const updated = await db
+    .update(merchantLookup)
+    .set({ alwaysConfirm: sql`not ${merchantLookup.alwaysConfirm}` })
+    .where(
+      and(
+        eq(merchantLookup.householdId, household.householdId),
+        eq(merchantLookup.id, id),
+      ),
+    )
+    .returning({ alwaysConfirm: merchantLookup.alwaysConfirm })
+  if (updated.length === 0) finish('rules', 'error', '가맹점 사전 항목을 찾을 수 없습니다.')
+  revalidatePath('/manage')
+  revalidatePath('/inbox')
+  finish(
+    'rules',
+    'saved',
+    updated[0].alwaysConfirm
+      ? '이 가맹점은 항상 확인하도록 설정했습니다.'
+      : '항상 확인 설정을 해제했습니다.',
+  )
+}
+
+export async function deleteMerchantLookup(formData: FormData) {
+  const household = await requireHousehold()
+  if (!household) redirect('/login')
+  const id = positiveId(formData.get('id'))
+  if (!id) finish('rules', 'error', '가맹점 사전 항목을 확인해 주세요.')
+
+  const deleted = await db
+    .delete(merchantLookup)
+    .where(
+      and(
+        eq(merchantLookup.householdId, household.householdId),
+        eq(merchantLookup.id, id),
+      ),
+    )
+    .returning({ id: merchantLookup.id })
+  if (deleted.length === 0) finish('rules', 'error', '가맹점 사전 항목을 찾을 수 없습니다.')
+  revalidatePath('/manage')
+  revalidatePath('/inbox')
+  finish('rules', 'saved', '가맹점 사전 항목을 삭제했습니다.')
 }
 
 export async function saveAlias(formData: FormData) {
@@ -366,29 +431,16 @@ export async function classifyTransaction(formData: FormData) {
       .update(transactions)
       .set({ categoryId, fixed: transaction[0].flow === 'expense' ? formData.get('fixed') === 'on' : false })
       .where(and(eq(transactions.householdId, household.householdId), eq(transactions.id, id)))
-    const pattern = normalizeMerchant(transaction[0].rawMerchant || transaction[0].memo || '')
+    const displayMerchant = transaction[0].rawMerchant || transaction[0].memo || ''
+    const pattern = normalizeMerchant(displayMerchant)
     if (pattern) {
-      await tx
-        .insert(categoryRules)
-        .values({
-          householdId: household.householdId,
-          matchType: 'merchant_norm',
-          pattern,
-          categoryId,
-          flow: transaction[0].flow,
-          fixed: transaction[0].flow === 'expense' ? formData.get('fixed') === 'on' : false,
-          priority: 100,
-          hits: 1,
-        })
-        .onConflictDoUpdate({
-          target: [categoryRules.householdId, categoryRules.matchType, categoryRules.pattern],
-          set: {
-            categoryId,
-            flow: transaction[0].flow,
-            fixed: transaction[0].flow === 'expense' ? formData.get('fixed') === 'on' : false,
-            hits: sql`${categoryRules.hits} + 1`,
-          },
-        })
+      await tx.execute(learnMerchantStatement({
+        householdId: household.householdId,
+        normMerchant: pattern,
+        displayMerchant,
+        categoryId,
+        flow: transaction[0].flow,
+      }))
     }
   })
   refreshDataPaths()
@@ -482,29 +534,16 @@ export async function bulkClassifyTransactions(formData: FormData) {
       if (!changed) continue
       updated += 1
 
-      const pattern = normalizeMerchant(row.rawMerchant || row.memo || '')
+      const displayMerchant = row.rawMerchant || row.memo || ''
+      const pattern = normalizeMerchant(displayMerchant)
       if (!pattern) continue
-      await tx
-        .insert(categoryRules)
-        .values({
-          householdId: household.householdId,
-          matchType: 'merchant_norm',
-          pattern,
-          categoryId: classification.categoryId,
-          flow: classification.flow,
-          fixed: classification.fixed,
-          priority: 100,
-          hits: 1,
-        })
-        .onConflictDoUpdate({
-          target: [categoryRules.householdId, categoryRules.matchType, categoryRules.pattern],
-          set: {
-            categoryId: classification.categoryId,
-            flow: classification.flow,
-            fixed: classification.fixed,
-            hits: sql`${categoryRules.hits} + 1`,
-          },
-        })
+      await tx.execute(learnMerchantStatement({
+        householdId: household.householdId,
+        normMerchant: pattern,
+        displayMerchant,
+        categoryId: classification.categoryId,
+        flow: classification.flow,
+      }))
     }
     return updated
   })
