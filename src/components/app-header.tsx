@@ -1,68 +1,29 @@
-import Link from 'next/link'
+import { and, eq, sql } from 'drizzle-orm'
+
+import { db } from '@/db/client'
+import { importInbox } from '@/db/schema'
+import { requireHousehold } from '@/lib/household'
+
+import { AppHeaderMenu, type HeaderSection } from './app-header-menu'
 
 type AppHeaderProps = {
-  active: 'analysis' | 'assets' | 'budgets' | 'dashboard' | 'inbox' | 'ledger' | 'manage' | 'recurring' | 'report' | 'settings'
+  active: HeaderSection
   email: string
 }
 
-export function AppHeader({ active, email }: AppHeaderProps) {
-  const navClass = (key: AppHeaderProps['active']) =>
-    `inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium transition ${
-      active === key
-        ? 'bg-emerald-50 text-emerald-800'
-        : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950'
-    }`
+export async function AppHeader({ active, email }: AppHeaderProps) {
+  const household = await requireHousehold()
+  let pendingInboxCount = 0
+  if (household) {
+    const [row] = await db
+      .select({ value: sql<number>`count(*)` })
+      .from(importInbox)
+      .where(and(
+        eq(importInbox.householdId, household.householdId),
+        eq(importInbox.status, 'pending'),
+      ))
+    pendingInboxCount = Number(row?.value ?? 0)
+  }
 
-  return (
-    <header className="border-b border-zinc-200 bg-white">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 px-5 py-3 sm:px-8">
-        <Link className="inline-flex min-h-11 shrink-0 items-center font-semibold tracking-tight text-zinc-950" href="/dashboard">
-          우리집 가계부
-        </Link>
-        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto">
-          <Link className={navClass('dashboard')} href="/dashboard">
-            대시보드
-          </Link>
-          <Link className={navClass('ledger')} href="/ledger">
-            가계부
-          </Link>
-          <Link className={navClass('budgets')} href="/budgets">
-            예산
-          </Link>
-          <Link className={navClass('inbox')} href="/inbox">
-            인박스
-          </Link>
-          <Link className={navClass('analysis')} href="/analysis">
-            분석
-          </Link>
-          <Link className={navClass('report')} href="/report">
-            연간결산
-          </Link>
-          <Link className={navClass('assets')} href="/assets">
-            자산
-          </Link>
-          <Link className={navClass('recurring')} href="/recurring">
-            정기거래
-          </Link>
-          <Link className={navClass('manage')} href="/manage">
-            관리
-          </Link>
-          <Link className={navClass('settings')} href="/settings">
-            설정
-          </Link>
-        </nav>
-        <div className="ml-auto flex min-w-0 items-center gap-3">
-          <span className="hidden truncate text-xs text-zinc-500 sm:block">{email}</span>
-          <form action="/auth/signout" method="post">
-            <button
-              className="min-h-11 whitespace-nowrap rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-              type="submit"
-            >
-              로그아웃
-            </button>
-          </form>
-        </div>
-      </div>
-    </header>
-  )
+  return <AppHeaderMenu active={active} email={email} pendingInboxCount={pendingInboxCount} />
 }

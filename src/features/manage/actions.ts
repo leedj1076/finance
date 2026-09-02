@@ -1,16 +1,16 @@
 'use server'
 
-import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
-import { accountAliases, accounts, categories, categoryRules, transactions } from '@/db/schema'
+import { accountAliases, accounts, categories, categoryRules, importInbox, recurring, transactions } from '@/db/schema'
 import { normalizeMerchant } from '@/features/inbox/banksalad'
 import { requireHousehold } from '@/lib/household'
 
 import { classificationFromToken } from './bulk-classification'
-import { manageFlow, optionalId, optionalText, positiveId, requiredText, safePriority } from './manage-input'
+import { manageFlow, optionalId, optionalText, parseBulkAccounts, parseBulkCategories, positiveId, requiredText, safePriority } from './manage-input'
 
 type ManageTab = 'accounts' | 'categories' | 'rules' | 'unclassified'
 
@@ -22,6 +22,125 @@ function refreshDataPaths() {
   for (const path of ['/manage', '/ledger', '/budgets', '/inbox', '/recurring', '/dashboard', '/analysis']) {
     revalidatePath(path)
   }
+}
+
+function sameIds(left: number[], right: number[]) {
+  if (left.length !== right.length) return false
+  const expected = new Set(right)
+  return left.every((id) => expected.has(id))
+}
+
+export async function bulkSaveAccounts(formData: FormData) {
+  const household = await requireHousehold()
+  if (!household) redirect('/login')
+  const parsed = parseBulkAccounts(formData.get('accounts'))
+  if (!parsed.ok) finish('accounts', 'error', parsed.error)
+
+  const existingRows = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(eq(accounts.householdId, household.householdId))
+  const submittedIds = parsed.value.flatMap((row) => row.id === null ? [] : [row.id])
+  if (!sameIds(submittedIds, existingRows.map((row) => row.id))) {
+    finish('accounts', 'error', '결제수단 목록이 변경되었습니다. 새로고침 후 다시 저장해 주세요.')
+  }
+
+  await db.transaction(async (tx) => {
+    for (const row of parsed.value) {
+      if (row.id === null) continue
+      await tx
+        .update(accounts)
+        .set({ name: `__account_bulk_edit_${household.householdId}_${row.id}` })
+        .where(and(eq(accounts.householdId, household.householdId), eq(accounts.id, row.id)))
+    }
+    for (const [index, row] of parsed.value.entries()) {
+      if (row.id === null) {
+        await tx.insert(accounts).values({
+          householdId: household.householdId,
+          name: row.name,
+          owner: row.owner,
+          type: row.type,
+          memo: row.memo,
+          active: row.active,
+          sortOrder: index + 1,
+        })
+      } else {
+        await tx
+          .update(accounts)
+          .set({ name: row.name, owner: row.owner, type: row.type, memo: row.memo, active: row.active, sortOrder: index + 1 })
+          .where(and(eq(accounts.householdId, household.householdId), eq(accounts.id, row.id)))
+      }
+    }
+  })
+  refreshDataPaths()
+  finish('accounts', 'saved', '결제수단과 표시 순서를 저장했습니다.')
+}
+
+export async function bulkSaveCategories(formData: FormData) {
+  const household = await requireHousehold()
+  if (!household) redirect('/login')
+  const parsed = parseBulkCategories(formData.get('categories'))
+  if (!parsed.ok) finish('categories', 'error', parsed.error)
+
+  const existingRows = await db
+    .select({ id: categories.id, kind: categories.kind })
+    .from(categories)
+    .where(eq(categories.householdId, household.householdId))
+  const submittedIds = parsed.value.flatMap((row) => row.id === null ? [] : [row.id])
+  if (!sameIds(submittedIds, existingRows.map((row) => row.id))) {
+    finish('categories', 'error', '카테고리 목록이 변경되었습니다. 새로고침 후 다시 저장해 주세요.')
+  }
+  const kindById = new Map(existingRows.map((row) => [row.id, row.kind]))
+  if (parsed.value.some((row) => row.id !== null && kindById.get(row.id) !== row.kind)) {
+    finish('categories', 'error', '기존 카테고리의 거래 유형은 바꿀 수 없습니다.')
+  }
+
+  const existingIds = existingRows.map((row) => row.id)
+  const usage = new Map<number, number>()
+  if (existingIds.length > 0) {
+    const usageGroups = await Promise.all([
+      db.select({ id: transactions.categoryId, value: count() }).from(transactions).where(and(eq(transactions.householdId, household.householdId), inArray(transactions.categoryId, existingIds))).groupBy(transactions.categoryId),
+      db.select({ id: recurring.categoryId, value: count() }).from(recurring).where(and(eq(recurring.householdId, household.householdId), inArray(recurring.categoryId, existingIds))).groupBy(recurring.categoryId),
+      db.select({ id: categoryRules.categoryId, value: count() }).from(categoryRules).where(and(eq(categoryRules.householdId, household.householdId), inArray(categoryRules.categoryId, existingIds))).groupBy(categoryRules.categoryId),
+      db.select({ id: importInbox.categoryId, value: count() }).from(importInbox).where(and(eq(importInbox.householdId, household.householdId), inArray(importInbox.categoryId, existingIds))).groupBy(importInbox.categoryId),
+    ])
+    for (const rows of usageGroups) {
+      for (const row of rows) {
+        if (row.id !== null) usage.set(row.id, (usage.get(row.id) ?? 0) + row.value)
+      }
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    for (const row of parsed.value) {
+      if (row.id === null) continue
+      await tx
+        .update(categories)
+        .set({ major: `__category_bulk_edit_${row.id}`, sub: `__category_bulk_edit_${row.id}` })
+        .where(and(eq(categories.householdId, household.householdId), eq(categories.id, row.id)))
+    }
+
+    const orderByKind = new Map<string, number>()
+    for (const row of parsed.value) {
+      const order = (orderByKind.get(row.kind) ?? 0) + 1
+      orderByKind.set(row.kind, order)
+      if (row.id !== null && row.deleted && (usage.get(row.id) ?? 0) === 0) {
+        await tx.delete(categories).where(and(eq(categories.householdId, household.householdId), eq(categories.id, row.id)))
+        continue
+      }
+      const hidden = row.hidden || row.deleted
+      if (row.id === null) {
+        await tx.insert(categories).values({ householdId: household.householdId, kind: row.kind, major: row.major, sub: row.sub, hidden, sortOrder: order })
+      } else {
+        await tx
+          .update(categories)
+          .set({ major: row.major, sub: row.sub, hidden, sortOrder: order })
+          .where(and(eq(categories.householdId, household.householdId), eq(categories.id, row.id)))
+      }
+    }
+  })
+  refreshDataPaths()
+  finish('categories', 'saved', '카테고리 구조와 표시 순서를 저장했습니다.')
 }
 
 export async function saveAccount(formData: FormData) {

@@ -19,6 +19,7 @@ type ExistingAssetUpdate = {
   name: string
   amount: number | null
   deleted: boolean
+  sortOrder: number
 }
 
 function parseIds(values: FormDataEntryValue[]) {
@@ -63,7 +64,7 @@ export async function saveAssets(
   }
 
   const updates: ExistingAssetUpdate[] = []
-  for (const account of existing) {
+  for (const [index, account] of existing.entries()) {
     const name = parseAssetName(formData.get(`name:${account.id}`))
     const amount = parseAssetAmount(formData.get(`amount:${account.id}`))
     if (!name) return { error: '자산 항목 이름은 1~80자로 입력해 주세요.' }
@@ -74,6 +75,7 @@ export async function saveAssets(
       name,
       amount,
       deleted: formData.get(`deleted:${account.id}`) === 'on',
+      sortOrder: index + 1,
     })
   }
 
@@ -116,6 +118,7 @@ export async function saveAssets(
         .set({
           name: update.deleted ? `${update.name} · 보관 ${update.id}` : update.name,
           active: !update.deleted,
+          sortOrder: update.sortOrder,
         })
         .where(
           and(

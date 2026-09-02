@@ -121,6 +121,17 @@ async function createTestUser(email: string, password: string) {
   }
 }
 
+async function navigateFromHeader(page: import('@playwright/test').Page, menu: '분석·예산' | '설정', link: string) {
+  await page.waitForLoadState('networkidle')
+  const item = page.getByRole('menuitem', { name: new RegExp(`^${link}`) })
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.getByRole('button', { name: menu, exact: true }).click()
+    await page.waitForTimeout(100)
+    if (await item.isVisible()) { await item.click(); return }
+  }
+  throw new Error(`${menu} 메뉴에서 ${link} 링크를 열지 못했습니다.`)
+}
+
 test('family user can manage a transaction and change their password', async ({ page }) => {
   test.slow()
   const email = `finance-e2e-${Date.now()}-${crypto.randomUUID()}@example.com`
@@ -155,17 +166,17 @@ test('family user can manage a transaction and change their password', async ({ 
 
     const transactionRow = page.getByRole('row', { name: /E2E 장보기/ })
     await expect(transactionRow).toContainText('12,500원')
-    await transactionRow.getByRole('link', { name: '수정' }).click()
-    await expect(page.getByRole('heading', { name: '거래 수정' })).toBeVisible()
-    await page.getByLabel('금액').fill('15,000')
-    await page.getByRole('button', { name: '수정 저장' }).click()
+    await transactionRow.click()
+    const editingRow = page.getByRole('row', { name: /E2E 장보기/ })
+    await editingRow.getByLabel('금액').fill('15,000')
+    await editingRow.getByRole('button', { name: '거래 수정 저장' }).click()
     await expect(page.getByRole('row', { name: /E2E 장보기/ })).toContainText('15,000원')
 
     page.once('dialog', (dialog) => dialog.accept())
     await page.getByRole('row', { name: /E2E 장보기/ }).getByRole('button', { name: '삭제' }).click()
     await expect(page.getByText('E2E 장보기')).toHaveCount(0)
 
-    await page.getByRole('link', { name: '예산' }).click()
+    await navigateFromHeader(page, '분석·예산', '예산')
     await page.getByLabel('식비 예산').fill('500000')
     await page.getByLabel('목표 저축률').fill('35')
     await page.getByRole('button', { name: '이달 예산 저장' }).click()
@@ -182,16 +193,16 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page.getByText('월말 리뷰에서 2026-04 예산을 저장했습니다.')).toBeVisible()
     await expect(page.getByLabel('식비 예산')).toHaveValue('450000')
 
-    await page.getByRole('link', { name: '대시보드' }).click()
+    await page.getByRole('link', { name: '대시보드', exact: true }).click()
     await expect(page).toHaveURL('/dashboard')
     await expect(page.getByRole('heading', { name: '대시보드' })).toBeVisible()
     expect(browserErrors).toEqual([])
 
-    await page.getByRole('link', { name: '분석', exact: true }).click()
+    await navigateFromHeader(page, '분석·예산', '분석')
     await expect(page).toHaveURL('/analysis')
     await expect(page.getByRole('heading', { name: '분석' })).toBeVisible()
 
-    await page.getByRole('link', { name: '정기거래', exact: true }).click()
+    await navigateFromHeader(page, '설정', '고정비용')
     await expect(page).toHaveURL('/recurring')
     await expect(page.getByRole('heading', { name: '정기거래', exact: true })).toBeVisible()
     await page.getByLabel('E2E 정기비용 금액').fill('105000')
@@ -204,7 +215,7 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page.getByText('정기거래 1건을 추가했습니다.')).toBeVisible()
     await expect(page.getByRole('row', { name: /E2E 정기비용/ })).toContainText('105,000원')
 
-    await page.getByRole('link', { name: '정기거래', exact: true }).click()
+    await navigateFromHeader(page, '설정', '고정비용')
     await page.getByLabel('정기거래 적용 월').fill('2026-04')
     await page.getByRole('button', { name: '선택한 달에 반영' }).click()
     await expect(page).toHaveURL('/ledger?month=2026-04&recurringAdded=0&recurringSkipped=1')
@@ -222,13 +233,12 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page.locator('article').filter({ hasText: '순자산' }).first()).toContainText('1,050,000원')
     expect(browserErrors).toEqual([])
 
-    await page.getByRole('link', { name: '관리', exact: true }).click()
-    await expect(page).toHaveURL('/manage')
+    await navigateFromHeader(page, '설정', '결제수단')
+    await expect(page).toHaveURL('/manage?tab=accounts')
     await expect(page.getByRole('heading', { name: '가계부 관리' })).toBeVisible()
-    const accountForm = page.locator('form').filter({ has: page.locator('input[name="name"][value="E2E 카드"]') })
-    await accountForm.locator('input[name="memo"]').fill('가족 공용 테스트 카드')
-    await accountForm.getByRole('button', { name: '저장' }).click()
-    await expect(page.getByText('결제수단을 저장했습니다.')).toBeVisible()
+    await page.getByRole('textbox', { name: 'E2E 카드 메모' }).fill('가족 공용 테스트 카드')
+    await page.getByRole('button', { name: '변경사항 저장' }).click()
+    await expect(page.getByText('결제수단과 표시 순서를 저장했습니다.')).toBeVisible()
 
     await page.getByRole('link', { name: /미분류 거래/ }).click()
     const unclassifiedRow = page.getByRole('row').filter({ hasText: 'E2E 미분류 가맹점' })
@@ -245,7 +255,7 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page.getByText('ee미분류가맹점', { exact: true })).toBeVisible()
     expect(browserErrors).toEqual([])
 
-    await page.getByRole('link', { name: '설정' }).click()
+    await navigateFromHeader(page, '설정', '계정 설정')
     await expect(page).toHaveURL('/settings')
     await page.getByLabel('현재 비밀번호').fill(currentPassword)
     await page.getByLabel('새 비밀번호', { exact: true }).fill(newPassword)

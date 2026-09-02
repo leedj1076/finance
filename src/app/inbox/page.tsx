@@ -49,7 +49,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
           </p>
         )}
 
-        <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <section className="mt-6 scroll-mt-20 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm" id="upload">
           <div>
             <h2 className="font-semibold text-zinc-950">거래 파일 가져오기</h2>
             <p className="mt-1 text-xs leading-5 text-zinc-500">

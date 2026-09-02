@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
-import { SubmitButton } from '@/components/submit-button'
+import { AutoSubmitSelect } from '@/components/auto-submit-select'
 import { FlowTrendChart } from '@/features/analytics/charts'
 import { categoryPageUrl } from '@/features/analytics/category-url'
 import { getAnalysisData } from '@/features/analytics/queries'
@@ -113,11 +113,10 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
             {data.period === 'month' ? <input name="month" type="hidden" value={data.month} /> : <input name="year" type="hidden" value={data.year} />}
             <input name="flow" type="hidden" value={data.flow} />
             <label className="sr-only" htmlFor="analysis-account">결제수단</label>
-            <select className="min-w-48 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700" defaultValue={data.selectedAccount ?? ''} id="analysis-account" name="account">
+            <AutoSubmitSelect className="min-w-48 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700" defaultValue={data.selectedAccount ?? ''} id="analysis-account" name="account">
               <option value="">전체 결제수단</option>
               {data.accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-            </select>
-            <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-60" pendingLabel="적용 중…" type="submit">적용</SubmitButton>
+            </AutoSubmitSelect>
           </form>
         </section>
 

@@ -4,6 +4,8 @@ import {
   manageFlow,
   optionalId,
   optionalText,
+  parseBulkAccounts,
+  parseBulkCategories,
   positiveId,
   requiredText,
   safePriority,
@@ -30,5 +32,41 @@ describe('manage input validation', () => {
     expect(manageFlow('transfer')).toBeNull()
     expect(safePriority('100')).toBe(100)
     expect(safePriority('1000')).toBeNull()
+  })
+
+  test('parses ordered account batches and rejects duplicate names', () => {
+    expect(parseBulkAccounts(JSON.stringify([
+      { id: 2, name: ' YJ 카드 ', owner: 'YJ', type: 'card', memo: '', active: true },
+      { id: null, name: '공용 계좌', owner: '공용', type: 'bank', memo: ' 생활비 ', active: true },
+    ]))).toEqual({
+      ok: true,
+      value: [
+        { id: 2, name: 'YJ 카드', owner: 'YJ', type: 'card', memo: null, active: true },
+        { id: null, name: '공용 계좌', owner: '공용', type: 'bank', memo: '생활비', active: true },
+      ],
+    })
+    expect(parseBulkAccounts(JSON.stringify([
+      { id: 1, name: 'DJ 카드', owner: 'DJ', type: 'card', memo: '', active: true },
+      { id: 2, name: 'dj 카드', owner: 'DJ', type: 'card', memo: '', active: true },
+    ]))).toEqual({ ok: false, error: '같은 이름의 결제수단이 있습니다.' })
+  })
+
+  test('parses hierarchical category batches and keeps delete intent', () => {
+    expect(parseBulkCategories(JSON.stringify([
+      { id: 10, kind: 'expense', major: '식비', sub: '마트', hidden: false, deleted: false },
+      { id: 11, kind: 'expense', major: '식비', sub: '외식', hidden: true, deleted: true },
+      { id: null, kind: 'saving', major: '투자', sub: 'ETF', hidden: false, deleted: false },
+    ]))).toEqual({
+      ok: true,
+      value: [
+        { id: 10, kind: 'expense', major: '식비', sub: '마트', hidden: false, deleted: false },
+        { id: 11, kind: 'expense', major: '식비', sub: '외식', hidden: true, deleted: true },
+        { id: null, kind: 'saving', major: '투자', sub: 'ETF', hidden: false, deleted: false },
+      ],
+    })
+    expect(parseBulkCategories(JSON.stringify([
+      { id: 10, kind: 'expense', major: '식비', sub: '마트', hidden: false, deleted: false },
+      { id: 11, kind: 'expense', major: '식비', sub: '마트', hidden: false, deleted: false },
+    ]))).toEqual({ ok: false, error: '같은 카테고리가 중복되어 있습니다.' })
   })
 })

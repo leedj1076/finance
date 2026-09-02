@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
 import { SubmitButton } from '@/components/submit-button'
-import { DeleteTransactionButton } from '@/features/ledger/delete-transaction-button'
+import { categoryPageUrl } from '@/features/analytics/category-url'
 import {
   hasLedgerFilters,
   ledgerUrl,
@@ -12,15 +12,15 @@ import {
 import {
   getLedgerData,
   getLedgerFormOptions,
-  getTransactionForEdit,
 } from '@/features/ledger/queries'
+import { LedgerFilterForm } from '@/features/ledger/ledger-filter-form'
+import { LedgerTransactionsTable } from '@/features/ledger/ledger-transactions-table'
 import { TransactionForm } from '@/features/ledger/transaction-form'
 import { currentMonthInKorea, formatRate, formatWon } from '@/lib/finance'
 import { getAuthContext, requireHousehold } from '@/lib/household'
 
 type LedgerPageProps = {
   searchParams: Promise<{
-    edit?: string | string[]
     account?: string | string[]
     fflow?: string | string[]
     fmajor?: string | string[]
@@ -32,18 +32,6 @@ type LedgerPageProps = {
     recurringSkipped?: string | string[]
   }>
 }
-
-const flowLabel = {
-  income: '수입',
-  expense: '지출',
-  saving: '저축',
-} as const
-
-const flowStyle = {
-  income: 'bg-blue-50 text-blue-700',
-  expense: 'bg-rose-50 text-rose-700',
-  saving: 'bg-emerald-50 text-emerald-700',
-} as const
 
 function SummaryCard({
   label,
@@ -97,13 +85,11 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
   const filters = parseLedgerFilters(params)
   const anyFilter = hasLedgerFilters(filters)
-  const editId = typeof params.edit === 'string' ? Number(params.edit) : undefined
   const recurringAdded = typeof params.recurringAdded === 'string' ? Number(params.recurringAdded) : null
   const recurringSkipped = typeof params.recurringSkipped === 'string' ? Number(params.recurringSkipped) : null
-  const [data, formOptions, editing] = await Promise.all([
+  const [data, formOptions] = await Promise.all([
     getLedgerData(household.householdId, requestedMonth, filters),
     getLedgerFormOptions(household.householdId),
-    getTransactionForEdit(household.householdId, editId),
   ])
   const maxCategoryAmount = data.topCategories[0]?.amount ?? 0
   const deltaIsUp = data.comparison.expenseDelta > 0
@@ -112,6 +98,9 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
     ? new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
     : `${data.month}-01`
   const majorOptions = [...new Set(formOptions.categories.map((category) => category.major))]
+  const showReviewReminder = data.month === currentMonth
+    && Number(defaultDate.slice(8, 10)) <= 7
+    && !data.hasMonthlyBudget
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -169,6 +158,27 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
             {recurringSkipped !== null && recurringSkipped > 0 ? ` 이미 반영된 ${recurringSkipped}건은 건너뛰었습니다.` : ''}
           </p>
         )}
+
+        <div className="mt-5 space-y-2">
+          {data.pendingInboxCount > 0 && (
+            <div className="flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 sm:flex-row sm:items-center sm:justify-between">
+              <p><strong>인박스에 확인할 거래 {data.pendingInboxCount}건</strong>이 기다리고 있습니다.</p>
+              <Link className="shrink-0 font-semibold underline underline-offset-2" href="/inbox">분류하러 가기 →</Link>
+            </div>
+          )}
+          {showReviewReminder && (
+            <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+              <p><strong>이번 달 예산이 아직 없습니다.</strong> 지난달을 돌아보고 이번 달 계획을 세워보세요.</p>
+              <Link className="shrink-0 font-semibold underline underline-offset-2" href={`/budgets/review?month=${data.previousMonth}`}>월말 리뷰 시작 →</Link>
+            </div>
+          )}
+          {data.unclassifiedCount > 0 && (
+            <div className="flex flex-col gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900 sm:flex-row sm:items-center sm:justify-between">
+              <p><strong>미분류 거래 {data.unclassifiedCount}건</strong>이 있어 분석 정확도가 낮아질 수 있습니다.</p>
+              <Link className="shrink-0 font-semibold underline underline-offset-2" href="/manage?tab=unclassified">한꺼번에 분류 →</Link>
+            </div>
+          )}
+        </div>
 
         {data.overBudget.length > 0 && (
           <div className="mt-5 flex flex-col gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 sm:flex-row sm:items-center sm:justify-between">
@@ -262,17 +272,36 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
           </section>
         )}
 
+        {!anyFilter && data.insights.length > 0 && (
+          <section className="mt-5 rounded-lg border border-zinc-200 bg-white px-4 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="mr-1 text-xs font-semibold text-zinc-500">이번 달 분석 · 지난달 대비</p>
+              {data.insights.map((insight, index) => {
+                const classes = insight.tone === 'expense'
+                  ? 'border-rose-200 bg-rose-50 text-rose-800'
+                  : insight.tone === 'saving'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                    : 'border-zinc-200 bg-zinc-50 text-zinc-700'
+                const content = <span className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-medium ${classes}`}>{insight.text}</span>
+                return insight.major
+                  ? <Link href={categoryPageUrl({ flow: 'expense', major: insight.major, period: { month: data.month } })} key={`${insight.text}-${index}`}>{content}</Link>
+                  : <span key={`${insight.text}-${index}`}>{content}</span>
+              })}
+            </div>
+          </section>
+        )}
+
         <TransactionForm
           accounts={formOptions.accounts}
           categories={formOptions.categories}
           defaultDate={defaultDate}
-          editing={editing}
+          editing={null}
           filters={filters}
           month={data.month}
         />
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.42fr)]">
-          <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <section className="mt-6 space-y-5">
+          <article className="overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
               <div>
                 <h2 className="font-semibold text-zinc-950">거래 내역</h2>
@@ -280,124 +309,12 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
               </div>
               <span className="text-xs text-zinc-400">최근순</span>
             </div>
-            <form action="/ledger" className="grid gap-3 border-b border-zinc-200 bg-zinc-50 p-4 sm:grid-cols-2 xl:grid-cols-[repeat(3,minmax(0,1fr))_minmax(180px,1.4fr)_auto_auto]">
-              <input name="month" type="hidden" value={data.month} />
-              <select
-                aria-label="거래 유형 필터"
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700"
-                defaultValue={filters.flow}
-                name="flow"
-              >
-                <option value="">전체 유형</option>
-                <option value="expense">지출</option>
-                <option value="income">수입</option>
-                <option value="saving">저축</option>
-              </select>
-              <select
-                aria-label="대분류 필터"
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700"
-                defaultValue={filters.major}
-                name="major"
-              >
-                <option value="">전체 분류</option>
-                {majorOptions.map((major) => <option key={major} value={major}>{major}</option>)}
-              </select>
-              <select
-                aria-label="결제수단 필터"
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700"
-                defaultValue={filters.account}
-                name="account"
-              >
-                <option value="">전체 결제수단</option>
-                {formOptions.accounts.map((account) => (
-                  <option key={account.id} value={account.id}>{account.name}</option>
-                ))}
-              </select>
-              <input
-                aria-label="사용내역 검색"
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700"
-                defaultValue={filters.q}
-                name="q"
-                placeholder="사용내역 검색…"
-                type="search"
-              />
-              <button className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700" type="submit">
-                검색
-              </button>
-              {anyFilter && (
-                <Link className="self-center text-center text-sm text-zinc-500 hover:text-zinc-950" href={ledgerUrl(data.month, { account: '', flow: '', major: '', q: '' })}>
-                  초기화
-                </Link>
-              )}
-            </form>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-zinc-50 text-xs text-zinc-500">
-                  <tr>
-                    <th className="px-5 py-3 font-medium">날짜</th>
-                    <th className="px-3 py-3 font-medium">구분</th>
-                    <th className="px-3 py-3 font-medium">분류</th>
-                    <th className="px-3 py-3 font-medium">사용내역</th>
-                    <th className="px-3 py-3 text-right font-medium">금액</th>
-                    <th className="px-5 py-3 font-medium">결제수단</th>
-                    <th className="px-5 py-3 text-right font-medium">관리</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {data.transactions.map((transaction) => (
-                    <tr className="hover:bg-zinc-50" key={transaction.id}>
-                      <td className="whitespace-nowrap px-5 py-3 text-zinc-500">
-                        {transaction.date.slice(5)}
-                      </td>
-                      <td className="px-3 py-3">
-                        <span
-                          className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${flowStyle[transaction.flow]}`}
-                        >
-                          {transaction.flow === 'expense' && transaction.fixed
-                            ? '고정지출'
-                            : flowLabel[transaction.flow]}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-zinc-700">
-                        <span>{transaction.major ?? '미분류'}</span>
-                        {transaction.sub && <span className="text-zinc-400"> · {transaction.sub}</span>}
-                      </td>
-                      <td className="max-w-64 truncate px-3 py-3 text-zinc-700">
-                        {transaction.memo || transaction.rawMerchant || '-'}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-3 text-right font-medium text-zinc-950">
-                        {formatWon(transaction.amount)}원
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-3 text-zinc-500">
-                        {transaction.account ?? '-'}
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex justify-end gap-3">
-                          <Link
-                            className="text-xs text-zinc-500 hover:text-zinc-950"
-                            href={ledgerUrl(data.month, filters, { edit: transaction.id })}
-                          >
-                            수정
-                          </Link>
-                          <DeleteTransactionButton filters={filters} id={transaction.id} month={data.month} />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {data.transactions.length === 0 && (
-                    <tr>
-                      <td className="px-5 py-12 text-center text-zinc-500" colSpan={7}>
-                        {anyFilter ? '조건에 맞는 거래가 없습니다.' : '이 달의 거래가 없습니다.'}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <LedgerFilterForm accounts={formOptions.accounts} filters={filters} majorOptions={majorOptions} month={data.month} />
+            <LedgerTransactionsTable accounts={formOptions.accounts} categories={formOptions.categories} filters={filters} month={data.month} rows={data.transactions} />
           </article>
 
-          <aside className="space-y-6">
-            <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <article className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
               <p className="text-sm font-medium text-zinc-500">전월 대비 지출</p>
               <p
                 className={`mt-2 text-2xl font-semibold ${deltaIsUp ? 'text-rose-700' : 'text-emerald-700'}`}
@@ -418,13 +335,13 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
               </p>
             </article>
 
-            <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+            <article className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="font-semibold text-zinc-950">어디서 많이 썼나</h2>
                 <span className="text-xs text-zinc-400">지출 대분류</span>
               </div>
-              <div className="mt-5 space-y-4">
-                {data.topCategories.slice(0, 8).map((category, index) => (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {data.topCategories.slice(0, 6).map((category, index) => (
                   <div key={category.major}>
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <span className="truncate text-zinc-700">
@@ -449,7 +366,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
                 )}
               </div>
             </article>
-          </aside>
+          </div>
         </section>
       </main>
     </div>
