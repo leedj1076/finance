@@ -30,10 +30,10 @@ export function visibleSourceCategories(item: Pick<InboxItem, 'bsCat1' | 'bsCat2
 }
 
 const sourceStyle: Record<string, { label: string; className: string }> = {
-  user: { label: '캐시', className: 'bg-emerald-100 text-emerald-800' },
-  history: { label: '이력', className: 'bg-emerald-50 text-emerald-700' },
-  ai: { label: 'AI', className: 'bg-violet-100 text-violet-800' },
-  banksalad: { label: '뱅샐', className: 'bg-zinc-100 text-zinc-600' },
+  user: { label: '캐시', className: 'bg-finance-green-tint text-finance-green' },
+  history: { label: '이력', className: 'bg-finance-blue-tint text-finance-blue' },
+  ai: { label: 'AI', className: 'bg-finance-violet-tint text-finance-violet' },
+  banksalad: { label: '뱅샐', className: 'bg-finance-amber-tint text-finance-amber' },
 }
 
 export function SuggestionBadges({ item }: { item: InboxItem }) {
@@ -43,7 +43,7 @@ export function SuggestionBadges({ item }: { item: InboxItem }) {
     <span className="inline-flex flex-wrap items-center gap-1">
       {source && (
         <span
-          className={`shrink-0 rounded px-1.5 py-1 text-[10px] font-medium ${source.className}`}
+          className={`shrink-0 px-1.5 py-1 text-[10px] font-semibold ${source.className}`}
           title={evidence || undefined}
         >
           {source.label}
@@ -51,7 +51,7 @@ export function SuggestionBadges({ item }: { item: InboxItem }) {
       )}
       {item.alwaysConfirm && (
         <span
-          className="shrink-0 rounded bg-amber-100 px-1.5 py-1 text-[10px] font-medium text-amber-800"
+          className="shrink-0 bg-finance-amber-tint px-1.5 py-1 text-[10px] font-semibold text-finance-amber"
           title="구매 품목을 알 수 없는 결제대행 가맹점이라 직접 확인이 필요합니다."
         >
           애그리게이터
@@ -66,7 +66,7 @@ export function ActionButtons({ selectedCount }: { selectedCount: number }) {
   return (
     <div className="flex flex-wrap justify-end gap-2">
       <button
-        className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+        className="h-[34px] border border-finance-border bg-white px-4 text-[13px] font-medium text-finance-muted hover:border-finance-ink hover:text-finance-ink disabled:opacity-40"
         disabled={pending || selectedCount === 0}
         name="intent"
         type="submit"
@@ -75,7 +75,7 @@ export function ActionButtons({ selectedCount }: { selectedCount: number }) {
         {pending ? '처리 중…' : '선택 제외'}
       </button>
       <button
-        className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+        className="h-[34px] bg-finance-green px-4 text-[13px] font-semibold text-white hover:bg-finance-ink disabled:opacity-40"
         disabled={pending || selectedCount === 0}
         name="intent"
         type="submit"
@@ -112,7 +112,7 @@ export function GroupSelectionCheckbox({
     <input
       aria-label={`${label} 그룹 선택`}
       checked={allSelected}
-      className="h-4 w-4 shrink-0 accent-emerald-700"
+      className="h-4 w-4 shrink-0 accent-finance-ink"
       onChange={() => onToggle(itemIds, !allSelected)}
       ref={inputRef}
       type="checkbox"

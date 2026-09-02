@@ -39,8 +39,8 @@ export function InboxSourceGroup({
   const groupLabel = paymentSourceLabel(group, accounts)
 
   return (
-    <tbody className="border-t border-zinc-200" key={group.key}>
-      <tr className="bg-zinc-100/80">
+    <tbody className="border-t border-finance-border" key={group.key}>
+      <tr className="bg-finance-panel">
         <th className="p-0" colSpan={9}>
           <div className="flex min-h-16 flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center">
             <GroupSelectionCheckbox
@@ -51,34 +51,34 @@ export function InboxSourceGroup({
             />
             <button
               aria-expanded={expanded}
-              className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-finance-blue"
               onClick={() => toggleSource(group.key)}
               type="button"
             >
-              <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-zinc-500">
+              <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-finance-muted">
                 {expanded ? '▾' : '▸'}
               </span>
-              <span className="truncate font-semibold text-zinc-900" title={groupLabel}>
+              <span className="truncate font-semibold text-finance-ink" title={groupLabel}>
                 {groupLabel}
               </span>
-              <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-zinc-600">
+              <span className="shrink-0 bg-white px-2 py-0.5 text-[10px] font-semibold text-finance-muted">
                 {group.items.length}건
               </span>
               {duplicateCount > 0 && (
-                <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">
+                <span className="shrink-0 bg-finance-red-tint px-2 py-0.5 text-[10px] font-semibold text-finance-red">
                   중복 의심 {duplicateCount}건
                 </span>
               )}
-              <span className="ml-auto hidden whitespace-nowrap text-xs font-normal text-zinc-500 xl:inline">
+              <span className="ml-auto hidden whitespace-nowrap text-xs font-normal text-finance-muted xl:inline">
                 선택 {selectedItems.length}/{group.items.length}건 · {selectedAmount >= 0 ? '+' : '−'}
                 {Math.abs(selectedAmount).toLocaleString('ko-KR')}원
               </span>
             </button>
-            <label className="flex shrink-0 items-center gap-2 text-xs font-medium text-zinc-600">
+            <label className="flex shrink-0 items-center gap-2 text-xs font-medium text-finance-muted">
               그룹 결제수단
               <select
                 aria-label={`${groupLabel} 그룹 결제수단`}
-                className="w-52 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs font-normal text-zinc-700"
+                className="h-[30px] w-52 border border-finance-border bg-white px-2 text-xs font-normal text-finance-ink outline-none focus:border-finance-blue"
                 onChange={(event) => setSourceAccount(
                   group.items.map((item) => item.id),
                   event.target.value,

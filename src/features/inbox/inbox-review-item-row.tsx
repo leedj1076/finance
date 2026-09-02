@@ -42,75 +42,71 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
 
   return (
     <tr
-      className={`border-t border-zinc-100 ${item.dupNote ? 'bg-rose-50/70 hover:bg-rose-50' : 'hover:bg-zinc-50'}`}
+      className="border-t border-finance-track hover:bg-finance-panel"
       key={item.id}
     >
-      <td className="px-4 py-3 text-center">
+      <td className="px-3 py-3 text-center">
         <input
           aria-label={`${item.merchant ?? '거래'} 선택`}
           checked={selected.has(item.id)}
-          className="h-4 w-4 accent-emerald-700"
+          className="h-4 w-4 accent-finance-ink"
           onChange={() => toggle(item.id)}
           type="checkbox"
         />
       </td>
-      <td className="whitespace-nowrap px-3 py-3 text-zinc-500">{item.date}</td>
-      <td className="max-w-64 px-3 py-3 text-zinc-800">
+      <td className="whitespace-nowrap px-3 py-3 text-xs text-finance-muted">{item.date}</td>
+      <td className="max-w-64 px-3 py-3 text-finance-ink">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="break-words">{item.merchant || '-'}</span>
           {item.confidence === 'high' && (
             <span
-              className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800"
+              className="bg-finance-green-tint px-2 py-0.5 text-[10px] font-semibold text-finance-green"
               title="추천 신뢰도가 높은 거래입니다. 필요하면 직접 수정할 수 있습니다."
             >
               자동 분류
             </span>
           )}
           {item.kind === 'transfer' && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+            <span className="bg-finance-green-tint px-2 py-0.5 text-[10px] font-semibold text-finance-green">
               이체 후보
             </span>
           )}
           {item.dupNote && (
             <span
-              className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-800"
+              className="bg-finance-red-tint px-2 py-0.5 text-[10px] font-semibold text-finance-red"
               title={item.dupNote}
             >
               중복 의심
             </span>
           )}
         </div>
-        {item.dupNote && <p className="mt-1 text-[11px] text-rose-700">{item.dupNote}</p>}
+        {item.dupNote && <p className="mt-1 text-[11px] text-finance-red">{item.dupNote}</p>}
       </td>
       <td
         className={`whitespace-nowrap px-3 py-3 text-right font-medium ${
           flow === 'expense'
-            ? 'text-rose-700'
+            ? 'text-finance-red'
             : flow === 'income'
-              ? 'text-blue-700'
-              : 'text-emerald-700'
+              ? 'text-finance-blue'
+              : 'text-finance-green'
         }`}
       >
         {flow === 'expense' ? '−' : '+'}{item.amount.toLocaleString('ko-KR')}원
       </td>
       <td className="px-3 py-3">
         <span
-          className={`rounded-full px-2 py-1 text-xs font-medium ${
-            item.owner === 'DJ'
-              ? 'bg-blue-50 text-blue-700'
-              : 'bg-fuchsia-50 text-fuchsia-700'
-          }`}
+          className="border border-finance-border bg-white px-2 py-1 text-[10px] font-semibold text-finance-muted"
         >
           {item.owner}
         </span>
       </td>
-      <td className="px-3 py-3 text-xs text-zinc-500">
+      <td className="px-3 py-3 text-xs text-finance-muted">
         {visibleSourceCategories(item)}
       </td>
       <td className="px-3 py-3">
         <div className="flex items-center gap-2">
           <select
-            className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
+            className="h-[30px] w-20 border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
             onChange={(event) => {
               const nextFlow = event.target.value as TransactionFlow
               setFlows((current) => ({
@@ -134,7 +130,7 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
           </select>
           <SuggestionBadges item={item} />
           <select
-            className="min-w-44 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
+            className="h-[30px] min-w-44 flex-1 border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
             onChange={(event) =>
               setCategoryIds((current) => ({ ...current, [item.id]: event.target.value }))
             }
@@ -151,7 +147,7 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
       </td>
       <td className="px-3 py-3">
         <select
-          className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
+          className="h-[30px] w-full border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
           onChange={(event) => setAccountIds((current) => ({
             ...current,
             [item.id]: event.target.value,
@@ -165,12 +161,12 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
             </option>
           ))}
         </select>
-        {item.pay && <p className="mt-1 truncate text-[11px] text-zinc-400" title={item.pay}>{item.pay}</p>}
+        {item.pay && <p className="mt-1 truncate text-[11px] text-finance-faint" title={item.pay}>{item.pay}</p>}
       </td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-3 py-3 text-right">
         <button
           aria-label={`${item.merchant || '거래'} 바로 반영`}
-          className="inline-flex min-w-16 items-center justify-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60"
+          className="inline-flex h-[30px] min-w-16 items-center justify-center gap-1 bg-finance-green px-3 text-xs font-semibold text-white hover:bg-finance-ink disabled:cursor-wait disabled:opacity-50"
           disabled={applyingIds.has(item.id)}
           onClick={() => void applySingleItem(item)}
           title="현재 분류와 결제수단으로 바로 반영"

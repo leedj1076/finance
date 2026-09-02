@@ -34,8 +34,8 @@ export function InboxMonthGroup({
 }) {
   return (
     <Fragment key={monthGroup.month}>
-      <tbody className="border-t border-zinc-300 first:border-t-0">
-        <tr className="bg-zinc-800 text-white">
+      <tbody className="border-t border-finance-ink first:border-t-0">
+        <tr className="bg-finance-ink text-white">
           <th className="p-0" colSpan={9}>
             <div className="flex min-h-14 items-center gap-3 px-4 py-3">
               <GroupSelectionCheckbox
@@ -50,14 +50,14 @@ export function InboxMonthGroup({
                 onClick={() => toggleMonth(monthGroup.month)}
                 type="button"
               >
-                <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-zinc-300">
+                <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-zinc-400">
                   {monthExpanded ? '▾' : '▸'}
                 </span>
                 <span className="font-bold">{formatInboxMonth(monthGroup.month)}</span>
-                <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-medium text-zinc-100">
+                <span className="bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-zinc-100">
                   {monthGroup.items.length}건
                 </span>
-                <span className="ml-auto text-xs font-normal text-zinc-300">
+                <span className="ml-auto text-xs font-normal text-zinc-400">
                   결제수단 {monthGroup.sources.length}개
                 </span>
               </button>

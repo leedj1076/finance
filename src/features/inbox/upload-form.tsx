@@ -32,7 +32,7 @@ function UploadButton({ disabled = false }: { disabled?: boolean }) {
   const { pending } = useFormStatus()
   return (
     <button
-      className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+      className="h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:bg-finance-blue disabled:cursor-not-allowed disabled:opacity-50"
       disabled={pending || disabled}
       type="submit"
     >
@@ -77,17 +77,17 @@ function ActiveUploadProgress({ mode }: { mode: keyof typeof uploadSteps }) {
       aria-label="거래 파일 처리 진행"
       aria-live="polite"
       aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950/45 px-5 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-finance-ink/50 px-5"
       role="dialog"
     >
-      <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-md border border-finance-ink bg-white p-6">
         <div className="flex items-start gap-3">
-          <span aria-hidden="true" className="mt-0.5 h-5 w-5 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-700" />
+          <span aria-hidden="true" className="mt-0.5 h-5 w-5 animate-spin rounded-full border-2 border-finance-border border-t-finance-blue" />
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-zinc-950">거래 파일을 처리하고 있습니다</h3>
-            <p className="mt-1 text-sm text-zinc-600">{steps[stepIndex]}</p>
+            <h3 className="text-sm font-bold text-finance-ink">거래 파일을 처리하고 있습니다</h3>
+            <p className="mt-1 text-[13px] text-finance-muted">{steps[stepIndex]}</p>
           </div>
-          <span className="text-sm font-semibold tabular-nums text-emerald-700">
+          <span className="text-[13px] font-semibold tabular-nums text-finance-blue">
             {stepIndex + 1}/{steps.length}
           </span>
         </div>
@@ -96,11 +96,11 @@ function ActiveUploadProgress({ mode }: { mode: keyof typeof uploadSteps }) {
           aria-valuemax={100}
           aria-valuemin={0}
           aria-valuenow={progress}
-          className="mt-5 h-2 overflow-hidden rounded-full bg-zinc-100"
+          className="mt-5 h-[5px] bg-finance-track"
           role="progressbar"
         >
           <div
-            className="h-full rounded-full bg-emerald-600 transition-[width] duration-500 ease-out"
+            className="h-full bg-finance-blue transition-[width] duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -109,10 +109,10 @@ function ActiveUploadProgress({ mode }: { mode: keyof typeof uploadSteps }) {
             <li
               className={`flex items-center gap-2 ${
                 index < stepIndex
-                  ? 'text-emerald-700'
+                  ? 'text-finance-green'
                   : index === stepIndex
-                    ? 'font-semibold text-zinc-900'
-                    : 'text-zinc-400'
+                    ? 'font-semibold text-finance-ink'
+                    : 'text-finance-faint'
               }`}
               key={step}
             >
@@ -123,7 +123,7 @@ function ActiveUploadProgress({ mode }: { mode: keyof typeof uploadSteps }) {
             </li>
           ))}
         </ol>
-        <p className="mt-5 text-xs leading-5 text-zinc-500">
+        <p className="mt-5 border-t border-finance-border pt-4 text-xs leading-5 text-finance-muted">
           거래가 많거나 AI 확인이 필요한 경우 잠시 더 걸릴 수 있습니다. 창을 닫지 말아 주세요.
         </p>
       </div>
@@ -139,9 +139,9 @@ function UploadProgress({ mode }: { mode: keyof typeof uploadSteps }) {
 function ActionMessage({ state }: { state: UploadBanksaladState }) {
   return (
     <>
-      {state.error && <p className="text-sm text-red-700 sm:col-span-full">{state.error}</p>}
+      {state.error && <p className="border-l-2 border-finance-red py-1 pl-3 text-[13px] text-finance-red sm:col-span-full">{state.error}</p>}
       {state.message && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 sm:col-span-full">
+        <p className="border-l-2 border-finance-green py-1 pl-3 text-[13px] text-finance-muted sm:col-span-full">
           {state.message}
         </p>
       )}
@@ -152,23 +152,23 @@ function ActionMessage({ state }: { state: UploadBanksaladState }) {
 function BanksaladForm() {
   const [state, action] = useActionState(uploadBanksaladFiles, initialBanksaladState)
   return (
-    <form action={action} className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+    <form action={action} className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
       <input name="asset_include" type="hidden" value="off" />
-      <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
+      <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
         DJ·YJ 뱅크샐러드 파일
         <input
           accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-normal file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-zinc-700 hover:file:bg-zinc-200"
+          className="h-[44px] border border-dashed border-finance-border bg-white px-3 py-1.5 text-[13px] font-normal normal-case tracking-normal text-finance-muted file:mr-3 file:border-0 file:bg-finance-track file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-finance-ink hover:file:text-finance-blue"
           multiple
           name="files"
           required
           type="file"
         />
-        <span className="font-normal text-zinc-500">.xlsx · 최대 2개 · 파일당 2MB</span>
+        <span className="font-normal normal-case tracking-normal text-finance-faint">.xlsx · 최대 2개 · 파일당 2MB</span>
       </label>
       <UploadButton />
-      <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-full">
-        <input className="h-4 w-4 accent-emerald-700" defaultChecked name="asset_include" type="checkbox" value="on" />
+      <label className="flex items-center gap-2 text-xs text-finance-muted sm:col-span-full">
+        <input className="h-4 w-4 accent-finance-ink" defaultChecked name="asset_include" type="checkbox" value="on" />
         뱅크샐러드 자산·대출 현황을 해당 월 자산 스냅샷에 함께 반영
       </label>
       <ActionMessage state={state} />
@@ -195,11 +195,11 @@ function CardStatementForm({
   const matchedAccount = accounts.find((account) => String(account.id) === accountId)
 
   return (
-    <form action={action} className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-[160px_120px_220px_minmax(0,1fr)_auto] lg:items-end">
-      <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
+    <form action={action} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[160px_120px_220px_minmax(0,1fr)_auto] lg:items-end">
+      <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
         카드사
         <select
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-normal"
+          className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
           name="issuer"
           onChange={(event) => {
             const nextIssuer = event.target.value
@@ -211,10 +211,10 @@ function CardStatementForm({
           {issuers.map((issuer) => <option key={issuer.key} value={issuer.key}>{issuer.label}</option>)}
         </select>
       </label>
-      <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
+      <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
         소유자
         <select
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2.5 font-normal"
+          className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
           name="owner"
           onChange={(event) => {
             const nextOwner = event.target.value
@@ -227,31 +227,31 @@ function CardStatementForm({
           <option value="YJ">YJ</option>
         </select>
       </label>
-      <div className="grid gap-1.5 text-sm font-medium text-zinc-700">
+      <div className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
         <span>기본 카드</span>
         <div
           aria-live="polite"
-          className={`flex min-h-[43px] items-center justify-between gap-2 rounded-lg border px-3 py-2.5 font-normal ${matchedAccount ? 'border-zinc-300 bg-zinc-50 text-zinc-800' : 'border-rose-300 bg-rose-50 text-rose-700'}`}
+          className={`flex h-[34px] items-center justify-between gap-2 border px-3 text-[13px] font-normal normal-case tracking-normal ${matchedAccount ? 'border-finance-border bg-finance-panel text-finance-ink' : 'border-finance-red text-finance-red'}`}
         >
           <span>{matchedAccount?.name ?? '일치하는 카드 없음'}</span>
-          <span className="shrink-0 text-[11px] font-semibold text-zinc-400">자동 고정</span>
+          <span className="shrink-0 text-[10px] font-semibold text-finance-faint">자동 고정</span>
         </div>
-        <span className={`font-normal ${matchedAccount ? 'text-zinc-500' : 'text-rose-600'}`}>
+        <span className={`font-normal normal-case tracking-normal ${matchedAccount ? 'text-finance-faint' : 'text-finance-red'}`}>
           {matchedAccount
             ? '카드사와 소유자로 자동 선택됩니다.'
             : '결제수단 관리에서 카드사와 소유자가 맞는 카드를 확인해 주세요.'}
         </span>
       </div>
-      <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
+      <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
         카드사 명세서
         <input
           accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-normal file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-zinc-700 hover:file:bg-zinc-200"
+          className="h-[44px] border border-dashed border-finance-border bg-white px-3 py-1.5 text-[13px] font-normal normal-case tracking-normal text-finance-muted file:mr-3 file:border-0 file:bg-finance-track file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-finance-ink hover:file:text-finance-blue"
           name="file"
           required
           type="file"
         />
-        <span className="font-normal text-zinc-500">.xls 또는 .xlsx · 2MB 이하</span>
+        <span className="font-normal normal-case tracking-normal text-finance-faint">.xls 또는 .xlsx · 2MB 이하</span>
       </label>
       <UploadButton disabled={!matchedAccount} />
       <ActionMessage state={state} />
@@ -270,10 +270,10 @@ export function InboxUploadForm({
   const [mode, setMode] = useState<'banksalad' | 'card'>('banksalad')
   return (
     <div>
-      <div className="mt-4 inline-flex rounded-lg bg-zinc-100 p-1" role="tablist" aria-label="가져오기 파일 유형">
+      <div className="mt-4 inline-flex border border-finance-ink" role="tablist" aria-label="가져오기 파일 유형">
         <button
           aria-selected={mode === 'banksalad'}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium ${mode === 'banksalad' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-600'}`}
+          className={`h-8 px-4 text-xs font-medium ${mode === 'banksalad' ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track'}`}
           onClick={() => setMode('banksalad')}
           role="tab"
           type="button"
@@ -282,7 +282,7 @@ export function InboxUploadForm({
         </button>
         <button
           aria-selected={mode === 'card'}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium ${mode === 'card' ? 'bg-white text-zinc-950 shadow-sm' : 'text-zinc-600'}`}
+          className={`h-8 border-l border-finance-ink px-4 text-xs font-medium ${mode === 'card' ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track'}`}
           onClick={() => setMode('card')}
           role="tab"
           type="button"

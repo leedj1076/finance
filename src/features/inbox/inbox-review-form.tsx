@@ -196,14 +196,14 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
       <section>
         <div className="mb-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold text-zinc-950">확인 대기 {items.length}건</h3>
+            <h3 className="text-sm font-bold text-finance-ink">확인 대기 <span className="text-finance-red">{items.length}건</span></h3>
             {highConfidenceIds.length > 0 && (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+              <span className="bg-finance-green-tint px-2 py-0.5 text-[10px] font-semibold text-finance-green">
                 자동 분류 {highConfidenceIds.length}건
               </span>
             )}
           </div>
-          <p className="mt-1 text-xs text-zinc-500">모든 거래를 바로 수정할 수 있습니다. 한 건씩 오른쪽에서 즉시 반영하거나, 체크박스로 여러 건을 선택해 한 번에 처리하세요.</p>
+          <p className="mt-1 text-xs text-finance-muted">모든 거래를 바로 수정할 수 있습니다. 한 건씩 오른쪽에서 즉시 반영하거나, 체크박스로 여러 건을 선택해 한 번에 처리하세요.</p>
         </div>
       {actionMessage && (
         <div
@@ -236,16 +236,16 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
         </Fragment>
       ))}
       <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-        <div className="flex flex-wrap items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
           <button
-            className="font-medium text-zinc-700 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
+            className="font-semibold text-finance-ink hover:text-finance-blue"
             onClick={() => setSelected(new Set(items.map((item) => item.id)))}
             type="button"
           >
             전체 선택
           </button>
           <button
-            className="text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950"
+            className="text-finance-muted hover:text-finance-ink"
             onClick={() => setSelected(new Set())}
             type="button"
           >
@@ -253,16 +253,16 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
           </button>
           {highConfidenceIds.length > 0 && (
             <button
-              className="text-emerald-700 underline decoration-emerald-300 underline-offset-4 hover:text-emerald-900"
+              className="font-semibold text-finance-green hover:text-finance-ink"
               onClick={() => toggleItems(highConfidenceIds, true)}
               type="button"
             >
               자동 분류만 선택
             </button>
           )}
-          <span aria-hidden="true" className="h-4 border-l border-zinc-300" />
+          <span aria-hidden="true" className="h-4 border-l border-finance-border" />
           <button
-            className="text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950 disabled:text-zinc-300"
+            className="text-finance-muted hover:text-finance-ink disabled:text-finance-faint"
             disabled={expandedSources.size === sourceGroups.length}
             onClick={() => setExpandedSources(new Set(sourceGroups.map((group) => group.key)))}
             type="button"
@@ -270,14 +270,14 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
             결제수단 전체 펼치기
           </button>
           <button
-            className="text-zinc-500 underline decoration-zinc-300 underline-offset-4 hover:text-zinc-950 disabled:text-zinc-300"
+            className="text-finance-muted hover:text-finance-ink disabled:text-finance-faint"
             disabled={expandedSources.size === 0}
             onClick={() => setExpandedSources(new Set())}
             type="button"
           >
             결제수단 전체 접기
           </button>
-          <span className="text-zinc-500">
+          <span className="text-finance-muted">
             {selected.size}건 · 합계 {selectedTotal >= 0 ? '+' : '−'}
             {Math.abs(selectedTotal).toLocaleString('ko-KR')}원
           </span>
@@ -285,20 +285,20 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
         <ActionButtons selectedCount={selected.size} />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <div className="border-b border-finance-border">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1280px] text-left text-sm">
-            <thead className="bg-zinc-50 text-xs text-zinc-500">
+          <table className="w-full min-w-[1280px] text-left text-[13px]">
+            <thead className="border-b border-finance-border border-t border-finance-ink text-[11px] font-semibold uppercase tracking-[0.04em] text-finance-muted">
               <tr>
-                <th className="w-10 px-4 py-3 font-medium">선택</th>
-                <th className="px-3 py-3 font-medium">날짜</th>
-                <th className="px-3 py-3 font-medium">가맹점</th>
-                <th className="px-3 py-3 text-right font-medium">금액</th>
-                <th className="px-3 py-3 font-medium">소유자</th>
-                <th className="px-3 py-3 font-medium">뱅샐 분류</th>
-                <th className="min-w-72 px-3 py-3 font-medium">반영 분류</th>
-                <th className="min-w-48 px-3 py-3 font-medium">결제수단</th>
-                <th className="w-24 px-4 py-3 text-right font-medium">바로 반영</th>
+                <th className="w-10 px-3 py-[9px] font-semibold">선택</th>
+                <th className="px-3 py-[9px] font-semibold">날짜</th>
+                <th className="px-3 py-[9px] font-semibold">가맹점</th>
+                <th className="px-3 py-[9px] text-right font-semibold">금액</th>
+                <th className="px-3 py-[9px] font-semibold">소유자</th>
+                <th className="px-3 py-[9px] font-semibold">가져온 분류</th>
+                <th className="min-w-72 px-3 py-[9px] font-semibold">반영 분류</th>
+                <th className="min-w-48 px-3 py-[9px] font-semibold">결제수단</th>
+                <th className="w-24 px-3 py-[9px] text-right font-semibold">바로 반영</th>
               </tr>
             </thead>
             {monthGroups.map((monthGroup) => (
@@ -326,9 +326,9 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
       </form>
       </section>
       ) : (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-center">
-          <p className="font-medium text-emerald-900">모든 대기 거래를 처리했습니다.</p>
-          <p className="mt-2 text-sm text-emerald-700">새 거래 파일을 올리면 이곳에서 다시 확인할 수 있습니다.</p>
+        <div className="border-b border-finance-green border-t border-finance-green px-6 py-8 text-center">
+          <p className="font-medium text-finance-ink">모든 대기 거래를 처리했습니다.</p>
+          <p className="mt-2 text-[13px] text-finance-muted">새 거래 파일을 올리면 이곳에서 다시 확인할 수 있습니다.</p>
         </div>
       )
   )
