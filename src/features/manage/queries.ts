@@ -1,19 +1,19 @@
-import { and, asc, count, desc, eq, ilike, isNull } from 'drizzle-orm'
+import { and, asc, count, desc, eq, ilike, isNull, or } from 'drizzle-orm'
 
 import { db } from '@/db/client'
 import {
   accountAliases,
   accounts,
   categories,
-  categoryRules,
+  merchantLookup,
   recurring,
   transactions,
 } from '@/db/schema'
 import {
   buildHistorySuggester,
-  normalizeMerchant,
   type TransactionFlow,
 } from '@/features/inbox/banksalad'
+import { normalizeMerchant } from '@/features/inbox/normalize'
 
 export type ManageTab = 'accounts' | 'categories' | 'rules' | 'unclassified'
 
@@ -21,7 +21,7 @@ export async function getManageData(
   householdId: string,
   options: { tab: ManageTab; ruleQuery?: string },
 ) {
-  const [accountRows, categoryRows, accountUsageRows, categoryUsageRows, ruleCountRows, aliasCountRows, unclassifiedCountRows] = await Promise.all([
+  const [accountRows, categoryRows, accountUsageRows, categoryUsageRows, dictionaryCountRows, aliasCountRows, unclassifiedCountRows] = await Promise.all([
     db
       .select()
       .from(accounts)
@@ -42,7 +42,7 @@ export async function getManageData(
       .from(transactions)
       .where(eq(transactions.householdId, householdId))
       .groupBy(transactions.categoryId),
-    db.select({ value: count() }).from(categoryRules).where(eq(categoryRules.householdId, householdId)),
+    db.select({ value: count() }).from(merchantLookup).where(eq(merchantLookup.householdId, householdId)),
     db.select({ value: count() }).from(accountAliases).where(eq(accountAliases.householdId, householdId)),
     db
       .select({ value: count() })
@@ -55,31 +55,44 @@ export async function getManageData(
   const accountData = accountRows.map((row) => ({ ...row, transactionCount: accountUsage.get(row.id) ?? 0 }))
   const categoryData = categoryRows.map((row) => ({ ...row, transactionCount: categoryUsage.get(row.id) ?? 0 }))
 
-  const ruleFilter = options.ruleQuery?.trim()
-  const ruleRows = options.tab === 'rules'
+  const dictionaryFilter = options.ruleQuery?.trim()
+  const dictionaryRows = options.tab === 'rules'
     ? await db
         .select({
-          id: categoryRules.id,
-          matchType: categoryRules.matchType,
-          pattern: categoryRules.pattern,
-          categoryId: categoryRules.categoryId,
-          accountId: categoryRules.accountId,
-          flow: categoryRules.flow,
-          fixed: categoryRules.fixed,
-          priority: categoryRules.priority,
-          hits: categoryRules.hits,
+          id: merchantLookup.id,
+          normMerchant: merchantLookup.normMerchant,
+          displayMerchant: merchantLookup.displayMerchant,
+          businessType: merchantLookup.businessType,
+          categoryId: merchantLookup.categoryId,
+          flow: merchantLookup.flow,
+          source: merchantLookup.source,
+          confidence: merchantLookup.confidence,
+          aiNote: merchantLookup.aiNote,
+          alwaysConfirm: merchantLookup.alwaysConfirm,
+          hitCount: merchantLookup.hitCount,
+          lastUsedAt: merchantLookup.lastUsedAt,
           categoryMajor: categories.major,
           categorySub: categories.sub,
-          accountName: accounts.name,
         })
-        .from(categoryRules)
-        .leftJoin(categories, and(eq(categories.id, categoryRules.categoryId), eq(categories.householdId, householdId)))
-        .leftJoin(accounts, and(eq(accounts.id, categoryRules.accountId), eq(accounts.householdId, householdId)))
+        .from(merchantLookup)
+        .leftJoin(
+          categories,
+          and(
+            eq(categories.id, merchantLookup.categoryId),
+            eq(categories.householdId, householdId),
+          ),
+        )
         .where(and(
-          eq(categoryRules.householdId, householdId),
-          ruleFilter ? ilike(categoryRules.pattern, `%${ruleFilter}%`) : undefined,
+          eq(merchantLookup.householdId, householdId),
+          dictionaryFilter
+            ? or(
+                ilike(merchantLookup.normMerchant, `%${dictionaryFilter}%`),
+                ilike(merchantLookup.displayMerchant, `%${dictionaryFilter}%`),
+                ilike(merchantLookup.businessType, `%${dictionaryFilter}%`),
+              )
+            : undefined,
         ))
-        .orderBy(desc(categoryRules.hits), asc(categoryRules.pattern))
+        .orderBy(desc(merchantLookup.hitCount), asc(merchantLookup.normMerchant))
         .limit(100)
     : []
 
@@ -116,32 +129,26 @@ export async function getManageData(
         .limit(100)
     : []
 
-  const [suggestionRuleRows, suggestionHistoryRows] = options.tab === 'unclassified'
+  const [suggestionLookupRows, suggestionHistoryRows] = options.tab === 'unclassified'
     ? await Promise.all([
         db
           .select({
-            pattern: categoryRules.pattern,
-            flow: categoryRules.flow,
-            fixed: categoryRules.fixed,
+            normMerchant: merchantLookup.normMerchant,
+            flow: merchantLookup.flow,
+            source: merchantLookup.source,
             categoryId: categories.id,
             categoryKind: categories.kind,
           })
-          .from(categoryRules)
+          .from(merchantLookup)
           .innerJoin(
             categories,
             and(
-              eq(categories.id, categoryRules.categoryId),
+              eq(categories.id, merchantLookup.categoryId),
               eq(categories.householdId, householdId),
               eq(categories.hidden, false),
             ),
           )
-          .where(
-            and(
-              eq(categoryRules.householdId, householdId),
-              eq(categoryRules.matchType, 'merchant_norm'),
-            ),
-          )
-          .orderBy(desc(categoryRules.hits)),
+          .where(eq(merchantLookup.householdId, householdId)),
         db
           .select({
             flow: transactions.flow,
@@ -172,17 +179,17 @@ export async function getManageData(
       category,
     ]),
   )
-  const rulesByPattern = new Map<
+  const lookupByNorm = new Map<
     string,
-    { flow: TransactionFlow; fixed: boolean; categoryId: number }
+    { flow: TransactionFlow; source: 'user' | 'ai'; categoryId: number }
   >()
-  for (const rule of suggestionRuleRows) {
-    if (rulesByPattern.has(rule.pattern)) continue
-    if (!rule.flow || rule.flow !== rule.categoryKind) continue
-    rulesByPattern.set(rule.pattern, {
-      flow: rule.flow,
-      fixed: rule.flow === 'expense' && Boolean(rule.fixed),
-      categoryId: rule.categoryId,
+  for (const entry of suggestionLookupRows) {
+    if (entry.flow !== entry.categoryKind) continue
+    if (entry.source !== 'user' && entry.source !== 'ai') continue
+    lookupByNorm.set(entry.normMerchant, {
+      flow: entry.flow,
+      source: entry.source,
+      categoryId: entry.categoryId,
     })
   }
   const suggestFromHistory = buildHistorySuggester(
@@ -199,14 +206,14 @@ export async function getManageData(
   )
   const unclassifiedData = unclassifiedRows.map((row) => {
     const merchant = row.rawMerchant || row.memo || ''
-    const rule = rulesByPattern.get(normalizeMerchant(merchant))
-    if (rule) {
+    const cached = lookupByNorm.get(normalizeMerchant(merchant))
+    if (cached?.source === 'user') {
       return {
         ...row,
-        suggestedFlow: rule.flow,
-        suggestedFixed: rule.fixed,
-        suggestedCategoryId: rule.categoryId,
-        suggestionSource: 'rule' as const,
+        suggestedFlow: cached.flow,
+        suggestedFixed: row.fixed,
+        suggestedCategoryId: cached.categoryId,
+        suggestionSource: 'user' as const,
       }
     }
 
@@ -223,6 +230,16 @@ export async function getManageData(
         suggestedFixed: history.fixed,
         suggestedCategoryId: historicalCategory.id,
         suggestionSource: 'history' as const,
+      }
+    }
+
+    if (cached?.source === 'ai') {
+      return {
+        ...row,
+        suggestedFlow: cached.flow,
+        suggestedFixed: row.fixed,
+        suggestedCategoryId: cached.categoryId,
+        suggestionSource: 'ai' as const,
       }
     }
 
@@ -249,13 +266,13 @@ export async function getManageData(
   return {
     accounts: accountData,
     categories: categoryData.map((row) => ({ ...row, recurringCount: recurringUsage.get(row.id) ?? 0 })),
-    rules: ruleRows,
+    dictionary: dictionaryRows,
     aliases: aliasRows,
     unclassified: unclassifiedData,
     counts: {
       accounts: accountRows.length,
       categories: categoryRows.length,
-      rules: ruleCountRows[0]?.value ?? 0,
+      rules: dictionaryCountRows[0]?.value ?? 0,
       aliases: aliasCountRows[0]?.value ?? 0,
       unclassified: unclassifiedCountRows[0]?.value ?? 0,
     },

@@ -110,6 +110,8 @@ test('default-on upload upserts monthly snapshots without crossing household bou
   const first = await uploadBanksaladFiles({}, formData)
   expect(first.error).toBeUndefined()
   expect(first.message).toContain('자산 5항목 업데이트')
+  expect(first.message).toContain('자동 분류 0건')
+  expect(first.message).toContain('확인 필요 1건')
   await uploadBanksaladFiles({}, formData)
 
   const accounts = await db

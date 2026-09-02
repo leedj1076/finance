@@ -1,4 +1,5 @@
-import { bigint, index, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import { bigint, check, index, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 
 import { flowEnum, inboxKindEnum, inboxStatusEnum } from '../enums'
 import { households } from './auth'
@@ -27,11 +28,13 @@ export const importInbox = pgTable(
     memo: text('memo'),
     sugSource: text('sug_source'),
     dupNote: text('dup_note'),
+    confidence: text('confidence').notNull().default('review'),
     status: inboxStatusEnum('status').notNull().default('pending'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     unique('inbox_household_import_uid').on(table.householdId, table.importUid),
     index('inbox_household_status').on(table.householdId, table.status),
+    check('import_inbox_confidence_check', sql`${table.confidence} in ('high', 'review')`),
   ],
 )

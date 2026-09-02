@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto'
 
 import ExcelJS from 'exceljs'
 
+import { normalizeMerchant } from './normalize'
+
 export type BanksaladOwner = 'DJ' | 'YJ'
 export type TransactionFlow = 'expense' | 'income' | 'saving'
 
@@ -61,7 +63,11 @@ export type HistoryRow = {
   date: string
 }
 
-export type HistorySuggestion = Pick<HistoryRow, 'flow' | 'fixed' | 'major' | 'sub'>
+type HistorySuggestionBase = Pick<HistoryRow, 'flow' | 'fixed' | 'major' | 'sub'>
+
+export type HistorySuggestion = HistorySuggestionBase & {
+  matched: 'norm' | 'token'
+}
 
 const OWNER_MAP: Record<string, BanksaladOwner> = {
   이동재: 'DJ',
@@ -439,10 +445,6 @@ export function classifyBanksaladRow(row: BanksaladRow): Classification {
   return { action: 'exclude', reason: `알 수 없는 타입: ${typ}`, suggestMajor: null }
 }
 
-export function normalizeMerchant(value: string) {
-  return value.replace(/[\s\d]+/g, '').toLowerCase()
-}
-
 function merchantToken(value: string) {
   return value.trim().match(/^[0-9A-Za-z가-힣]+/)?.[0].toLowerCase() ?? ''
 }
@@ -454,7 +456,7 @@ function bareToken(value: string) {
   )
 }
 
-type TallyValue = { suggestion: HistorySuggestion; count: number; last: string }
+type TallyValue = { suggestion: HistorySuggestionBase; count: number; last: string }
 
 function pickWinner(values: Map<string, TallyValue>) {
   return [...values.values()].sort(
@@ -487,7 +489,7 @@ export function buildHistorySuggester(rows: HistoryRow[]) {
   const byNorm = new Map<string, HistorySuggestion>()
   for (const [key, values] of normTallies) {
     if (GENERIC_TOKENS.has(bareToken(key))) continue
-    byNorm.set(key, pickWinner(values).suggestion)
+    byNorm.set(key, { ...pickWinner(values).suggestion, matched: 'norm' })
   }
 
   const byToken = new Map<string, HistorySuggestion>()
@@ -495,11 +497,44 @@ export function buildHistorySuggester(rows: HistoryRow[]) {
     if (key.length < 2 || GENERIC_TOKENS.has(bareToken(key))) continue
     const winner = pickWinner(values)
     const total = [...values.values()].reduce((sum, value) => sum + value.count, 0)
-    if (total >= 2 && winner.count / total >= 0.66) byToken.set(key, winner.suggestion)
+    if (total >= 2 && winner.count / total >= 0.66) {
+      byToken.set(key, { ...winner.suggestion, matched: 'token' })
+    }
   }
 
   return (merchant: string) =>
     byNorm.get(normalizeMerchant(merchant)) ?? byToken.get(merchantToken(merchant)) ?? null
+}
+
+/**
+ * Indexes exact (normalized merchant, amount) repeats for subscription-like
+ * aggregator promotion. A category is usable only when every repeat agrees.
+ */
+export function buildAmountRepeatIndex(
+  rows: { merchant: string; amount: number; categoryId: number | null }[],
+): Map<string, { count: number; categoryId: number | null }> {
+  const tallies = new Map<string, { count: number; categoryIds: Set<number | null> }>()
+
+  for (const row of rows) {
+    const normMerchant = normalizeMerchant(row.merchant)
+    if (!normMerchant) continue
+    const key = `${normMerchant}|${row.amount}`
+    const tally = tallies.get(key) ?? { count: 0, categoryIds: new Set<number | null>() }
+    tally.count += 1
+    tally.categoryIds.add(row.categoryId)
+    tallies.set(key, tally)
+  }
+
+  const index = new Map<string, { count: number; categoryId: number | null }>()
+  for (const [key, tally] of tallies) {
+    if (tally.count < 2) continue
+    const categoryIds = [...tally.categoryIds]
+    index.set(key, {
+      count: tally.count,
+      categoryId: categoryIds.length === 1 ? categoryIds[0] : null,
+    })
+  }
+  return index
 }
 
 export function duplicateMerchantSimilar(left: string | null, right: string | null) {

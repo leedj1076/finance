@@ -1,9 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useFormStatus } from 'react-dom'
 
-import { processInbox } from './actions'
+import { approveHighConfidence, demoteToReview, processInbox } from './actions'
 import type { TransactionFlow } from './banksalad'
 import { formatInboxMonth, groupInboxItemsByMonth } from './grouping'
 import {
@@ -28,6 +28,11 @@ type InboxItem = {
   memo: string | null
   sugSource: string | null
   dupNote: string | null
+  confidence: string
+  businessType: string | null
+  aiNote: string | null
+  alwaysConfirm: boolean
+  categoryLabel: string | null
 }
 
 type AccountOption = {
@@ -37,7 +42,8 @@ type AccountOption = {
 }
 
 type InboxReviewFormProps = {
-  items: InboxItem[]
+  highItems: InboxItem[]
+  reviewItems: InboxItem[]
   categories: InboxCategoryOption[]
   accounts: AccountOption[]
 }
@@ -52,6 +58,116 @@ function visibleSourceCategories(item: Pick<InboxItem, 'bsCat1' | 'bsCat2'>) {
   return [item.bsCat1, item.bsCat2]
     .filter((value): value is string => value !== null && value !== '' && !value.startsWith('__source:'))
     .join(' / ') || '-'
+}
+
+const sourceStyle: Record<string, { label: string; className: string }> = {
+  user: { label: '캐시', className: 'bg-emerald-100 text-emerald-800' },
+  history: { label: '이력', className: 'bg-emerald-50 text-emerald-700' },
+  ai: { label: 'AI', className: 'bg-violet-100 text-violet-800' },
+  banksalad: { label: '뱅샐', className: 'bg-zinc-100 text-zinc-600' },
+}
+
+function SuggestionBadges({ item }: { item: InboxItem }) {
+  const source = item.sugSource ? sourceStyle[item.sugSource] : null
+  const evidence = [item.businessType, item.aiNote].filter(Boolean).join(' · ')
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {source && (
+        <span
+          className={`shrink-0 rounded px-1.5 py-1 text-[10px] font-medium ${source.className}`}
+          title={evidence || undefined}
+        >
+          {source.label}
+        </span>
+      )}
+      {item.alwaysConfirm && (
+        <span
+          className="shrink-0 rounded bg-amber-100 px-1.5 py-1 text-[10px] font-medium text-amber-800"
+          title="구매 품목을 알 수 없는 결제대행 가맹점이라 직접 확인이 필요합니다."
+        >
+          애그리게이터
+        </span>
+      )}
+    </span>
+  )
+}
+
+function HighConfidenceSection({ items }: { items: InboxItem[] }) {
+  const [pending, startTransition] = useTransition()
+  const [message, setMessage] = useState<string | null>(null)
+  const total = items.reduce(
+    (sum, item) => sum + (item.flow === 'income' ? item.amount : -item.amount),
+    0,
+  )
+
+  if (items.length === 0) return null
+
+  return (
+    <details className="mb-6 overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
+      <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 bg-emerald-50 px-5 py-4 marker:hidden">
+        <span aria-hidden="true" className="text-emerald-700">✓</span>
+        <span className="font-semibold text-emerald-950">자동 분류됨 {items.length}건</span>
+        <span className="text-sm text-emerald-700">
+          합계 {total >= 0 ? '+' : '−'}{Math.abs(total).toLocaleString('ko-KR')}원
+        </span>
+        <button
+          className="ml-auto rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
+          disabled={pending}
+          onClick={(event) => {
+            event.preventDefault()
+            startTransition(async () => {
+              const result = await approveHighConfidence()
+              setMessage(result.error ?? `${result.applied ?? 0}건을 가계부에 반영했습니다.`)
+            })
+          }}
+          type="button"
+        >
+          {pending ? '반영 중…' : `${items.length}건 일괄 승인`}
+        </button>
+      </summary>
+      {message && <p className="border-t border-emerald-100 px-5 py-3 text-sm text-emerald-800">{message}</p>}
+      <div className="overflow-x-auto border-t border-emerald-100">
+        <table className="w-full min-w-[820px] text-left text-sm">
+          <thead className="bg-zinc-50 text-xs text-zinc-500">
+            <tr>
+              <th className="px-4 py-3 font-medium">날짜</th>
+              <th className="px-3 py-3 font-medium">가맹점</th>
+              <th className="px-3 py-3 font-medium">근거</th>
+              <th className="px-3 py-3 font-medium">분류</th>
+              <th className="px-3 py-3 text-right font-medium">금액</th>
+              <th className="px-4 py-3 text-right font-medium">수정</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr className="border-t border-zinc-100" key={item.id}>
+                <td className="whitespace-nowrap px-4 py-3 text-zinc-500">{item.date.slice(5)}</td>
+                <td className="px-3 py-3 font-medium text-zinc-900">{item.merchant || '-'}</td>
+                <td className="px-3 py-3"><SuggestionBadges item={item} /></td>
+                <td className="px-3 py-3 text-zinc-600">{item.categoryLabel || '미분류'}</td>
+                <td className={`whitespace-nowrap px-3 py-3 text-right font-medium ${item.flow === 'expense' ? 'text-rose-700' : item.flow === 'income' ? 'text-blue-700' : 'text-emerald-700'}`}>
+                  {item.flow === 'expense' ? '−' : '+'}{item.amount.toLocaleString('ko-KR')}원
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                    disabled={pending}
+                    onClick={() => startTransition(async () => {
+                      const result = await demoteToReview(item.id)
+                      if (result?.error) setMessage(result.error)
+                    })}
+                    type="button"
+                  >
+                    수정
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  )
 }
 
 function ActionButtons({ selectedCount }: { selectedCount: number }) {
@@ -80,7 +196,8 @@ function ActionButtons({ selectedCount }: { selectedCount: number }) {
   )
 }
 
-export function InboxReviewForm({ items, categories, accounts }: InboxReviewFormProps) {
+export function InboxReviewForm({ highItems, reviewItems, categories, accounts }: InboxReviewFormProps) {
+  const items = reviewItems
   const monthGroups = useMemo(() => groupInboxItemsByMonth(items), [items])
   const [selected, setSelected] = useState(
     () => new Set(items.filter((item) => !item.dupNote).map((item) => item.id)),
@@ -128,7 +245,15 @@ export function InboxReviewForm({ items, categories, accounts }: InboxReviewForm
   }
 
   return (
-    <form action={processInbox}>
+    <>
+      <HighConfidenceSection items={highItems} />
+      {items.length > 0 ? (
+      <section>
+        <div className="mb-3">
+          <h3 className="font-semibold text-zinc-950">확인 필요 {items.length}건</h3>
+          <p className="mt-1 text-xs text-zinc-500">AI·뱅샐 제안, 결제대행, 이체와 중복 의심 거래를 확인해 주세요.</p>
+        </div>
+      <form action={processInbox}>
       <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <button
@@ -313,17 +438,7 @@ export function InboxReviewForm({ items, categories, accounts }: InboxReviewForm
                             <option key={value} value={value}>{label}</option>
                           ))}
                         </select>
-                        {item.sugSource && (
-                          <span
-                            className={`shrink-0 rounded px-1.5 py-1 text-[10px] font-medium ${
-                              item.sugSource === 'history'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-zinc-100 text-zinc-500'
-                            }`}
-                          >
-                            {item.sugSource === 'history' ? '이력' : '뱅샐'}
-                          </span>
-                        )}
+                        <SuggestionBadges item={item} />
                         <select
                           className="min-w-44 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
                           name={`category_${item.id}`}
@@ -369,6 +484,14 @@ export function InboxReviewForm({ items, categories, accounts }: InboxReviewForm
       <div className="mt-3">
         <ActionButtons selectedCount={selected.size} />
       </div>
-    </form>
+      </form>
+      </section>
+      ) : highItems.length > 0 ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-center">
+          <p className="font-medium text-emerald-900">직접 확인할 거래가 없습니다.</p>
+          <p className="mt-2 text-sm text-emerald-700">위 자동 분류 항목을 펼쳐 검토하거나 한 번에 승인할 수 있습니다.</p>
+        </div>
+      ) : null}
+    </>
   )
 }

@@ -32,7 +32,7 @@ type BulkTransaction = {
   suggestedFlow: BulkClassificationFlow
   suggestedFixed: boolean
   suggestedCategoryId: number | null
-  suggestionSource: 'rule' | 'history' | null
+  suggestionSource: 'user' | 'history' | 'ai' | null
 }
 
 type BulkClassifyFormProps = {
@@ -108,7 +108,7 @@ export function BulkClassifyForm({ categories, rows }: BulkClassifyFormProps) {
         <div>
           <h2 className="font-semibold text-zinc-950">미분류 거래 일괄 분류</h2>
           <p className="mt-1 text-xs text-zinc-500">
-            규칙·이력 추천은 미리 선택했습니다. 유형과 카테고리를 확인한 뒤 저장해 주세요.
+            가맹점 사전·이력 추천은 미리 선택했습니다. 유형과 카테고리를 확인한 뒤 저장해 주세요.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -220,11 +220,13 @@ export function BulkClassifyForm({ categories, rows }: BulkClassifyFormProps) {
                       </select>
                       {source && (
                         <span className={`shrink-0 rounded px-1.5 py-1 text-[10px] font-medium ${
-                          source === 'rule'
+                          source === 'user'
                             ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-blue-50 text-blue-700'
+                            : source === 'ai'
+                              ? 'bg-violet-50 text-violet-700'
+                              : 'bg-blue-50 text-blue-700'
                         }`}>
-                          {source === 'rule' ? '규칙' : '이력'}
+                          {source === 'user' ? '확정' : source === 'ai' ? 'AI' : '이력'}
                         </span>
                       )}
                     </div>

@@ -257,10 +257,10 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page.getByText(/1건을 분류하고 다음 추천에 반영했습니다/)).toBeVisible()
     await expect(page.getByText('E2E 미분류 가맹점')).toHaveCount(0)
 
-    await page.getByRole('link', { name: /추천 규칙/ }).click()
-    await page.getByLabel('분류 규칙 검색').fill('ee미분류가맹점')
+    await page.getByRole('link', { name: /가맹점 사전/ }).click()
+    await page.getByLabel('가맹점 사전 검색').fill('ee미분류가맹점')
     await page.getByRole('button', { name: '검색' }).click()
-    await expect(page.getByText('ee미분류가맹점', { exact: true })).toBeVisible()
+    await expect(page.getByText('정규화: ee미분류가맹점', { exact: true })).toBeVisible()
     expect(browserErrors).toEqual([])
 
     await navigateFromHeader(page, '설정', '계정 설정')

@@ -26,7 +26,10 @@ DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<ANON_KEY>
 SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY>
+OPENAI_API_KEY=<OPTIONAL_OPENAI_API_KEY>
 ```
+
+`OPENAI_API_KEY`는 서버 전용 선택 환경변수입니다. 없으면 AI 가맹점 분류만 비활성화되고 업로드와 기존 추천은 정상 동작합니다. 로컬에서는 `.env.local`, 배포에서 AI 폴백을 사용할 때는 Vercel Dashboard의 환경변수에 등록합니다.
 
 그다음 스키마를 적용하고 앱을 실행합니다.
 
@@ -93,11 +96,12 @@ E2E는 로컬 Supabase와 `.env.local`이 필요하며, 테스트에서 만든 �
    pnpm exec tsx scripts/link-user.ts '<email>'
    ```
 
-5. Vercel 프로젝트에는 아래 세 변수만 설정합니다.
+5. Vercel 프로젝트에는 아래 세 필수 변수와, AI 폴백을 사용할 경우 선택 변수 하나를 설정합니다.
 
    - `DATABASE_URL`: transaction pooler URL(6543)
    - `NEXT_PUBLIC_SUPABASE_URL`: Supabase 프로젝트 URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase anon key
+   - `OPENAI_API_KEY` (선택): 서버 전용 AI 가맹점 분류 폴백 키. 미설정 시 AI 층만 비활성화
 
 6. Vercel에 배포한 후 `/` → `/login` 리다이렉트, DJ/YJ 로그인, `가구 연결됨` 표시를 확인합니다.
 

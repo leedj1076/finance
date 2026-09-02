@@ -238,6 +238,29 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
       .single()
     if (sourceError) throw sourceError
     expect(sourceRow).toEqual({ source: 'card:samsung', raw_merchant: merchant })
+
+    const repeatStatementPath = testInfo.outputPath('samsung-card-statement-repeat.xls')
+    await writeFile(repeatStatementPath, `<!doctype html><html><head><meta charset="utf-8"></head><body>
+      <table>
+        <tr><th>이용일</th><th>가맹점</th><th>이용금액</th></tr>
+        <tr><td>${transactionDate.replaceAll('-', '.')}</td><td>${merchant}</td><td>5,100</td></tr>
+      </table>
+    </body></html>`, 'utf8')
+
+    await page.getByRole('link', { name: '인박스', exact: true }).click()
+    await page.getByRole('tab', { name: '카드사 명세서' }).click()
+    await page.locator('select[name="issuer"]').selectOption('samsung')
+    await page.locator('select[name="owner"]').selectOption('DJ')
+    await page.locator('input[name="file"]').setInputFiles(repeatStatementPath)
+    await page.getByRole('button', { name: '인박스로 불러오기' }).click({ noWaitAfter: true })
+
+    await expect(page.getByText(/자동 분류 1건/)).toBeVisible()
+    await expect(page.getByText('자동 분류됨 1건')).toBeVisible()
+    await page.getByRole('button', { name: '1건 일괄 승인' }).click()
+    await expect(page.getByText('확인할 거래가 없습니다.')).toBeVisible()
+
+    await page.getByRole('link', { name: '가계부', exact: true }).click()
+    await expect(page.getByRole('row').filter({ hasText: merchant })).toHaveCount(2)
   } finally {
     await deleteTestState(email, householdId)
   }
