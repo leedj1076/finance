@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { SubmitButton } from '@/components/submit-button'
 import { applyRecurringMonth } from '@/features/recurring/actions'
 import { RecurringManager } from '@/features/recurring/recurring-manager'
 import { getRecurringData } from '@/features/recurring/queries'
 import { formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
-import { createServerSupabase } from '@/lib/supabase/server'
 
 type RecurringPageProps = {
   searchParams: Promise<{ month?: string | string[]; saved?: string | string[]; error?: string | string[] }>
@@ -33,13 +33,8 @@ function SummaryCard({ label, value, tone = 'default' }: {
 }
 
 export default async function RecurringPage({ searchParams }: RecurringPageProps) {
-  const supabase = await createServerSupabase()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user?.email) redirect('/login')
   const household = await requireHousehold()
-  if (!household) redirect('/')
+  if (!household) redirect('/login')
 
   const params = await searchParams
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
@@ -49,7 +44,7 @@ export default async function RecurringPage({ searchParams }: RecurringPageProps
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <AppHeader active="recurring" email={user.email} />
+      <AppHeader active="recurring" email={household.email} />
       <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <div>
           <p className="text-sm font-medium text-emerald-700">자동 입력</p>
@@ -77,7 +72,7 @@ export default async function RecurringPage({ searchParams }: RecurringPageProps
             </div>
             <form action={applyRecurringMonth} className="flex items-center gap-2">
               <input aria-label="정기거래 적용 월" className="rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-800" defaultValue={data.month} name="month" type="month" />
-              <button className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700" type="submit">선택한 달에 반영</button>
+              <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60" pendingLabel="반영 중…" type="submit">선택한 달에 반영</SubmitButton>
             </form>
           </div>
           <p className="mt-4 rounded-xl bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">

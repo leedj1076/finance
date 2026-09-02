@@ -6,7 +6,6 @@ import { BudgetReviewForm } from '@/features/budgets/budget-review-form'
 import { getBudgetReviewData } from '@/features/budgets/review-queries'
 import { formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
-import { createServerSupabase } from '@/lib/supabase/server'
 
 type BudgetReviewPageProps = { searchParams: Promise<{ month?: string | string[] }> }
 
@@ -16,18 +15,15 @@ function SummaryCard({ label, value, description, tone = 'default' }: { label: s
 }
 
 export default async function BudgetReviewPage({ searchParams }: BudgetReviewPageProps) {
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) redirect('/login')
   const household = await requireHousehold()
-  if (!household) redirect('/')
+  if (!household) redirect('/login')
   const params = await searchParams
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
   const data = await getBudgetReviewData(household.householdId, requestedMonth)
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <AppHeader active="budgets" email={user.email} />
+      <AppHeader active="budgets" email={household.email} />
       <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div><p className="text-sm font-medium text-emerald-700">월말 계획</p><h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">월말 리뷰</h1><p className="mt-2 text-sm text-zinc-500">{data.reviewMonth} 결산 → {data.targetMonth} 예산 만들기</p></div>

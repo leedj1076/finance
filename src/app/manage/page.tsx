@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { SubmitButton } from '@/components/submit-button'
 import {
   classifyTransaction,
   saveAccount,
@@ -12,7 +13,6 @@ import {
 import { getManageData, type ManageTab } from '@/features/manage/queries'
 import { formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
-import { createServerSupabase } from '@/lib/supabase/server'
 
 type ManagePageProps = {
   searchParams: Promise<{
@@ -44,11 +44,8 @@ function ActiveToggle({ checked }: { checked: boolean }) {
 }
 
 export default async function ManagePage({ searchParams }: ManagePageProps) {
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) redirect('/login')
   const household = await requireHousehold()
-  if (!household) redirect('/')
+  if (!household) redirect('/login')
 
   const params = await searchParams
   const requestedTab = typeof params.tab === 'string' ? params.tab : 'accounts'
@@ -66,7 +63,7 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <AppHeader active="manage" email={user.email} />
+      <AppHeader active="manage" email={household.email} />
       <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <div>
           <p className="text-sm font-medium text-emerald-700">기준 정보</p>
@@ -98,7 +95,7 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
                 <label className="grid gap-1 text-xs font-medium text-zinc-600">소유자<input className={inputClass} defaultValue="DJ" list="account-owners" name="owner" required /></label>
                 <label className="grid gap-1 text-xs font-medium text-zinc-600">종류<select className={inputClass} defaultValue="card" name="type"><option value="card">카드</option><option value="cash">현금/계좌</option><option value="bank">은행</option><option value="other">기타</option></select></label>
                 <label className="grid gap-1 text-xs font-medium text-zinc-600">메모<input className={inputClass} name="memo" /></label>
-                <button className={saveButton} type="submit">추가</button>
+                <SubmitButton className={saveButton} pendingLabel="추가 중…" type="submit">추가</SubmitButton>
               </form>
               <datalist id="account-owners"><option value="DJ" /><option value="YJ" /><option value="공용" /></datalist>
             </div>
@@ -110,7 +107,7 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
                 <label className="grid gap-1 text-xs font-medium text-zinc-600">종류<select className={inputClass} defaultValue={account.type ?? 'other'} name="type"><option value="card">카드</option><option value="cash">현금/계좌</option><option value="bank">은행</option><option value="other">기타</option></select></label>
                 <label className="grid gap-1 text-xs font-medium text-zinc-600">메모<input className={inputClass} defaultValue={account.memo ?? ''} name="memo" /><span className="font-normal text-zinc-400">거래 {account.transactionCount.toLocaleString('ko-KR')}건</span></label>
                 <ActiveToggle checked={account.active} />
-                <button className={saveButton} type="submit">저장</button>
+                <SubmitButton className={saveButton} pendingLabel="저장 중…" type="submit">저장</SubmitButton>
               </form>
             ))}
             <p className="rounded-xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">사용하지 않는 결제수단은 체크를 꺼 주세요. 과거 거래 연결을 보존하기 위해 삭제하지 않습니다.</p>
@@ -125,7 +122,7 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
                 <label className="grid gap-1 text-xs font-medium text-zinc-600">유형<select className={inputClass} defaultValue="expense" name="kind"><option value="expense">지출</option><option value="income">수입</option><option value="saving">저축</option></select></label>
                 <label className="grid gap-1 text-xs font-medium text-zinc-600">대분류<input className={inputClass} name="major" required /></label>
                 <label className="grid gap-1 text-xs font-medium text-zinc-600">소분류<input className={inputClass} name="sub" required /></label>
-                <button className={saveButton} type="submit">추가</button>
+                <SubmitButton className={saveButton} pendingLabel="추가 중…" type="submit">추가</SubmitButton>
               </form>
             </div>
             {(['expense', 'income', 'saving'] as const).map((kind) => {
@@ -141,7 +138,7 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
                         <label className="grid gap-1 text-xs font-medium text-zinc-600">대분류<input className={inputClass} defaultValue={category.major} name="major" required /></label>
                         <label className="grid gap-1 text-xs font-medium text-zinc-600">소분류<input className={inputClass} defaultValue={category.sub} name="sub" required /><span className="font-normal text-zinc-400">거래 {category.transactionCount.toLocaleString('ko-KR')}건{category.recurringCount ? ` · 정기 ${category.recurringCount}건` : ''}</span></label>
                         <ActiveToggle checked={!category.hidden} />
-                        <button className={saveButton} type="submit">저장</button>
+                        <SubmitButton className={saveButton} pendingLabel="저장 중…" type="submit">저장</SubmitButton>
                       </form>
                     ))}
                   </div>
@@ -157,7 +154,7 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
             <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div><h2 className="font-semibold text-zinc-950">가맹점 분류 추천</h2><p className="mt-1 text-xs text-zinc-500">총 {data.counts.rules.toLocaleString('ko-KR')}개 · 사용 횟수가 높은 순으로 100개까지 표시</p></div>
-                <form className="flex gap-2" method="get"><input name="tab" type="hidden" value="rules" /><input aria-label="분류 규칙 검색" className={inputClass} defaultValue={ruleQuery} name="q" placeholder="정규화된 가맹점 검색" /><button className={secondaryButton} type="submit">검색</button></form>
+                <form className="flex gap-2" method="get"><input name="tab" type="hidden" value="rules" /><input aria-label="분류 규칙 검색" className={inputClass} defaultValue={ruleQuery} name="q" placeholder="정규화된 가맹점 검색" /><SubmitButton className={secondaryButton} pendingLabel="검색 중…" type="submit">검색</SubmitButton></form>
               </div>
             </div>
             <div className="space-y-3">
@@ -172,8 +169,8 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
                     <label className="grid gap-1 text-xs font-medium text-zinc-600">결제수단<select className={inputClass} defaultValue={rule.accountId ?? ''} name="accountId"><option value="">미지정</option>{data.accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
                     <label className="grid gap-1 text-xs font-medium text-zinc-600">우선순위<input className={inputClass} defaultValue={rule.priority} max="999" min="0" name="priority" type="number" /></label>
                     <label className="flex items-center gap-2 whitespace-nowrap pb-2 text-sm text-zinc-700"><input defaultChecked={rule.fixed ?? false} name="fixed" type="checkbox" /> 고정비</label>
-                    <button className={saveButton} type="submit">저장</button>
-                    <button className="rounded-lg px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50" name="intent" type="submit" value="delete">삭제</button>
+                    <SubmitButton className={saveButton} pendingLabel="저장 중…" type="submit">저장</SubmitButton>
+                    <SubmitButton className="rounded-lg px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60" name="intent" pendingLabel="삭제 중…" type="submit" value="delete">삭제</SubmitButton>
                   </form>
                 )
               })}
@@ -190,8 +187,8 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
                     <div><p className="text-xs text-zinc-500">소유자</p><p className="mt-2 text-sm font-medium text-zinc-800">{alias.owner}</p></div>
                     <div className="min-w-0"><p className="text-xs text-zinc-500">파일 표기</p><p className="mt-2 truncate text-sm font-medium text-zinc-800" title={alias.alias}>{alias.alias}</p></div>
                     <label className="grid gap-1 text-xs font-medium text-zinc-600">연결<select className={inputClass} defaultValue={alias.accountId} name="accountId">{data.accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
-                    <button className={saveButton} type="submit">저장</button>
-                    <button className="rounded-lg px-2 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50" name="intent" type="submit" value="delete">삭제</button>
+                    <SubmitButton className={saveButton} pendingLabel="저장 중…" type="submit">저장</SubmitButton>
+                    <SubmitButton className="rounded-lg px-2 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60" name="intent" pendingLabel="삭제 중…" type="submit" value="delete">삭제</SubmitButton>
                   </form>
                 ))}
               </div>
@@ -211,7 +208,7 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
                 <div className="text-xs text-zinc-500">추천 규칙 없음</div>
                 <label className="grid gap-1 text-xs font-medium text-zinc-600">카테고리<select className={inputClass} name="categoryId" required><option value="">선택</option>{data.categories.filter((category) => category.kind === transaction.flow && !category.hidden).map((category) => <option key={category.id} value={category.id}>{category.major} · {category.sub}</option>)}</select></label>
                 <label className="flex items-center gap-2 pb-2 text-sm text-zinc-700"><input defaultChecked={transaction.fixed} name="fixed" type="checkbox" /> 고정비</label>
-                <button className={saveButton} type="submit">분류</button>
+                <SubmitButton className={saveButton} pendingLabel="분류 중…" type="submit">분류</SubmitButton>
               </form>
             ))}
             {data.counts.unclassified > data.unclassified.length && <p className="text-center text-xs text-zinc-500">최근 100개만 표시됩니다. 먼저 보이는 거래를 분류하면 다음 항목이 나타납니다.</p>}

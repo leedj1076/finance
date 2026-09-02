@@ -2,11 +2,11 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { SubmitButton } from '@/components/submit-button'
 import { BudgetForm } from '@/features/budgets/budget-form'
 import { getBudgetData } from '@/features/budgets/queries'
 import { formatRate, formatWon } from '@/lib/finance'
-import { requireHousehold } from '@/lib/household'
-import { createServerSupabase } from '@/lib/supabase/server'
+import { getAuthContext, requireHousehold } from '@/lib/household'
 
 type BudgetsPageProps = {
   searchParams: Promise<{ month?: string | string[]; reviewSaved?: string | string[] }>
@@ -31,17 +31,14 @@ function SummaryCard({ label, value, tone = 'default' }: {
 }
 
 export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
-  const supabase = await createServerSupabase()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user?.email) redirect('/login')
+  const auth = await getAuthContext()
+  if (!auth) redirect('/login')
 
   const household = await requireHousehold()
   if (!household) {
     return (
       <div className="min-h-screen bg-zinc-50">
-        <AppHeader active="budgets" email={user.email} />
+        <AppHeader active="budgets" email={auth.email} />
         <main className="mx-auto max-w-3xl px-6 py-16">
           <section className="rounded-2xl border border-red-200 bg-white p-8 shadow-sm">
             <h1 className="text-xl font-semibold text-zinc-950">가구에 연결되지 않았습니다</h1>
@@ -59,7 +56,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <AppHeader active="budgets" email={user.email} />
+      <AppHeader active="budgets" email={auth.email} />
       <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
@@ -90,12 +87,13 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
                 name="month"
                 type="month"
               />
-              <button
+              <SubmitButton
                 className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+                pendingLabel="불러오는 중…"
                 type="submit"
               >
                 보기
-              </button>
+              </SubmitButton>
             </form>
             <Link
               aria-label="다음 달"

@@ -24,11 +24,10 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data } = await supabase.auth.getClaims()
+  const isSignedIn = typeof data?.claims?.sub === 'string'
 
-  if (!user && !isPublicPath(request.nextUrl.pathname)) {
+  if (!isSignedIn && !isPublicPath(request.nextUrl.pathname)) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/login'
     loginUrl.search = ''

@@ -6,7 +6,6 @@ import { MonthlyCashflowChart } from '@/features/analytics/charts'
 import { getDashboardData } from '@/features/analytics/queries'
 import { formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
-import { createServerSupabase } from '@/lib/supabase/server'
 
 type DashboardPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -34,13 +33,8 @@ function StatCard({ label, value, description, tone = 'neutral' }: {
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const supabase = await createServerSupabase()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user?.email) redirect('/login')
   const household = await requireHousehold()
-  if (!household) redirect('/')
+  if (!household) redirect('/login')
 
   const params = await searchParams
   const rawYear = Array.isArray(params.year) ? params.year[0] : params.year
@@ -50,7 +44,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <AppHeader active="dashboard" email={user.email} />
+      <AppHeader active="dashboard" email={household.email} />
       <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>

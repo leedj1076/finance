@@ -7,7 +7,7 @@ type AppHeaderProps = {
 
 export function AppHeader({ active, email }: AppHeaderProps) {
   const navClass = (key: AppHeaderProps['active']) =>
-    `rounded-lg px-3 py-2 text-sm font-medium transition ${
+    `inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium transition ${
       active === key
         ? 'bg-emerald-50 text-emerald-800'
         : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950'
@@ -16,7 +16,7 @@ export function AppHeader({ active, email }: AppHeaderProps) {
   return (
     <header className="border-b border-zinc-200 bg-white">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-5 py-3 sm:px-8">
-        <Link className="shrink-0 font-semibold tracking-tight text-zinc-950" href="/dashboard">
+        <Link className="inline-flex min-h-11 shrink-0 items-center font-semibold tracking-tight text-zinc-950" href="/dashboard">
           우리집 가계부
         </Link>
         <nav className="flex min-w-0 items-center gap-1 overflow-x-auto">
@@ -52,7 +52,7 @@ export function AppHeader({ active, email }: AppHeaderProps) {
           <span className="hidden truncate text-xs text-zinc-500 sm:block">{email}</span>
           <form action="/auth/signout" method="post">
             <button
-              className="whitespace-nowrap rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+              className="min-h-11 whitespace-nowrap rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
               type="submit"
             >
               로그아웃

@@ -2,12 +2,12 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { SubmitButton } from '@/components/submit-button'
 import { AssetForm } from '@/features/assets/asset-form'
 import { NetWorthChart } from '@/features/assets/net-worth-chart'
 import { getAssetData } from '@/features/assets/queries'
 import { formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
-import { createServerSupabase } from '@/lib/supabase/server'
 
 type AssetsPageProps = {
   searchParams: Promise<{ month?: string | string[]; saved?: string | string[] }>
@@ -36,13 +36,8 @@ function SummaryCard({ label, value, description, tone = 'default' }: {
 }
 
 export default async function AssetsPage({ searchParams }: AssetsPageProps) {
-  const supabase = await createServerSupabase()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user?.email) redirect('/login')
   const household = await requireHousehold()
-  if (!household) redirect('/')
+  if (!household) redirect('/login')
 
   const params = await searchParams
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
@@ -55,7 +50,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <AppHeader active="assets" email={user.email} />
+      <AppHeader active="assets" email={household.email} />
       <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
@@ -67,7 +62,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             <Link aria-label="이전 달" className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-700 hover:bg-zinc-50" href={`/assets?month=${data.previousMonth}`}>←</Link>
             <form action="/assets" className="flex items-center gap-2">
               <input aria-label="자산 기준 월" className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800" defaultValue={data.month} name="month" type="month" />
-              <button className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700" type="submit">보기</button>
+              <SubmitButton className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-60" pendingLabel="불러오는 중…" type="submit">보기</SubmitButton>
             </form>
             <Link aria-label="다음 달" className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-700 hover:bg-zinc-50" href={`/assets?month=${data.nextMonth}`}>→</Link>
           </div>

@@ -2,11 +2,11 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { SubmitButton } from '@/components/submit-button'
 import { FlowTrendChart } from '@/features/analytics/charts'
 import { getAnalysisData } from '@/features/analytics/queries'
 import { formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
-import { createServerSupabase } from '@/lib/supabase/server'
 
 type AnalysisPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -38,13 +38,8 @@ function Summary({ label, value, note, tone = 'neutral' }: {
 }
 
 export default async function AnalysisPage({ searchParams }: AnalysisPageProps) {
-  const supabase = await createServerSupabase()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user?.email) redirect('/login')
   const household = await requireHousehold()
-  if (!household) redirect('/')
+  if (!household) redirect('/login')
 
   const params = await searchParams
   const yearParam = firstParam(params.year)
@@ -67,7 +62,7 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <AppHeader active="analysis" email={user.email} />
+      <AppHeader active="analysis" email={household.email} />
       <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
@@ -118,7 +113,7 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
               <option value="">전체 결제수단</option>
               {data.accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
             </select>
-            <button className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50" type="submit">적용</button>
+            <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-60" pendingLabel="적용 중…" type="submit">적용</SubmitButton>
           </form>
         </section>
 

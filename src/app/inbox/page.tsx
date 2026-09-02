@@ -5,7 +5,6 @@ import { InboxReviewForm } from '@/features/inbox/inbox-review-form'
 import { getInboxData } from '@/features/inbox/queries'
 import { BanksaladUploadForm } from '@/features/inbox/upload-form'
 import { requireHousehold } from '@/lib/household'
-import { createServerSupabase } from '@/lib/supabase/server'
 
 type InboxPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -16,14 +15,8 @@ function firstParam(value: string | string[] | undefined) {
 }
 
 export default async function InboxPage({ searchParams }: InboxPageProps) {
-  const supabase = await createServerSupabase()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user?.email) redirect('/login')
-
   const household = await requireHousehold()
-  if (!household) redirect('/')
+  if (!household) redirect('/login')
 
   const [data, params] = await Promise.all([
     getInboxData(household.householdId),
@@ -34,7 +27,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <AppHeader active="inbox" email={user.email} />
+      <AppHeader active="inbox" email={household.email} />
       <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
         <div>
           <p className="text-sm font-medium text-emerald-700">주간 가져오기</p>
