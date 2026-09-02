@@ -122,19 +122,27 @@ describe('variable-spend averages household scope', () => {
         (${householdA.id}, '2026-01-01', 'income', false, 2000000, null, 'test'),
         (${householdA.id}, '2026-01-02', 'expense', false, 200000, ${foodA.id}, 'test'),
         (${householdA.id}, '2026-01-03', 'expense', true, 500000, ${housingA.id}, 'test'),
-        (${householdA.id}, '2026-02-01', 'income', false, 4000000, null, 'test'),
-        (${householdA.id}, '2026-02-02', 'expense', false, 400000, ${foodA.id}, 'test'),
-        (${householdA.id}, '2026-02-03', 'expense', true, 500000, ${housingA.id}, 'test'),
+        (${householdA.id}, '2026-01-04', 'saving', false, 100000, null, 'test'),
+        (${householdA.id}, '2026-02-01', 'income', false, 4000002, null, 'test'),
+        (${householdA.id}, '2026-02-02', 'expense', false, 400001, ${foodA.id}, 'test'),
+        (${householdA.id}, '2026-02-03', 'expense', true, 500001, ${housingA.id}, 'test'),
+        (${householdA.id}, '2026-02-04', 'saving', false, 100001, null, 'test'),
         (${householdA.id}, '2026-09-01', 'income', false, 90000000, null, 'test'),
         (${householdA.id}, '2026-09-02', 'expense', false, 80000000, ${foodA.id}, 'test'),
         (${householdB.id}, '2026-01-01', 'income', false, 100000000, null, 'test'),
         (${householdB.id}, '2026-01-02', 'expense', false, 90000000, ${foodB.id}, 'test')
     `
+    await raw`
+      insert into settings (household_id, key, value)
+      values (${householdA.id}, 'savings_target', '50')
+    `
 
     const data = await getBudgetData(householdA.id, '2026-09')
 
-    expect(data.averageIncome).toBe(3_000_000)
+    expect(data.averageIncome).toBe(3_000_001)
     expect(data.averageExpense).toBe(800_000)
+    expect(data.averageSaving).toBe(100_000)
+    expect(data.spendCeiling).toBe(1_500_000)
     expect(data.rows).toEqual(expect.arrayContaining([
       expect.objectContaining({ major: '식비', group: 'variable', average: 300_000 }),
       expect.objectContaining({ major: '주거', group: 'fixed', average: 500_000 }),

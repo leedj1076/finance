@@ -3,6 +3,7 @@ import { and, desc, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { budgets, categories, categoryMeta, settings, transactions } from '@/db/schema'
 import { currentMonthInKorea, isMonthKey, monthBounds, savingsRate, shiftMonth } from '@/lib/finance'
+import { roundLikePython } from '@/features/ledger/forecast'
 
 import { calculateBudgetPace } from './pace'
 
@@ -187,7 +188,7 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
       budget,
       previousBudget: previousMap.get(major) ?? 0,
       actual,
-      average: Math.round(historicalAmount / divisor),
+      average: roundLikePython(historicalAmount / divisor),
       remaining: budget - actual,
       percent: budget > 0 ? (actual / budget) * 100 : null,
     }
@@ -197,12 +198,12 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
   const totalIncome = Number(yearlyTotals?.income ?? 0)
   const totalExpense = Number(yearlyTotals?.expense ?? 0)
   const totalSaving = Number(yearlyTotals?.saving ?? 0)
-  const averageIncome = Math.round(totalIncome / divisor)
+  const averageIncome = roundLikePython(totalIncome / divisor)
   const averageExpense = [...averageMap.values()].reduce(
-    (sum, row) => sum + Math.round(Number(row.amount) / divisor),
+    (sum, row) => sum + roundLikePython(Number(row.amount) / divisor),
     0,
   )
-  const averageSaving = Math.round(totalSaving / divisor)
+  const averageSaving = roundLikePython(totalSaving / divisor)
   const parsedTarget = Number(targetRows[0]?.value ?? 30)
   const savingsTarget = Number.isFinite(parsedTarget) ? Math.min(Math.max(parsedTarget, 0), 80) : 30
   const totalBudget = rows.reduce((sum, row) => sum + row.budget, 0)
@@ -222,7 +223,7 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
     averageExpense,
     averageSaving,
     currentSavingsRate: savingsRate(totalIncome, totalExpense),
-    spendCeiling: Math.round(averageIncome * (1 - savingsTarget / 100)),
+    spendCeiling: roundLikePython(averageIncome * (1 - savingsTarget / 100)),
     paceWarnings,
   }
 }
