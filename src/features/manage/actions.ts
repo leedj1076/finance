@@ -1,6 +1,6 @@
 'use server'
 
-import { and, eq, ne, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
@@ -273,4 +273,106 @@ export async function classifyTransaction(formData: FormData) {
   })
   refreshDataPaths()
   finish('unclassified', 'saved', '거래를 분류하고 다음 추천에 반영했습니다.')
+}
+
+export async function bulkClassifyTransactions(formData: FormData) {
+  const household = await requireHousehold()
+  if (!household) redirect('/login')
+  const ids = [
+    ...new Set(
+      formData
+        .getAll('ids')
+        .map((value) => Number(value))
+        .filter((value) => Number.isSafeInteger(value) && value > 0),
+    ),
+  ]
+  if (ids.length === 0) finish('unclassified', 'error', '분류할 거래를 선택해 주세요.')
+  if (ids.length > 100) finish('unclassified', 'error', '한 번에 최대 100건까지 분류할 수 있습니다.')
+
+  const transactionRows = await db
+    .select({
+      id: transactions.id,
+      flow: transactions.flow,
+      memo: transactions.memo,
+      rawMerchant: transactions.rawMerchant,
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.householdId, household.householdId),
+        isNull(transactions.categoryId),
+        inArray(transactions.id, ids),
+      ),
+    )
+  if (transactionRows.length !== ids.length) {
+    finish('unclassified', 'error', '선택한 미분류 거래를 모두 찾지 못했습니다.')
+  }
+
+  const requestedCategories = new Map<number, number>()
+  for (const row of transactionRows) {
+    const categoryId = positiveId(formData.get(`category_${row.id}`))
+    if (!categoryId) finish('unclassified', 'error', `${row.id}번 거래의 카테고리를 선택해 주세요.`)
+    requestedCategories.set(row.id, categoryId)
+  }
+  const categoryIds = [...new Set(requestedCategories.values())]
+  const categoryRows = await db
+    .select({ id: categories.id, kind: categories.kind })
+    .from(categories)
+    .where(
+      and(
+        eq(categories.householdId, household.householdId),
+        inArray(categories.id, categoryIds),
+      ),
+    )
+  const categoriesById = new Map(categoryRows.map((row) => [row.id, row]))
+  for (const row of transactionRows) {
+    const category = categoriesById.get(requestedCategories.get(row.id)!)
+    if (!category || category.kind !== row.flow) {
+      finish('unclassified', 'error', `${row.id}번 거래의 카테고리와 거래 유형이 맞지 않습니다.`)
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    for (const row of transactionRows) {
+      const categoryId = requestedCategories.get(row.id)!
+      const fixed = row.flow === 'expense' && formData.get(`fixed_${row.id}`) === 'on'
+      await tx
+        .update(transactions)
+        .set({ categoryId, fixed })
+        .where(
+          and(
+            eq(transactions.householdId, household.householdId),
+            eq(transactions.id, row.id),
+            isNull(transactions.categoryId),
+          ),
+        )
+
+      const pattern = normalizeMerchant(row.rawMerchant || row.memo || '')
+      if (!pattern) continue
+      await tx
+        .insert(categoryRules)
+        .values({
+          householdId: household.householdId,
+          matchType: 'merchant_norm',
+          pattern,
+          categoryId,
+          flow: row.flow,
+          fixed,
+          priority: 100,
+          hits: 1,
+        })
+        .onConflictDoUpdate({
+          target: [categoryRules.householdId, categoryRules.matchType, categoryRules.pattern],
+          set: {
+            categoryId,
+            flow: row.flow,
+            fixed,
+            hits: sql`${categoryRules.hits} + 1`,
+          },
+        })
+    }
+  })
+
+  refreshDataPaths()
+  finish('unclassified', 'saved', `${transactionRows.length}건을 분류하고 다음 추천에 반영했습니다.`)
 }

@@ -13,6 +13,7 @@ import {
 } from '@/db/schema'
 import { requireHousehold } from '@/lib/household'
 
+import { upsertBanksaladAssetSnapshots } from './asset-snapshots'
 import {
   banksaladFingerprint,
   buildHistorySuggester,
@@ -262,6 +263,8 @@ export async function uploadBanksaladFiles(
   }
 
   const householdId = household.householdId
+  const assetOptions = formData.getAll('asset_include').map(String)
+  const includeAssets = assetOptions.length === 0 || assetOptions.includes('on')
   const {
     aliases,
     categoriesById,
@@ -365,8 +368,25 @@ export async function uploadBanksaladFiles(
   }
 
   const duplicateCount = await refreshDuplicateFlags(householdId)
+  const latestDate = parsedFiles
+    .flatMap((parsed) => parsed.rows.map((row) => row.date))
+    .sort()
+    .at(-1)
+  const snapshotMonth = latestDate?.slice(0, 7)
+    ?? new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 7)
+  const assetUpdated = includeAssets
+    ? await upsertBanksaladAssetSnapshots(
+      householdId,
+      parsedFiles.map((parsed) => parsed.status),
+      snapshotMonth,
+    )
+    : 0
   revalidatePath('/inbox')
   revalidatePath('/ledger')
+  if (assetUpdated) {
+    revalidatePath('/assets')
+    revalidatePath('/dashboard')
+  }
 
   const excludedCount = [...excluded.values()].reduce((sum, count) => sum + count, 0)
   const details = [
@@ -377,6 +397,7 @@ export async function uploadBanksaladFiles(
   if (oldPeriod) details.push(`기존 이관기간 ${oldPeriod}건`)
   if (skippedForeignCurrency) details.push(`외화 ${skippedForeignCurrency}건`)
   if (duplicateCount) details.push(`중복 의심 ${duplicateCount}건`)
+  if (assetUpdated) details.push(`자산 ${assetUpdated}항목 업데이트`)
 
   return { message: details.join(' · ') }
 }

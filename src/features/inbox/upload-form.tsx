@@ -45,6 +45,7 @@ function BanksaladForm() {
   const [state, action] = useActionState(uploadBanksaladFiles, initialBanksaladState)
   return (
     <form action={action} className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+      <input name="asset_include" type="hidden" value="off" />
       <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
         DJ·YJ 뱅크샐러드 파일
         <input
@@ -58,6 +59,10 @@ function BanksaladForm() {
         <span className="font-normal text-zinc-500">.xlsx · 최대 2개 · 파일당 2MB</span>
       </label>
       <UploadButton />
+      <label className="flex items-center gap-2 text-sm text-zinc-700 sm:col-span-full">
+        <input className="h-4 w-4 accent-emerald-700" defaultChecked name="asset_include" type="checkbox" value="on" />
+        뱅크샐러드 자산·대출 현황을 해당 월 자산 스냅샷에 함께 반영
+      </label>
       <ActionMessage state={state} />
     </form>
   )

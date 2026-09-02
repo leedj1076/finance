@@ -20,8 +20,30 @@ export type BanksaladRow = {
 
 export type ParsedBanksaladFile = {
   owner: BanksaladOwner
+  status: BanksaladStatus & { owner: BanksaladOwner }
   rows: BanksaladRow[]
   skippedForeignCurrency: number
+}
+
+export type BanksaladAsset = {
+  group: string
+  label: string
+  amount: number
+}
+
+export type BanksaladLoan = {
+  group: '대출'
+  label: string
+  balance: number
+  rate: number | null
+  due: string | null
+}
+
+export type BanksaladStatus = {
+  owner: BanksaladOwner | null
+  name: string | null
+  assets: BanksaladAsset[]
+  loans: BanksaladLoan[]
 }
 
 export type Classification = {
@@ -165,6 +187,134 @@ function optionalText(value: unknown): string | null {
   return text ? text : null
 }
 
+function statusRows(worksheet: ExcelJS.Worksheet) {
+  const rows: Array<Array<unknown | null>> = []
+  worksheet.eachRow({ includeEmpty: true }, (row) => {
+    rows.push(Array.from({ length: 10 }, (_, index) => row.getCell(index + 1).value ?? null))
+  })
+  return rows
+}
+
+export function parseBanksaladStatus(worksheet: ExcelJS.Worksheet): BanksaladStatus {
+  const rows = statusRows(worksheet)
+  let name: string | null = null
+  for (const row of rows) {
+    const candidate = optionalText(row[1])
+    if (candidate && OWNER_MAP[candidate]) {
+      name = candidate
+      break
+    }
+    if (candidate && ['남', '여'].includes(cellText(row[2]))) {
+      name = candidate
+      break
+    }
+  }
+  const owner = name ? OWNER_MAP[name] ?? null : null
+
+  const depositGroups = new Set(['자유입출금 자산', '전자금융 자산', '현금 자산'])
+  const savingsGroups = new Set(['저축성 자산'])
+  const investGroups = new Set(['투자성 자산'])
+  const insuranceGroups = new Set(['보험 자산'])
+  let currentAssetGroup: string | null = null
+  let depositTotal = 0
+  let investTotal = 0
+  let inFinancialSection = false
+  const savingsItems = new Map<string, number>()
+
+  for (const row of rows) {
+    const label = optionalText(row[1])
+    const product = optionalText(row[2])
+    const amount = row[4]
+
+    if (label === '3.재무현황') {
+      inFinancialSection = true
+      currentAssetGroup = null
+      continue
+    }
+    if (inFinancialSection && ['4.보험현황', '5.투자현황', '6.대출현황'].includes(label ?? '')) {
+      inFinancialSection = false
+      currentAssetGroup = null
+    }
+    if (!inFinancialSection) continue
+
+    if (label && depositGroups.has(label)) {
+      currentAssetGroup = label
+      if (amount !== null) depositTotal += toInteger(amount)
+      continue
+    }
+    if (label && savingsGroups.has(label)) {
+      currentAssetGroup = label
+      if (product && amount !== null) {
+        const value = toInteger(amount)
+        if (value !== 0) savingsItems.set(product, (savingsItems.get(product) ?? 0) + value)
+      }
+      continue
+    }
+    if (label && investGroups.has(label)) {
+      currentAssetGroup = label
+      if (amount !== null) investTotal += toInteger(amount)
+      continue
+    }
+    if (label && insuranceGroups.has(label)) {
+      currentAssetGroup = label
+      continue
+    }
+    if (label !== null && currentAssetGroup !== null) currentAssetGroup = null
+
+    if (currentAssetGroup && depositGroups.has(currentAssetGroup) && label === null && product) {
+      depositTotal += toInteger(amount)
+    } else if (currentAssetGroup && savingsGroups.has(currentAssetGroup) && label === null && product) {
+      const value = toInteger(amount)
+      if (value !== 0) savingsItems.set(product, (savingsItems.get(product) ?? 0) + value)
+    } else if (currentAssetGroup && investGroups.has(currentAssetGroup) && label === null && product) {
+      investTotal += toInteger(amount)
+    }
+  }
+
+  const assets: BanksaladAsset[] = []
+  if (depositTotal !== 0) {
+    assets.push({ group: '현금', label: owner ? `${owner} 예금(뱅샐)` : '예금(뱅샐)', amount: depositTotal })
+  }
+  let housingSubscription = 0
+  let otherSavings = 0
+  for (const [product, amount] of savingsItems) {
+    if (product.includes('주택청약')) housingSubscription += amount
+    else otherSavings += amount
+  }
+  if (housingSubscription !== 0) {
+    assets.push({ group: '저축·투자', label: owner ? `${owner} 청약` : '청약', amount: housingSubscription })
+  }
+  if (otherSavings !== 0) {
+    assets.push({ group: '저축·투자', label: owner ? `${owner} 적금(뱅샐)` : '적금(뱅샐)', amount: otherSavings })
+  }
+  if (investTotal !== 0) {
+    assets.push({ group: '저축·투자', label: owner ? `${owner} 주식(키움)` : '주식(키움)', amount: investTotal })
+  }
+
+  const loans: BanksaladLoan[] = []
+  let inLoanSection = false
+  for (const row of rows) {
+    const label = optionalText(row[1])
+    if (label === '6.대출현황') {
+      inLoanSection = true
+      continue
+    }
+    if (!inLoanSection) continue
+    if (['대출종류', '총계', '사용자가 보유한 대출상품 현황을 분석합니다.'].includes(label ?? '')) continue
+    if (label === null && row[2] === null) continue
+
+    const loanLabel = optionalText(row[3])
+    const balance = row[6] === null ? 0 : toInteger(row[6])
+    if (!loanLabel || balance <= 0) continue
+    const rawRate = optionalText(row[7])
+    const rate = rawRate === null || !Number.isFinite(Number(rawRate)) ? null : Number(rawRate)
+    const due = formatDate(row[9]) ?? optionalText(row[9])?.slice(0, 10) ?? null
+    loans.push({ group: '대출', label: loanLabel, balance, rate, due })
+  }
+
+  return { owner, name, assets, loans }
+}
+
 export async function parseBanksaladWorkbook(buffer: Buffer): Promise<ParsedBanksaladFile> {
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(Uint8Array.from(buffer).buffer)
@@ -174,16 +324,9 @@ export async function parseBanksaladWorkbook(buffer: Buffer): Promise<ParsedBank
 
   const status = workbook.getWorksheet('뱅샐현황')
   if (!status) throw new Error("'뱅샐현황' 시트가 없는 파일입니다.")
-
-  let owner: BanksaladOwner | null = null
-  status.eachRow((row) => {
-    if (owner) return
-    row.eachCell((cell) => {
-      const mapped = OWNER_MAP[cellText(cell.value)]
-      if (mapped) owner = mapped
-    })
-  })
-  if (!owner) throw new Error('파일에서 이동재 또는 김유진 사용자 정보를 찾지 못했습니다.')
+  const parsedStatus = parseBanksaladStatus(status)
+  if (!parsedStatus.owner) throw new Error('파일에서 이동재 또는 김유진 사용자 정보를 찾지 못했습니다.')
+  const owner = parsedStatus.owner
 
   const rows: BanksaladRow[] = []
   let skippedForeignCurrency = 0
@@ -213,7 +356,12 @@ export async function parseBanksaladWorkbook(buffer: Buffer): Promise<ParsedBank
   })
 
   if (rows.length > 10_000) throw new Error('한 파일에서 최대 10,000건까지만 가져올 수 있습니다.')
-  return { owner, rows, skippedForeignCurrency }
+  return {
+    owner,
+    status: { ...parsedStatus, owner },
+    rows,
+    skippedForeignCurrency,
+  }
 }
 
 function pythonString(value: string | number | null | undefined) {

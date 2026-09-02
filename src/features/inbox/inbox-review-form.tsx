@@ -6,6 +6,11 @@ import { useFormStatus } from 'react-dom'
 import { processInbox } from './actions'
 import type { TransactionFlow } from './banksalad'
 import { formatInboxMonth, groupInboxItemsByMonth } from './grouping'
+import {
+  categoriesForFlow,
+  categorySelectionForFlow,
+  type InboxCategoryOption,
+} from './taxonomy'
 
 type InboxItem = {
   id: number
@@ -25,13 +30,6 @@ type InboxItem = {
   dupNote: string | null
 }
 
-type CategoryOption = {
-  id: number
-  kind: TransactionFlow
-  major: string
-  sub: string
-}
-
 type AccountOption = {
   id: number
   name: string
@@ -40,7 +38,7 @@ type AccountOption = {
 
 type InboxReviewFormProps = {
   items: InboxItem[]
-  categories: CategoryOption[]
+  categories: InboxCategoryOption[]
   accounts: AccountOption[]
 }
 
@@ -94,7 +92,12 @@ export function InboxReviewForm({ items, categories, accounts }: InboxReviewForm
     () => Object.fromEntries(items.map((item) => [item.id, item.flow])),
   )
   const [categoryIds, setCategoryIds] = useState<Record<number, string>>(
-    () => Object.fromEntries(items.map((item) => [item.id, item.categoryId?.toString() ?? ''])),
+    () => Object.fromEntries(
+      items.map((item) => [
+        item.id,
+        categorySelectionForFlow(categories, item.flow, item.categoryId),
+      ]),
+    ),
   )
 
   const selectedTotal = useMemo(
@@ -222,7 +225,7 @@ export function InboxReviewForm({ items, categories, accounts }: InboxReviewForm
                   </tr>
                   {expanded && group.items.map((item) => {
                     const flow = flows[item.id]
-                    const visibleCategories = categories.filter((category) => category.kind === flow)
+                    const visibleCategories = categoriesForFlow(categories, flow)
                     return (
                   <tr
                     className={`border-t border-zinc-100 ${item.dupNote ? 'bg-rose-50/70 hover:bg-rose-50' : 'hover:bg-zinc-50'}`}
@@ -290,11 +293,19 @@ export function InboxReviewForm({ items, categories, accounts }: InboxReviewForm
                           className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
                           name={`flow_${item.id}`}
                           onChange={(event) => {
+                            const nextFlow = event.target.value as TransactionFlow
                             setFlows((current) => ({
                               ...current,
-                              [item.id]: event.target.value as TransactionFlow,
+                              [item.id]: nextFlow,
                             }))
-                            setCategoryIds((current) => ({ ...current, [item.id]: '' }))
+                            setCategoryIds((current) => ({
+                              ...current,
+                              [item.id]: categorySelectionForFlow(
+                                categories,
+                                nextFlow,
+                                current[item.id],
+                              ),
+                            }))
                           }}
                           value={flow}
                         >
