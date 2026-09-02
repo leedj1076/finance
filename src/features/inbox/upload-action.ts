@@ -23,6 +23,14 @@ import {
   type HistoryRow,
   type TransactionFlow,
 } from './banksalad'
+import {
+  CARD_ISSUERS,
+  cardFingerprint,
+  looksLikeBanksalad,
+  parseCardStatement,
+  type CardIssuer,
+  type CardRow,
+} from './parsers/cards'
 
 const COMMIT_CUTOFF = '2026-06-01'
 const HISTORY_END = '2026-01-01'
@@ -32,6 +40,8 @@ export type UploadBanksaladState = {
   error?: string
   message?: string
 }
+
+export type UploadCardState = UploadBanksaladState
 
 type DuplicateInboxRow = {
   id: number
@@ -132,6 +142,88 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : '파일을 읽는 중 알 수 없는 오류가 발생했습니다.'
 }
 
+async function loadStagingContext(householdId: string) {
+  const [transactionUidRows, inboxUidRows, categoryRows, aliasRows, historyRows] = await Promise.all([
+    db
+      .select({ importUid: transactions.importUid })
+      .from(transactions)
+      .where(and(eq(transactions.householdId, householdId), isNotNull(transactions.importUid))),
+    db
+      .select({ importUid: importInbox.importUid })
+      .from(importInbox)
+      .where(eq(importInbox.householdId, householdId)),
+    db
+      .select({
+        id: categories.id,
+        kind: categories.kind,
+        major: categories.major,
+        sub: categories.sub,
+      })
+      .from(categories)
+      .where(and(eq(categories.householdId, householdId), eq(categories.hidden, false)))
+      .orderBy(categories.sortOrder, asc(categories.major), asc(categories.sub)),
+    db
+      .select({
+        owner: accountAliases.owner,
+        alias: accountAliases.alias,
+        accountId: accountAliases.accountId,
+      })
+      .from(accountAliases)
+      .innerJoin(
+        accounts,
+        and(eq(accounts.id, accountAliases.accountId), eq(accounts.householdId, householdId)),
+      )
+      .where(eq(accountAliases.householdId, householdId)),
+    db
+      .select({
+        flow: transactions.flow,
+        fixed: transactions.fixed,
+        major: categories.major,
+        sub: categories.sub,
+        rawMerchant: transactions.rawMerchant,
+        memo: transactions.memo,
+        date: transactions.date,
+      })
+      .from(transactions)
+      .innerJoin(
+        categories,
+        and(eq(categories.id, transactions.categoryId), eq(categories.householdId, householdId)),
+      )
+      .where(eq(transactions.householdId, householdId)),
+  ])
+
+  const doneUids = new Set([
+    ...transactionUidRows.map((row) => row.importUid).filter((uid): uid is string => Boolean(uid)),
+    ...inboxUidRows.map((row) => row.importUid),
+  ])
+  const aliases = new Map(aliasRows.map((row) => [`${row.owner}|${row.alias}`, row.accountId]))
+  const categoriesByMajor = new Map<string, typeof categoryRows>()
+  const categoriesById = new Map(categoryRows.map((row) => [row.id, row]))
+  for (const category of categoryRows) {
+    const key = `${category.kind}|${category.major}`
+    categoriesByMajor.set(key, [...(categoriesByMajor.get(key) ?? []), category])
+  }
+  const history: HistoryRow[] = historyRows
+    .map((row) => ({
+      flow: row.flow,
+      fixed: row.fixed,
+      major: row.major,
+      sub: row.sub,
+      merchant: row.rawMerchant || row.memo || '',
+      date: row.date,
+    }))
+    .filter((row) => row.merchant)
+
+  return {
+    aliases,
+    categoriesById,
+    categoriesByMajor,
+    categoryRows,
+    doneUids,
+    suggestFromHistory: buildHistorySuggester(history),
+  }
+}
+
 export async function uploadBanksaladFiles(
   _previousState: UploadBanksaladState,
   formData: FormData,
@@ -169,85 +261,14 @@ export async function uploadBanksaladFiles(
   }
 
   const householdId = household.householdId
-  const [transactionUidRows, inboxUidRows, categoryRows, aliasRows, historyRows] = await Promise.all([
-    db
-      .select({ importUid: transactions.importUid })
-      .from(transactions)
-      .where(
-        and(
-          eq(transactions.householdId, householdId),
-          isNotNull(transactions.importUid),
-        ),
-      ),
-    db
-      .select({ importUid: importInbox.importUid })
-      .from(importInbox)
-      .where(eq(importInbox.householdId, householdId)),
-    db
-      .select({
-        id: categories.id,
-        kind: categories.kind,
-        major: categories.major,
-        sub: categories.sub,
-      })
-      .from(categories)
-      .where(and(eq(categories.householdId, householdId), eq(categories.hidden, false)))
-      .orderBy(categories.sortOrder, asc(categories.major), asc(categories.sub)),
-    db
-      .select({ owner: accountAliases.owner, alias: accountAliases.alias, accountId: accountAliases.accountId })
-      .from(accountAliases)
-      .innerJoin(
-        accounts,
-        and(
-          eq(accounts.id, accountAliases.accountId),
-          eq(accounts.householdId, householdId),
-        ),
-      )
-      .where(eq(accountAliases.householdId, householdId)),
-    db
-      .select({
-        flow: transactions.flow,
-        fixed: transactions.fixed,
-        major: categories.major,
-        sub: categories.sub,
-        rawMerchant: transactions.rawMerchant,
-        memo: transactions.memo,
-        date: transactions.date,
-      })
-      .from(transactions)
-      .innerJoin(
-        categories,
-        and(
-          eq(categories.id, transactions.categoryId),
-          eq(categories.householdId, householdId),
-        ),
-      )
-      .where(eq(transactions.householdId, householdId)),
-  ])
-
-  const doneUids = new Set([
-    ...transactionUidRows.map((row) => row.importUid).filter((uid): uid is string => Boolean(uid)),
-    ...inboxUidRows.map((row) => row.importUid),
-  ])
-  const aliases = new Map(aliasRows.map((row) => [`${row.owner}|${row.alias}`, row.accountId]))
-  const categoriesByMajor = new Map<string, typeof categoryRows>()
-  const categoriesById = new Map(categoryRows.map((row) => [row.id, row]))
-  for (const category of categoryRows) {
-    const key = `${category.kind}|${category.major}`
-    categoriesByMajor.set(key, [...(categoriesByMajor.get(key) ?? []), category])
-  }
-
-  const history: HistoryRow[] = historyRows
-    .map((row) => ({
-      flow: row.flow,
-      fixed: row.fixed,
-      major: row.major,
-      sub: row.sub,
-      merchant: row.rawMerchant || row.memo || '',
-      date: row.date,
-    }))
-    .filter((row) => row.merchant)
-  const suggestFromHistory = buildHistorySuggester(history)
+  const {
+    aliases,
+    categoriesById,
+    categoriesByMajor,
+    categoryRows,
+    doneUids,
+    suggestFromHistory,
+  } = await loadStagingContext(householdId)
 
   const values: Array<typeof importInbox.$inferInsert> = []
   const excluded = new Map<string, number>()
@@ -356,5 +377,102 @@ export async function uploadBanksaladFiles(
   if (skippedForeignCurrency) details.push(`외화 ${skippedForeignCurrency}건`)
   if (duplicateCount) details.push(`중복 의심 ${duplicateCount}건`)
 
+  return { message: details.join(' · ') }
+}
+
+export async function uploadCardStatement(formData: FormData): Promise<UploadCardState> {
+  const household = await requireHousehold()
+  if (!household) return { error: '가족 가계부에 연결된 계정이 아닙니다.' }
+
+  const file = formData.get('file')
+  const issuer = String(formData.get('issuer') ?? '') as CardIssuer
+  const owner = String(formData.get('owner') ?? '')
+  if (!(file instanceof File) || file.size === 0) return { error: '카드사 명세서 파일을 선택해 주세요.' }
+  if (!CARD_ISSUERS.some((card) => card.key === issuer)) return { error: '카드사를 선택해 주세요.' }
+  if (owner !== 'DJ' && owner !== 'YJ') return { error: '소유자를 선택해 주세요.' }
+  if (!/\.xlsx?$/i.test(file.name)) return { error: '.xls 또는 .xlsx 형식의 명세서만 올릴 수 있습니다.' }
+  if (file.size > MAX_FILE_BYTES) return { error: '파일 크기는 2MB 이하여야 합니다.' }
+
+  const buffer = Buffer.from(await file.arrayBuffer())
+  if (looksLikeBanksalad(buffer)) {
+    return { error: '뱅크샐러드 파일입니다. 뱅크샐러드 업로드를 사용해 주세요.' }
+  }
+
+  let rows: CardRow[]
+  try {
+    rows = parseCardStatement(buffer, issuer)
+  } catch (error) {
+    return { error: `파일을 읽지 못했습니다: ${errorMessage(error)}` }
+  }
+  if (rows.length === 0) {
+    return { error: '거래 행을 찾지 못했습니다. 카드사 선택이 맞는지 확인해 주세요.' }
+  }
+
+  const occurrences = new Map<string, number>()
+  const staged = rows.map((row) => {
+    const key = `${row.date}|${row.amount}|${row.merchant}`
+    const occurrence = occurrences.get(key) ?? 0
+    occurrences.set(key, occurrence + 1)
+    return { row, uid: cardFingerprint(issuer, owner, row, occurrence) }
+  })
+
+  const householdId = household.householdId
+  const { aliases, categoryRows, doneUids, suggestFromHistory } = await loadStagingContext(householdId)
+  const issuerLabel = CARD_ISSUERS.find((card) => card.key === issuer)!.label
+  const values: Array<typeof importInbox.$inferInsert> = []
+  let alreadyProcessed = 0
+
+  for (const { row, uid } of staged) {
+    if (doneUids.has(uid)) {
+      alreadyProcessed += 1
+      continue
+    }
+    const historical = suggestFromHistory(row.merchant)
+    const categoryId = historical?.flow === 'expense'
+      ? categoryRows.find(
+        (category) =>
+          category.kind === 'expense' &&
+          category.major === historical.major &&
+          category.sub === historical.sub,
+      )?.id ?? null
+      : null
+
+    values.push({
+      householdId,
+      importUid: uid,
+      owner,
+      date: row.date,
+      time: null,
+      merchant: row.merchant,
+      amount: row.amount,
+      flow: 'expense',
+      kind: 'normal',
+      bsCat1: null,
+      bsCat2: null,
+      pay: issuerLabel,
+      accountId: aliases.get(`${owner}|${issuerLabel}`) ?? null,
+      categoryId,
+      memo: '',
+      sugSource: categoryId === null ? null : 'history',
+    })
+    doneUids.add(uid)
+  }
+
+  const inserted: Array<{ id: number }> = []
+  for (let index = 0; index < values.length; index += 500) {
+    const result = await db
+      .insert(importInbox)
+      .values(values.slice(index, index + 500))
+      .onConflictDoNothing({ target: [importInbox.householdId, importInbox.importUid] })
+      .returning({ id: importInbox.id })
+    inserted.push(...result)
+  }
+
+  const duplicateCount = await refreshDuplicateFlags(householdId)
+  revalidatePath('/inbox')
+  revalidatePath('/ledger')
+
+  const details = [`인박스에 ${inserted.length}건 추가`, `이미 처리 ${alreadyProcessed}건`]
+  if (duplicateCount) details.push(`중복 의심 ${duplicateCount}건`)
   return { message: details.join(' · ') }
 }

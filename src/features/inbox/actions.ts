@@ -17,6 +17,7 @@ import {
 import { requireHousehold } from '@/lib/household'
 
 import { normalizeMerchant, type TransactionFlow } from './banksalad'
+import { cardSourceFromPay } from './parsers/cards'
 import { refreshDuplicateFlags } from './upload-action'
 
 function inboxRedirect(kind: 'notice' | 'error', message: string): never {
@@ -116,15 +117,20 @@ export async function processInbox(formData: FormData) {
       flow,
       categoryId: requestedCategoryId,
       accountId: requestedAccountId,
+      source: cardSourceFromPay(row.pay) ?? `banksalad:${row.owner.toLowerCase()}`,
     }
   })
 
   const result = await db.transaction(async (tx) => {
+    const sources = new Set(prepared.map((item) => item.source))
+    const batchSource = [...sources].every((source) => source.startsWith('banksalad:'))
+      ? 'banksalad'
+      : sources.size === 1 ? [...sources][0] : 'inbox'
     const [batch] = await tx
       .insert(importBatches)
       .values({
         householdId,
-        source: 'banksalad',
+        source: batchSource,
         filename: 'inbox',
       })
       .returning({ id: importBatches.id })
@@ -132,7 +138,7 @@ export async function processInbox(formData: FormData) {
     const inserted = await tx
       .insert(transactions)
       .values(
-        prepared.map(({ row, flow, categoryId, accountId }) => ({
+        prepared.map(({ row, flow, categoryId, accountId, source }) => ({
           householdId,
           date: row.date,
           flow,
@@ -141,7 +147,7 @@ export async function processInbox(formData: FormData) {
           memo: row.merchant || row.memo || '',
           amount: row.amount,
           accountId,
-          source: `banksalad:${row.owner.toLowerCase()}`,
+          source,
           rawMerchant: row.merchant,
           importBatchId: batch.id,
           importUid: row.importUid,

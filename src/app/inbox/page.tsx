@@ -2,8 +2,9 @@ import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
 import { InboxReviewForm } from '@/features/inbox/inbox-review-form'
+import { CARD_ISSUERS } from '@/features/inbox/parsers/cards'
 import { getInboxData } from '@/features/inbox/queries'
-import { BanksaladUploadForm } from '@/features/inbox/upload-form'
+import { InboxUploadForm } from '@/features/inbox/upload-form'
 import { requireHousehold } from '@/lib/household'
 
 type InboxPageProps = {
@@ -33,7 +34,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
           <p className="text-sm font-medium text-emerald-700">주간 가져오기</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">인박스</h1>
           <p className="mt-2 text-sm text-zinc-600">
-            뱅크샐러드 내역을 먼저 쌓아두고, 분류와 결제수단을 확인한 거래만 가계부에 반영합니다.
+            뱅크샐러드와 카드사 명세서를 먼저 쌓아두고, 분류와 결제수단을 확인한 거래만 가계부에 반영합니다.
           </p>
         </div>
 
@@ -50,12 +51,12 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
 
         <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <div>
-            <h2 className="font-semibold text-zinc-950">뱅크샐러드 파일 가져오기</h2>
+            <h2 className="font-semibold text-zinc-950">거래 파일 가져오기</h2>
             <p className="mt-1 text-xs leading-5 text-zinc-500">
-              부부 각자의 최근 12개월 엑셀 파일을 함께 올려도 됩니다. 이전에 처리한 거래와 내부이체·카드대금은 자동으로 걸러집니다.
+              뱅크샐러드 파일은 DJ·YJ 최대 2개를, 카드사 명세서는 카드사와 소유자를 선택해 올려 주세요.
             </p>
           </div>
-          <BanksaladUploadForm />
+          <InboxUploadForm cardIssuers={CARD_ISSUERS} />
         </section>
 
         <section className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -97,7 +98,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
               <p className="font-medium text-zinc-700">확인할 거래가 없습니다.</p>
-              <p className="mt-2 text-sm text-zinc-500">위에서 새 뱅크샐러드 파일을 올려 주세요.</p>
+              <p className="mt-2 text-sm text-zinc-500">위에서 새 거래 파일을 올려 주세요.</p>
             </div>
           )}
         </section>
