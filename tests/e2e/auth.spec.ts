@@ -168,6 +168,16 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page.getByLabel('식비 예산')).toHaveValue('500000')
     await expect(page.locator('article').filter({ hasText: '총 예산' })).toContainText('500,000원')
 
+    await page.getByRole('link', { name: '월말 리뷰 →' }).click()
+    await expect(page).toHaveURL('/budgets/review?month=2026-04')
+    await expect(page.getByRole('heading', { name: '월말 리뷰' })).toBeVisible()
+    await expect(page.getByText('2026-03 결산 → 2026-04 예산 만들기')).toBeVisible()
+    await page.getByLabel('식비 다음 달 예산').fill('450000')
+    await page.getByRole('button', { name: '2026-04 예산으로 저장' }).click()
+    await expect(page).toHaveURL('/budgets?month=2026-04&reviewSaved=1')
+    await expect(page.getByText('월말 리뷰에서 2026-04 예산을 저장했습니다.')).toBeVisible()
+    await expect(page.getByLabel('식비 예산')).toHaveValue('450000')
+
     await page.getByRole('link', { name: '대시보드' }).click()
     await expect(page).toHaveURL('/dashboard')
     await expect(page.getByRole('heading', { name: '대시보드' })).toBeVisible()

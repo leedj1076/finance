@@ -9,7 +9,7 @@ import { requireHousehold } from '@/lib/household'
 import { createServerSupabase } from '@/lib/supabase/server'
 
 type BudgetsPageProps = {
-  searchParams: Promise<{ month?: string | string[] }>
+  searchParams: Promise<{ month?: string | string[]; reviewSaved?: string | string[] }>
 }
 
 function SummaryCard({ label, value, tone = 'default' }: {
@@ -53,6 +53,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 
   const params = await searchParams
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
+  const reviewSaved = params.reviewSaved === '1'
   const data = await getBudgetData(household.householdId, requestedMonth)
   const remainingTone = data.totalBudget > 0 && data.remaining < 0 ? 'warning' : 'good'
 
@@ -68,6 +69,12 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              className="whitespace-nowrap rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+              href={`/budgets/review?month=${data.nextMonth}`}
+            >
+              월말 리뷰 →
+            </Link>
             <Link
               aria-label="이전 달"
               className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-700 hover:bg-zinc-50"
@@ -99,6 +106,8 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
             </Link>
           </div>
         </div>
+
+        {reviewSaved && <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">월말 리뷰에서 {data.month} 예산을 저장했습니다.</p>}
 
         <section className="mt-6 grid gap-4 sm:grid-cols-3">
           <SummaryCard label="총 예산" value={`${formatWon(data.totalBudget)}원`} />
