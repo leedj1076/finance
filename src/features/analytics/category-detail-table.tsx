@@ -12,10 +12,12 @@ import { formatWon } from '@/lib/finance'
 
 import {
   categoryDetailMonthlyAverage,
+  toggleCategoryDetailCell,
+} from './category-detail-calculations'
+import {
   type CategoryDetailFlow,
   type CategoryDetails,
   type CellTransactionResult,
-  toggleCategoryDetailCell,
 } from './category-detail'
 
 const FLOW_LABELS: Record<CategoryDetailFlow, string> = {
