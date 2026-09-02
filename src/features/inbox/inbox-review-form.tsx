@@ -1,168 +1,21 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { useFormStatus } from 'react-dom'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 
 import { applyInboxItem, processInbox } from './actions'
 import type { TransactionFlow } from './banksalad'
-import {
-  formatInboxMonth,
-  formatInboxPaymentSource,
-  groupInboxItemsByMonthAndPaymentSource,
-} from './grouping'
-import {
-  categoriesForFlow,
-  categorySelectionForFlow,
-  type InboxCategoryOption,
-} from './taxonomy'
-
-type InboxItem = {
-  id: number
-  owner: string
-  date: string
-  merchant: string | null
-  amount: number
-  flow: TransactionFlow
-  kind: 'normal' | 'transfer'
-  bsCat1: string | null
-  bsCat2: string | null
-  pay: string | null
-  accountId: number | null
-  categoryId: number | null
-  memo: string | null
-  sugSource: string | null
-  dupNote: string | null
-  confidence: string
-  businessType: string | null
-  aiNote: string | null
-  alwaysConfirm: boolean
-  categoryLabel: string | null
-}
-
-type AccountOption = {
-  id: number
-  name: string
-  owner: string | null
-}
+import { groupInboxItemsByMonthAndPaymentSource } from './grouping'
+import type { InboxRowState } from './inbox-review-item-row'
+import { InboxMonthGroup } from './inbox-review-month-group'
+import { ActionButtons } from './inbox-review-shared'
+import type { AccountOption, InboxItem } from './inbox-review-types'
+import { categorySelectionForFlow, type InboxCategoryOption } from './taxonomy'
 
 type InboxReviewFormProps = {
   highItems: InboxItem[]
   reviewItems: InboxItem[]
   categories: InboxCategoryOption[]
   accounts: AccountOption[]
-}
-
-const flowLabel: Record<TransactionFlow, string> = {
-  expense: '지출',
-  income: '수입',
-  saving: '저축',
-}
-
-function paymentSourceLabel(
-  group: { accountId: number | null; owner: string; pay: string | null },
-  accounts: AccountOption[],
-) {
-  const accountName = group.accountId === null
-    ? undefined
-    : accounts.find((account) => account.id === group.accountId)?.name
-  return formatInboxPaymentSource(group, accountName)
-}
-
-function visibleSourceCategories(item: Pick<InboxItem, 'bsCat1' | 'bsCat2'>) {
-  return [item.bsCat1, item.bsCat2]
-    .filter((value): value is string => value !== null && value !== '' && !value.startsWith('__source:'))
-    .join(' / ') || '-'
-}
-
-const sourceStyle: Record<string, { label: string; className: string }> = {
-  user: { label: '캐시', className: 'bg-emerald-100 text-emerald-800' },
-  history: { label: '이력', className: 'bg-emerald-50 text-emerald-700' },
-  ai: { label: 'AI', className: 'bg-violet-100 text-violet-800' },
-  banksalad: { label: '뱅샐', className: 'bg-zinc-100 text-zinc-600' },
-}
-
-function SuggestionBadges({ item }: { item: InboxItem }) {
-  const source = item.sugSource ? sourceStyle[item.sugSource] : null
-  const evidence = [item.businessType, item.aiNote].filter(Boolean).join(' · ')
-  return (
-    <span className="inline-flex flex-wrap items-center gap-1">
-      {source && (
-        <span
-          className={`shrink-0 rounded px-1.5 py-1 text-[10px] font-medium ${source.className}`}
-          title={evidence || undefined}
-        >
-          {source.label}
-        </span>
-      )}
-      {item.alwaysConfirm && (
-        <span
-          className="shrink-0 rounded bg-amber-100 px-1.5 py-1 text-[10px] font-medium text-amber-800"
-          title="구매 품목을 알 수 없는 결제대행 가맹점이라 직접 확인이 필요합니다."
-        >
-          애그리게이터
-        </span>
-      )}
-    </span>
-  )
-}
-
-function ActionButtons({ selectedCount }: { selectedCount: number }) {
-  const { pending } = useFormStatus()
-  return (
-    <div className="flex flex-wrap justify-end gap-2">
-      <button
-        className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-        disabled={pending || selectedCount === 0}
-        name="intent"
-        type="submit"
-        value="dismiss"
-      >
-        {pending ? '처리 중…' : '선택 제외'}
-      </button>
-      <button
-        className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-50"
-        disabled={pending || selectedCount === 0}
-        name="intent"
-        type="submit"
-        value="apply"
-      >
-        {pending ? '처리 중…' : '선택 반영'}
-      </button>
-    </div>
-  )
-}
-
-function GroupSelectionCheckbox({
-  label,
-  itemIds,
-  selected,
-  onToggle,
-}: {
-  label: string
-  itemIds: number[]
-  selected: Set<number>
-  onToggle: (ids: number[], select: boolean) => void
-}) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const selectedCount = itemIds.filter((id) => selected.has(id)).length
-  const allSelected = itemIds.length > 0 && selectedCount === itemIds.length
-
-  useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.indeterminate = selectedCount > 0 && !allSelected
-    }
-  }, [allSelected, selectedCount])
-
-  return (
-    <input
-      aria-label={`${label} 그룹 선택`}
-      checked={allSelected}
-      className="h-4 w-4 shrink-0 accent-emerald-700"
-      onChange={() => onToggle(itemIds, !allSelected)}
-      ref={inputRef}
-      type="checkbox"
-    />
-  )
 }
 
 export function InboxReviewForm({ highItems, reviewItems, categories, accounts }: InboxReviewFormProps) {
@@ -323,6 +176,21 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
     .filter((item) => item.confidence === 'high')
     .map((item) => item.id)
 
+  const rowState: InboxRowState = {
+    categories,
+    accounts,
+    flows,
+    categoryIds,
+    accountIds,
+    setFlows,
+    setCategoryIds,
+    setAccountIds,
+    selected,
+    toggle,
+    applyingIds,
+    applySingleItem,
+  }
+
   return (
     items.length > 0 ? (
       <section>
@@ -433,267 +301,21 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                 <th className="w-24 px-4 py-3 text-right font-medium">바로 반영</th>
               </tr>
             </thead>
-            {monthGroups.map((monthGroup) => {
-              const monthExpanded = expandedMonths.has(monthGroup.month)
-
-              return (
-                <Fragment key={monthGroup.month}>
-                <tbody className="border-t border-zinc-300 first:border-t-0">
-                  <tr className="bg-zinc-800 text-white">
-                    <th className="p-0" colSpan={9}>
-                      <div className="flex min-h-14 items-center gap-3 px-4 py-3">
-                        <GroupSelectionCheckbox
-                          itemIds={monthGroup.items.map((item) => item.id)}
-                          label={formatInboxMonth(monthGroup.month)}
-                          onToggle={toggleItems}
-                          selected={selected}
-                        />
-                        <button
-                          aria-expanded={monthExpanded}
-                          className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                          onClick={() => toggleMonth(monthGroup.month)}
-                          type="button"
-                        >
-                          <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-zinc-300">
-                            {monthExpanded ? '▾' : '▸'}
-                          </span>
-                          <span className="font-bold">{formatInboxMonth(monthGroup.month)}</span>
-                          <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-medium text-zinc-100">
-                            {monthGroup.items.length}건
-                          </span>
-                          <span className="ml-auto text-xs font-normal text-zinc-300">
-                            결제수단 {monthGroup.sources.length}개
-                          </span>
-                        </button>
-                      </div>
-                    </th>
-                  </tr>
-                </tbody>
-                {monthExpanded && monthGroup.sources.map((group) => {
-              const expanded = expandedSources.has(group.key)
-              const selectedItems = group.items.filter((item) => selected.has(item.id))
-              const selectedAmount = selectedItems.reduce(
-                (total, item) => total + (flows[item.id] === 'income' ? item.amount : -item.amount),
-                0,
-              )
-              const duplicateCount = group.items.filter((item) => item.dupNote).length
-              const groupAccountIds = [...new Set(group.items.map((item) => accountIds[item.id] ?? ''))]
-              const groupAccountId = groupAccountIds.length === 1 ? groupAccountIds[0] : ''
-              const groupAccounts = accounts.filter(
-                (account) => !account.owner || account.owner === group.owner,
-              )
-              const groupLabel = paymentSourceLabel(group, accounts)
-
-              return (
-                <tbody className="border-t border-zinc-200" key={group.key}>
-                  <tr className="bg-zinc-100/80">
-                    <th className="p-0" colSpan={9}>
-                      <div className="flex min-h-16 flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center">
-                        <GroupSelectionCheckbox
-                          itemIds={group.items.map((item) => item.id)}
-                          label={groupLabel}
-                          onToggle={toggleItems}
-                          selected={selected}
-                        />
-                        <button
-                          aria-expanded={expanded}
-                          className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-                          onClick={() => toggleSource(group.key)}
-                          type="button"
-                        >
-                          <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-zinc-500">
-                            {expanded ? '▾' : '▸'}
-                          </span>
-                          <span className="truncate font-semibold text-zinc-900" title={groupLabel}>
-                            {groupLabel}
-                          </span>
-                          <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-zinc-600">
-                            {group.items.length}건
-                          </span>
-                          {duplicateCount > 0 && (
-                            <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">
-                              중복 의심 {duplicateCount}건
-                            </span>
-                          )}
-                          <span className="ml-auto hidden whitespace-nowrap text-xs font-normal text-zinc-500 xl:inline">
-                            선택 {selectedItems.length}/{group.items.length}건 · {selectedAmount >= 0 ? '+' : '−'}
-                            {Math.abs(selectedAmount).toLocaleString('ko-KR')}원
-                          </span>
-                        </button>
-                        <label className="flex shrink-0 items-center gap-2 text-xs font-medium text-zinc-600">
-                          그룹 결제수단
-                          <select
-                            aria-label={`${groupLabel} 그룹 결제수단`}
-                            className="w-52 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs font-normal text-zinc-700"
-                            onChange={(event) => setSourceAccount(
-                              group.items.map((item) => item.id),
-                              event.target.value,
-                            )}
-                            value={groupAccountId}
-                          >
-                            <option value="">{groupAccountIds.length > 1 ? '여러 카드 선택됨' : '선택 안 함'}</option>
-                            {groupAccounts.map((account) => (
-                              <option key={account.id} value={account.id}>
-                                {account.name}{account.owner ? ` · ${account.owner}` : ''}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                    </th>
-                  </tr>
-                  {expanded && group.items.map((item) => {
-                    const flow = flows[item.id] ?? item.flow
-                    const visibleCategories = categoriesForFlow(categories, flow)
-                    return (
-                  <tr
-                    className={`border-t border-zinc-100 ${item.dupNote ? 'bg-rose-50/70 hover:bg-rose-50' : 'hover:bg-zinc-50'}`}
-                    key={item.id}
-                  >
-                    <td className="px-4 py-3 text-center">
-                      <input
-                        aria-label={`${item.merchant ?? '거래'} 선택`}
-                        checked={selected.has(item.id)}
-                        className="h-4 w-4 accent-emerald-700"
-                        onChange={() => toggle(item.id)}
-                        type="checkbox"
-                      />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3 text-zinc-500">{item.date}</td>
-                    <td className="max-w-64 px-3 py-3 text-zinc-800">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="break-words">{item.merchant || '-'}</span>
-                        {item.confidence === 'high' && (
-                          <span
-                            className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800"
-                            title="추천 신뢰도가 높은 거래입니다. 필요하면 직접 수정할 수 있습니다."
-                          >
-                            자동 분류
-                          </span>
-                        )}
-                        {item.kind === 'transfer' && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
-                            이체 후보
-                          </span>
-                        )}
-                        {item.dupNote && (
-                          <span
-                            className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-800"
-                            title={item.dupNote}
-                          >
-                            중복 의심
-                          </span>
-                        )}
-                      </div>
-                      {item.dupNote && <p className="mt-1 text-[11px] text-rose-700">{item.dupNote}</p>}
-                    </td>
-                    <td
-                      className={`whitespace-nowrap px-3 py-3 text-right font-medium ${
-                        flow === 'expense'
-                          ? 'text-rose-700'
-                          : flow === 'income'
-                            ? 'text-blue-700'
-                            : 'text-emerald-700'
-                      }`}
-                    >
-                      {flow === 'expense' ? '−' : '+'}{item.amount.toLocaleString('ko-KR')}원
-                    </td>
-                    <td className="px-3 py-3">
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs font-medium ${
-                          item.owner === 'DJ'
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'bg-fuchsia-50 text-fuchsia-700'
-                        }`}
-                      >
-                        {item.owner}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-xs text-zinc-500">
-                      {visibleSourceCategories(item)}
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <select
-                          className="w-20 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
-                          onChange={(event) => {
-                            const nextFlow = event.target.value as TransactionFlow
-                            setFlows((current) => ({
-                              ...current,
-                              [item.id]: nextFlow,
-                            }))
-                            setCategoryIds((current) => ({
-                              ...current,
-                              [item.id]: categorySelectionForFlow(
-                                categories,
-                                nextFlow,
-                                current[item.id],
-                              ),
-                            }))
-                          }}
-                          value={flow}
-                        >
-                          {Object.entries(flowLabel).map(([value, label]) => (
-                            <option key={value} value={value}>{label}</option>
-                          ))}
-                        </select>
-                        <SuggestionBadges item={item} />
-                        <select
-                          className="min-w-44 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
-                          onChange={(event) =>
-                            setCategoryIds((current) => ({ ...current, [item.id]: event.target.value }))
-                          }
-                          value={categoryIds[item.id] ?? ''}
-                        >
-                          <option value="">미분류</option>
-                          {visibleCategories.map((category) => (
-                            <option key={category.id} value={category.id}>
-                              {category.major} · {category.sub}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3">
-                      <select
-                        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs text-zinc-700"
-                        onChange={(event) => setAccountIds((current) => ({
-                          ...current,
-                          [item.id]: event.target.value,
-                        }))}
-                        value={accountIds[item.id] ?? ''}
-                      >
-                        <option value="">선택 안 함</option>
-                        {accounts.map((account) => (
-                          <option key={account.id} value={account.id}>
-                            {account.name}{account.owner ? ` · ${account.owner}` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      {item.pay && <p className="mt-1 truncate text-[11px] text-zinc-400" title={item.pay}>{item.pay}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        aria-label={`${item.merchant || '거래'} 바로 반영`}
-                        className="inline-flex min-w-16 items-center justify-center gap-1 rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-60"
-                        disabled={applyingIds.has(item.id)}
-                        onClick={() => void applySingleItem(item)}
-                        title="현재 분류와 결제수단으로 바로 반영"
-                        type="button"
-                      >
-                        <span aria-hidden="true">✓</span>
-                        {applyingIds.has(item.id) ? '반영 중' : '반영'}
-                      </button>
-                    </td>
-                  </tr>
-                    )
-                  })}
-                </tbody>
-              )
-                })}
-                </Fragment>
-              )
-            })}
+            {monthGroups.map((monthGroup) => (
+              <InboxMonthGroup
+                accounts={accounts}
+                expandedSources={expandedSources}
+                key={monthGroup.month}
+                monthExpanded={expandedMonths.has(monthGroup.month)}
+                monthGroup={monthGroup}
+                rowState={rowState}
+                selected={selected}
+                setSourceAccount={setSourceAccount}
+                toggleItems={toggleItems}
+                toggleMonth={toggleMonth}
+                toggleSource={toggleSource}
+              />
+            ))}
           </table>
         </div>
       </div>
