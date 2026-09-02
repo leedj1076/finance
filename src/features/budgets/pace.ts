@@ -15,6 +15,26 @@ export type BudgetPaceWarning = {
   progressPercent: number
 }
 
+export type BudgetOverrun = {
+  major: string
+  budget: number
+  actual: number
+  overrun: number
+}
+
+export function calculateBudgetOverruns(rows: BudgetPaceRow[]): BudgetOverrun[] {
+  return rows
+    .flatMap((row) => row.budget > 0 && row.actual > row.budget
+      ? [{
+          major: row.major,
+          budget: row.budget,
+          actual: row.actual,
+          overrun: row.actual - row.budget,
+        }]
+      : [])
+    .sort((left, right) => right.overrun - left.overrun)
+}
+
 export function todayInKorea(now = new Date()) {
   return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
 }

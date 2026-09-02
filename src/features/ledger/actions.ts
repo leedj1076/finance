@@ -10,6 +10,7 @@ import { isMonthKey } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 
 import { parseTransactionInput } from './transaction-input'
+import { ledgerFiltersFromFormData, ledgerUrl } from './filters'
 
 export type TransactionActionState = {
   error?: string
@@ -84,7 +85,7 @@ export async function saveTransaction(
   }
 
   revalidatePath('/ledger')
-  redirect(`/ledger?month=${input.month}`)
+  redirect(ledgerUrl(input.month, ledgerFiltersFromFormData(formData)))
 }
 
 export async function deleteTransaction(formData: FormData) {
@@ -108,5 +109,7 @@ export async function deleteTransaction(formData: FormData) {
     ? requestedMonth
     : undefined
   revalidatePath('/ledger')
-  redirect(month ? `/ledger?month=${month}` : '/ledger')
+  redirect(month
+    ? ledgerUrl(month, ledgerFiltersFromFormData(formData))
+    : '/ledger')
 }

@@ -1,8 +1,17 @@
 'use client'
 
 import { deleteTransaction } from './actions'
+import type { LedgerFilters } from './filters'
 
-export function DeleteTransactionButton({ id, month }: { id: number; month: string }) {
+export function DeleteTransactionButton({
+  filters,
+  id,
+  month,
+}: {
+  filters: LedgerFilters
+  id: number
+  month: string
+}) {
   return (
     <form
       action={deleteTransaction}
@@ -12,6 +21,10 @@ export function DeleteTransactionButton({ id, month }: { id: number; month: stri
     >
       <input name="transactionId" type="hidden" value={id} />
       <input name="month" type="hidden" value={month} />
+      <input name="returnAccount" type="hidden" value={filters.account} />
+      <input name="returnFlow" type="hidden" value={filters.flow} />
+      <input name="returnMajor" type="hidden" value={filters.major} />
+      <input name="returnQ" type="hidden" value={filters.q} />
       <button className="text-xs text-zinc-400 hover:text-red-700" type="submit">
         삭제
       </button>

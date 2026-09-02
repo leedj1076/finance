@@ -5,6 +5,7 @@ import { useActionState, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import { saveTransaction, type TransactionActionState } from './actions'
+import { ledgerUrl, type LedgerFilters } from './filters'
 import type { TransactionFlow } from './transaction-input'
 
 type CategoryOption = {
@@ -35,6 +36,7 @@ type TransactionFormProps = {
   categories: CategoryOption[]
   defaultDate: string
   editing: EditingTransaction | null
+  filters: LedgerFilters
   month: string
 }
 
@@ -58,6 +60,7 @@ export function TransactionForm({
   categories,
   defaultDate,
   editing,
+  filters,
   month,
 }: TransactionFormProps) {
   const [state, action] = useActionState(saveTransaction, initialState)
@@ -81,7 +84,7 @@ export function TransactionForm({
           </p>
         </div>
         {editing && (
-          <Link className="text-sm text-zinc-500 hover:text-zinc-950" href={`/ledger?month=${month}`}>
+          <Link className="text-sm text-zinc-500 hover:text-zinc-950" href={ledgerUrl(month, filters)}>
             수정 취소
           </Link>
         )}
@@ -89,6 +92,10 @@ export function TransactionForm({
 
       <form action={action} className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-6">
         <input name="transactionId" type="hidden" value={editing?.id ?? ''} />
+        <input name="returnAccount" type="hidden" value={filters.account} />
+        <input name="returnFlow" type="hidden" value={filters.flow} />
+        <input name="returnMajor" type="hidden" value={filters.major} />
+        <input name="returnQ" type="hidden" value={filters.q} />
         <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
           날짜
           <input
