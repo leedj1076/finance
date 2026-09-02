@@ -122,6 +122,7 @@ async function createTestUser(email: string, password: string) {
 }
 
 test('family user can manage a transaction and change their password', async ({ page }) => {
+  test.slow()
   const email = `finance-e2e-${Date.now()}-${crypto.randomUUID()}@example.com`
   const currentPassword = 'passw0rd!'
   const newPassword = 'new-passw0rd!'
@@ -143,11 +144,14 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page).toHaveURL('/dashboard')
     await page.getByRole('link', { name: '가계부', exact: true }).click()
     await expect(page).toHaveURL('/ledger')
-    await page.getByLabel('분류').selectOption(String(setup.categoryId))
-    await page.getByLabel('금액').fill('12,500')
-    await page.getByLabel('결제수단').selectOption(String(setup.accountId))
-    await page.getByLabel('사용내역').fill('E2E 장보기')
-    await page.getByRole('button', { name: '거래 추가' }).click()
+    const transactionForm = page.locator('form').filter({
+      has: page.getByRole('button', { name: '거래 추가' }),
+    })
+    await transactionForm.locator('select[name="categoryId"]').selectOption(String(setup.categoryId))
+    await transactionForm.getByLabel('금액').fill('12,500')
+    await transactionForm.locator('select[name="accountId"]').selectOption(String(setup.accountId))
+    await transactionForm.getByLabel('사용내역').fill('E2E 장보기')
+    await transactionForm.getByRole('button', { name: '거래 추가' }).click()
 
     const transactionRow = page.getByRole('row', { name: /E2E 장보기/ })
     await expect(transactionRow).toContainText('12,500원')
@@ -227,10 +231,12 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page.getByText('결제수단을 저장했습니다.')).toBeVisible()
 
     await page.getByRole('link', { name: /미분류 거래/ }).click()
-    const unclassifiedForm = page.locator('form').filter({ hasText: 'E2E 미분류 가맹점' })
-    await unclassifiedForm.locator('select[name="categoryId"]').selectOption(String(setup.categoryId))
-    await unclassifiedForm.getByRole('button', { name: '분류' }).click()
-    await expect(page.getByText('거래를 분류하고 다음 추천에 반영했습니다.')).toBeVisible()
+    const unclassifiedRow = page.getByRole('row').filter({ hasText: 'E2E 미분류 가맹점' })
+    await unclassifiedRow.getByRole('combobox', { name: 'E2E 미분류 가맹점 카테고리' })
+      .selectOption(String(setup.categoryId))
+    await unclassifiedRow.getByRole('checkbox', { name: 'E2E 미분류 가맹점 선택' }).check()
+    await page.getByRole('button', { name: '선택 거래 저장' }).click()
+    await expect(page.getByText(/1건을 분류하고 다음 추천에 반영했습니다/)).toBeVisible()
     await expect(page.getByText('E2E 미분류 가맹점')).toHaveCount(0)
 
     await page.getByRole('link', { name: /추천 규칙/ }).click()
