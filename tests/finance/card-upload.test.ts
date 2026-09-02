@@ -4,7 +4,9 @@ import { afterAll, beforeAll, expect, test, vi } from 'vitest'
 import { db } from '@/db/client'
 import { categories, households, importBatches, importInbox, transactions } from '@/db/schema'
 import { processInbox } from '@/features/inbox/actions'
-import { uploadCardStatement } from '@/features/inbox/upload-action'
+import { upsertMerchantLookup } from '@/features/inbox/merchant-lookup'
+import { normalizeMerchant } from '@/features/inbox/normalize'
+import { refreshDuplicateFlags, uploadCardStatement } from '@/features/inbox/upload-action'
 import { cardFingerprint } from '@/features/inbox/parsers/cards'
 
 const context = vi.hoisted(() => ({ householdId: '' }))
@@ -19,6 +21,10 @@ vi.mock('@/lib/household', () => ({
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('next/navigation', () => ({
   redirect: (url: string) => { throw new Error(`REDIRECT:${url}`) },
+}))
+vi.mock('@/features/inbox/ai-classify', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/inbox/ai-classify')>()),
+  aiFallbackEnabled: () => false,
 }))
 
 const CARD_HTML = Buffer.from(`
@@ -35,6 +41,19 @@ let categoryId: number
 function makeFormData() {
   const formData = new FormData()
   formData.set('file', new File([CARD_HTML], 'statement.xls', { type: 'application/vnd.ms-excel' }))
+  formData.set('issuer', 'hyundai')
+  formData.set('owner', 'DJ')
+  return formData
+}
+
+function makeSingleRowFormData(merchant: string, date: string, amount: number) {
+  const html = Buffer.from(`
+    <html><body><table>
+    <tr><td>이용일</td><td>이용카드</td><td>이용가맹점</td><td>이용금액</td><td>결제원금</td></tr>
+    <tr><td>${date.replaceAll('-', '.')}</td><td>카드</td><td>${merchant}</td><td>${amount.toLocaleString('en-US')}</td><td>${amount.toLocaleString('en-US')}</td></tr>
+    </table></body></html>`, 'utf8')
+  const formData = new FormData()
+  formData.set('file', new File([html], 'single-row.xls', { type: 'application/vnd.ms-excel' }))
   formData.set('issuer', 'hyundai')
   formData.set('owner', 'DJ')
   return formData
@@ -86,6 +105,8 @@ test('stages same-row occurrences with household-scoped history suggestions', as
   const result = await uploadCardStatement(makeFormData())
   expect(result.error).toBeUndefined()
   expect(result.message).toContain('인박스에 2건 추가')
+  expect(result.message).toContain('자동 분류 2건')
+  expect(result.message).toContain('확인 필요 0건')
 
   const rows = await db
     .select({
@@ -95,6 +116,7 @@ test('stages same-row occurrences with household-scoped history suggestions', as
       sugSource: importInbox.sugSource,
       pay: importInbox.pay,
       flow: importInbox.flow,
+      confidence: importInbox.confidence,
     })
     .from(importInbox)
     .where(and(eq(importInbox.householdId, context.householdId), eq(importInbox.status, 'pending')))
@@ -106,6 +128,46 @@ test('stages same-row occurrences with household-scoped history suggestions', as
   expect(rows.every((row) => row.sugSource === 'history')).toBe(true)
   expect(rows.every((row) => row.pay === '현대카드' && row.flow === 'expense')).toBe(true)
   expect(rows.every((row) => row.bsCat1 === '__source:card:hyundai')).toBe(true)
+  expect(rows.every((row) => row.confidence === 'high')).toBe(true)
+})
+
+test('duplicate demotion remains review after the duplicate is cleared', async () => {
+  const [duplicate] = await db
+    .insert(transactions)
+    .values({
+      householdId: context.householdId,
+      date: '2026-08-03',
+      flow: 'expense',
+      categoryId,
+      memo: '스타벅스 강남점',
+      rawMerchant: '스타벅스 강남점',
+      amount: 6500,
+      source: 'manual',
+    })
+    .returning({ id: transactions.id })
+
+  await refreshDuplicateFlags(context.householdId)
+  const flagged = await db
+    .select({ id: importInbox.id, dupNote: importInbox.dupNote, confidence: importInbox.confidence })
+    .from(importInbox)
+    .where(and(eq(importInbox.householdId, context.householdId), eq(importInbox.status, 'pending')))
+    .orderBy(importInbox.id)
+  expect(flagged.filter((row) => row.dupNote)).toHaveLength(1)
+  expect(flagged.find((row) => row.dupNote)?.confidence).toBe('review')
+  expect(flagged.find((row) => !row.dupNote)?.confidence).toBe('high')
+
+  await db
+    .delete(transactions)
+    .where(and(eq(transactions.householdId, context.householdId), eq(transactions.id, duplicate.id)))
+  await refreshDuplicateFlags(context.householdId)
+  const cleared = await db
+    .select({ id: importInbox.id, dupNote: importInbox.dupNote, confidence: importInbox.confidence })
+    .from(importInbox)
+    .where(and(eq(importInbox.householdId, context.householdId), eq(importInbox.status, 'pending')))
+    .orderBy(importInbox.id)
+  expect(cleared.every((row) => row.dupNote === null)).toBe(true)
+  expect(cleared.find((row) => row.id === flagged.find((row) => row.dupNote)?.id)?.confidence)
+    .toBe('review')
 })
 
 test('re-upload is idempotent within the same household', async () => {
@@ -152,6 +214,45 @@ test('applying staged card rows records card issuer source', async () => {
     .from(importBatches)
     .where(eq(importBatches.householdId, context.householdId))
   expect(batch.source).toBe('card:hyundai')
+})
+
+test('card uploads stay expense when cache suggests another flow', async () => {
+  await upsertMerchantLookup(
+    context.householdId,
+    {
+      normMerchant: normalizeMerchant('급여성가맹점'),
+      categoryId,
+      flow: 'income',
+    },
+    'user',
+  )
+
+  const result = await uploadCardStatement(
+    makeSingleRowFormData('급여성가맹점', '2026-08-21', 12_000),
+  )
+  expect(result.error).toBeUndefined()
+  expect(result.message).toContain('확인 필요 1건')
+
+  const [row] = await db
+    .select({
+      flow: importInbox.flow,
+      categoryId: importInbox.categoryId,
+      sugSource: importInbox.sugSource,
+      confidence: importInbox.confidence,
+    })
+    .from(importInbox)
+    .where(
+      and(
+        eq(importInbox.householdId, context.householdId),
+        eq(importInbox.merchant, '급여성가맹점'),
+      ),
+    )
+  expect(row).toEqual({
+    flow: 'expense',
+    categoryId: null,
+    sugSource: null,
+    confidence: 'review',
+  })
 })
 
 test('BankSalad-like pay label does not collide with the internal card source marker', async () => {

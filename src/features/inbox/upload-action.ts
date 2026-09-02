@@ -1,6 +1,6 @@
 'use server'
 
-import { and, asc, eq, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 
 import { db } from '@/db/client'
@@ -9,6 +9,7 @@ import {
   accounts,
   categories,
   importInbox,
+  settings,
   transactions,
 } from '@/db/schema'
 import { requireHousehold } from '@/lib/household'
@@ -25,6 +26,7 @@ import {
   type HistoryRow,
   type TransactionFlow,
 } from './banksalad'
+import { assessConfidence } from './confidence'
 import {
   CARD_ISSUERS,
   cardFingerprint,
@@ -34,6 +36,7 @@ import {
   type CardIssuer,
   type CardRow,
 } from './parsers/cards'
+import { resolveSuggestions } from './resolve-suggestion'
 
 const COMMIT_CUTOFF = '2026-06-01'
 const HISTORY_END = '2026-01-01'
@@ -133,7 +136,7 @@ export async function refreshDuplicateFlags(householdId: string) {
     for (const [id, dupNote] of notes) {
       await tx
         .update(importInbox)
-        .set({ dupNote })
+        .set({ dupNote, confidence: 'review' })
         .where(and(eq(importInbox.householdId, householdId), eq(importInbox.id, id)))
     }
   })
@@ -146,7 +149,14 @@ function errorMessage(error: unknown) {
 }
 
 async function loadStagingContext(householdId: string) {
-  const [transactionUidRows, inboxUidRows, categoryRows, aliasRows, historyRows] = await Promise.all([
+  const [
+    transactionUidRows,
+    inboxUidRows,
+    categoryRows,
+    aliasRows,
+    historyRows,
+    aiSettingRows,
+  ] = await Promise.all([
     db
       .select({ importUid: transactions.importUid })
       .from(transactions)
@@ -194,7 +204,18 @@ async function loadStagingContext(householdId: string) {
         categories,
         and(eq(categories.id, transactions.categoryId), eq(categories.householdId, householdId)),
       )
-      .where(eq(transactions.householdId, householdId)),
+      .where(eq(transactions.householdId, householdId))
+      .orderBy(desc(transactions.date), desc(transactions.id)),
+    db
+      .select({ value: settings.value })
+      .from(settings)
+      .where(
+        and(
+          eq(settings.householdId, householdId),
+          eq(settings.key, 'ai_fallback_enabled'),
+        ),
+      )
+      .limit(1),
   ])
 
   const doneUids = new Set([
@@ -227,16 +248,95 @@ async function loadStagingContext(householdId: string) {
       }))
       .filter((row) => row.merchant),
   )
+  const categoryIdByTaxonomy = new Map(
+    categoryRows.map((row) => [`${row.kind}|${row.major}|${row.sub}`, row.id]),
+  )
 
   return {
+    aiSetting: aiSettingRows[0]?.value ?? null,
     aliases,
     categoriesById,
     categoriesByMajor,
     categoryRows,
     doneUids,
     amountRepeatIndex,
+    examples: historyRows
+      .filter((row) => row.categoryId !== null && categoriesById.has(row.categoryId))
+      .map((row) => ({
+        merchant: row.rawMerchant || row.memo || '',
+        major: row.major,
+        sub: row.sub,
+      }))
+      .filter((row) => row.merchant)
+      .slice(0, 20),
+    findCategoryId: (flow: string, major: string, sub: string) =>
+      categoryIdByTaxonomy.get(`${flow}|${major}|${sub}`) ?? null,
     suggestFromHistory: buildHistorySuggester(history),
+    taxonomy: categoryRows.map((row) => ({
+      flow: row.kind,
+      major: row.major,
+      sub: row.sub,
+    })),
   }
+}
+
+type StagingContext = Awaited<ReturnType<typeof loadStagingContext>>
+
+type SuggestionCandidate = {
+  merchant: string
+  amount: number
+  baseFlow: TransactionFlow
+  bsSuggestCategoryId: number | null
+  lockFlow?: boolean
+}
+
+async function resolveStagingSuggestions(
+  householdId: string,
+  context: StagingContext,
+  items: SuggestionCandidate[],
+  taxonomy = context.taxonomy,
+) {
+  return resolveSuggestions({
+    householdId,
+    items,
+    historySuggest: context.suggestFromHistory,
+    amountRepeatIndex: context.amountRepeatIndex,
+    taxonomy,
+    examples: context.examples,
+    findCategoryId: context.findCategoryId,
+    aiSetting: context.aiSetting,
+  })
+}
+
+async function insertInboxRows(
+  householdId: string,
+  values: Array<typeof importInbox.$inferInsert>,
+) {
+  const inserted: Array<{ id: number; owner: string }> = []
+  for (let index = 0; index < values.length; index += 500) {
+    const rows = await db
+      .insert(importInbox)
+      .values(values.slice(index, index + 500).map((value) => ({ ...value, householdId })))
+      .onConflictDoNothing({ target: [importInbox.householdId, importInbox.importUid] })
+      .returning({ id: importInbox.id, owner: importInbox.owner })
+    inserted.push(...rows)
+  }
+  return inserted
+}
+
+async function summarizeInsertedConfidence(householdId: string, ids: number[]) {
+  if (ids.length === 0) return { automatic: 0, review: 0 }
+  const rows = await db
+    .select({ confidence: importInbox.confidence })
+    .from(importInbox)
+    .where(
+      and(
+        eq(importInbox.householdId, householdId),
+        inArray(importInbox.id, ids),
+      ),
+    )
+  const automatic = rows.filter((row) => row.confidence === 'high').length
+  return { automatic, review: rows.length - automatic }
 }
 
 export async function uploadBanksaladFiles(
@@ -278,16 +378,23 @@ export async function uploadBanksaladFiles(
   const householdId = household.householdId
   const assetOptions = formData.getAll('asset_include').map(String)
   const includeAssets = assetOptions.length === 0 || assetOptions.includes('on')
+  const stagingContext = await loadStagingContext(householdId)
   const {
     aliases,
     categoriesById,
     categoriesByMajor,
-    categoryRows,
     doneUids,
-    suggestFromHistory,
-  } = await loadStagingContext(householdId)
+  } = stagingContext
 
-  const values: Array<typeof importInbox.$inferInsert> = []
+  type BanksaladCandidate = {
+    owner: BanksaladOwner
+    row: (typeof parsedFiles)[number]['rows'][number]
+    uid: string
+    kind: 'normal' | 'transfer'
+    baseFlow: TransactionFlow
+    bsSuggestCategoryId: number | null
+  }
+  const candidates: BanksaladCandidate[] = []
   const excluded = new Map<string, number>()
   const owners: Record<BanksaladOwner, number> = { DJ: 0, YJ: 0 }
   let alreadyProcessed = 0
@@ -319,68 +426,82 @@ export async function uploadBanksaladFiles(
       const baseFlow: TransactionFlow = classification.action === 'transfer_candidate'
         ? row.amount > 0 ? 'income' : 'expense'
         : classification.action
-      const historical = suggestFromHistory(row.merchant)
-      let flow = baseFlow
-      let categoryId: number | null = null
-      let sugSource: string | null = null
-
-      if (historical && (kind === 'normal' || historical.flow === baseFlow)) {
-        flow = kind === 'normal' ? historical.flow : baseFlow
-        categoryId = categoryRows.find(
-          (category) =>
-            category.kind === flow &&
-            category.major === historical.major &&
-            category.sub === historical.sub,
-        )?.id ?? null
-        if (categoryId !== null) sugSource = 'history'
-      }
-
-      if (categoryId === null && classification.suggestMajor) {
-        const options = categoriesByMajor.get(`${flow}|${classification.suggestMajor}`) ?? []
-        const category = options.find((option) => option.sub === '기타') ?? options[0]
-        if (category) {
-          categoryId = category.id
-          sugSource = 'banksalad'
-        }
-      }
-
-      if (categoryId !== null && categoriesById.get(categoryId)?.kind !== flow) categoryId = null
-      values.push({
-        householdId,
-        importUid: uid,
+      const options = classification.suggestMajor
+        ? categoriesByMajor.get(`${baseFlow}|${classification.suggestMajor}`) ?? []
+        : []
+      const fallback = options.find((option) => option.sub === '기타') ?? options[0]
+      candidates.push({
         owner: parsed.owner,
-        date: row.date,
-        time: row.time,
-        merchant: row.merchant,
-        amount: Math.abs(row.amount),
-        flow,
+        row,
+        uid,
         kind,
-        bsCat1: row.cat1,
-        bsCat2: row.cat2,
-        pay: row.pay,
-        accountId: row.pay ? aliases.get(`${parsed.owner}|${row.pay}`) ?? null : null,
-        categoryId,
-        memo: row.memo ?? '',
-        sugSource,
+        baseFlow,
+        bsSuggestCategoryId: fallback?.id ?? null,
       })
       doneUids.add(uid)
     }
   }
 
-  const inserted: Array<{ owner: string }> = []
-  for (let index = 0; index < values.length; index += 500) {
-    const rows = await db
-      .insert(importInbox)
-      .values(values.slice(index, index + 500))
-      .onConflictDoNothing({ target: [importInbox.householdId, importInbox.importUid] })
-      .returning({ owner: importInbox.owner })
-    inserted.push(...rows)
-  }
+  const suggestions = await resolveStagingSuggestions(
+    householdId,
+    stagingContext,
+    candidates.map((candidate) => ({
+      merchant: candidate.row.merchant,
+      amount: Math.abs(candidate.row.amount),
+      baseFlow: candidate.baseFlow,
+      bsSuggestCategoryId: candidate.bsSuggestCategoryId,
+      lockFlow: candidate.kind === 'transfer',
+    })),
+  )
+  const values: Array<typeof importInbox.$inferInsert> = candidates.map((candidate, index) => {
+    const suggestion = suggestions[index]
+    const flow = candidate.kind === 'transfer' ? candidate.baseFlow : suggestion.flow
+    const suggestedCategory = suggestion.categoryId === null
+      ? null
+      : categoriesById.get(suggestion.categoryId)
+    const categoryId = suggestedCategory?.kind === flow ? suggestion.categoryId : null
+    const sugSource = categoryId === null ? null : suggestion.sugSource
+    return {
+      householdId,
+      importUid: candidate.uid,
+      owner: candidate.owner,
+      date: candidate.row.date,
+      time: candidate.row.time,
+      merchant: candidate.row.merchant,
+      amount: Math.abs(candidate.row.amount),
+      flow,
+      kind: candidate.kind,
+      bsCat1: candidate.row.cat1,
+      bsCat2: candidate.row.cat2,
+      pay: candidate.row.pay,
+      accountId: candidate.row.pay
+        ? aliases.get(`${candidate.owner}|${candidate.row.pay}`) ?? null
+        : null,
+      categoryId,
+      memo: candidate.row.memo ?? '',
+      sugSource,
+      confidence: assessConfidence({
+        sugSource,
+        historyMatch: suggestion.historyMatch,
+        alwaysConfirm: suggestion.alwaysConfirm,
+        hasDup: false,
+        kind: candidate.kind,
+        categoryId,
+        exactAmountRepeat: suggestion.exactAmountRepeat,
+      }),
+    }
+  })
+
+  const inserted = await insertInboxRows(householdId, values)
   for (const row of inserted) {
     if (row.owner === 'DJ' || row.owner === 'YJ') owners[row.owner] += 1
   }
 
   const duplicateCount = await refreshDuplicateFlags(householdId)
+  const confidenceSummary = await summarizeInsertedConfidence(
+    householdId,
+    inserted.map((row) => row.id),
+  )
   const latestDate = parsedFiles
     .flatMap((parsed) => parsed.rows.map((row) => row.date))
     .sort()
@@ -405,6 +526,8 @@ export async function uploadBanksaladFiles(
   const details = [
     `인박스에 ${inserted.length}건 추가 (DJ ${owners.DJ} / YJ ${owners.YJ})`,
     `이미 처리 ${alreadyProcessed}건`,
+    `자동 분류 ${confidenceSummary.automatic}건`,
+    `확인 필요 ${confidenceSummary.review}건`,
   ]
   if (excludedCount) details.push(`자동 제외 ${excludedCount}건`)
   if (oldPeriod) details.push(`기존 이관기간 ${oldPeriod}건`)
@@ -452,34 +575,49 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
   })
 
   const householdId = household.householdId
-  const { aliases, categoryRows, doneUids, suggestFromHistory } = await loadStagingContext(householdId)
+  const stagingContext = await loadStagingContext(householdId)
+  const { aliases, categoriesById, doneUids } = stagingContext
   const issuerLabel = CARD_ISSUERS.find((card) => card.key === issuer)!.label
-  const values: Array<typeof importInbox.$inferInsert> = []
   let alreadyProcessed = 0
 
-  for (const { row, uid } of staged) {
+  const candidates = staged.filter(({ uid }) => {
     if (doneUids.has(uid)) {
       alreadyProcessed += 1
-      continue
+      return false
     }
-    const historical = suggestFromHistory(row.merchant)
-    const categoryId = historical?.flow === 'expense'
-      ? categoryRows.find(
-        (category) =>
-          category.kind === 'expense' &&
-          category.major === historical.major &&
-          category.sub === historical.sub,
-      )?.id ?? null
-      : null
+    doneUids.add(uid)
+    return true
+  })
 
-    values.push({
+  const suggestions = await resolveStagingSuggestions(
+    householdId,
+    stagingContext,
+    candidates.map(({ row }) => ({
+      merchant: row.merchant,
+      amount: Math.abs(row.amount),
+      baseFlow: 'expense',
+      bsSuggestCategoryId: null,
+      lockFlow: true,
+    })),
+    stagingContext.taxonomy.filter((category) => category.flow === 'expense'),
+  )
+
+  const values: Array<typeof importInbox.$inferInsert> = candidates.map(({ row, uid }, index) => {
+    const suggestion = suggestions[index]
+    const categoryId = suggestion.categoryId !== null &&
+      categoriesById.get(suggestion.categoryId)?.kind === 'expense'
+      ? suggestion.categoryId
+      : null
+    const sugSource = categoryId === null ? null : suggestion.sugSource
+
+    return {
       householdId,
       importUid: uid,
       owner,
       date: row.date,
       time: null,
       merchant: row.merchant,
-      amount: row.amount,
+      amount: Math.abs(row.amount),
       flow: 'expense',
       kind: 'normal',
       bsCat1: cardSourceMarker(issuer),
@@ -488,26 +626,35 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
       accountId: aliases.get(`${owner}|${issuerLabel}`) ?? null,
       categoryId,
       memo: '',
-      sugSource: categoryId === null ? null : 'history',
-    })
-    doneUids.add(uid)
-  }
+      sugSource,
+      confidence: assessConfidence({
+        sugSource,
+        historyMatch: suggestion.historyMatch,
+        alwaysConfirm: suggestion.alwaysConfirm,
+        hasDup: false,
+        kind: 'normal',
+        categoryId,
+        exactAmountRepeat: suggestion.exactAmountRepeat,
+      }),
+    }
+  })
 
-  const inserted: Array<{ id: number }> = []
-  for (let index = 0; index < values.length; index += 500) {
-    const result = await db
-      .insert(importInbox)
-      .values(values.slice(index, index + 500))
-      .onConflictDoNothing({ target: [importInbox.householdId, importInbox.importUid] })
-      .returning({ id: importInbox.id })
-    inserted.push(...result)
-  }
+  const inserted = await insertInboxRows(householdId, values)
 
   const duplicateCount = await refreshDuplicateFlags(householdId)
+  const confidenceSummary = await summarizeInsertedConfidence(
+    householdId,
+    inserted.map((row) => row.id),
+  )
   revalidatePath('/inbox')
   revalidatePath('/ledger')
 
-  const details = [`인박스에 ${inserted.length}건 추가`, `이미 처리 ${alreadyProcessed}건`]
+  const details = [
+    `인박스에 ${inserted.length}건 추가`,
+    `이미 처리 ${alreadyProcessed}건`,
+    `자동 분류 ${confidenceSummary.automatic}건`,
+    `확인 필요 ${confidenceSummary.review}건`,
+  ]
   if (duplicateCount) details.push(`중복 의심 ${duplicateCount}건`)
   return { message: details.join(' · ') }
 }
