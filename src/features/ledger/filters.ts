@@ -13,19 +13,29 @@ function firstString(value: SearchParamValue) {
   return typeof value === 'string' ? value : ''
 }
 
+export function parseLedgerAccountId(value: string) {
+  if (!/^\d+$/.test(value)) return null
+  const accountId = Number(value)
+  return Number.isSafeInteger(accountId) && accountId > 0 ? accountId : null
+}
+
 export function parseLedgerFilters(params: {
   account?: SearchParamValue
+  fflow?: SearchParamValue
+  fmajor?: SearchParamValue
   flow?: SearchParamValue
   major?: SearchParamValue
   q?: SearchParamValue
 }): LedgerFilters {
-  const flow = firstString(params.flow)
+  const flow = firstString(params.flow !== undefined ? params.flow : params.fflow)
+  const major = firstString(params.major !== undefined ? params.major : params.fmajor)
   const account = firstString(params.account)
+  const accountId = parseLedgerAccountId(account)
 
   return {
-    account: /^\d+$/.test(account) ? account : '',
+    account: accountId === null ? '' : String(accountId),
     flow: flow === 'expense' || flow === 'income' || flow === 'saving' ? flow : '',
-    major: firstString(params.major),
+    major,
     q: firstString(params.q).trim(),
   }
 }

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, like, lt, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, ilike, inArray, lt, sql } from 'drizzle-orm'
 
 import { db } from '@/db/client'
 import { accounts, budgets, categories, settings, transactions } from '@/db/schema'
@@ -11,7 +11,7 @@ import {
   shiftMonth,
 } from '@/lib/finance'
 
-import type { LedgerFilters } from './filters'
+import { parseLedgerAccountId, type LedgerFilters } from './filters'
 import { calculateExpenseForecast, calculateSafeToSpend, roundLikePython } from './forecast'
 
 type Totals = {
@@ -73,7 +73,7 @@ export async function getLedgerData(
   const elapsed = isCurrentMonth ? Number(today.slice(8, 10)) : daysInMonth
   const yearStart = `${year}-01-01`
   const averageEnd = year === currentYear ? `${currentMonth}-01` : `${year + 1}-01-01`
-  const accountId = Number(filters.account)
+  const accountId = parseLedgerAccountId(filters.account)
 
   const [
     totals,
@@ -126,10 +126,12 @@ export async function getLedgerData(
           eq(transactions.householdId, householdId),
           gte(transactions.date, start),
           lt(transactions.date, end),
-          filters.account ? eq(transactions.accountId, accountId) : undefined,
+          filters.account
+            ? accountId === null ? sql`false` : eq(transactions.accountId, accountId)
+            : undefined,
           filters.flow ? eq(transactions.flow, filters.flow) : undefined,
           filters.major ? eq(categories.major, filters.major) : undefined,
-          filters.q ? like(transactions.memo, `%${filters.q}%`) : undefined,
+          filters.q ? ilike(transactions.memo, `%${filters.q}%`) : undefined,
         ),
       )
       .orderBy(desc(transactions.date), desc(transactions.id))

@@ -22,6 +22,8 @@ type LedgerPageProps = {
   searchParams: Promise<{
     edit?: string | string[]
     account?: string | string[]
+    fflow?: string | string[]
+    fmajor?: string | string[]
     flow?: string | string[]
     major?: string | string[]
     month?: string | string[]
