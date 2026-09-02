@@ -4,7 +4,7 @@ import { afterAll, beforeAll, expect, test, vi } from 'vitest'
 
 import { db } from '@/db/client'
 import { categories, categoryRules, households, transactions } from '@/db/schema'
-import { normalizeMerchant } from '@/features/inbox/banksalad'
+import { normalizeMerchant } from '@/features/inbox/normalize'
 import { bulkClassifyTransactions } from '@/features/manage/actions'
 import {
   classificationFromToken,

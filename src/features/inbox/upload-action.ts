@@ -16,6 +16,7 @@ import { requireHousehold } from '@/lib/household'
 import { upsertBanksaladAssetSnapshots } from './asset-snapshots'
 import {
   banksaladFingerprint,
+  buildAmountRepeatIndex,
   buildHistorySuggester,
   classifyBanksaladRow,
   duplicateMerchantSimilar,
@@ -185,6 +186,8 @@ async function loadStagingContext(householdId: string) {
         rawMerchant: transactions.rawMerchant,
         memo: transactions.memo,
         date: transactions.date,
+        amount: transactions.amount,
+        categoryId: transactions.categoryId,
       })
       .from(transactions)
       .innerJoin(
@@ -215,6 +218,15 @@ async function loadStagingContext(householdId: string) {
       date: row.date,
     }))
     .filter((row) => row.merchant)
+  const amountRepeatIndex = buildAmountRepeatIndex(
+    historyRows
+      .map((row) => ({
+        merchant: row.rawMerchant || row.memo || '',
+        amount: row.amount,
+        categoryId: row.categoryId,
+      }))
+      .filter((row) => row.merchant),
+  )
 
   return {
     aliases,
@@ -222,6 +234,7 @@ async function loadStagingContext(householdId: string) {
     categoriesByMajor,
     categoryRows,
     doneUids,
+    amountRepeatIndex,
     suggestFromHistory: buildHistorySuggester(history),
   }
 }

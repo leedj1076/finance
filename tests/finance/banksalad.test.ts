@@ -98,7 +98,16 @@ describe('recommendation and duplicate matching', () => {
       { flow: 'expense', fixed: false, major: '생활용품', sub: '기타', merchant: '주식회사 B', date: '2026-05-04' },
     ])
 
-    expect(suggest('스타벅스 서초점')).toMatchObject({ major: '식비', sub: '외식' })
+    expect(suggest('스타벅스 강남1점')).toMatchObject({
+      major: '식비',
+      sub: '외식',
+      matched: 'norm',
+    })
+    expect(suggest('스타벅스 서초점')).toMatchObject({
+      major: '식비',
+      sub: '외식',
+      matched: 'token',
+    })
     expect(suggest('주식회사 C')).toBeNull()
   })
 

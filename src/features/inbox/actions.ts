@@ -16,7 +16,8 @@ import {
 } from '@/db/schema'
 import { requireHousehold } from '@/lib/household'
 
-import { normalizeMerchant, type TransactionFlow } from './banksalad'
+import type { TransactionFlow } from './banksalad'
+import { normalizeMerchant } from './normalize'
 import { cardSourceFromMarker } from './parsers/cards'
 import { refreshDuplicateFlags } from './upload-action'
 
