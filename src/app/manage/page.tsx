@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+import { ActionNotice } from '@/components/action-notice'
 import { AppHeader } from '@/components/app-header'
 import { SubmitButton } from '@/components/submit-button'
 import { saveAlias } from '@/features/manage/actions'
@@ -59,8 +60,7 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
           <p className="mt-2 text-sm text-zinc-500">결제수단과 카테고리, 가맹점별 추천 기준을 한곳에서 관리합니다.</p>
         </div>
 
-        {saved && <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{saved}</p>}
-        {error && <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}
+        <ActionNotice error={error ?? undefined} notice={saved ?? undefined} />
 
         <nav aria-label="관리 메뉴" className="mt-6 flex gap-2 overflow-x-auto border-b border-zinc-200">
           {tabs.map((item) => (

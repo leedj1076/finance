@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 
+import { ActionNotice } from '@/components/action-notice'
 import { AppHeader } from '@/components/app-header'
 import { InboxReviewForm } from '@/features/inbox/inbox-review-form'
 import { CARD_ISSUERS } from '@/features/inbox/parsers/cards'
@@ -38,16 +39,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
           </p>
         </div>
 
-        {notice && (
-          <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-            {notice}
-          </p>
-        )}
-        {error && (
-          <p className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            {error}
-          </p>
-        )}
+        <ActionNotice error={error} notice={notice} />
 
         <section className="mt-6 scroll-mt-20 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm" id="upload">
           <div>

@@ -23,6 +23,7 @@ const directLinks: Array<{ key: HeaderSection; href: string; label: string }> = 
 
 const analysisLinks: Array<{ key: HeaderSection; href: string; label: string; description: string }> = [
   { key: 'analysis', href: '/analysis', label: '분석', description: '지출 변화와 가맹점 분석' },
+  { key: 'analysis', href: '/category', label: '항목별 상세', description: '대분류 하나를 골라 깊이 보기' },
   { key: 'budgets', href: '/budgets', label: '예산', description: '월 예산과 사용 속도' },
   { key: 'report', href: '/report', label: '연간결산', description: '연간 비교와 현금흐름' },
 ]
