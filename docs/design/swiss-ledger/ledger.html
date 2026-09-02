@@ -1,0 +1,159 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+</head>
+<body>
+
+
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', sans-serif; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+    a { color: #18181b; text-decoration: none; } a:hover { color: #2563eb; }
+  </style>
+
+<div style="width: 1440px; min-height: 2000px; background: #ffffff; color: #18181b;">
+
+  <!-- header -->
+  <div style="border-bottom: 1px solid #18181b; height: 56px; display: flex; align-items: center; padding: 0 48px; gap: 40px;">
+    <div style="display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; letter-spacing: -0.02em;">
+      <span style="display: inline-grid; place-items: center; width: 24px; height: 24px; background: #18181b; color: #fff; font-size: 13px; font-weight: 700;">₩</span>
+      <span>우리집 가계부</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 28px; font-size: 13px; font-weight: 500; color: #71717a; height: 100%;">
+      <span style="color: #18181b; font-weight: 700; border-bottom: 2px solid #2563eb; display: inline-flex; white-space: nowrap; align-items: center; height: 100%; box-sizing: border-box; padding-top: 2px;">가계부</span>
+      <span>대시보드</span>
+      <span>자산</span>
+      <span style="display: inline-flex; white-space: nowrap; align-items: center; gap: 6px;">인박스 <span style="display: inline-grid; place-items: center; min-width: 17px; height: 17px; background: #dc2626; color: #fff; font-size: 10px; font-weight: 700; border-radius: 9px; padding: 0 4px;">12</span></span>
+      <span>분석 ▾</span>
+      <span>설정 ▾</span>
+    </div>
+    <div style="margin-left: auto; font-size: 11px; color: #a1a1aa;">user@example.com</div>
+  </div>
+
+  <!-- title row -->
+  <div style="padding: 40px 48px 0; display: flex; align-items: flex-end; justify-content: space-between;">
+    <div>
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; color: #2563eb;">월별 가계부</div>
+      <div style="margin-top: 8px; font-size: 30px; font-weight: 700; letter-spacing: -0.03em; line-height: 1;">2026년 8월</div>
+      <div style="margin-top: 8px; font-size: 12px; color: #71717a;">거래 128건 · 마지막 반영 오늘 09:12</div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="display: flex; align-items: center; border: 1px solid #18181b;">
+        <span style="display: grid; place-items: center; width: 34px; height: 32px; border-right: 1px solid #18181b; font-size: 13px;">←</span>
+        <span style="display: grid; place-items: center; width: 96px; height: 32px; font-size: 13px; font-weight: 600;">2026-08</span>
+        <span style="display: grid; place-items: center; width: 34px; height: 32px; border-left: 1px solid #18181b; font-size: 13px;">→</span>
+      </div>
+      <span style="display: inline-flex; white-space: nowrap; align-items: center; height: 34px; padding: 0 16px; background: #18181b; color: #fff; font-size: 13px; font-weight: 600;">+ 거래 추가</span>
+    </div>
+  </div>
+
+  <!-- safe to spend hero -->
+  <div style="margin: 24px 48px 0; border-top: 1px solid #18181b; border-bottom: 1px solid #e4e4e7; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);">
+    <div style="padding: 24px 24px 24px 0; border-right: 1px solid #e4e4e7;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #71717a;">이번 달 더 쓸 수 있는 돈</div>
+      <div style="margin-top: 10px; font-size: 34px; font-weight: 700; letter-spacing: -0.03em; color: #16a34a;">1,397,000<span style="font-size: 16px; font-weight: 500; color: #71717a;"> 원</span></div>
+      <div style="margin-top: 8px; font-size: 12px; color: #71717a;">남은 12일 기준 하루 <strong style="color: #18181b;">116,000원</strong> · 지출 상한 5,610,000원 = 월평균 수입 × (1 − 목표 30%)</div>
+    </div>
+    <div style="padding: 24px; border-right: 1px solid #e4e4e7;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #71717a;">월말 지출 예측 <span style="font-weight: 500; letter-spacing: 0; color: #a1a1aa;">run-rate</span></div>
+      <div style="margin-top: 10px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em;">5,320,000<span style="font-size: 14px; font-weight: 500; color: #71717a;"> 원</span></div>
+      <div style="margin-top: 12px; height: 5px; background: #f4f4f5; position: relative;">
+        <div style="height: 5px; width: 79%; background: #18181b;"></div>
+        <div style="position: absolute; top: -3px; left: 94%; width: 1px; height: 11px; background: #dc2626;"></div>
+      </div>
+      <div style="margin-top: 8px; font-size: 11px; color: #71717a;">상한까지 여유 290,000원 <span style="color: #dc2626;">| 상한선</span></div>
+    </div>
+    <div style="padding: 24px 0 24px 24px;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #71717a;">이번 달 순저축률</div>
+      <div style="margin-top: 10px; display: flex; align-items: baseline; gap: 10px;">
+        <span style="font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: #16a34a;">33.1%</span>
+        <span style="font-size: 11px; font-weight: 600; color: #16a34a; background: #f0fdf4; padding: 3px 8px; white-space: nowrap;">목표 +3.1%p</span>
+      </div>
+      <div style="margin-top: 8px; font-size: 12px; color: #71717a;">수입 6,890,000원 · 지출 4,213,000원 · 저축 납입 1,850,000원</div>
+    </div>
+  </div>
+
+  <!-- month KPI -->
+  <div style="margin: 0 48px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid #18181b;">
+    <div style="padding: 20px 24px 20px 0; border-right: 1px solid #e4e4e7;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #71717a;">수입</div>
+      <div style="margin-top: 8px; font-size: 20px; font-weight: 600; color: #2563eb;">6,890,000원</div>
+    </div>
+    <div style="padding: 20px 24px; border-right: 1px solid #e4e4e7;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #71717a;">지출</div>
+      <div style="margin-top: 8px; font-size: 20px; font-weight: 600; color: #dc2626;">4,213,000원</div>
+    </div>
+    <div style="padding: 20px 24px; border-right: 1px solid #e4e4e7;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #71717a;">저축 납입</div>
+      <div style="margin-top: 8px; font-size: 20px; font-weight: 600; color: #16a34a;">1,850,000원</div>
+    </div>
+    <div style="padding: 20px 0 20px 24px;">
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #71717a;">순저축</div>
+      <div style="margin-top: 8px; font-size: 20px; font-weight: 600; color: #16a34a;">2,677,000원</div>
+    </div>
+  </div>
+
+  <!-- filters -->
+  <div style="margin: 0 48px; padding: 16px 0; border-bottom: 1px solid #e4e4e7; display: flex; align-items: center; gap: 8px;">
+    <span style="display: inline-flex; white-space: nowrap; align-items: center; height: 30px; padding: 0 14px; background: #18181b; color: #fff; font-size: 12px; font-weight: 600;">전체</span>
+    <span style="display: inline-flex; white-space: nowrap; align-items: center; height: 30px; padding: 0 14px; border: 1px solid #e4e4e7; font-size: 12px; font-weight: 500; color: #71717a;">지출</span>
+    <span style="display: inline-flex; white-space: nowrap; align-items: center; height: 30px; padding: 0 14px; border: 1px solid #e4e4e7; font-size: 12px; font-weight: 500; color: #71717a;">수입</span>
+    <span style="display: inline-flex; white-space: nowrap; align-items: center; height: 30px; padding: 0 14px; border: 1px solid #e4e4e7; font-size: 12px; font-weight: 500; color: #71717a;">저축</span>
+    <span style="width: 1px; height: 20px; background: #e4e4e7; margin: 0 6px;"></span>
+    <span style="display: inline-flex; white-space: nowrap; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px solid #e4e4e7; font-size: 12px; color: #52525b;">결제수단: 전체 <span style="color: #a1a1aa;">▾</span></span>
+    <span style="display: inline-flex; white-space: nowrap; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px solid #e4e4e7; font-size: 12px; color: #52525b;">대분류: 전체 <span style="color: #a1a1aa;">▾</span></span>
+    <span style="margin-left: auto; display: inline-flex; white-space: nowrap; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border: 1px solid #e4e4e7; font-size: 12px; color: #a1a1aa; width: 220px;">⌕ 가맹점·메모 검색</span>
+  </div>
+
+  <!-- transactions table -->
+  <div style="margin: 0 48px; padding: 20px 0 40px;">
+    <div style="display: grid; grid-template-columns: 90px minmax(0, 1.4fr) 200px 150px 90px 130px 40px; padding: 9px 0; border-top: 1px solid #18181b; border-bottom: 1px solid #e4e4e7; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #71717a;">
+      <div>날짜</div><div>가맹점</div><div>분류</div><div>결제수단</div><div style="text-align: center;">구분</div><div style="text-align: right;">금액</div><div></div>
+    </div>
+    <div style="display: grid; grid-template-columns: 90px minmax(0, 1.4fr) 200px 150px 90px 130px 40px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 13px; align-items: center;">
+      <div style="color: #71717a;">08-25</div><div style="font-weight: 500;">이마트 트레이더스 하남점</div><div style="color: #52525b;">식비 <span style="color: #a1a1aa;">›</span> 장보기</div><div style="color: #71717a;">DJ-국민카드</div><div style="text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 7px; white-space: nowrap;">지출</span></div><div style="text-align: right; font-weight: 600;">184,300원</div><div style="text-align: right; color: #d4d4d8;">✎</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 90px minmax(0, 1.4fr) 200px 150px 90px 130px 40px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 13px; align-items: center;">
+      <div style="color: #71717a;">08-25</div><div style="font-weight: 500;">월급</div><div style="color: #52525b;">수입 <span style="color: #a1a1aa;">›</span> 급여</div><div style="color: #71717a;">DJ-신한은행</div><div style="text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #2563eb; background: #eff6ff; padding: 2px 7px; white-space: nowrap;">수입</span></div><div style="text-align: right; font-weight: 600; color: #2563eb;">+4,120,000원</div><div style="text-align: right; color: #d4d4d8;">✎</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 90px minmax(0, 1.4fr) 200px 150px 90px 130px 40px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 13px; align-items: center;">
+      <div style="color: #71717a;">08-24</div><div style="font-weight: 500;">청약저축</div><div style="color: #52525b;">저축 <span style="color: #a1a1aa;">›</span> 청약</div><div style="color: #71717a;">YJ-국민은행</div><div style="text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #16a34a; background: #f0fdf4; padding: 2px 7px; white-space: nowrap;">저축</span></div><div style="text-align: right; font-weight: 600; color: #16a34a;">300,000원</div><div style="text-align: right; color: #d4d4d8;">✎</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 90px minmax(0, 1.4fr) 200px 150px 90px 130px 40px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 13px; align-items: center; background: #fafafa;">
+      <div style="color: #71717a;">08-23</div><div style="font-weight: 500;">배달의민족 <span style="font-size: 10px; color: #71717a; background: #f4f4f5; border: 1px solid #e4e4e7; padding: 1px 6px; white-space: nowrap; margin-left: 6px;">메모: 회식 대체</span></div><div style="color: #52525b;">식비 <span style="color: #a1a1aa;">›</span> 외식</div><div style="color: #71717a;">DJ-현대카드</div><div style="text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 7px; white-space: nowrap;">지출</span></div><div style="text-align: right; font-weight: 600;">42,500원</div><div style="text-align: right; color: #d4d4d8;">✎</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 90px minmax(0, 1.4fr) 200px 150px 90px 130px 40px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 13px; align-items: center;">
+      <div style="color: #71717a;">08-22</div><div style="font-weight: 500;">GS칼텍스 서초주유소</div><div style="color: #52525b;">교통 <span style="color: #a1a1aa;">›</span> 주유</div><div style="color: #71717a;">DJ-농협카드</div><div style="text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 7px; white-space: nowrap;">지출</span></div><div style="text-align: right; font-weight: 600;">80,000원</div><div style="text-align: right; color: #d4d4d8;">✎</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 90px minmax(0, 1.4fr) 200px 150px 90px 130px 40px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 13px; align-items: center;">
+      <div style="color: #71717a;">08-21</div><div style="font-weight: 500;">스타벅스 역삼점</div><div style="color: #52525b;">식비 <span style="color: #a1a1aa;">›</span> 카페</div><div style="color: #71717a;">YJ-삼성카드</div><div style="text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 7px; white-space: nowrap;">지출</span></div><div style="text-align: right; font-weight: 600;">11,200원</div><div style="text-align: right; color: #d4d4d8;">✎</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 90px minmax(0, 1.4fr) 200px 150px 90px 130px 40px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 13px; align-items: center;">
+      <div style="color: #71717a;">08-20</div><div style="font-weight: 500;">쿠팡</div><div style="color: #52525b;">생활 <span style="color: #a1a1aa;">›</span> 생활용품</div><div style="color: #71717a;">DJ-국민카드</div><div style="text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 7px; white-space: nowrap;">지출</span></div><div style="text-align: right; font-weight: 600;">67,800원</div><div style="text-align: right; color: #d4d4d8;">✎</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 90px minmax(0, 1.4fr) 200px 150px 90px 130px 40px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 13px; align-items: center;">
+      <div style="color: #71717a;">08-20</div><div style="font-weight: 500;">서울도시가스</div><div style="color: #52525b;">주거/통신 <span style="color: #a1a1aa;">›</span> 공과금</div><div style="color: #71717a;">DJ-신한은행</div><div style="text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 7px; white-space: nowrap;">지출</span></div><div style="text-align: right; font-weight: 600;">31,400원</div><div style="text-align: right; color: #d4d4d8;">✎</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 90px minmax(0, 1.4fr) 200px 150px 90px 130px 40px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 13px; align-items: center;">
+      <div style="color: #71717a;">08-19</div><div style="font-weight: 500;">올리브영 강남점 <span style="font-size: 10px; font-weight: 600; color: #d97706; background: #fffbeb; padding: 1px 6px; white-space: nowrap; margin-left: 6px;">신규 지출처</span></div><div style="color: #52525b;">생활 <span style="color: #a1a1aa;">›</span> 미용</div><div style="color: #71717a;">YJ-삼성카드</div><div style="text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 7px; white-space: nowrap;">지출</span></div><div style="text-align: right; font-weight: 600;">68,000원</div><div style="text-align: right; color: #d4d4d8;">✎</div>
+    </div>
+    <div style="display: grid; grid-template-columns: 90px minmax(0, 1.4fr) 200px 150px 90px 130px 40px; padding: 11px 0; border-bottom: 1px solid #e4e4e7; font-size: 13px; align-items: center;">
+      <div style="color: #71717a;">08-18</div><div style="font-weight: 500;">제주항공</div><div style="color: #52525b;">여행 <span style="color: #a1a1aa;">›</span> 항공</div><div style="color: #71717a;">DJ-현대카드</div><div style="text-align: center;"><span style="font-size: 10px; font-weight: 600; color: #dc2626; background: #fef2f2; padding: 2px 7px; white-space: nowrap;">지출</span></div><div style="text-align: right; font-weight: 600;">284,000원</div><div style="text-align: right; color: #d4d4d8;">✎</div>
+    </div>
+    <div style="margin-top: 14px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #71717a;">
+      <span>128건 중 1–10</span>
+      <div style="display: flex; border: 1px solid #e4e4e7;">
+        <span style="display: grid; place-items: center; width: 30px; height: 28px; border-right: 1px solid #e4e4e7;">←</span>
+        <span style="display: grid; place-items: center; min-width: 30px; height: 28px; background: #18181b; color: #fff; font-weight: 600;">1</span>
+        <span style="display: grid; place-items: center; min-width: 30px; height: 28px; border-left: 1px solid #e4e4e7;">2</span>
+        <span style="display: grid; place-items: center; min-width: 30px; height: 28px; border-left: 1px solid #e4e4e7;">3</span>
+        <span style="display: grid; place-items: center; width: 30px; height: 28px; border-left: 1px solid #e4e4e7;">→</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
