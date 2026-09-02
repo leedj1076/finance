@@ -94,7 +94,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
               categories={data.categories}
               highItems={data.highItems}
               reviewItems={data.reviewItems}
-              key={data.items.map((item) => item.id).join('-')}
+              key={data.items.map((item) => `${item.id}:${item.confidence}`).join('-')}
             />
           ) : (
             <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
