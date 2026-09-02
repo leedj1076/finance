@@ -82,6 +82,20 @@ async function createTestUser(email: string, password: string) {
   ])
   if (transactionError) throw transactionError
 
+  const { error: recurringError } = await admin.from('recurring').insert({
+    household_id: household.id,
+    flow: 'expense',
+    fixed: true,
+    category_id: category.id,
+    memo: 'E2E 정기비용',
+    amount: 99_000,
+    account_id: account.id,
+    day: 15,
+    active: true,
+    sort_order: 1,
+  })
+  if (recurringError) throw recurringError
+
   const { data: assetRows, error: assetError } = await admin.from('asset_accounts').insert([
     { household_id: household.id, major: '현금', name: 'E2E 예금', kind: 'asset', sort_order: 1 },
     { household_id: household.id, major: '대출', name: 'E2E 대출', kind: 'liability', sort_order: 2 },
@@ -110,6 +124,7 @@ test('family user can manage a transaction and change their password', async ({ 
   const email = `finance-e2e-${Date.now()}-${crypto.randomUUID()}@example.com`
   const currentPassword = 'passw0rd!'
   const newPassword = 'new-passw0rd!'
+  const currentMonth = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 7)
   const browserErrors: string[] = []
   page.on('console', (message) => {
     if (message.type() === 'error') browserErrors.push(message.text())
@@ -160,6 +175,26 @@ test('family user can manage a transaction and change their password', async ({ 
     await page.getByRole('link', { name: '분석', exact: true }).click()
     await expect(page).toHaveURL('/analysis')
     await expect(page.getByRole('heading', { name: '분석' })).toBeVisible()
+
+    await page.getByRole('link', { name: '정기거래', exact: true }).click()
+    await expect(page).toHaveURL('/recurring')
+    await expect(page.getByRole('heading', { name: '정기거래', exact: true })).toBeVisible()
+    await page.getByLabel('E2E 정기비용 금액').fill('105000')
+    await page.getByRole('button', { name: '정기거래 저장' }).click()
+    await expect(page).toHaveURL(`/recurring?month=${currentMonth}&saved=1`)
+    await expect(page.getByText('정기거래 규칙을 저장했습니다.')).toBeVisible()
+    await page.getByLabel('정기거래 적용 월').fill('2026-04')
+    await page.getByRole('button', { name: '선택한 달에 반영' }).click()
+    await expect(page).toHaveURL('/ledger?month=2026-04&recurringAdded=1&recurringSkipped=0')
+    await expect(page.getByText('정기거래 1건을 추가했습니다.')).toBeVisible()
+    await expect(page.getByRole('row', { name: /E2E 정기비용/ })).toContainText('105,000원')
+
+    await page.getByRole('link', { name: '정기거래', exact: true }).click()
+    await page.getByLabel('정기거래 적용 월').fill('2026-04')
+    await page.getByRole('button', { name: '선택한 달에 반영' }).click()
+    await expect(page).toHaveURL('/ledger?month=2026-04&recurringAdded=0&recurringSkipped=1')
+    await expect(page.getByText('정기거래 0건을 추가했습니다. 이미 반영된 1건은 건너뛰었습니다.')).toBeVisible()
+    await expect(page.getByRole('row', { name: /E2E 정기비용/ })).toHaveCount(1)
 
     await page.getByRole('link', { name: '자산', exact: true }).click()
     await expect(page).toHaveURL('/assets')

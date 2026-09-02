@@ -14,7 +14,12 @@ import { requireHousehold } from '@/lib/household'
 import { createServerSupabase } from '@/lib/supabase/server'
 
 type LedgerPageProps = {
-  searchParams: Promise<{ edit?: string | string[]; month?: string | string[] }>
+  searchParams: Promise<{
+    edit?: string | string[]
+    month?: string | string[]
+    recurringAdded?: string | string[]
+    recurringSkipped?: string | string[]
+  }>
 }
 
 const flowLabel = {
@@ -83,6 +88,8 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
   const params = await searchParams
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
   const editId = typeof params.edit === 'string' ? Number(params.edit) : undefined
+  const recurringAdded = typeof params.recurringAdded === 'string' ? Number(params.recurringAdded) : null
+  const recurringSkipped = typeof params.recurringSkipped === 'string' ? Number(params.recurringSkipped) : null
   const [data, formOptions, editing] = await Promise.all([
     getLedgerData(household.householdId, requestedMonth),
     getLedgerFormOptions(household.householdId),
@@ -139,6 +146,13 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
             </Link>
           </div>
         </div>
+
+        {recurringAdded !== null && Number.isInteger(recurringAdded) && (
+          <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            정기거래 {recurringAdded}건을 추가했습니다.
+            {recurringSkipped !== null && recurringSkipped > 0 ? ` 이미 반영된 ${recurringSkipped}건은 건너뛰었습니다.` : ''}
+          </p>
+        )}
 
         <div className="mt-6 flex gap-2 overflow-x-auto pb-2">
           {data.availableMonths.map((item) => (
