@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { getCategoryDetails } from '@/features/analytics/category-detail'
+import { CategoryDetailTable } from '@/features/analytics/category-detail-table'
 import { MonthlyCashflowChart } from '@/features/analytics/charts'
 import { getDashboardData } from '@/features/analytics/queries'
 import { formatRate, formatWon } from '@/lib/finance'
@@ -39,6 +41,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const params = await searchParams
   const rawYear = Array.isArray(params.year) ? params.year[0] : params.year
   const data = await getDashboardData(household.householdId, rawYear ? Number(rawYear) : undefined)
+  const categoryDetails = await getCategoryDetails(household.householdId, data.year)
   const expenseDeltaUp = data.current.expenseDelta > 0
   const maxCategory = data.categoryRanks[0]?.amount ?? 1
 
@@ -183,6 +186,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
           </article>
         </section>
+
+        <div className="mt-6">
+          <CategoryDetailTable details={categoryDetails} key={data.year} year={data.year} />
+        </div>
 
         {data.merchantRanks.length > 0 && (
           <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
