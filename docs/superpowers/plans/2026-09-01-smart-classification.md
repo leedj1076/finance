@@ -6,7 +6,7 @@
 
 **Architecture:** 분류 우선순위 = ① user-캐시 → ② 거래 이력(norm) → ③ ai-캐시 → ④ AI+웹서치 1회 배치(결과는 캐시로) → ⑤ 뱅샐 매핑 → ⑥ 빈칸. 모든 해석 결과에 확신도(high/review)를 붙이고, 인박스 UI가 그걸로 접기/펼치기를 나눈다. 애그리게이터(쿠팡 등)는 항상 review(정확금액 반복 구독만 예외).
 
-**Tech Stack:** 기존 finance-web 스택(Next.js 15, TS, Drizzle, Supabase, Vitest, Playwright) + 신규: `xlsx`(SheetJS — 카드 파일의 xlsx/BIFF/HTML 3종 파싱), `@anthropic-ai/sdk`(AI 폴백, `claude-sonnet-5` + `web_search_20260209`).
+**Tech Stack:** 기존 finance-web 스택(Next.js 15, TS, Drizzle, Supabase, Vitest, Playwright) + 신규: `xlsx`(SheetJS — 카드 파일의 xlsx/BIFF/HTML 3종 파싱), `openai`(AI 폴백 — 사용자 결정: OpenAI API, Responses API + `web_search` 툴, `gpt-5-mini`).
 
 **Spec:** `docs/superpowers/specs/2026-09-01-smart-classification-design.md` (이 플랜의 논거. 실행자는 둘 다 읽을 것.)
 카드 포맷 원명세: `/Users/leedj/workspace/Personal/finance/card_import.py` (구 Flask 파서 — 헤더 키워드·중단 규칙의 출처), 실파일: `/Users/leedj/workspace/Personal/finance/imports/` (개인정보 — repo에 복사 금지, 로컬 수동 검증만).
@@ -799,19 +799,19 @@ git add -A && git commit -m "feat(inbox): card statement parsers (5 issuers, xls
 
 **Files:**
 - Create: `src/features/inbox/ai-classify.ts`
-- Modify: `package.json`(@anthropic-ai/sdk), `.env.example`(+`ANTHROPIC_API_KEY`), `README.md`(환경변수 표에 한 줄)
+- Modify: `package.json`(openai), `.env.example`(+`OPENAI_API_KEY`), `README.md`(환경변수 표에 한 줄)
 - Test: `tests/finance/ai-classify.test.ts`
 
 **Interfaces:**
 - Produces:
   - `type TaxonomyEntry = { flow: 'expense' | 'income' | 'saving'; major: string; sub: string }`
   - `type AiMerchantResult = { merchant: string; businessType: string; major: string; sub: string; flow: 'expense' | 'income' | 'saving'; confidence: 'high' | 'low'; note: string }`
-  - `classifyUnknownMerchants(input: { merchants: string[]; taxonomy: TaxonomyEntry[]; examples: { merchant: string; major: string; sub: string }[] }, client?: Anthropic): Promise<AiMerchantResult[]>` — 실패/빈 입력 시 `[]`, throw하지 않음.
-  - `aiFallbackEnabled(settingValue: string | null | undefined): boolean` — settings 'ai_fallback_enabled' !== '0' && `ANTHROPIC_API_KEY` 존재.
+  - `classifyUnknownMerchants(input: { merchants: string[]; taxonomy: TaxonomyEntry[]; examples: { merchant: string; major: string; sub: string }[] }, client?: OpenAI): Promise<AiMerchantResult[]>` — 실패/빈 입력 시 `[]`, throw하지 않음.
+  - `aiFallbackEnabled(settingValue: string | null | undefined): boolean` — settings 'ai_fallback_enabled' !== '0' && `OPENAI_API_KEY` 존재.
 
 - [ ] **Step 1: SDK 설치**
 
-Run: `pnpm add @anthropic-ai/sdk`
+Run: `pnpm add openai`
 
 - [ ] **Step 2: 실패하는 테스트 작성 (클라이언트 주입 mock — 실호출 없음)**
 
@@ -827,10 +827,10 @@ const taxonomy = [
 
 function mockClient(text: string, shouldThrow = false) {
   return {
-    messages: {
+    responses: {
       create: async () => {
         if (shouldThrow) throw new Error('api down')
-        return { content: [{ type: 'text', text }] }
+        return { output_text: text }
       },
     },
   } as never
@@ -859,13 +859,13 @@ test('empty merchants → [] without calling api', async () => {
 })
 
 test('aiFallbackEnabled respects setting and env', () => {
-  const saved = process.env.ANTHROPIC_API_KEY
-  process.env.ANTHROPIC_API_KEY = 'sk-test'
+  const saved = process.env.OPENAI_API_KEY
+  process.env.OPENAI_API_KEY = 'sk-test'
   expect(aiFallbackEnabled(null)).toBe(true)       // 기본 on
   expect(aiFallbackEnabled('0')).toBe(false)       // 토글 off
-  delete process.env.ANTHROPIC_API_KEY
+  delete process.env.OPENAI_API_KEY
   expect(aiFallbackEnabled(null)).toBe(false)      // 키 없으면 off
-  if (saved) process.env.ANTHROPIC_API_KEY = saved
+  if (saved) process.env.OPENAI_API_KEY = saved
 })
 ```
 
@@ -878,7 +878,7 @@ Expected: FAIL
 
 Create `src/features/inbox/ai-classify.ts`:
 ```ts
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 
 export type TaxonomyEntry = { flow: 'expense' | 'income' | 'saving'; major: string; sub: string }
 export type AiMerchantResult = {
@@ -886,13 +886,14 @@ export type AiMerchantResult = {
   flow: 'expense' | 'income' | 'saving'; confidence: 'high' | 'low'; note: string
 }
 
-// 모델 선택 근거(스펙 §AI 폴백): 호출량이 적어(월 5~15 가맹점) 비용이 무의미하고,
-// 현행 웹서치 툴(web_search_20260209)이 Sonnet 5에서 지원된다.
-const MODEL = 'claude-sonnet-5'
+// 사용자 결정(2026-09-01): OpenAI API 사용. Responses API + web_search 내장 툴.
+// 저가 모델로 충분(호출량 월 5~15 가맹점). 구현 시점에 모델명이 바뀌었으면
+// OpenAI 모델 목록에서 web_search 지원하는 최신 mini급으로 교체.
+const MODEL = 'gpt-5-mini'
 
 export function aiFallbackEnabled(settingValue: string | null | undefined): boolean {
   if (settingValue === '0') return false
-  return Boolean(process.env.ANTHROPIC_API_KEY)
+  return Boolean(process.env.OPENAI_API_KEY)
 }
 
 function extractJsonArray(text: string): unknown[] | null {
@@ -914,7 +915,7 @@ export async function classifyUnknownMerchants(
     taxonomy: TaxonomyEntry[]
     examples: { merchant: string; major: string; sub: string }[]
   },
-  client?: Anthropic,
+  client?: OpenAI,
 ): Promise<AiMerchantResult[]> {
   const merchants = [...new Set(input.merchants.filter(Boolean))]
   if (merchants.length === 0) return []
@@ -943,16 +944,13 @@ export async function classifyUnknownMerchants(
   ].join('\n')
 
   try {
-    const anthropic = client ?? new Anthropic()
-    const response = await anthropic.messages.create({
+    const openai = client ?? new OpenAI()
+    const response = await openai.responses.create({
       model: MODEL,
-      max_tokens: 4000,
-      tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 8 } as never],
-      messages: [{ role: 'user', content: prompt }],
+      tools: [{ type: 'web_search' }],
+      input: prompt,
     })
-    const text = response.content
-      .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-      .map((b) => b.text).join('\n')
+    const text = response.output_text ?? ''
     const arr = extractJsonArray(text)
     if (!arr) return []
     const out: AiMerchantResult[] = []
@@ -974,14 +972,14 @@ export async function classifyUnknownMerchants(
   }
 }
 ```
-(주: `as never` 캐스트는 SDK 타입에 `web_search_20260209` 서버툴 타입이 아직 없을 때의 안전장치 — SDK가 타입을 제공하면 제거하고 정식 타입 사용.)
+(주: `tools: [{ type: 'web_search' }]`의 타입이 SDK 버전에 따라 다르면 `as never` 캐스트 허용 — SDK가 정식 타입을 제공하면 사용. `response.output_text`는 openai SDK의 텍스트 집계 헬퍼.)
 
 - [ ] **Step 5: env 문서화**
 
 `.env.example`에 추가:
 ```bash
 # AI 분류 폴백 (선택 — 없으면 AI 층만 비활성, 나머지는 정상)
-ANTHROPIC_API_KEY=""
+OPENAI_API_KEY=""
 ```
 README 환경변수 표에 같은 내용 한 줄 추가. Vercel 대시보드에 등록하라는 주석 포함.
 
@@ -990,7 +988,7 @@ README 환경변수 표에 같은 내용 한 줄 추가. Vercel 대시보드에 
 Run: `pnpm test tests/finance/ai-classify.test.ts`
 Expected: PASS (4 tests)
 ```bash
-git add -A && git commit -m "feat(inbox): AI merchant classification fallback (sonnet-5 + web search, injectable client)"
+git add -A && git commit -m "feat(inbox): AI merchant classification fallback (openai responses + web search, injectable client)"
 ```
 
 ---
@@ -1585,7 +1583,7 @@ git add -A && git commit -m "test(e2e): smart classification happy path (upload�
 - merchant_lookup 스키마/우선순위/애그리게이터 → Task 1, 2 ✅
 - 확신도 판정(HIGH 조건, 토큰=review, 구독 승격) → Task 3 ✅
 - 카드 파서 5종 + 3종 포맷 + 지문/멱등 + 실파일 검증 → Task 4, 7 ✅
-- AI 폴백(sonnet-5+웹서치, 가맹점명만, 실패 무해, 토글, 캐시 저장, 절대 high 아님) → Task 5, 6(assessConfidence가 'ai'를 review로) ✅
+- AI 폴백(OpenAI Responses+웹서치, 가맹점명만, 실패 무해, 토글, 캐시 저장, 절대 high 아님) → Task 5, 6(assessConfidence가 'ai'를 review로) ✅
 - 우선순위 파이프라인(user→history→ai캐시→AI→뱅샐→빈칸) → Task 6 ✅
 - category_rules 동결 + user 학습 전환 → Task 8 ✅
 - 2단 UI/일괄승인/배지/강등 → Task 9 ✅

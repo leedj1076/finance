@@ -81,10 +81,10 @@
 ## AI 폴백 (좁게)
 
 - **대상**: user-캐시·이력·ai-캐시 모두 miss인 가맹점만(예상 월 5~15건). 업로드 서버 액션 내 **1회 배치 호출**.
-- **모델/툴**: `claude-sonnet-5` + 서버 웹서치 툴 `web_search_20260209`(max_uses 제한). Haiku가 아닌 이유: 현행 웹서치 툴 변형이 Sonnet 5 이상에서 지원되고, 호출량이 적어 비용 차이가 무의미(월 수십 원 수준).
+- **모델/툴**: **OpenAI API** (사용자 결정, 2026-09-01) — Responses API + `web_search` 내장 툴, 모델은 저가형(`gpt-5-mini`; 구현 시점의 최신 저가 모델로 갱신 가능). 호출량이 적어(월 5~15 가맹점) 비용은 월 수십 원 수준.
 - **프롬프트 컨텍스트**: 가맹점명 목록(금액·날짜 미전송 — 프라이버시 최소화) + 가구의 분류체계 전체 + 가구의 확정 사례 몇 개. 출력: JSON 배열 `{merchant, businessType, major, sub, flow, confidence(high|low), note}`.
 - **가드레일**: AI 결과는 ai-캐시(source='ai')에 저장되고 인박스에선 **항상 review**(확신으로 승격 불가). 분류체계에 없는 major/sub는 버림.
-- **운영**: `ANTHROPIC_API_KEY` 서버 env. settings `ai_fallback_enabled`(기본 on) 토글. API 실패/키 없음 → 해당 행만 빈칸/review로 강등, 업로드는 성공.
+- **운영**: `OPENAI_API_KEY` 서버 env. settings `ai_fallback_enabled`(기본 on) 토글. API 실패/키 없음 → 해당 행만 빈칸/review로 강등, 업로드는 성공.
 
 ## UI
 
