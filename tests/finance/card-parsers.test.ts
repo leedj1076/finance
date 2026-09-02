@@ -3,7 +3,8 @@ import * as XLSX from 'xlsx'
 
 import {
   cardFingerprint,
-  cardSourceFromPay,
+  cardSourceFromMarker,
+  cardSourceMarker,
   looksLikeBanksalad,
   parseCardStatement,
 } from '@/features/inbox/parsers/cards'
@@ -87,10 +88,11 @@ test('fingerprint preserves same-row occurrences and remains deterministic', () 
   expect(first).toMatch(/^[0-9a-f]{40}$/)
 })
 
-test('generic issuer label recognizes the transaction source', () => {
-  expect(cardSourceFromPay('현대카드')).toBe('card:hyundai')
-  expect(cardSourceFromPay('네이버 현대카드')).toBeNull()
-  expect(cardSourceFromPay(null)).toBeNull()
+test('internal marker recognizes the transaction source without relying on pay label', () => {
+  expect(cardSourceFromMarker(cardSourceMarker('hyundai'))).toBe('card:hyundai')
+  expect(cardSourceFromMarker('현대카드')).toBeNull()
+  expect(cardSourceFromMarker('__source:card:unknown')).toBeNull()
+  expect(cardSourceFromMarker(null)).toBeNull()
 })
 
 test('BankSalad workbook is recognized by its sheet name', () => {

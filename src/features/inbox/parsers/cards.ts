@@ -13,6 +13,8 @@ export const CARD_ISSUERS: { key: CardIssuer; label: string }[] = [
 
 export type CardRow = { date: string; merchant: string; amount: number }
 
+export const CARD_SOURCE_MARKER_PREFIX = '__source:card:'
+
 const SPECS: Record<CardIssuer, {
   dateKeys: string[]
   merchantKeys: string[]
@@ -171,9 +173,14 @@ export function cardFingerprint(
     .digest('hex')
 }
 
-export function cardSourceFromPay(pay: string | null): `card:${CardIssuer}` | null {
-  const issuer = CARD_ISSUERS.find((card) => card.label === pay)?.key
-  return issuer ? `card:${issuer}` : null
+export function cardSourceMarker(issuer: CardIssuer) {
+  return `${CARD_SOURCE_MARKER_PREFIX}${issuer}`
+}
+
+export function cardSourceFromMarker(marker: string | null): `card:${CardIssuer}` | null {
+  if (!marker?.startsWith(CARD_SOURCE_MARKER_PREFIX)) return null
+  const issuer = marker.slice(CARD_SOURCE_MARKER_PREFIX.length) as CardIssuer
+  return CARD_ISSUERS.some((card) => card.key === issuer) ? `card:${issuer}` : null
 }
 
 export function looksLikeBanksalad(buffer: Buffer): boolean {

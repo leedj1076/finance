@@ -50,6 +50,12 @@ const flowLabel: Record<TransactionFlow, string> = {
   saving: '저축',
 }
 
+function visibleSourceCategories(item: Pick<InboxItem, 'bsCat1' | 'bsCat2'>) {
+  return [item.bsCat1, item.bsCat2]
+    .filter((value): value is string => value !== null && value !== '' && !value.startsWith('__source:'))
+    .join(' / ') || '-'
+}
+
 function ActionButtons({ selectedCount }: { selectedCount: number }) {
   const { pending } = useFormStatus()
   return (
@@ -276,7 +282,7 @@ export function InboxReviewForm({ items, categories, accounts }: InboxReviewForm
                       </span>
                     </td>
                     <td className="px-3 py-3 text-xs text-zinc-500">
-                      {[item.bsCat1, item.bsCat2].filter(Boolean).join(' / ') || '-'}
+                      {visibleSourceCategories(item)}
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-2">

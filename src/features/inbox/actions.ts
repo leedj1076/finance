@@ -17,7 +17,7 @@ import {
 import { requireHousehold } from '@/lib/household'
 
 import { normalizeMerchant, type TransactionFlow } from './banksalad'
-import { cardSourceFromPay } from './parsers/cards'
+import { cardSourceFromMarker } from './parsers/cards'
 import { refreshDuplicateFlags } from './upload-action'
 
 function inboxRedirect(kind: 'notice' | 'error', message: string): never {
@@ -117,7 +117,7 @@ export async function processInbox(formData: FormData) {
       flow,
       categoryId: requestedCategoryId,
       accountId: requestedAccountId,
-      source: cardSourceFromPay(row.pay) ?? `banksalad:${row.owner.toLowerCase()}`,
+      source: cardSourceFromMarker(row.bsCat1) ?? `banksalad:${row.owner.toLowerCase()}`,
     }
   })
 

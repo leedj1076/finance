@@ -26,6 +26,7 @@ import {
 import {
   CARD_ISSUERS,
   cardFingerprint,
+  cardSourceMarker,
   looksLikeBanksalad,
   parseCardStatement,
   type CardIssuer,
@@ -447,7 +448,7 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
       amount: row.amount,
       flow: 'expense',
       kind: 'normal',
-      bsCat1: null,
+      bsCat1: cardSourceMarker(issuer),
       bsCat2: null,
       pay: issuerLabel,
       accountId: aliases.get(`${owner}|${issuerLabel}`) ?? null,
