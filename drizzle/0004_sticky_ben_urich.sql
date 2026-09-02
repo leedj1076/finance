@@ -1,0 +1,3 @@
+ALTER TABLE "import_inbox" ADD CONSTRAINT "import_inbox_confidence_check" CHECK ("import_inbox"."confidence" in ('high', 'review'));--> statement-breakpoint
+ALTER TABLE "merchant_lookup" ADD CONSTRAINT "merchant_lookup_source_check" CHECK ("merchant_lookup"."source" in ('user', 'ai'));--> statement-breakpoint
+ALTER TABLE "merchant_lookup" ADD CONSTRAINT "merchant_lookup_confidence_check" CHECK ("merchant_lookup"."confidence" in ('high', 'low'));
