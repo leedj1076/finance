@@ -1,7 +1,8 @@
 'use client'
 
-import { useSyncExternalStore } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 
+import type { AccountMonthlyData, CategoryMonthlyData } from './account-monthly'
 import { formatRate, formatWon } from '@/lib/finance'
 
 type MonthlyCashflow = {
@@ -24,6 +25,11 @@ const LEFT = 54
 const RIGHT = 18
 const TOP = 18
 const BOTTOM = 38
+const PALETTE = [
+  '#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#B07AA1',
+  '#EDC948', '#FF9DA7', '#9C755F', '#499894', '#79706E', '#A0CBE8',
+  '#BAB0AC', '#8CD17D', '#B6992D', '#86BCB6', '#D37295',
+]
 
 const subscribe = () => () => undefined
 
@@ -128,6 +134,160 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
             <title>{data[index].month} 지출 {formatWon(point.value ?? 0)}원 · 순저축률 {formatRate(data[index].savingsRate)}%</title>
           </circle>
         ))}
+      </svg>
+    </div>
+  )
+}
+
+export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
+  const hydrated = useHydrated()
+  const monthTotals = Array.from({ length: 12 }, (_, index) => data.accounts.reduce(
+    (sum, account) => sum + (data.series[account][index] ?? 0),
+    0,
+  ))
+  const maxValue = Math.max(1, ...monthTotals)
+  const plotHeight = HEIGHT - TOP - BOTTOM
+  const plotWidth = WIDTH - LEFT - RIGHT
+  const barWidth = 32
+
+  if (!hydrated) return <ChartPlaceholder />
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap gap-3 text-xs text-zinc-600">
+        {data.accounts.map((account, index) => (
+          <span className="flex items-center gap-1.5" key={account}>
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PALETTE[index % PALETTE.length] }} />
+            {account}
+          </span>
+        ))}
+      </div>
+      <svg
+        aria-label="결제수단별 월간 금액 누적 막대 차트"
+        className="h-auto w-full min-w-[620px]"
+        role="img"
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      >
+        <Grid maxValue={maxValue} />
+        {Array.from({ length: 12 }, (_, monthIndex) => {
+          let cumulative = 0
+          return data.accounts.map((account, accountIndex) => {
+            const value = data.series[account][monthIndex]
+            if (value === null || value <= 0) return null
+            const previous = cumulative
+            cumulative += value
+            const x = LEFT + (plotWidth * monthIndex) / 11 - barWidth / 2
+            const y = TOP + plotHeight - (cumulative / maxValue) * plotHeight
+            const height = ((cumulative - previous) / maxValue) * plotHeight
+            return (
+              <rect
+                fill={PALETTE[accountIndex % PALETTE.length]}
+                height={height}
+                key={`${account}-${monthIndex}`}
+                rx="2"
+                width={barWidth}
+                x={x}
+                y={y}
+              >
+                <title>{monthIndex + 1}월 {account} {formatWon(value)}원</title>
+              </rect>
+            )
+          })
+        })}
+      </svg>
+    </div>
+  )
+}
+
+export function CategoryMonthlyChart({ data }: { data: CategoryMonthlyData }) {
+  const hydrated = useHydrated()
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set())
+  const [hovered, setHovered] = useState<string | null>(null)
+  const visibleCategories = data.categories.filter((category) => !hidden.has(category))
+  const maxValue = Math.max(
+    1,
+    ...visibleCategories.flatMap((category) => data.series[category])
+      .filter((value): value is number => value !== null),
+  )
+
+  if (!hydrated) return <ChartPlaceholder />
+
+  function toggle(category: string) {
+    setHidden((current) => {
+      const next = new Set(current)
+      if (next.has(category)) next.delete(category)
+      else next.add(category)
+      return next
+    })
+    setHovered(null)
+  }
+
+  return (
+    <div>
+      <div aria-label="분류 범례" className="mb-4 flex flex-wrap gap-2" role="group">
+        {data.categories.map((category, index) => {
+          const visible = !hidden.has(category)
+          return (
+            <button
+              aria-pressed={visible}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-opacity ${visible ? 'border-zinc-200 bg-white text-zinc-700' : 'border-zinc-200 bg-zinc-100 text-zinc-400 line-through'}`}
+              key={category}
+              onBlur={() => setHovered(null)}
+              onClick={() => toggle(category)}
+              onFocus={() => visible && setHovered(category)}
+              onMouseEnter={() => visible && setHovered(category)}
+              onMouseLeave={() => setHovered(null)}
+              type="button"
+            >
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PALETTE[index % PALETTE.length] }} />
+              {category}
+            </button>
+          )
+        })}
+      </div>
+      <svg
+        aria-label="분류별 월간 추이"
+        className="h-auto w-full min-w-[620px]"
+        role="img"
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      >
+        <Grid maxValue={maxValue} />
+        {data.categories.map((category, index) => {
+          if (hidden.has(category)) return null
+          const color = PALETTE[index % PALETTE.length]
+          const points = coordinates(data.series[category], maxValue)
+          const dimmed = hovered !== null && hovered !== category
+          const active = hovered === category
+          return (
+            <g
+              key={category}
+              onMouseEnter={() => setHovered(category)}
+              onMouseLeave={() => setHovered(null)}
+              opacity={dimmed ? 0.16 : 1}
+            >
+              <path
+                d={pathFor(points)}
+                fill="none"
+                pointerEvents="stroke"
+                stroke={color}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={active ? 3.5 : 2}
+              />
+              {points.map((point, monthIndex) => point.y === null ? null : (
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  fill={color}
+                  key={monthIndex}
+                  r={active ? 3.5 : 2.2}
+                >
+                  <title>{category} · {monthIndex + 1}월 {formatWon(point.value ?? 0)}원</title>
+                </circle>
+              ))}
+            </g>
+          )
+        })}
       </svg>
     </div>
   )

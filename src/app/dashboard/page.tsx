@@ -2,6 +2,10 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import {
+  AccountMonthlyPanel,
+  CategoryMonthlyPanel,
+} from '@/features/analytics/account-monthly-panel'
 import { getCategoryDetails } from '@/features/analytics/category-detail'
 import { CategoryDetailTable } from '@/features/analytics/category-detail-table'
 import { MonthlyCashflowChart } from '@/features/analytics/charts'
@@ -90,6 +94,30 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             value={`${formatRate(data.annual.savingsRate)}%`}
             description={`목표 ${data.savingsTarget}% · 달성 ${data.annual.targetHitMonths}/${data.annual.activeMonths}개월`}
           />
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold text-zinc-950">재무 건강</h2>
+            <p className="text-xs text-zinc-500">초록=양호 · 노랑=주의 · 빨강=경고</p>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {data.financialHealth.map((item) => {
+              const tone = {
+                good: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+                ok: 'border-amber-200 bg-amber-50 text-amber-900',
+                warn: 'border-rose-200 bg-rose-50 text-rose-900',
+                none: 'border-zinc-200 bg-zinc-50 text-zinc-700',
+              }[item.status]
+              return (
+                <article className={`rounded-xl border p-4 ${tone}`} key={item.key}>
+                  <p className="text-xs font-medium opacity-75">{item.key}</p>
+                  <p className="mt-2 text-xl font-semibold tracking-tight">{item.value}</p>
+                  <p className="mt-2 text-xs leading-5 opacity-75">{item.hint}</p>
+                </article>
+              )
+            })}
+          </div>
         </section>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
@@ -186,6 +214,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
           </article>
         </section>
+
+        <AccountMonthlyPanel data={data.accountMonthly} />
+        <CategoryMonthlyPanel data={data.categoryMonthly} />
 
         <div className="mt-6">
           <CategoryDetailTable details={categoryDetails} key={data.year} year={data.year} />

@@ -28,6 +28,8 @@ import {
   type AnalyticsFlow,
   type AnalyticsRow,
 } from './calculations'
+import { buildAccountMonthly, buildCategoryMonthly } from './account-monthly'
+import { getFinancialHealthData } from './financial-health'
 
 function validYear(value: number | undefined, fallback: number) {
   return Number.isInteger(value) && value! >= 2000 && value! <= 2100 ? value! : fallback
@@ -119,7 +121,7 @@ export async function getDashboardData(householdId: string, requestedYear?: numb
   const previousStart = monthBounds(previousMonth).start
   const queryStart = previousStart < yearStart ? previousStart : yearStart
 
-  const [rows, budgetRows, targetRows, irregularRows, pendingRows] = await Promise.all([
+  const [rows, budgetRows, targetRows, irregularRows, pendingRows, financialHealth] = await Promise.all([
     loadRows(householdId, queryStart, yearEnd),
     db
       .select({ major: budgets.major, month: budgets.month, amount: budgets.amount })
@@ -148,12 +150,22 @@ export async function getDashboardData(householdId: string, requestedYear?: numb
           eq(importInbox.status, 'pending'),
         ),
       ),
+    getFinancialHealthData(householdId),
   ])
 
   const yearRows = rows.filter((row) => row.date >= yearStart && row.date < yearEnd)
   const currentRows = rowsForMonth(rows, focusMonth)
   const previousRows = rowsForMonth(rows, previousMonth)
   const monthly = monthlySummaries(yearRows, year)
+  const accountMonthly = {
+    expense: buildAccountMonthly(yearRows, 'expense'),
+    income: buildAccountMonthly(yearRows, 'income'),
+  }
+  const categoryMonthly = {
+    expense: buildCategoryMonthly(yearRows, 'expense'),
+    income: buildCategoryMonthly(yearRows, 'income'),
+    saving: buildCategoryMonthly(yearRows, 'saving'),
+  }
   const savingsTarget = parseSavingsTarget(targetRows[0]?.value)
   const budgetMap = effectiveBudgetMap(budgetRows, focusMonth)
   const irregularMajors = new Set(irregularRows.map((row) => row.major))
@@ -294,6 +306,9 @@ export async function getDashboardData(householdId: string, requestedYear?: numb
       paceWarnings,
     },
     monthly,
+    accountMonthly,
+    categoryMonthly,
+    financialHealth,
     categoryRanks: ranks,
     merchantRanks: merchants,
     insights: insights.slice(0, 8),
