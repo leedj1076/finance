@@ -1,8 +1,7 @@
 'use client'
 
 import {
-  Fragment,
-  type MouseEvent,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -12,10 +11,11 @@ import {
 import { formatWon } from '@/lib/finance'
 
 import {
-  type CategoryDetail,
+  categoryDetailMonthlyAverage,
   type CategoryDetailFlow,
   type CategoryDetails,
   type CellTransactionResult,
+  toggleCategoryDetailCell,
 } from './category-detail'
 
 const FLOW_LABELS: Record<CategoryDetailFlow, string> = {
@@ -37,10 +37,6 @@ function cellKey(flow: CategoryDetailFlow, major: string, sub: string, month: nu
   return `${flow}\u0000${major}\u0000${sub}\u0000${month}`
 }
 
-function monthlyAverage(total: number, currentAmount: number, detail: CategoryDetail) {
-  return Math.round((total - currentAmount) / detail.divisor)
-}
-
 export function CategoryDetailTable({
   year,
   details,
@@ -56,6 +52,9 @@ export function CategoryDetailTable({
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
+  const focusedCell = useRef<string | null>(null)
+  const generatedId = useId()
+  const tooltipId = `category-cell-tooltip-${generatedId.replace(/:/g, '')}`
   const detail = details[flow]
 
   const computed = useMemo(() => {
@@ -114,9 +113,17 @@ export function CategoryDetailTable({
     timer.current = null
   }
 
-  function scheduleHide() {
+  function closeTooltip() {
     clearTimer(showTimer)
     clearTimer(hideTimer)
+    activeHover.current = null
+    setTooltip(null)
+  }
+
+  function scheduleHide(force = false) {
+    clearTimer(showTimer)
+    clearTimer(hideTimer)
+    if (!force && focusedCell.current === activeHover.current) return
     hideTimer.current = setTimeout(() => {
       activeHover.current = null
       setTooltip(null)
@@ -127,29 +134,25 @@ export function CategoryDetailTable({
     clearTimer(showTimer)
     clearTimer(hideTimer)
     activeHover.current = null
+    focusedCell.current = null
     setTooltip(null)
     setExcluded(new Set())
     setFlow(nextFlow)
   }
 
   function toggleCell(key: string) {
-    setExcluded((current) => {
-      const next = new Set(current)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
+    setExcluded((current) => toggleCategoryDetailCell(current, key))
   }
 
-  function showCellTransactions(
-    event: MouseEvent<HTMLButtonElement>,
+  function requestCellTransactions(
+    target: HTMLButtonElement,
     major: string,
     sub: string,
     month: number,
+    delay: number,
   ) {
     clearTimer(showTimer)
     clearTimer(hideTimer)
-    const target = event.currentTarget
     const key = cellKey(flow, major, sub, month)
     activeHover.current = key
     showTimer.current = setTimeout(async () => {
@@ -179,7 +182,37 @@ export function CategoryDetailTable({
       } catch {
         // The detail table remains usable when a tooltip request is interrupted.
       }
-    }, 180)
+    }, delay)
+  }
+
+  function focusCell(
+    target: HTMLButtonElement,
+    major: string,
+    sub: string,
+    month: number,
+  ) {
+    const key = cellKey(flow, major, sub, month)
+    focusedCell.current = key
+    requestCellTransactions(target, major, sub, month, 0)
+  }
+
+  function blurCell() {
+    focusedCell.current = null
+    scheduleHide(true)
+  }
+
+  function toggleCellDetails(
+    target: HTMLButtonElement,
+    major: string,
+    sub: string,
+    month: number,
+  ) {
+    const key = cellKey(flow, major, sub, month)
+    if (tooltip?.key === key) {
+      closeTooltip()
+      return
+    }
+    requestCellTransactions(target, major, sub, month, 0)
   }
 
   if (detail.months.length === 0) {
@@ -196,7 +229,7 @@ export function CategoryDetailTable({
       <div className="px-5 py-4">
         <CategoryDetailHeader flow={flow} onSelectFlow={selectFlow} />
         <p className="mt-2 text-xs text-zinc-500">
-          셀에 마우스를 올리면 거래 내역을 볼 수 있습니다. 셀을 클릭하면 합계와 월평균에서 제외됩니다.
+          금액 셀에 마우스를 올리거나 키보드로 이동하면 내역을 볼 수 있습니다. 터치에서는 내역 버튼을 누르세요. 금액을 클릭하면 합계와 월평균에서 제외됩니다.
         </p>
       </div>
       <div className="overflow-x-auto border-t border-zinc-200">
@@ -218,15 +251,14 @@ export function CategoryDetailTable({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-100">
-            {computed.groups.map((group) => (
-              <Fragment key={group.major}>
+          {computed.groups.map((group) => (
+            <tbody className="divide-y divide-zinc-100" key={group.major}>
                 {group.subs.map((sub, subIndex) => (
                   <tr className="hover:bg-zinc-50/60" key={`${group.major}-${sub.sub}`}>
                     {subIndex === 0 && (
                       <th
                         className="sticky left-0 z-10 border-r border-zinc-200 bg-white px-4 py-3 align-top font-semibold text-zinc-900"
-                        rowSpan={group.subs.length}
+                        rowSpan={group.subs.length + 1}
                         scope="rowgroup"
                       >
                         {group.major}
@@ -234,24 +266,46 @@ export function CategoryDetailTable({
                     )}
                     <th className="sticky left-28 z-10 border-r border-zinc-200 bg-white px-3 py-3 font-normal text-zinc-700" scope="row">{sub.sub}</th>
                     <td className="px-3 py-3 text-right font-semibold tabular-nums text-zinc-900">{formatWon(sub.total)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-zinc-600">{formatWon(monthlyAverage(sub.total, sub.current, detail))}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-zinc-600">{formatWon(categoryDetailMonthlyAverage(sub.total, sub.current, detail.divisor))}</td>
                     {sub.cells.map((cell) => (
                       <td
                         className={`p-0 text-right tabular-nums ${cell.month === detail.currentMonth ? 'bg-amber-50/60' : ''}`}
                         key={cell.month}
                       >
                         {cell.amount > 0 ? (
-                          <button
-                            aria-pressed={cell.excluded}
-                            className={`w-full px-3 py-3 text-right hover:bg-emerald-50 hover:text-emerald-800 ${cell.excluded ? 'bg-zinc-100 text-zinc-400 line-through' : 'text-zinc-700'}`}
-                            onClick={() => toggleCell(cell.key)}
-                            onMouseEnter={(event) => showCellTransactions(event, group.major, sub.sub, cell.month)}
-                            onMouseLeave={scheduleHide}
-                            title={cell.excluded ? '합계에 다시 포함' : '합계에서 제외'}
-                            type="button"
-                          >
-                            {formatWon(cell.amount)}
-                          </button>
+                          <div className="flex min-h-14 flex-col items-end justify-center">
+                            <button
+                              aria-describedby={tooltip?.key === cell.key ? tooltipId : undefined}
+                              aria-label={`${group.major} ${sub.sub} ${cell.month}월 ${formatWon(cell.amount)}원, ${cell.excluded ? '합계에 다시 포함' : '합계에서 제외'}`}
+                              aria-pressed={cell.excluded}
+                              className={`w-full px-3 pt-2 text-right hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald-600 ${cell.excluded ? 'bg-zinc-100 text-zinc-400 line-through' : 'text-zinc-700'}`}
+                              onBlur={blurCell}
+                              onClick={() => toggleCell(cell.key)}
+                              onFocus={(event) => focusCell(event.currentTarget, group.major, sub.sub, cell.month)}
+                              onKeyDown={(event) => { if (event.key === 'Escape') closeTooltip() }}
+                              onMouseEnter={(event) => {
+                                if (!focusedCell.current) requestCellTransactions(event.currentTarget, group.major, sub.sub, cell.month, 180)
+                              }}
+                              onMouseLeave={() => scheduleHide()}
+                              title={cell.excluded ? '합계에 다시 포함' : '합계에서 제외'}
+                              type="button"
+                            >
+                              {formatWon(cell.amount)}
+                            </button>
+                            <button
+                              aria-controls={tooltipId}
+                              aria-describedby={tooltip?.key === cell.key ? tooltipId : undefined}
+                              aria-expanded={tooltip?.key === cell.key}
+                              aria-label={`${group.major} ${sub.sub} ${cell.month}월 거래 내역 ${tooltip?.key === cell.key ? '닫기' : '보기'}`}
+                              className="px-3 pb-1.5 pt-0.5 text-[10px] font-medium text-zinc-400 underline decoration-zinc-300 underline-offset-2 hover:text-emerald-700 focus-visible:rounded focus-visible:outline-2 focus-visible:outline-emerald-600"
+                              onBlur={() => { if (tooltip?.key === cell.key) scheduleHide(true) }}
+                              onClick={(event) => toggleCellDetails(event.currentTarget, group.major, sub.sub, cell.month)}
+                              onKeyDown={(event) => { if (event.key === 'Escape') closeTooltip() }}
+                              type="button"
+                            >
+                              {tooltip?.key === cell.key ? '닫기' : '내역'}
+                            </button>
+                          </div>
                         ) : (
                           <span className="block px-3 py-3 text-zinc-300">0</span>
                         )}
@@ -260,30 +314,30 @@ export function CategoryDetailTable({
                   </tr>
                 ))}
                 <tr className="bg-zinc-50/80 font-medium text-zinc-700">
-                  <td className="sticky left-0 z-10 border-r border-zinc-200 bg-zinc-50/95 px-4 py-2" />
                   <th className="sticky left-28 z-10 border-r border-zinc-200 bg-zinc-50/95 px-3 py-2" scope="row">소계</th>
                   <td className="px-3 py-2 text-right font-semibold tabular-nums">{formatWon(group.total)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{formatWon(monthlyAverage(group.total, group.current, detail))}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{formatWon(categoryDetailMonthlyAverage(group.total, group.current, detail.divisor))}</td>
                   {detail.months.map((month) => (
                     <td className={`px-3 py-2 text-right tabular-nums ${month === detail.currentMonth ? 'bg-amber-50/60' : ''}`} key={month}>
                       {formatWon(group.months[month - 1])}
                     </td>
                   ))}
                 </tr>
-              </Fragment>
-            ))}
+            </tbody>
+          ))}
+          <tfoot>
             <tr className="border-t-2 border-zinc-300 bg-zinc-100 font-semibold text-zinc-950">
               <td className="sticky left-0 z-10 border-r border-zinc-200 bg-zinc-100 px-4 py-3" />
               <th className="sticky left-28 z-10 border-r border-zinc-200 bg-zinc-100 px-3 py-3" scope="row">합계</th>
               <td className="px-3 py-3 text-right tabular-nums">{formatWon(computed.total)}</td>
-              <td className="px-3 py-3 text-right tabular-nums">{formatWon(monthlyAverage(computed.total, computed.current, detail))}</td>
+              <td className="px-3 py-3 text-right tabular-nums">{formatWon(categoryDetailMonthlyAverage(computed.total, computed.current, detail.divisor))}</td>
               {detail.months.map((month) => (
                 <td className={`px-3 py-3 text-right tabular-nums ${month === detail.currentMonth ? 'bg-amber-100/70' : ''}`} key={month}>
                   {formatWon(computed.months[month - 1])}
                 </td>
               ))}
             </tr>
-          </tbody>
+          </tfoot>
         </table>
       </div>
 
@@ -291,8 +345,9 @@ export function CategoryDetailTable({
         <div
           className="fixed z-50 max-h-[min(420px,calc(100vh-16px))] w-[min(360px,calc(100vw-16px))] overflow-y-auto rounded-xl border border-zinc-200 bg-white p-3 shadow-xl"
           key={tooltip.key}
+          id={tooltipId}
           onMouseEnter={() => clearTimer(hideTimer)}
-          onMouseLeave={scheduleHide}
+          onMouseLeave={() => scheduleHide()}
           ref={tooltipRef}
           role="tooltip"
           style={{ left: 8, top: 8, visibility: 'hidden' }}

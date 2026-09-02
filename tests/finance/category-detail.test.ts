@@ -3,8 +3,10 @@ import { afterAll, describe, expect, test } from 'vitest'
 
 import {
   buildCategoryDetails,
+  categoryDetailMonthlyAverage,
   getCellTransactions,
   parseCellTransactionParams,
+  toggleCategoryDetailCell,
   type CategoryTaxonomyRow,
   type CategoryTransactionRow,
 } from '@/features/analytics/category-detail'
@@ -52,6 +54,18 @@ describe('category detail matrix', () => {
       30_000, 0, 50_000, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ])
     expect(result.expense.groups[1].subs[0].months[8]).toBe(90_000)
+  })
+
+  test('excludes the current month from averages and toggles cells immutably', () => {
+    expect(categoryDetailMonthlyAverage(1_000_000, 400_000, 3)).toBe(200_000)
+
+    const original = new Set(['식비|외식|1'])
+    const restored = toggleCategoryDetailCell(original, '식비|외식|1')
+    const added = toggleCategoryDetailCell(original, '식비|외식|2')
+
+    expect(original).toEqual(new Set(['식비|외식|1']))
+    expect(restored).toEqual(new Set())
+    expect(added).toEqual(new Set(['식비|외식|1', '식비|외식|2']))
   })
 
   test('uses every active month for a past year and falls back to divisor one without transactions', () => {
