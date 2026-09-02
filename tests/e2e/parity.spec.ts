@@ -253,6 +253,21 @@ test('dashboard category detail interaction and annual report navigation render'
     householdId = setup.householdId
     await loginAs(page, email, password)
 
+    const cashflowChart = page.getByRole('img', { name: '월별 수입과 지출 막대 차트' })
+    await cashflowChart.locator('[aria-label="1월 수입 2,000,000원"]').hover()
+    await expect(page.getByRole('tooltip')).toContainText('1월')
+    await expect(page.getByRole('tooltip')).toContainText('수입: 2,000,000원')
+
+    const accountChart = page.getByRole('img', { name: '결제수단별 월간 금액 누적 막대 차트' })
+    await accountChart.locator('[aria-label="1월 Parity E2E 카드 500,000원"]').hover()
+    await expect(page.getByRole('tooltip')).toContainText('Parity E2E 카드: 500,000원')
+
+    const categoryChart = page.getByRole('img', { name: '분류별 월간 추이' })
+    await categoryChart.locator('[aria-label="분류별 차트 hover 영역"]').hover()
+    await expect(page.getByRole('tooltip')).toContainText('식비')
+    await expect(page.getByRole('tooltip')).toContainText(/1월\s+500,000원/)
+    await expect(page.getByRole('tooltip')).toContainText(/2월\s+300,000원/)
+
     const detailSection = page.locator('section').filter({
       has: page.getByRole('heading', { name: '항목별 월별', exact: true }),
     })

@@ -126,7 +126,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="font-semibold text-zinc-950">월별 현금흐름</h2>
-                <p className="mt-1 text-xs text-zinc-500">점에 마우스를 올리면 금액과 순저축률을 볼 수 있습니다.</p>
+                <p className="mt-1 text-xs text-zinc-500">막대에 마우스를 올리면 월별 수입·지출 금액을 볼 수 있습니다.</p>
               </div>
               <Link className="text-sm font-medium text-emerald-700 hover:text-emerald-900" href={`/analysis?period=year&year=${data.year}&flow=expense`}>상세 분석 →</Link>
             </div>
