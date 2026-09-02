@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, IBM_Plex_Sans_KR } from "next/font/google";
 import { Suspense } from "react";
 
 import { NavigationFeedback } from "@/components/navigation-feedback";
 
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const ibmPlexSansKR = IBM_Plex_Sans_KR({
+  variable: "--font-ibm-plex-sans-kr",
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
@@ -29,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${ibmPlexSansKR.variable} ${geistMono.variable} antialiased`}
       >
         <Suspense fallback={null}>
           <NavigationFeedback />
