@@ -1,7 +1,10 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 
 import { db } from '@/db/client'
-import { accounts, categories, importInbox } from '@/db/schema'
+import { accounts, categories, importInbox, merchantLookup } from '@/db/schema'
+
+import { isAggregatorNorm } from './merchant-lookup'
+import { normalizeMerchant } from './normalize'
 
 export async function getInboxData(householdId: string) {
   const [items, categoryOptions, accountOptions, statusRows] = await Promise.all([
@@ -22,8 +25,18 @@ export async function getInboxData(householdId: string) {
         memo: importInbox.memo,
         sugSource: importInbox.sugSource,
         dupNote: importInbox.dupNote,
+        confidence: importInbox.confidence,
+        categoryMajor: categories.major,
+        categorySub: categories.sub,
       })
       .from(importInbox)
+      .leftJoin(
+        categories,
+        and(
+          eq(categories.id, importInbox.categoryId),
+          eq(categories.householdId, householdId),
+        ),
+      )
       .where(
         and(
           eq(importInbox.householdId, householdId),
@@ -57,8 +70,47 @@ export async function getInboxData(householdId: string) {
   const counts = { pending: 0, done: 0, dismissed: 0 }
   for (const row of statusRows) counts[row.status] = Number(row.count)
 
+  const lookupNorms = [
+    ...new Set(
+      items
+        .map((item) => normalizeMerchant(item.merchant)),
+    ),
+  ].filter(Boolean)
+  const lookupRows = lookupNorms.length > 0
+    ? await db
+        .select({
+          normMerchant: merchantLookup.normMerchant,
+          businessType: merchantLookup.businessType,
+          aiNote: merchantLookup.aiNote,
+          alwaysConfirm: merchantLookup.alwaysConfirm,
+        })
+        .from(merchantLookup)
+        .where(
+          and(
+            eq(merchantLookup.householdId, householdId),
+            inArray(merchantLookup.normMerchant, lookupNorms),
+          ),
+        )
+    : []
+  const lookupByNorm = new Map(lookupRows.map((row) => [row.normMerchant, row]))
+  const enrichedItems = items.map((item) => {
+    const normMerchant = normalizeMerchant(item.merchant)
+    const lookup = lookupByNorm.get(normMerchant)
+    return {
+      ...item,
+      businessType: lookup?.businessType ?? null,
+      aiNote: lookup?.aiNote ?? null,
+      alwaysConfirm: lookup?.alwaysConfirm ?? isAggregatorNorm(normMerchant),
+      categoryLabel: item.categoryMajor && item.categorySub
+        ? `${item.categoryMajor} · ${item.categorySub}`
+        : null,
+    }
+  })
+
   return {
-    items,
+    items: enrichedItems,
+    highItems: enrichedItems.filter((item) => item.confidence === 'high'),
+    reviewItems: enrichedItems.filter((item) => item.confidence !== 'high'),
     categories: categoryOptions,
     accounts: accountOptions,
     counts,

@@ -92,7 +92,8 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
             <InboxReviewForm
               accounts={data.accounts}
               categories={data.categories}
-              items={data.items}
+              highItems={data.highItems}
+              reviewItems={data.reviewItems}
               key={data.items.map((item) => item.id).join('-')}
             />
           ) : (
