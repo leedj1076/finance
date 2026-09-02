@@ -4,6 +4,8 @@ import { db } from '@/db/client'
 import { budgets, categories, categoryMeta, settings, transactions } from '@/db/schema'
 import { currentMonthInKorea, isMonthKey, monthBounds, savingsRate, shiftMonth } from '@/lib/finance'
 
+import { calculateBudgetPace } from './pace'
+
 export async function getExpenseMajorNames(householdId: string) {
   const rows = await db
     .select({
@@ -202,6 +204,7 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
   const savingsTarget = Number.isFinite(parsedTarget) ? Math.min(Math.max(parsedTarget, 0), 80) : 30
   const totalBudget = rows.reduce((sum, row) => sum + row.budget, 0)
   const totalActual = rows.reduce((sum, row) => sum + row.actual, 0)
+  const paceWarnings = calculateBudgetPace(rows, month)
 
   return {
     month,
@@ -217,5 +220,6 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
     averageSaving,
     currentSavingsRate: savingsRate(totalIncome, totalExpense),
     spendCeiling: Math.round(averageIncome * (1 - savingsTarget / 100)),
+    paceWarnings,
   }
 }

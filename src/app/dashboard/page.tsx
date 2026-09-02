@@ -72,6 +72,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Link>
         )}
 
+        {data.budget.paceWarnings.length > 0 && (
+          <Link className="mt-5 flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 hover:bg-rose-100" href={`/budgets?month=${data.focusMonth}`}>
+            <span>
+              <strong>{data.budget.paceWarnings[0].major} 지출 속도가 빠릅니다</strong>
+              {' · '}월말 약 {formatWon(data.budget.paceWarnings[0].projected)}원, 예산보다 {formatWon(data.budget.paceWarnings[0].overrun)}원 초과 예상
+              {data.budget.paceWarnings.length > 1 ? ` · 그 외 ${data.budget.paceWarnings.length - 1}개` : ''}
+            </span>
+            <span aria-hidden>→</span>
+          </Link>
+        )}
+
         <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label="연 누적 수입" tone="income" value={`${formatWon(data.annual.income)}원`} description={`월평균 ${formatWon(data.annual.averageIncome)}원`} />
           <StatCard label="연 누적 지출" tone="expense" value={`${formatWon(data.annual.expense)}원`} description={`월평균 ${formatWon(data.annual.averageExpense)}원`} />

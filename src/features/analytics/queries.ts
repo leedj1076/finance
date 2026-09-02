@@ -10,6 +10,7 @@ import {
   settings,
   transactions,
 } from '@/db/schema'
+import { calculateBudgetPace } from '@/features/budgets/pace'
 import {
   currentMonthInKorea,
   isMonthKey,
@@ -183,6 +184,15 @@ export async function getDashboardData(householdId: string, requestedYear?: numb
     budget: budgetMap.get(rank.major) ?? 0,
     remaining: (budgetMap.get(rank.major) ?? 0) - rank.amount,
   }))
+  const paceWarnings = calculateBudgetPace(
+    budgetCategories.map((row) => ({
+      major: row.major,
+      group: irregularMajors.has(row.major) ? 'irregular' : 'regular',
+      budget: row.budget,
+      actual: row.amount,
+    })),
+    focusMonth,
+  )
   const largestExpense = [...currentRows]
     .filter((row) => row.flow === 'expense')
     .sort((left, right) => right.amount - left.amount)[0] ?? null
@@ -281,6 +291,7 @@ export async function getDashboardData(householdId: string, requestedYear?: numb
       remaining: totalBudget - currentExpense,
       percent: totalBudget > 0 ? (currentExpense / totalBudget) * 100 : null,
       categories: budgetCategories,
+      paceWarnings,
     },
     monthly,
     categoryRanks: ranks,

@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { AppHeader } from '@/components/app-header'
 import { BudgetForm } from '@/features/budgets/budget-form'
 import { getBudgetData } from '@/features/budgets/queries'
-import { formatWon } from '@/lib/finance'
+import { formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 import { createServerSupabase } from '@/lib/supabase/server'
 
@@ -122,6 +122,29 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
             value={`${formatWon(Math.abs(data.remaining))}원`}
           />
         </section>
+
+        {data.paceWarnings.length > 0 && (
+          <section className="mt-6 rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-sm">
+            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+              <div>
+                <p className="text-sm font-semibold text-amber-950">예산보다 빠르게 지출 중인 항목이 있습니다</p>
+                <p className="mt-1 text-xs text-amber-800">현재까지의 일평균 지출이 이어진다고 가정한 월말 예상입니다.</p>
+              </div>
+              <span className="w-fit rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold text-amber-900">{data.paceWarnings.length}개 경고</span>
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {data.paceWarnings.slice(0, 4).map((warning) => (
+                <article className="rounded-xl border border-amber-200 bg-white/80 p-4" key={warning.major}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div><p className="font-medium text-zinc-950">{warning.major}</p><p className="mt-1 text-xs text-zinc-500">월 {formatRate(warning.progressPercent)}% 경과 · 예산 {formatRate(warning.spentPercent)}% 사용</p></div>
+                    <span className="whitespace-nowrap text-sm font-semibold text-rose-700">+{formatWon(warning.overrun)}원 예상</span>
+                  </div>
+                  <p className="mt-3 text-xs text-zinc-600">현재 {formatWon(warning.actual)}원 → 월말 약 {formatWon(warning.projected)}원</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
         <BudgetForm
           averageExpense={data.averageExpense}
