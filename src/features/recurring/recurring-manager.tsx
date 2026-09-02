@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useMemo, useState } from 'react'
+import { type ClipboardEvent, type KeyboardEvent, useActionState, useMemo, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import type { TransactionFlow } from '@/features/ledger/transaction-input'
@@ -93,6 +93,67 @@ export function RecurringManager({
     setRules((current) => current.filter((rule) => rule.key !== key))
   }
 
+  function focusGridCell(form: HTMLFormElement, row: number, column: number) {
+    const cell = form.querySelector<HTMLElement>(`[data-grid-row="${row}"][data-grid-column="${column}"]`)
+    cell?.focus()
+  }
+
+  function handleGridKeyDown(event: KeyboardEvent<HTMLFormElement>) {
+    const target = event.target as HTMLElement
+    const row = Number(target.dataset.gridRow)
+    const column = Number(target.dataset.gridColumn)
+    if (!Number.isInteger(row) || !Number.isInteger(column)) return
+    let nextRow = row
+    let nextColumn = column
+    if (event.key === 'ArrowUp') nextRow -= 1
+    else if (event.key === 'ArrowDown' || event.key === 'Enter') nextRow += 1
+    else if (event.key === 'ArrowLeft' && target instanceof HTMLSelectElement) nextColumn -= 1
+    else if (event.key === 'ArrowRight' && target instanceof HTMLSelectElement) nextColumn += 1
+    else return
+    const candidate = event.currentTarget.querySelector<HTMLElement>(`[data-grid-row="${nextRow}"][data-grid-column="${nextColumn}"]`)
+    if (!candidate) return
+    event.preventDefault()
+    candidate.focus()
+    if (candidate instanceof HTMLInputElement) candidate.select()
+  }
+
+  function handleGridPaste(event: ClipboardEvent<HTMLFormElement>) {
+    const form = event.currentTarget
+    const target = event.target as HTMLElement
+    const startRow = Number(target.dataset.gridRow)
+    const startColumn = Number(target.dataset.gridColumn)
+    const text = event.clipboardData.getData('text/plain')
+    if (!Number.isInteger(startRow) || !Number.isInteger(startColumn) || (!text.includes('\t') && !text.includes('\n'))) return
+    event.preventDefault()
+    const pastedRows = text.trimEnd().split(/\r?\n/).map((row) => row.split('\t'))
+    setRules((current) => {
+      const next = current.map((rule) => ({ ...rule }))
+      pastedRows.forEach((values, rowOffset) => {
+        const rule = next[startRow + rowOffset]
+        if (!rule) return
+        values.forEach((rawValue, columnOffset) => {
+          const column = startColumn + columnOffset
+          const value = rawValue.trim()
+          if (column === 0) {
+            const flowTokens: Record<string, RecurringFlowToken> = { 고정지출: 'exp_fix', 변동지출: 'exp_var', 지출: 'exp_fix', 수입: 'income', 저축: 'saving', exp_fix: 'exp_fix', exp_var: 'exp_var', income: 'income', saving: 'saving' }
+            if (flowTokens[value]) { rule.flowToken = flowTokens[value]; rule.categoryId = null }
+          } else if (column === 1) {
+            const category = categories.find((item) => item.kind === flowFor(rule.flowToken) && (String(item.id) === value || `${item.major} · ${item.sub}` === value || item.sub === value))
+            rule.categoryId = category?.id ?? null
+          } else if (column === 2) rule.memo = value
+          else if (column === 3) rule.amount = value.replace(/[,원\s]/g, '')
+          else if (column === 4) rule.accountId = accounts.find((item) => item.name === value || String(item.id) === value)?.id ?? null
+          else if (column === 5) {
+            const day = Number(value)
+            if (Number.isInteger(day) && day >= 1 && day <= 31) rule.day = day
+          }
+        })
+      })
+      return next
+    })
+    requestAnimationFrame(() => focusGridCell(form, Math.min(startRow + pastedRows.length - 1, rules.length - 1), startColumn))
+  }
+
   return (
     <>
       {candidates.length > 0 && (
@@ -125,7 +186,7 @@ export function RecurringManager({
         </section>
       )}
 
-      <form action={action} className="mt-6">
+      <form action={action} className="mt-6" onKeyDown={handleGridKeyDown} onPaste={handleGridPaste}>
         <input name="month" type="hidden" value={month} />
         <input
           name="rules"
@@ -145,7 +206,7 @@ export function RecurringManager({
           <div className="flex flex-col justify-between gap-4 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center">
             <div>
               <h2 className="font-semibold text-zinc-950">정기거래 목록</h2>
-              <p className="mt-1 text-xs text-zinc-500">사용 중인 전체 규칙 합계 {formatWon(activeTotal)}원</p>
+              <p className="mt-1 text-xs text-zinc-500">사용 중인 전체 규칙 합계 {formatWon(activeTotal)}원 · 방향키/Enter 이동 · 스프레드시트 범위 붙여넣기</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -160,7 +221,7 @@ export function RecurringManager({
           </div>
 
           <div className="divide-y divide-zinc-200">
-            {rules.map((rule) => {
+            {rules.map((rule, rowIndex) => {
               const flow = flowFor(rule.flowToken)
               const filteredCategories = categories.filter((category) => category.kind === flow)
               const isNew = rule.id === null
@@ -192,6 +253,8 @@ export function RecurringManager({
                       <select
                         aria-label={`${rule.memo || '새 정기거래'} 구분`}
                         className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                        data-grid-column="0"
+                        data-grid-row={rowIndex}
                         onChange={(event) => updateRule(rule.key, {
                           flowToken: event.target.value as RecurringFlowToken,
                           categoryId: null,
@@ -209,6 +272,8 @@ export function RecurringManager({
                       <select
                         aria-label={`${rule.memo || '새 정기거래'} 분류`}
                         className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                        data-grid-column="1"
+                        data-grid-row={rowIndex}
                         onChange={(event) => updateRule(rule.key, { categoryId: event.target.value ? Number(event.target.value) : null })}
                         value={rule.categoryId ?? ''}
                       >
@@ -223,6 +288,8 @@ export function RecurringManager({
                       <input
                         aria-label={`${rule.memo || '새 정기거래'} 사용내역`}
                         className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                        data-grid-column="2"
+                        data-grid-row={rowIndex}
                         onChange={(event) => updateRule(rule.key, { memo: event.target.value })}
                         placeholder="예: 통신비 자동이체"
                         type="text"
@@ -234,6 +301,8 @@ export function RecurringManager({
                       <input
                         aria-label={`${rule.memo || '새 정기거래'} 금액`}
                         className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-right text-sm text-zinc-900"
+                        data-grid-column="3"
+                        data-grid-row={rowIndex}
                         inputMode="numeric"
                         onChange={(event) => updateRule(rule.key, { amount: event.target.value })}
                         type="text"
@@ -245,6 +314,8 @@ export function RecurringManager({
                       <select
                         aria-label={`${rule.memo || '새 정기거래'} 결제수단`}
                         className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                        data-grid-column="4"
+                        data-grid-row={rowIndex}
                         onChange={(event) => updateRule(rule.key, { accountId: event.target.value ? Number(event.target.value) : null })}
                         value={rule.accountId ?? ''}
                       >
@@ -257,6 +328,8 @@ export function RecurringManager({
                       <input
                         aria-label={`${rule.memo || '새 정기거래'} 결제일`}
                         className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-right text-sm text-zinc-900"
+                        data-grid-column="5"
+                        data-grid-row={rowIndex}
                         max={31}
                         min={1}
                         onChange={(event) => updateRule(rule.key, { day: Number(event.target.value) })}

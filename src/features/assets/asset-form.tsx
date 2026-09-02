@@ -51,6 +51,8 @@ export function AssetForm({ groups, month }: { groups: AssetGroup[]; month: stri
   const [deletedIds, setDeletedIds] = useState<Set<number>>(() => new Set())
   const [newRows, setNewRows] = useState<NewRow[]>([])
   const [nextKey, setNextKey] = useState(1)
+  const [orderedIds, setOrderedIds] = useState(() => groups.flatMap((group) => group.rows.map((row) => row.id)))
+  const [draggingId, setDraggingId] = useState<number | null>(null)
 
   function toggleDeleted(id: number) {
     setDeletedIds((current) => {
@@ -68,6 +70,20 @@ export function AssetForm({ groups, month }: { groups: AssetGroup[]; month: stri
 
   function updateNewRow(key: number, field: 'amount' | 'name', value: string) {
     setNewRows((current) => current.map((row) => row.key === key ? { ...row, [field]: value } : row))
+  }
+
+  function dropRow(group: AssetGroup, targetId: number) {
+    if (draggingId === null || draggingId === targetId || !group.rows.some((row) => row.id === draggingId)) return
+    setOrderedIds((current) => {
+      const next = [...current]
+      const from = next.indexOf(draggingId)
+      const to = next.indexOf(targetId)
+      if (from < 0 || to < 0) return current
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return next
+    })
+    setDraggingId(null)
   }
 
   return (
@@ -92,6 +108,7 @@ export function AssetForm({ groups, month }: { groups: AssetGroup[]; month: stri
         <div className="grid gap-px bg-zinc-200 lg:grid-cols-2">
           {groups.map((group) => {
             const groupNewRows = newRows.filter((row) => row.major === group.major)
+            const orderedRows = [...group.rows].sort((left, right) => orderedIds.indexOf(left.id) - orderedIds.indexOf(right.id))
             return (
               <section className="bg-white p-5" key={`${group.kind}-${group.major}`}>
                 <div className="flex items-center justify-between gap-3">
@@ -105,15 +122,18 @@ export function AssetForm({ groups, month }: { groups: AssetGroup[]; month: stri
                 </div>
 
                 <div className="mt-4 space-y-2">
-                  {group.rows.map((row) => {
+                  {orderedRows.map((row) => {
                     const deleted = deletedIds.has(row.id)
                     return (
                       <div
-                        className={`grid grid-cols-[minmax(0,1fr)_minmax(115px,0.8fr)_36px] items-center gap-2 rounded-xl p-2 ${deleted ? 'bg-rose-50 opacity-60' : 'bg-zinc-50'}`}
+                        className={`grid grid-cols-[24px_minmax(0,1fr)_minmax(115px,0.8fr)_36px] items-center gap-2 rounded-xl p-2 ${deleted ? 'bg-rose-50 opacity-60' : 'bg-zinc-50'} ${draggingId === row.id ? 'opacity-40' : ''}`}
                         key={row.id}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => dropRow(group, row.id)}
                       >
                         <input name="accountId" type="hidden" value={row.id} />
                         <input name={`deleted:${row.id}`} type="hidden" value={deleted ? 'on' : ''} />
+                        <span className="cursor-grab text-center text-zinc-300" draggable onDragEnd={() => setDraggingId(null)} onDragStart={() => setDraggingId(row.id)} title="끌어서 순서 변경">⠿</span>
                         <input
                           aria-label={`${row.name} 이름`}
                           className={`min-w-0 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 ${deleted ? 'line-through' : ''}`}
@@ -147,7 +167,8 @@ export function AssetForm({ groups, month }: { groups: AssetGroup[]; month: stri
                   })}
 
                   {groupNewRows.map((row) => (
-                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(115px,0.8fr)_36px] items-center gap-2 rounded-xl bg-emerald-50 p-2" key={row.key}>
+                    <div className="grid grid-cols-[24px_minmax(0,1fr)_minmax(115px,0.8fr)_36px] items-center gap-2 rounded-xl bg-emerald-50 p-2" key={row.key}>
+                      <span className="text-center text-zinc-300">＋</span>
                       <input
                         aria-label={`${group.major} 새 항목 이름`}
                         autoFocus

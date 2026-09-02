@@ -1,7 +1,7 @@
-import { and, desc, eq, gte, ilike, inArray, lt, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, ilike, inArray, isNull, lt, sql } from 'drizzle-orm'
 
 import { db } from '@/db/client'
-import { accounts, budgets, categories, settings, transactions } from '@/db/schema'
+import { accounts, budgets, categories, importInbox, settings, transactions } from '@/db/schema'
 import { calculateBudgetOverruns } from '@/features/budgets/pace'
 import {
   currentMonthInKorea,
@@ -81,9 +81,12 @@ export async function getLedgerData(
     availableMonths,
     rows,
     categoryRows,
+    previousCategoryRows,
     budgetRows,
     historicalRows,
     targetRows,
+    pendingRows,
+    unclassifiedRows,
   ] = await Promise.all([
     totalsForMonth(householdId, month),
     totalsForMonth(householdId, previousMonth),
@@ -102,11 +105,13 @@ export async function getLedgerData(
         date: transactions.date,
         flow: transactions.flow,
         fixed: transactions.fixed,
+        categoryId: transactions.categoryId,
         major: categories.major,
         sub: categories.sub,
         memo: transactions.memo,
         rawMerchant: transactions.rawMerchant,
         amount: transactions.amount,
+        accountId: transactions.accountId,
         account: accounts.name,
       })
       .from(transactions)
@@ -160,6 +165,25 @@ export async function getLedgerData(
       .groupBy(sql`coalesce(${categories.major}, '미분류')`)
       .orderBy(desc(sql`sum(${transactions.amount})`)),
     db
+      .select({
+        major: sql<string>`coalesce(${categories.major}, '미분류')`,
+        amount: sql<string>`sum(${transactions.amount})`,
+      })
+      .from(transactions)
+      .leftJoin(
+        categories,
+        and(eq(categories.id, transactions.categoryId), eq(categories.householdId, householdId)),
+      )
+      .where(
+        and(
+          eq(transactions.householdId, householdId),
+          eq(transactions.flow, 'expense'),
+          gte(transactions.date, monthBounds(previousMonth).start),
+          lt(transactions.date, monthBounds(previousMonth).end),
+        ),
+      )
+      .groupBy(sql`coalesce(${categories.major}, '미분류')`),
+    db
       .select({ major: budgets.major, month: budgets.month, amount: budgets.amount })
       .from(budgets)
       .where(
@@ -185,6 +209,19 @@ export async function getLedgerData(
       .from(settings)
       .where(and(eq(settings.householdId, householdId), eq(settings.key, 'savings_target')))
       .limit(1),
+    db
+      .select({ value: sql<string>`count(*)` })
+      .from(importInbox)
+      .where(and(eq(importInbox.householdId, householdId), eq(importInbox.status, 'pending'))),
+    db
+      .select({ value: sql<string>`count(*)` })
+      .from(transactions)
+      .where(and(
+        eq(transactions.householdId, householdId),
+        gte(transactions.date, start),
+        lt(transactions.date, end),
+        isNull(transactions.categoryId),
+      )),
   ])
 
   const expenseDelta = totals.expense - previousTotals.expense
@@ -224,6 +261,40 @@ export async function getLedgerData(
     budget: effectiveBudgetMap.get(item.major) ?? 0,
     actual: Number(item.amount),
   })))
+  const previousCategoryMap = new Map(previousCategoryRows.map((item) => [item.major, Number(item.amount)]))
+  const categoryComparisons = categoryRows
+    .map((item) => {
+      const amount = Number(item.amount)
+      const previous = previousCategoryMap.get(item.major) ?? 0
+      return { major: item.major, amount, previous, delta: amount - previous }
+    })
+  const insights: Array<{ tone: 'expense' | 'muted' | 'saving'; text: string; major?: string }> = []
+  if (totals.income > 0) {
+    const currentRate = savingsRate(totals.income, totals.expense)
+    if (previousTotals.income > 0) {
+      const delta = currentRate - savingsRate(previousTotals.income, previousTotals.expense)
+      insights.push({
+        tone: delta >= 0 ? 'saving' : 'expense',
+        text: `순저축률 ${currentRate.toFixed(1)}% · 전월 대비 ${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%p`,
+      })
+    } else {
+      insights.push({
+        tone: currentRate >= savingsTarget ? 'saving' : 'muted',
+        text: `순저축률 ${currentRate.toFixed(1)}% · 목표 ${savingsTarget}%`,
+      })
+    }
+  }
+  categoryComparisons
+    .filter((item) => item.previous > 0 && item.delta >= 30_000)
+    .sort((left, right) => right.delta - left.delta)
+    .slice(0, 2)
+    .forEach((item) => insights.push({ tone: 'expense', major: item.major, text: `${item.major} 전월보다 ${item.delta.toLocaleString('ko-KR')}원 증가` }))
+  const reduced = categoryComparisons
+    .filter((item) => item.delta <= -30_000)
+    .sort((left, right) => left.delta - right.delta)[0]
+  if (reduced) insights.push({ tone: 'saving', major: reduced.major, text: `${reduced.major} 전월보다 ${Math.abs(reduced.delta).toLocaleString('ko-KR')}원 절약` })
+  const topCategory = categoryComparisons.sort((left, right) => right.amount - left.amount)[0]
+  if (topCategory) insights.push({ tone: 'muted', major: topCategory.major, text: `가장 많이 쓴 항목 ${topCategory.major} · ${topCategory.amount.toLocaleString('ko-KR')}원` })
 
   return {
     month,
@@ -252,6 +323,10 @@ export async function getLedgerData(
     },
     safeToSpend,
     overBudget,
+    pendingInboxCount: Number(pendingRows[0]?.value ?? 0),
+    unclassifiedCount: Number(unclassifiedRows[0]?.value ?? 0),
+    hasMonthlyBudget: budgetRows.some((row) => row.month === month),
+    insights: insights.slice(0, 6),
     topCategories: categoryRows.map((item) => ({
       major: item.major,
       amount: Number(item.amount),

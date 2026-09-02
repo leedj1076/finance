@@ -170,6 +170,17 @@ async function loginAs(
   await expect(page).toHaveURL('/dashboard')
 }
 
+async function navigateFromHeader(page: Page, menu: '분석·예산' | '설정', link: string) {
+  await page.waitForLoadState('networkidle')
+  const item = page.getByRole('menuitem', { name: new RegExp(`^${link}`) })
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.getByRole('button', { name: menu, exact: true }).click()
+    await page.waitForTimeout(100)
+    if (await item.isVisible()) { await item.click(); return }
+  }
+  throw new Error(`${menu} 메뉴에서 ${link} 링크를 열지 못했습니다.`)
+}
+
 test('card statement upload reaches inbox, applies to ledger, and keeps card source', async ({ page }, testInfo) => {
   test.slow()
   const email = `finance-parity-card-${Date.now()}-${crypto.randomUUID()}@example.com`
@@ -257,7 +268,7 @@ test('dashboard category detail interaction and annual report navigation render'
     await expect(januaryCell).toHaveAttribute('aria-pressed', 'true')
     await expect(januaryCell).toHaveAccessibleName(/합계에 다시 포함/)
 
-    await page.getByRole('link', { name: '연간결산', exact: true }).click()
+    await navigateFromHeader(page, '분석·예산', '연간결산')
     await expect(page).toHaveURL('/report')
     await expect(page.getByRole('heading', { name: '연간결산', exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: '6개월 현금흐름 예측' })).toBeVisible()

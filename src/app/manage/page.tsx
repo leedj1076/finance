@@ -4,12 +4,12 @@ import { redirect } from 'next/navigation'
 import { AppHeader } from '@/components/app-header'
 import { SubmitButton } from '@/components/submit-button'
 import {
-  saveAccount,
   saveAlias,
-  saveCategory,
   saveRule,
 } from '@/features/manage/actions'
+import { AccountsManager } from '@/features/manage/accounts-manager'
 import { BulkClassifyForm } from '@/features/manage/bulk-classify-form'
+import { CategoriesManager } from '@/features/manage/categories-manager'
 import { getManageData, type ManageTab } from '@/features/manage/queries'
 import { requireHousehold } from '@/lib/household'
 
@@ -29,18 +29,9 @@ const tabs: Array<{ key: ManageTab; label: string }> = [
   { key: 'unclassified', label: '미분류 거래' },
 ]
 
-const flowLabels = { expense: '지출', income: '수입', saving: '저축' } as const
 const inputClass = 'rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100'
 const secondaryButton = 'rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50'
 const saveButton = 'rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700'
-
-function ActiveToggle({ checked }: { checked: boolean }) {
-  return (
-    <label className="flex items-center gap-2 whitespace-nowrap text-sm text-zinc-700">
-      <input defaultChecked={checked} name="active" type="checkbox" /> 사용
-    </label>
-  )
-}
 
 export default async function ManagePage({ searchParams }: ManagePageProps) {
   const household = await requireHousehold()
@@ -86,66 +77,11 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
         </nav>
 
         {tab === 'accounts' && (
-          <section className="mt-6 space-y-4">
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
-              <h2 className="font-semibold text-zinc-950">결제수단 추가</h2>
-              <form action={saveAccount} className="mt-4 grid gap-3 md:grid-cols-[1.3fr_.7fr_.7fr_1.5fr_auto] md:items-end">
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">이름<input className={inputClass} name="name" placeholder="예: DJ 현대카드" required /></label>
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">소유자<input className={inputClass} defaultValue="DJ" list="account-owners" name="owner" required /></label>
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">종류<select className={inputClass} defaultValue="card" name="type"><option value="card">카드</option><option value="cash">현금/계좌</option><option value="bank">은행</option><option value="other">기타</option></select></label>
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">메모<input className={inputClass} name="memo" /></label>
-                <SubmitButton className={saveButton} pendingLabel="추가 중…" type="submit">추가</SubmitButton>
-              </form>
-              <datalist id="account-owners"><option value="DJ" /><option value="YJ" /><option value="공용" /></datalist>
-            </div>
-            {data.accounts.map((account) => (
-              <form action={saveAccount} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm md:grid-cols-[1.3fr_.7fr_.7fr_1.5fr_auto_auto] md:items-end" key={account.id}>
-                <input name="id" type="hidden" value={account.id} />
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">이름<input className={inputClass} defaultValue={account.name} name="name" required /></label>
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">소유자<input className={inputClass} defaultValue={account.owner ?? ''} list="account-owners" name="owner" required /></label>
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">종류<select className={inputClass} defaultValue={account.type ?? 'other'} name="type"><option value="card">카드</option><option value="cash">현금/계좌</option><option value="bank">은행</option><option value="other">기타</option></select></label>
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">메모<input className={inputClass} defaultValue={account.memo ?? ''} name="memo" /><span className="font-normal text-zinc-400">거래 {account.transactionCount.toLocaleString('ko-KR')}건</span></label>
-                <ActiveToggle checked={account.active} />
-                <SubmitButton className={saveButton} pendingLabel="저장 중…" type="submit">저장</SubmitButton>
-              </form>
-            ))}
-            <p className="rounded-xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">사용하지 않는 결제수단은 체크를 꺼 주세요. 과거 거래 연결을 보존하기 위해 삭제하지 않습니다.</p>
-          </section>
+          <AccountsManager initialRows={data.accounts} />
         )}
 
         {tab === 'categories' && (
-          <section className="mt-6 space-y-6">
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
-              <h2 className="font-semibold text-zinc-950">카테고리 추가</h2>
-              <form action={saveCategory} className="mt-4 grid gap-3 sm:grid-cols-[.7fr_1fr_1fr_auto] sm:items-end">
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">유형<select className={inputClass} defaultValue="expense" name="kind"><option value="expense">지출</option><option value="income">수입</option><option value="saving">저축</option></select></label>
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">대분류<input className={inputClass} name="major" required /></label>
-                <label className="grid gap-1 text-xs font-medium text-zinc-600">소분류<input className={inputClass} name="sub" required /></label>
-                <SubmitButton className={saveButton} pendingLabel="추가 중…" type="submit">추가</SubmitButton>
-              </form>
-            </div>
-            {(['expense', 'income', 'saving'] as const).map((kind) => {
-              const rows = data.categories.filter((category) => category.kind === kind)
-              return (
-                <div key={kind}>
-                  <h2 className="mb-3 text-lg font-semibold text-zinc-950">{flowLabels[kind]} <span className="text-sm font-normal text-zinc-400">{rows.length}개</span></h2>
-                  <div className="grid gap-3 xl:grid-cols-2">
-                    {rows.map((category) => (
-                      <form action={saveCategory} className="grid gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end" key={category.id}>
-                        <input name="id" type="hidden" value={category.id} />
-                        <input name="kind" type="hidden" value={category.kind} />
-                        <label className="grid gap-1 text-xs font-medium text-zinc-600">대분류<input className={inputClass} defaultValue={category.major} name="major" required /></label>
-                        <label className="grid gap-1 text-xs font-medium text-zinc-600">소분류<input className={inputClass} defaultValue={category.sub} name="sub" required /><span className="font-normal text-zinc-400">거래 {category.transactionCount.toLocaleString('ko-KR')}건{category.recurringCount ? ` · 정기 ${category.recurringCount}건` : ''}</span></label>
-                        <ActiveToggle checked={!category.hidden} />
-                        <SubmitButton className={saveButton} pendingLabel="저장 중…" type="submit">저장</SubmitButton>
-                      </form>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-            <p className="rounded-xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">기존 카테고리의 유형은 거래 일관성을 위해 바꿀 수 없습니다. 필요하면 새 카테고리를 추가하고 기존 항목은 숨겨 주세요.</p>
-          </section>
+          <CategoriesManager initialRows={data.categories} />
         )}
 
         {tab === 'rules' && (
