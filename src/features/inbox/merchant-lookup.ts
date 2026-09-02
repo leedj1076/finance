@@ -5,6 +5,16 @@ import { merchantLookup } from '@/db/schema'
 
 export type LookupSource = 'user' | 'ai'
 
+export type MerchantLookupUpsertEntry = {
+  normMerchant: string
+  displayMerchant?: string | null
+  categoryId: number | null
+  flow: 'expense' | 'income' | 'saving'
+  businessType?: string | null
+  aiNote?: string | null
+  confidence?: 'high' | 'low'
+}
+
 export type MerchantLookupEntry = {
   normMerchant: string
   displayMerchant: string | null
@@ -74,20 +84,12 @@ export async function lookupMerchants(
   return result
 }
 
-export async function upsertMerchantLookup(
+export function merchantLookupUpsertStatement(
   householdId: string,
-  entry: {
-    normMerchant: string
-    displayMerchant?: string | null
-    categoryId: number | null
-    flow: 'expense' | 'income' | 'saving'
-    businessType?: string | null
-    aiNote?: string | null
-    confidence?: 'high' | 'low'
-  },
+  entry: MerchantLookupUpsertEntry,
   source: LookupSource,
 ) {
-  await db.execute(sql`
+  return sql`
     insert into merchant_lookup
       (household_id, norm_merchant, display_merchant, business_type, category_id,
        flow, source, confidence, ai_note, always_confirm, hit_count, last_used_at)
@@ -107,5 +109,13 @@ export async function upsertMerchantLookup(
       hit_count = merchant_lookup.hit_count + 1,
       last_used_at = now()
     where not (merchant_lookup.source = 'user' and excluded.source = 'ai')
-  `)
+  `
+}
+
+export async function upsertMerchantLookup(
+  householdId: string,
+  entry: MerchantLookupUpsertEntry,
+  source: LookupSource,
+) {
+  await db.execute(merchantLookupUpsertStatement(householdId, entry, source))
 }

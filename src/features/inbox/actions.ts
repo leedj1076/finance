@@ -9,7 +9,6 @@ import {
   accountAliases,
   accounts,
   categories,
-  categoryRules,
   importBatches,
   importInbox,
   transactions,
@@ -17,6 +16,7 @@ import {
 import { requireHousehold } from '@/lib/household'
 
 import type { TransactionFlow } from './banksalad'
+import { merchantLookupUpsertStatement } from './merchant-lookup'
 import { normalizeMerchant } from './normalize'
 import { cardSourceFromMarker } from './parsers/cards'
 import { refreshDuplicateFlags } from './upload-action'
@@ -44,6 +44,161 @@ function parseOptionalId(value: FormDataEntryValue | null) {
 
 function parseFlow(value: FormDataEntryValue | null): TransactionFlow | null {
   return value === 'expense' || value === 'income' || value === 'saving' ? value : null
+}
+
+type InboxRow = typeof importInbox.$inferSelect
+
+type PreparedInboxRow = {
+  row: InboxRow
+  flow: TransactionFlow
+  categoryId: number | null
+  accountId: number | null
+  source: string
+}
+
+type ApplyResult = {
+  processed: number
+  inserted: number
+  income: number
+  expense: number
+  saving: number
+}
+
+function inboxTransactionSource(row: InboxRow) {
+  return cardSourceFromMarker(row.bsCat1) ?? `banksalad:${row.owner.toLowerCase()}`
+}
+
+/** Shared apply path for reviewed rows and high-confidence bulk approval. */
+async function applyPreparedInboxRows(
+  householdId: string,
+  prepared: PreparedInboxRow[],
+): Promise<ApplyResult> {
+  const result = await db.transaction(async (tx) => {
+    const sources = new Set(prepared.map((item) => item.source))
+    const batchSource = [...sources].every((source) => source.startsWith('banksalad:'))
+      ? 'banksalad'
+      : sources.size === 1 ? [...sources][0] : 'inbox'
+    const [batch] = await tx
+      .insert(importBatches)
+      .values({
+        householdId,
+        source: batchSource,
+        filename: 'inbox',
+      })
+      .returning({ id: importBatches.id })
+
+    const inserted = await tx
+      .insert(transactions)
+      .values(
+        prepared.map(({ row, flow, categoryId, accountId, source }) => ({
+          householdId,
+          date: row.date,
+          flow,
+          fixed: false,
+          categoryId,
+          memo: row.merchant || row.memo || '',
+          amount: row.amount,
+          accountId,
+          source,
+          rawMerchant: row.merchant,
+          importBatchId: batch.id,
+          importUid: row.importUid,
+        })),
+      )
+      .onConflictDoNothing({ target: [transactions.householdId, transactions.importUid] })
+      .returning({ importUid: transactions.importUid })
+
+    const insertedUids = new Set(
+      inserted.map((row) => row.importUid).filter((uid): uid is string => Boolean(uid)),
+    )
+    const insertedRows = prepared.filter(({ row }) => insertedUids.has(row.importUid))
+
+    const aliases = new Map<string, { owner: string; alias: string; accountId: number }>()
+    for (const item of insertedRows) {
+      if (
+        item.row.pay &&
+        item.accountId !== null &&
+        item.accountId !== item.row.accountId
+      ) {
+        aliases.set(`${item.row.owner}|${item.row.pay}`, {
+          owner: item.row.owner,
+          alias: item.row.pay,
+          accountId: item.accountId,
+        })
+      }
+    }
+
+    if (aliases.size > 0) {
+      await tx
+        .insert(accountAliases)
+        .values(
+          [...aliases.values()].map((alias) => ({ householdId, ...alias })),
+        )
+        .onConflictDoUpdate({
+          target: [
+            accountAliases.householdId,
+            accountAliases.owner,
+            accountAliases.alias,
+          ],
+          set: { accountId: sql`excluded.account_id` },
+        })
+    }
+
+    for (const item of insertedRows) {
+      const merchant = item.row.merchant ?? ''
+      const normMerchant = normalizeMerchant(merchant)
+      if (!normMerchant || item.categoryId === null) continue
+      await tx.execute(
+        merchantLookupUpsertStatement(
+          householdId,
+          {
+            normMerchant,
+            displayMerchant: merchant,
+            categoryId: item.categoryId,
+            flow: item.flow,
+          },
+          'user',
+        ),
+      )
+    }
+
+    await tx
+      .update(importInbox)
+      .set({ status: 'done' })
+      .where(
+        and(
+          eq(importInbox.householdId, householdId),
+          eq(importInbox.status, 'pending'),
+          inArray(importInbox.id, prepared.map(({ row }) => row.id)),
+        ),
+      )
+    await tx
+      .update(importBatches)
+      .set({ rowCount: insertedRows.length })
+      .where(
+        and(eq(importBatches.householdId, householdId), eq(importBatches.id, batch.id)),
+      )
+
+    return { insertedRows }
+  })
+
+  await refreshDuplicateFlags(householdId)
+  revalidatePath('/inbox')
+  revalidatePath('/ledger')
+
+  return {
+    processed: prepared.length,
+    inserted: result.insertedRows.length,
+    income: result.insertedRows
+      .filter((item) => item.flow === 'income')
+      .reduce((sum, item) => sum + item.row.amount, 0),
+    expense: result.insertedRows
+      .filter((item) => item.flow === 'expense')
+      .reduce((sum, item) => sum + item.row.amount, 0),
+    saving: result.insertedRows
+      .filter((item) => item.flow === 'saving')
+      .reduce((sum, item) => sum + item.row.amount, 0),
+  }
 }
 
 export async function processInbox(formData: FormData) {
@@ -118,158 +273,11 @@ export async function processInbox(formData: FormData) {
       flow,
       categoryId: requestedCategoryId,
       accountId: requestedAccountId,
-      source: cardSourceFromMarker(row.bsCat1) ?? `banksalad:${row.owner.toLowerCase()}`,
+      source: inboxTransactionSource(row),
     }
   })
 
-  const result = await db.transaction(async (tx) => {
-    const sources = new Set(prepared.map((item) => item.source))
-    const batchSource = [...sources].every((source) => source.startsWith('banksalad:'))
-      ? 'banksalad'
-      : sources.size === 1 ? [...sources][0] : 'inbox'
-    const [batch] = await tx
-      .insert(importBatches)
-      .values({
-        householdId,
-        source: batchSource,
-        filename: 'inbox',
-      })
-      .returning({ id: importBatches.id })
-
-    const inserted = await tx
-      .insert(transactions)
-      .values(
-        prepared.map(({ row, flow, categoryId, accountId, source }) => ({
-          householdId,
-          date: row.date,
-          flow,
-          fixed: false,
-          categoryId,
-          memo: row.merchant || row.memo || '',
-          amount: row.amount,
-          accountId,
-          source,
-          rawMerchant: row.merchant,
-          importBatchId: batch.id,
-          importUid: row.importUid,
-        })),
-      )
-      .onConflictDoNothing({ target: [transactions.householdId, transactions.importUid] })
-      .returning({ importUid: transactions.importUid })
-
-    const insertedUids = new Set(
-      inserted.map((row) => row.importUid).filter((uid): uid is string => Boolean(uid)),
-    )
-    const insertedRows = prepared.filter(({ row }) => insertedUids.has(row.importUid))
-
-    const rules = new Map<
-      string,
-      { pattern: string; categoryId: number; flow: TransactionFlow; hits: number }
-    >()
-    const aliases = new Map<string, { owner: string; alias: string; accountId: number }>()
-    for (const item of insertedRows) {
-      const merchant = item.row.merchant ?? ''
-      const pattern = normalizeMerchant(merchant)
-      if (pattern && item.categoryId !== null) {
-        const previous = rules.get(pattern)
-        rules.set(pattern, {
-          pattern,
-          categoryId: item.categoryId,
-          flow: item.flow,
-          hits: (previous?.hits ?? 0) + 1,
-        })
-      }
-      if (
-        item.row.pay &&
-        item.accountId !== null &&
-        item.accountId !== item.row.accountId
-      ) {
-        aliases.set(`${item.row.owner}|${item.row.pay}`, {
-          owner: item.row.owner,
-          alias: item.row.pay,
-          accountId: item.accountId,
-        })
-      }
-    }
-
-    if (rules.size > 0) {
-      await tx
-        .insert(categoryRules)
-        .values(
-          [...rules.values()].map((rule) => ({
-            householdId,
-            matchType: 'merchant_norm',
-            pattern: rule.pattern,
-            categoryId: rule.categoryId,
-            flow: rule.flow,
-            priority: 100,
-            hits: rule.hits,
-          })),
-        )
-        .onConflictDoUpdate({
-          target: [
-            categoryRules.householdId,
-            categoryRules.matchType,
-            categoryRules.pattern,
-          ],
-          set: {
-            categoryId: sql`excluded.category_id`,
-            flow: sql`excluded.flow`,
-            hits: sql`${categoryRules.hits} + excluded.hits`,
-          },
-        })
-    }
-
-    if (aliases.size > 0) {
-      await tx
-        .insert(accountAliases)
-        .values(
-          [...aliases.values()].map((alias) => ({ householdId, ...alias })),
-        )
-        .onConflictDoUpdate({
-          target: [
-            accountAliases.householdId,
-            accountAliases.owner,
-            accountAliases.alias,
-          ],
-          set: { accountId: sql`excluded.account_id` },
-        })
-    }
-
-    await tx
-      .update(importInbox)
-      .set({ status: 'done' })
-      .where(
-        and(
-          eq(importInbox.householdId, householdId),
-          inArray(importInbox.id, rows.map((row) => row.id)),
-        ),
-      )
-    await tx
-      .update(importBatches)
-      .set({ rowCount: insertedRows.length })
-      .where(
-        and(eq(importBatches.householdId, householdId), eq(importBatches.id, batch.id)),
-      )
-
-    return {
-      processed: rows.length,
-      inserted: insertedRows.length,
-      income: insertedRows
-        .filter((item) => item.flow === 'income')
-        .reduce((sum, item) => sum + item.row.amount, 0),
-      expense: insertedRows
-        .filter((item) => item.flow === 'expense')
-        .reduce((sum, item) => sum + item.row.amount, 0),
-      saving: insertedRows
-        .filter((item) => item.flow === 'saving')
-        .reduce((sum, item) => sum + item.row.amount, 0),
-    }
-  })
-
-  await refreshDuplicateFlags(householdId)
-  revalidatePath('/inbox')
-  revalidatePath('/ledger')
+  const result = await applyPreparedInboxRows(householdId, prepared)
   const amounts = [
     result.expense ? `지출 ${result.expense.toLocaleString('ko-KR')}원` : '',
     result.income ? `수입 ${result.income.toLocaleString('ko-KR')}원` : '',
@@ -280,4 +288,84 @@ export async function processInbox(formData: FormData) {
     .filter(Boolean)
     .join(' · ')
   inboxRedirect('notice', `${result.inserted}건을 가계부에 반영했습니다${suffix ? ` (${suffix})` : ''}.`)
+}
+
+export async function approveHighConfidence(): Promise<{ error?: string; applied?: number }> {
+  const household = await requireHousehold()
+  if (!household) return { error: '가족 가계부에 연결된 계정이 아닙니다.' }
+
+  const householdId = household.householdId
+  const [rows, categoryRows, accountRows] = await Promise.all([
+    db
+      .select()
+      .from(importInbox)
+      .where(
+        and(
+          eq(importInbox.householdId, householdId),
+          eq(importInbox.status, 'pending'),
+          eq(importInbox.confidence, 'high'),
+        ),
+      )
+      .orderBy(importInbox.id),
+    db
+      .select({ id: categories.id, kind: categories.kind })
+      .from(categories)
+      .where(eq(categories.householdId, householdId)),
+    db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(eq(accounts.householdId, householdId)),
+  ])
+  if (rows.length === 0) return { applied: 0 }
+
+  const categoriesById = new Map(categoryRows.map((category) => [category.id, category]))
+  const accountIds = new Set(accountRows.map((account) => account.id))
+  const prepared: PreparedInboxRow[] = []
+  for (const row of rows) {
+    const category = row.categoryId === null ? null : categoriesById.get(row.categoryId)
+    if (!category || category.kind !== row.flow) {
+      return { error: `${row.id}번 거래의 저장된 분류를 확인해 주세요.` }
+    }
+    if (row.accountId !== null && !accountIds.has(row.accountId)) {
+      return { error: `${row.id}번 거래의 저장된 결제수단을 확인해 주세요.` }
+    }
+    prepared.push({
+      row,
+      flow: row.flow,
+      categoryId: row.categoryId,
+      accountId: row.accountId,
+      source: inboxTransactionSource(row),
+    })
+  }
+
+  try {
+    const result = await applyPreparedInboxRows(householdId, prepared)
+    return { applied: result.inserted }
+  } catch {
+    return { error: '자동 분류 거래를 반영하지 못했습니다. 잠시 후 다시 시도해 주세요.' }
+  }
+}
+
+export async function demoteToReview(
+  id: number,
+): Promise<{ error?: string; demoted?: boolean }> {
+  const household = await requireHousehold()
+  if (!household) return { error: '가족 가계부에 연결된 계정이 아닙니다.' }
+  if (!Number.isSafeInteger(id) || id <= 0) return { error: '거래를 확인해 주세요.' }
+
+  const updated = await db
+    .update(importInbox)
+    .set({ confidence: 'review' })
+    .where(
+      and(
+        eq(importInbox.id, id),
+        eq(importInbox.householdId, household.householdId),
+        eq(importInbox.status, 'pending'),
+      ),
+    )
+    .returning({ id: importInbox.id })
+  if (updated.length === 0) return { error: '수정할 대기 거래를 찾지 못했습니다.' }
+
+  revalidatePath('/inbox')
+  return { demoted: true }
 }
