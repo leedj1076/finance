@@ -198,7 +198,10 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
   const totalExpense = Number(yearlyTotals?.expense ?? 0)
   const totalSaving = Number(yearlyTotals?.saving ?? 0)
   const averageIncome = Math.round(totalIncome / divisor)
-  const averageExpense = Math.round(totalExpense / divisor)
+  const averageExpense = [...averageMap.values()].reduce(
+    (sum, row) => sum + Math.round(Number(row.amount) / divisor),
+    0,
+  )
   const averageSaving = Math.round(totalSaving / divisor)
   const parsedTarget = Number(targetRows[0]?.value ?? 30)
   const savingsTarget = Number.isFinite(parsedTarget) ? Math.min(Math.max(parsedTarget, 0), 80) : 30

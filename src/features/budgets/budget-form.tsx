@@ -6,6 +6,7 @@ import { useFormStatus } from 'react-dom'
 import { formatRate, formatWon } from '@/lib/finance'
 
 import { saveBudgetPlan, type BudgetActionState } from './actions'
+import { VariableSpendSimulator } from './simulator'
 
 type BudgetRow = {
   major: string
@@ -72,6 +73,11 @@ export function BudgetForm({
     setAmounts(Object.fromEntries(rows.map((row) => [row.major, String(row[key] || '')])))
   }
 
+  function applySimulator(amountsFromCuts: Record<string, string>) {
+    setAmounts((current) => ({ ...current, ...amountsFromCuts }))
+    document.getElementById('budget-list')?.scrollIntoView({ behavior: 'smooth' })
+  }
+
   return (
     <form action={action} className="mt-6 space-y-6">
       <input name="month" type="hidden" value={month} />
@@ -121,7 +127,21 @@ export function BudgetForm({
         </p>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      <VariableSpendSimulator
+        averageExpense={averageExpense}
+        averageIncome={averageIncome}
+        onApply={applySimulator}
+        rows={rows
+          .filter((row) => row.group === 'variable' && row.average > 0)
+          .sort((left, right) => right.average - left.average)
+          .map((row) => ({ major: row.major, average: row.average }))}
+        savingsTarget={target}
+      />
+
+      <section
+        className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
+        id="budget-list"
+      >
         <div className="flex flex-col justify-between gap-4 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center">
           <div>
             <h2 className="font-semibold text-zinc-950">분류별 월 예산</h2>
