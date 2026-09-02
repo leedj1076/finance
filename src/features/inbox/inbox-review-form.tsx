@@ -110,6 +110,9 @@ function HighConfidenceSection({ items, accounts }: { items: InboxItem[]; accoun
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<string | null>(null)
   const monthGroups = useMemo(() => groupInboxItemsByMonthAndPaymentSource(items), [items])
+  const [expandedMonths, setExpandedMonths] = useState(
+    () => new Set(monthGroups.map((group) => group.month)),
+  )
   const total = items.reduce(
     (sum, item) => sum + (item.flow === 'income' ? item.amount : -item.amount),
     0,
@@ -153,17 +156,38 @@ function HighConfidenceSection({ items, accounts }: { items: InboxItem[]; accoun
               <th className="px-4 py-3 text-right font-medium">수정</th>
             </tr>
           </thead>
-          {monthGroups.map((monthGroup) => (
-            <Fragment key={monthGroup.month}>
+          {monthGroups.map((monthGroup) => {
+            const expanded = expandedMonths.has(monthGroup.month)
+
+            return (
+              <Fragment key={monthGroup.month}>
               <tbody className="border-t border-emerald-200 first:border-t-0">
                 <tr className="bg-emerald-100/70">
-                  <th className="px-4 py-3 text-sm font-bold text-emerald-950" colSpan={6}>
-                    {formatInboxMonth(monthGroup.month)}
-                    <span className="ml-2 text-xs font-medium text-emerald-700">{monthGroup.items.length}건</span>
+                  <th className="p-0 text-sm font-bold text-emerald-950" colSpan={6}>
+                    <button
+                      aria-expanded={expanded}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600"
+                      onClick={() => setExpandedMonths((current) => {
+                        const next = new Set(current)
+                        if (next.has(monthGroup.month)) next.delete(monthGroup.month)
+                        else next.add(monthGroup.month)
+                        return next
+                      })}
+                      type="button"
+                    >
+                      <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-emerald-700">
+                        {expanded ? '▾' : '▸'}
+                      </span>
+                      <span>{formatInboxMonth(monthGroup.month)}</span>
+                      <span className="text-xs font-medium text-emerald-700">{monthGroup.items.length}건</span>
+                      <span className="ml-auto text-xs font-normal text-emerald-700">
+                        결제수단 {monthGroup.sources.length}개
+                      </span>
+                    </button>
                   </th>
                 </tr>
               </tbody>
-              {monthGroup.sources.map((group) => (
+              {expanded && monthGroup.sources.map((group) => (
                 <tbody className="border-t border-emerald-100" key={group.key}>
                   <tr className="bg-emerald-50/60">
                     <th className="px-4 py-2.5 text-xs font-semibold text-emerald-900" colSpan={6}>
@@ -196,8 +220,9 @@ function HighConfidenceSection({ items, accounts }: { items: InboxItem[]; accoun
                   ))}
                 </tbody>
               ))}
-            </Fragment>
-          ))}
+              </Fragment>
+            )
+          })}
         </table>
       </div>
     </details>
@@ -274,6 +299,9 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
   const [expandedSources, setExpandedSources] = useState(
     () => new Set(sourceGroups.map((group) => group.key)),
   )
+  const [expandedMonths, setExpandedMonths] = useState(
+    () => new Set(monthGroups.map((group) => group.month)),
+  )
   const [flows, setFlows] = useState<Record<number, TransactionFlow>>(
     () => Object.fromEntries(items.map((item) => [item.id, item.flow])),
   )
@@ -316,6 +344,15 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
     })
   }
 
+  const toggleMonth = (month: string) => {
+    setExpandedMonths((current) => {
+      const next = new Set(current)
+      if (next.has(month)) next.delete(month)
+      else next.add(month)
+      return next
+    })
+  }
+
   const setSourceAccount = (itemIds: number[], accountId: string) => {
     setAccountIds((current) => {
       const next = { ...current }
@@ -342,7 +379,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
       <section>
         <div className="mb-3">
           <h3 className="font-semibold text-zinc-950">확인 필요 {items.length}건</h3>
-          <p className="mt-1 text-xs text-zinc-500">기본 선택은 0건입니다. 월 또는 결제수단 왼쪽 체크박스로 해당 그룹을 한 번에 선택할 수 있습니다.</p>
+          <p className="mt-1 text-xs text-zinc-500">기본 선택은 0건입니다. 월 이름을 눌러 접거나 펼치고, 왼쪽 체크박스로 해당 월 또는 결제수단을 한 번에 선택할 수 있습니다.</p>
         </div>
       <form action={processInbox}>
       <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -401,8 +438,11 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                 <th className="min-w-48 px-3 py-3 font-medium">결제수단</th>
               </tr>
             </thead>
-            {monthGroups.map((monthGroup) => (
-              <Fragment key={monthGroup.month}>
+            {monthGroups.map((monthGroup) => {
+              const monthExpanded = expandedMonths.has(monthGroup.month)
+
+              return (
+                <Fragment key={monthGroup.month}>
                 <tbody className="border-t border-zinc-300 first:border-t-0">
                   <tr className="bg-zinc-800 text-white">
                     <th className="p-0" colSpan={8}>
@@ -413,18 +453,28 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                           onToggle={toggleItems}
                           selected={selected}
                         />
-                        <span className="font-bold">{formatInboxMonth(monthGroup.month)}</span>
-                        <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-medium text-zinc-100">
-                          {monthGroup.items.length}건
-                        </span>
-                        <span className="ml-auto text-xs font-normal text-zinc-300">
-                          결제수단 {monthGroup.sources.length}개
-                        </span>
+                        <button
+                          aria-expanded={monthExpanded}
+                          className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                          onClick={() => toggleMonth(monthGroup.month)}
+                          type="button"
+                        >
+                          <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-zinc-300">
+                            {monthExpanded ? '▾' : '▸'}
+                          </span>
+                          <span className="font-bold">{formatInboxMonth(monthGroup.month)}</span>
+                          <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-medium text-zinc-100">
+                            {monthGroup.items.length}건
+                          </span>
+                          <span className="ml-auto text-xs font-normal text-zinc-300">
+                            결제수단 {monthGroup.sources.length}개
+                          </span>
+                        </button>
                       </div>
                     </th>
                   </tr>
                 </tbody>
-                {monthGroup.sources.map((group) => {
+                {monthExpanded && monthGroup.sources.map((group) => {
               const expanded = expandedSources.has(group.key)
               const selectedItems = group.items.filter((item) => selected.has(item.id))
               const selectedAmount = selectedItems.reduce(
@@ -630,8 +680,9 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                 </tbody>
               )
                 })}
-              </Fragment>
-            ))}
+                </Fragment>
+              )
+            })}
           </table>
         </div>
       </div>
