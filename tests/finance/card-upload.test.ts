@@ -6,7 +6,8 @@ import { accountAliases, accounts, categories, households, importBatches, import
 import { processInbox } from '@/features/inbox/actions'
 import { upsertMerchantLookup } from '@/features/inbox/merchant-lookup'
 import { normalizeMerchant } from '@/features/inbox/normalize'
-import { refreshDuplicateFlags, uploadCardStatement } from '@/features/inbox/upload-action'
+import { refreshDuplicateFlags } from '@/features/inbox/staging'
+import { uploadCardStatement } from '@/features/inbox/upload-action'
 import { cardFingerprint } from '@/features/inbox/parsers/cards'
 
 const context = vi.hoisted(() => ({ householdId: '' }))

@@ -9,7 +9,7 @@ import {
 import { getCategoryDetails } from '@/features/analytics/category-detail'
 import { CategoryDetailTable } from '@/features/analytics/category-detail-table'
 import { categoryPageUrl } from '@/features/analytics/category-url'
-import { MonthlyCashflowChart } from '@/features/analytics/charts'
+import { MonthlyCashflowChart } from '@/features/analytics/monthly-cashflow-chart'
 import { getDashboardData } from '@/features/analytics/queries'
 import { formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'

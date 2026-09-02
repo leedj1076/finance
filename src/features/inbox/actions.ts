@@ -19,7 +19,7 @@ import type { TransactionFlow } from './banksalad'
 import { merchantLookupUpsertStatement } from './merchant-lookup'
 import { normalizeMerchant } from './normalize'
 import { cardSourceFromMarker } from './parsers/cards'
-import { refreshDuplicateFlags } from './upload-action'
+import { refreshDuplicateFlags } from './staging'
 
 function inboxRedirect(kind: 'notice' | 'error', message: string): never {
   redirect(`/inbox?${kind}=${encodeURIComponent(message)}`)
@@ -216,7 +216,7 @@ async function applyPreparedInboxRows(
 
 export async function processInbox(formData: FormData) {
   const household = await requireHousehold()
-  if (!household) redirect('/login')
+  if (!household) inboxRedirect('error', '가족 가계부에 연결된 계정이 아닙니다.')
 
   const ids = selectedIds(formData)
   if (ids.length === 0) inboxRedirect('error', '선택된 항목이 없습니다.')

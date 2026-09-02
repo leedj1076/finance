@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
 import { AutoSubmitSelect } from '@/components/auto-submit-select'
-import { FlowTrendChart } from '@/features/analytics/charts'
+import { FlowTrendChart } from '@/features/analytics/flow-trend-chart'
 import { categoryPageUrl } from '@/features/analytics/category-url'
 import { getAnalysisData } from '@/features/analytics/queries'
 import { formatRate, formatWon } from '@/lib/finance'

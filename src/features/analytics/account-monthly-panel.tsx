@@ -9,7 +9,8 @@ import {
   type AccountMonthlyData,
   type CategoryMonthlyData,
 } from './account-monthly'
-import { AccountMonthlyChart, CategoryMonthlyChart } from './charts'
+import { AccountMonthlyChart } from './account-monthly-chart'
+import { CategoryMonthlyChart } from './category-monthly-chart'
 import { categoryPageUrl } from './category-url'
 
 type AccountFlow = 'expense' | 'income'
