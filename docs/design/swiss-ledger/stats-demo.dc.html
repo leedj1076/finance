@@ -1,0 +1,445 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', sans-serif; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+    a { color: #18181b; text-decoration: none; } a:hover { color: #2563eb; }
+    .g { display: grid; grid-template-columns: 150px repeat(12, minmax(0, 1fr)) 110px 95px 90px; column-gap: 6px; align-items: center; }
+    .n { text-align: right; }
+    .h { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; color: #71717a; }
+    .c { font-size: 12px; }
+    .cell { position: relative; text-align: right; padding: 2px 3px; margin: -2px -3px; cursor: pointer; user-select: none; }
+    .cell:hover { background: #eff6ff; outline: 1px solid #2563eb; }
+    .tip { position: absolute; top: calc(100% + 6px); right: 0; width: 240px; background: #18181b; color: #fafafa; padding: 12px 14px; font-size: 11px; box-shadow: 0 8px 24px rgb(0 0 0 / .25); z-index: 5; text-align: left; cursor: default; }
+    .tab { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; font-size: 12px; cursor: pointer; border-left: 1px solid #18181b; white-space: nowrap; }
+    .tab:first-child { border-left: none; }
+    .rowlabel { cursor: pointer; display: flex; align-items: center; gap: 7px; }
+    .rowlabel:hover { color: #2563eb; }
+    .sw { display: inline-block; width: 9px; height: 9px; flex: none; }
+    .plot { width: 100%; height: 220px; display: block; }
+    .ser { cursor: pointer; }
+  </style>
+</helmet>
+<div style="width: 1440px; min-height: 1280px; background: #ffffff; color: #18181b; padding: 28px 48px 40px; box-sizing: border-box;">
+
+  <!-- ② 수입 · 지출 · 저축 -->
+  <div style="display: flex; align-items: baseline; justify-content: space-between;">
+    <div>
+      <div style="font-size: 14px; font-weight: 700;">수입 · 지출 · 저축 <span style="font-size: 11px; font-weight: 600; color: #fff; background: #2563eb; padding: 2px 7px; margin-left: 8px; vertical-align: middle;">동작 데모</span></div>
+      <div style="margin-top: 3px; font-size: 11px; color: #a1a1aa;">월별 수입·지출·저축 납입 막대와 순저축률(점선 = 목표 30%). 아래 표와 같은 12개 열.</div>
+    </div>
+    <div style="display: flex; gap: 18px; font-size: 11px; color: #71717a;">
+      <span><span class="sw" style="background: #2563eb; margin-right: 5px;"></span>수입</span>
+      <span><span class="sw" style="background: #18181b; margin-right: 5px;"></span>지출</span>
+      <span><span class="sw" style="background: #16a34a; margin-right: 5px;"></span>저축 납입</span>
+      <span><span class="sw" style="background: #fff; border: 2px solid #16a34a; width: 5px; height: 5px; margin-right: 5px;"></span>순저축률</span>
+    </div>
+  </div>
+  <div class="g" style="margin-top: 14px; align-items: end; height: 120px;">
+    <div style="align-self: stretch; position: relative; font-size: 10px; color: #a1a1aa;"><span style="position: absolute; right: 8px; top: 0;">940만</span><span style="position: absolute; right: 8px; top: 52px;">470만</span><span style="position: absolute; right: 8px; bottom: 0;">0</span></div>
+    <sc-for list="{{flowStrip}}" as="m" hint-placeholder-count="12">
+      <div style="display: flex; justify-content: center; align-items: flex-end; gap: 2px; opacity: {{m.opacity}}; height: 120px; border-top: 1px solid #f4f4f5; position: relative;">
+        <div style="position: absolute; left: 0; right: 0; top: 60px; border-top: 1px solid #f4f4f5;"></div>
+        <div style="width: 12px; height: {{m.incH}}px; background: #2563eb;"></div><div style="width: 12px; height: {{m.expH}}px; background: #18181b;"></div><div style="width: 12px; height: {{m.savH}}px; background: #16a34a;"></div>
+      </div>
+    </sc-for>
+    <div class="n" style="font-size: 11px; color: #71717a; align-self: end;">합계</div><div class="n" style="font-size: 11px; color: #71717a; align-self: end;"></div><div></div>
+  </div>
+  <div class="g" style="margin-top: 8px; height: 44px;">
+    <div style="font-size: 11px; color: #71717a;">순저축률 <span style="color: #a1a1aa;">· 점선 30%</span></div>
+    <div style="grid-column: 2 / span 12; position: relative; height: 44px;">
+      <div style="position: absolute; left: 0; right: 0; top: 16px; border-top: 1.5px dashed #16a34a;"></div>
+      <div style="position: absolute; left: 0; right: 0; top: 0; height: 44px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));">
+        <sc-for list="{{flowStrip}}" as="m" hint-placeholder-count="12">
+          <div style="position: relative;"><span style="position: absolute; left: 50%; top: {{m.dotTop}}px; width: 7px; height: 7px; margin-left: -3.5px; background: {{m.dotColor}}; display: {{m.dotDisplay}};"></span><span style="position: absolute; left: 50%; top: {{m.rateTop}}px; transform: translateX(-50%); font-size: 10px; color: {{m.rateColor}}; display: {{m.dotDisplay}};">{{m.rateText}}</span></div>
+        </sc-for>
+      </div>
+    </div>
+    <div class="n c" style="font-weight: 600; color: #16a34a;">{{annualRate}}</div><div class="n" style="font-size: 11px; color: #71717a;">연 저축률</div><div></div>
+  </div>
+
+  <!-- ③ 달마다 어떻게 달랐나 -->
+  <div style="margin-top: 30px; border-top: 1px solid #18181b; padding-top: 22px; display: flex; align-items: baseline; justify-content: space-between;">
+    <div>
+      <div style="font-size: 14px; font-weight: 700;">달마다 어떻게 달랐나</div>
+      <div style="margin-top: 3px; font-size: 11px; color: #a1a1aa;">그래프와 표가 같은 데이터·같은 색·같은 12개 열 · 그래프에 마우스 = 항목·월·금액·비중 · 행에 마우스 = 그 시리즈 강조 · 셀 클릭 = 합계 제외 · 셀 호버 = 거래 내역</div>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <div style="display: flex; border: 1px solid #18181b;">
+        <sc-for list="{{chartTabs}}" as="t" hint-placeholder-count="3">
+          <span class="tab" onClick="{{ t.pick }}" style="background: {{t.bg}}; color: {{t.fg}}; font-weight: {{t.fw}};">{{t.label}}</span>
+        </sc-for>
+      </div>
+      <div style="display: flex; border: 1px solid #18181b;">
+        <sc-for list="{{flowTabs}}" as="t" hint-placeholder-count="3">
+          <span class="tab" onClick="{{ t.pick }}" style="background: {{t.bg}}; color: {{t.fg}}; font-weight: {{t.fw}};">{{t.label}}</span>
+        </sc-for>
+      </div>
+      <div style="display: flex; border: 1px solid {{axisBorder}}; opacity: {{axisOpacity}};">
+        <sc-for list="{{axisTabs}}" as="t" hint-placeholder-count="2">
+          <span class="tab" onClick="{{ t.pick }}" style="background: {{t.bg}}; color: {{t.fg}}; font-weight: {{t.fw}}; border-color: {{axisBorder}};">{{t.label}}</span>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- 선택 가능한 그래프 (표와 같은 열) -->
+  <div class="g" style="margin-top: 16px; align-items: stretch;">
+    <div style="position: relative; font-size: 10px; color: #a1a1aa;">
+      <sc-for list="{{axisTicks}}" as="tk" hint-placeholder-count="3"><span style="position: absolute; right: 8px; top: {{tk.top}}px; transform: translateY(-50%);">{{tk.text}}</span></sc-for>
+    </div>
+    <div style="grid-column: 2 / span 12; position: relative;">
+      <svg class="plot" preserveAspectRatio="none" viewBox="0 0 1200 220" onMouseMove="{{ plotMove }}" onMouseLeave="{{ clearSeries }}">
+        <line stroke="#f4f4f5" x1="0" x2="1200" y1="1" y2="1"></line>
+        <line stroke="#f4f4f5" x1="0" x2="1200" y1="110" y2="110"></line>
+        <line stroke="#e4e4e7" x1="0" x2="1200" y1="219" y2="219"></line>
+        <sc-if value="{{isArea}}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{areas}}" as="a" hint-placeholder-count="6"><polygon class="ser" fill="{{a.color}}" opacity="{{a.opacity}}" points="{{a.points}}" onMouseEnter="{{ a.hover }}" stroke="#ffffff" stroke-width="1" vector-effect="non-scaling-stroke"></polygon></sc-for>
+        </sc-if>
+        <sc-if value="{{isStacked}}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{bars}}" as="b" hint-placeholder-count="40"><rect class="ser" fill="{{b.color}}" height="{{b.h}}" opacity="{{b.opacity}}" width="{{b.w}}" x="{{b.x}}" y="{{b.y}}" onMouseEnter="{{ b.hover }}" stroke="#ffffff" stroke-width="1" vector-effect="non-scaling-stroke"></rect></sc-for>
+        </sc-if>
+        <sc-if value="{{isLine}}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{lines}}" as="l" hint-placeholder-count="6"><polyline class="ser" fill="none" opacity="{{l.opacity}}" points="{{l.points}}" stroke="{{l.color}}" stroke-linejoin="round" stroke-width="{{l.width}}" vector-effect="non-scaling-stroke" onMouseEnter="{{ l.hover }}"></polyline></sc-for>
+        </sc-if>
+      </svg>
+      <sc-if value="{{plotTip.show}}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; top: 8px; left: {{plotTip.left}}%; width: 8.3333%; pointer-events: none; display: flex; justify-content: center;">
+          <div style="background: #18181b; color: #fafafa; padding: 10px 12px; font-size: 11px; box-shadow: 0 8px 24px rgb(0 0 0 / .25); white-space: nowrap; transform: translateX({{plotTip.shift}}px);">
+            <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 12px;"><span style="display: inline-block; width: 9px; height: 9px; background: {{plotTip.color}};"></span>{{plotTip.series}} <span style="font-weight: 400; color: #a1a1aa;">· {{plotTip.month}}</span></div>
+            <div style="margin-top: 6px; font-size: 15px; font-weight: 700;">{{plotTip.amount}}<span style="font-size: 11px; font-weight: 500; color: #a1a1aa;"> 원</span></div>
+            <div style="margin-top: 4px; color: #a1a1aa;">월 합계 {{plotTip.total}}원의 <span style="color: #fafafa; font-weight: 600;">{{plotTip.share}}%</span> · 전월 대비 <span style="color: {{plotTip.deltaColor}}; font-weight: 600;">{{plotTip.delta}}</span></div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+    <div style="grid-column: 14 / span 3; font-size: 11px; color: #71717a; align-self: end; padding-bottom: 4px;">{{chartHint}}</div>
+  </div>
+
+  <!-- 표 -->
+  <div style="margin-top: 14px; border-top: 1px solid #18181b;">
+    <div class="g h" style="padding: 9px 0; border-bottom: 1px solid #e4e4e7;">
+      <div>{{axisLabel}}</div>
+      <sc-for list="{{monthHeads}}" as="mh" hint-placeholder-count="12"><div class="n" style="color: {{mh.color}};">{{mh.label}}</div></sc-for>
+      <div class="n">합계</div><div class="n">월평균</div><div style="text-align: center;">추세</div>
+    </div>
+
+    <sc-for list="{{rows}}" as="row" hint-placeholder-count="8">
+      <div class="g c" onMouseEnter="{{ row.hover }}" onMouseLeave="{{ row.leave }}" style="padding: {{row.pad}} 0; border-bottom: 1px solid {{row.border}}; background: {{row.bg}};">
+        <div class="rowlabel" onClick="{{ row.click }}" style="font-weight: {{row.fw}}; padding-left: {{row.indent}}px; color: {{row.color}};"><span class="sw" style="background: {{row.swatch}}; visibility: {{row.swatchVis}};"></span><span>{{row.caret}}{{row.label}}</span></div>
+        <sc-for list="{{row.cells}}" as="cell" hint-placeholder-count="12">
+          <div class="cell" onClick="{{ cell.toggle }}" onMouseEnter="{{ cell.hover }}" onMouseLeave="{{ cell.leave }}" style="color: {{cell.color}}; text-decoration: {{cell.deco}}; font-weight: {{cell.fw}}; cursor: {{cell.cursor}};">
+            {{cell.text}}
+            <sc-if value="{{cell.hovered}}" hint-placeholder-val="{{ false }}">
+              <div class="tip">
+                <div style="font-weight: 700; font-size: 12px;">{{cell.tipTitle}} <span style="float: right; font-weight: 400; color: #a1a1aa;">{{cell.tipCount}}건</span></div>
+                <sc-for list="{{cell.tipRows}}" as="tr" hint-placeholder-count="3">
+                  <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #3f3f46;"><span>{{tr.name}}</span><span>{{tr.amount}}</span></div>
+                </sc-for>
+                <div style="display: flex; justify-content: space-between; padding: 4px 0;"><span style="color: #a1a1aa;">{{cell.tipRest}}</span><span style="font-weight: 700;">계 {{cell.text}}</span></div>
+                <div style="margin-top: 6px; color: #a1a1aa;">{{cell.tipHint}}</div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <div class="n" style="font-weight: {{row.totalFw}}; color: {{row.color}};">{{row.total}}</div>
+        <div class="n" style="color: #71717a;">{{row.avg}}</div>
+        <div style="display: flex; justify-content: center;"><svg height="20" viewBox="0 0 80 20" width="80" style="display: {{row.sparkDisplay}};"><polyline fill="none" points="{{row.sparkPoints}}" stroke="{{row.sparkColor}}" stroke-width="2"></polyline><circle cx="78" cy="{{row.sparkLastY}}" fill="{{row.sparkColor}}" r="2.5"></circle></svg></div>
+      </div>
+    </sc-for>
+
+    <div class="g c" style="padding: 11px 0; border-bottom: 1px solid #18181b;">
+      <div style="font-weight: 700;">총계</div>
+      <sc-for list="{{totals.cells}}" as="tc" hint-placeholder-count="12"><div class="n" style="font-weight: 600; color: {{tc.color}};">{{tc.text}}</div></sc-for>
+      <div class="n" style="font-weight: 700;">{{totals.total}}</div><div class="n" style="color: #71717a;">{{totals.avg}}</div><div></div>
+    </div>
+  </div>
+  <div style="margin-top: 10px; font-size: 11px; color: #a1a1aa;">{{note}}</div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1280}}'>
+const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+const ACTIVE = 8;      // months with data
+const CURRENT = 7;     // index of the in-progress month (8월)
+const PALETTE = ['#2563eb', '#d97706', '#0d9488', '#be123c', '#7c3aed', '#4d7c0f'];
+const OTHER = '#a1a1aa';
+
+const INCOME = [8020000, 7550000, 8260000, 7400000, 8800000, 7800000, 9400000, 6890000];
+const EXPENSE_TOTAL = [5200000, 6000000, 4900000, 6400000, 5500000, 5800000, 5860000, 4210000];
+const SAVING_TOTAL = [1800000, 1800000, 2000000, 1800000, 2200000, 1800000, 1800000, 1850000];
+
+const DATA = {
+  expense: {
+    category: [
+      { id: 'food', label: '식비', values: [843200, 912400, 878000, 1024100, 896300, 932800, 878000, 1062000], subs: [
+        { id: 'food-out', label: '외식', values: [402100, 468000, 431500, 522300, 445000, 478200, 414000, 561300] },
+        { id: 'food-grocery', label: '장보기', values: [441100, 444400, 446500, 501800, 451300, 454600, 464000, 500700] },
+      ], merchants: ['이마트 트레이더스', '배달의민족', '스타벅스'] },
+      { id: 'living', label: '생활', values: [688000, 712300, 695100, 741900, 702600, 718400, 690500, 784000], merchants: ['쿠팡', '다이소', '올리브영'] },
+      { id: 'housing', label: '주거·통신', values: [640000, 642000, 638000, 641000, 639000, 640000, 636000, 642000], merchants: ['관리비', '서울도시가스', 'SKT'] },
+      { id: 'transport', label: '교통', values: [268400, 271000, 612000, 265800, 274100, 269000, 270300, 361000], merchants: ['GS칼텍스', '티머니', '카카오T'] },
+      { id: 'travel', label: '여행', values: [0, 0, 0, 0, 180000, 0, 0, 284000], merchants: ['제주항공', '야놀자'], irregular: true },
+      { id: 'medical', label: '의료', values: [45000, 120000, 38000, 62000, 41000, 95000, 30000, 62000], merchants: ['연세약국', '서울치과', '동네의원'] },
+    ],
+    account: [
+      { id: 'a1', label: 'DJ 국민카드', ratio: 0.34, merchants: ['쿠팡', '이마트', '배달의민족'] },
+      { id: 'a2', label: 'DJ 현대카드', ratio: 0.22, merchants: ['GS칼텍스', '제주항공', '배달의민족'] },
+      { id: 'a3', label: 'YJ 삼성카드', ratio: 0.20, merchants: ['스타벅스', '올리브영', '다이소'] },
+      { id: 'a4', label: 'DJ 농협카드', ratio: 0.12, merchants: ['관리비', '서울도시가스'] },
+      { id: 'a5', label: '현금·이체', ratio: 0.12, merchants: ['SKT', '연세약국', '동네의원'] },
+    ],
+  },
+  income: {
+    category: [
+      { id: 'i1', label: '급여 DJ', values: [4800000, 4800000, 4800000, 4800000, 5900000, 4800000, 4800000, 4120000], merchants: ['급여'] },
+      { id: 'i2', label: '급여 YJ', values: [2900000, 2750000, 3100000, 2600000, 2900000, 3000000, 4300000, 2770000], merchants: ['급여'] },
+      { id: 'i3', label: '기타', values: [320000, 0, 360000, 0, 0, 0, 300000, 0], merchants: ['이자', '환급'] },
+    ],
+  },
+  saving: {
+    category: [
+      { id: 's1', label: '청약', values: [300000, 300000, 300000, 300000, 300000, 300000, 300000, 300000], merchants: ['청약저축'] },
+      { id: 's2', label: '적금', values: [1000000, 1000000, 1000000, 1000000, 1000000, 1000000, 1000000, 1000000], merchants: ['적금'] },
+      { id: 's3', label: '투자', values: [500000, 500000, 700000, 500000, 900000, 500000, 500000, 550000], merchants: ['미래에셋 이체'] },
+    ],
+  },
+};
+DATA.expense.account.forEach((row) => { row.values = EXPENSE_TOTAL.map((t) => Math.round(t * row.ratio / 100) * 100); });
+
+const won = (v) => v.toLocaleString('ko-KR');
+const compact = (v) => v >= 10000 ? `${Math.round(v / 10000)}만` : String(v);
+const FLOW_LABEL = { expense: '지출', income: '수입', saving: '저축' };
+const CHART_LABEL = { stacked: '누적 막대', line: '선', area: '100% 누적 영역' };
+const SLOT = 100, PLOT_H = 220, PLOT_TOP = 6;
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { flow: 'expense', axis: 'category', chart: 'stacked', excluded: {}, hovered: null, hoverSeries: null, hoverMonth: null, expanded: { food: true } };
+  }
+  renderVals() {
+    const s = this.state;
+    const axis = s.flow === 'expense' ? s.axis : 'category';
+    const majors = DATA[s.flow][axis];
+    const isExcluded = (id, m) => !!s.excluded[id + ':' + m];
+    const months = MONTHS.map((_, m) => m);
+    const setS = (patch) => () => this.setState(Object.assign({ hovered: null }, patch));
+
+    const tabs = (keys, labels, current, key) => keys.map((k) => ({ label: labels[k], pick: setS({ [key]: k }), bg: k === current ? '#18181b' : '#fff', fg: k === current ? '#fff' : '#71717a', fw: k === current ? 600 : 400 }));
+    const flowTabs = tabs(['expense', 'income', 'saving'], FLOW_LABEL, s.flow, 'flow');
+    const chartTabs = tabs(['stacked', 'line', 'area'], CHART_LABEL, s.chart, 'chart');
+    const axisEnabled = s.flow === 'expense';
+    const axisTabs = [['category', '카테고리'], ['account', '결제수단']].map(([a, label]) => ({ label, pick: axisEnabled ? setS({ axis: a }) : () => {}, bg: a === axis ? '#18181b' : '#fff', fg: a === axis ? '#fff' : '#71717a', fw: a === axis ? 600 : 400 }));
+
+    // ---- 시리즈 (그래프와 표가 공유) ----
+    const series = majors.map((maj, i) => ({ id: maj.id, label: maj.label, color: i < PALETTE.length ? PALETTE[i] : OTHER, values: months.map((m) => (m < ACTIVE && !isExcluded(maj.id, m)) ? maj.values[m] : 0), maj }));
+    if (s.flow === 'expense' && axis === 'category') {
+      const rest = EXPENSE_TOTAL.map((t, m) => t - majors.reduce((acc, maj) => acc + maj.values[m], 0));
+      series.push({ id: 'rest', label: '그 외 7개 대분류', color: OTHER, values: months.map((m) => (m < ACTIVE && !isExcluded('rest', m)) ? rest[m] : 0), rest });
+    }
+    const hoverSeries = (id) => () => this.setState({ hoverSeries: id, hoverMonth: null });
+    const clearSeries = () => this.setState({ hoverSeries: null, hoverMonth: null });
+    const dim = (id) => (s.hoverSeries && s.hoverSeries !== id) ? 0.18 : 1;
+
+    // ---- 그래프 ----
+    const monthTotal = months.map((m) => series.reduce((a, sr) => a + sr.values[m], 0));
+    const maxStack = Math.max(1, ...monthTotal);
+    const maxSingle = Math.max(1, ...series.flatMap((sr) => sr.values));
+    const yFor = (v, max) => PLOT_TOP + (PLOT_H - PLOT_TOP) * (1 - v / max);
+    const bars = [], lines = [], areas = [];
+    if (s.chart === 'stacked') {
+      for (let m = 0; m < ACTIVE; m += 1) {
+        let cum = 0;
+        series.forEach((sr) => {
+          const v = sr.values[m];
+          if (v <= 0) return;
+          const y0 = yFor(cum, maxStack), y1 = yFor(cum + v, maxStack);
+          bars.push({ x: m * SLOT + 22, w: SLOT - 44, y: y1, h: Math.max(y0 - y1, 0.5), color: sr.color, opacity: m === CURRENT ? dim(sr.id) * 0.6 : dim(sr.id), hover: hoverSeries(sr.id) });
+          cum += v;
+        });
+      }
+    } else if (s.chart === 'line') {
+      series.forEach((sr) => {
+        const pts = [];
+        for (let m = 0; m < ACTIVE; m += 1) pts.push(`${m * SLOT + SLOT / 2},${yFor(sr.values[m], maxSingle).toFixed(1)}`);
+        lines.push({ points: pts.join(' '), color: sr.color, opacity: dim(sr.id), width: s.hoverSeries === sr.id ? 2.5 : 2, hover: hoverSeries(sr.id) });
+      });
+    } else {
+      // 100% 누적 영역: 시리즈 순서대로 아래에서 위로 쌓음
+      const lower = months.map(() => 0);
+      series.forEach((sr) => {
+        const upper = months.map((m) => lower[m] + (monthTotal[m] ? sr.values[m] / monthTotal[m] : 0));
+        const top = [], bottom = [];
+        for (let m = 0; m < ACTIVE; m += 1) {
+          const x = m * SLOT + SLOT / 2;
+          top.push(`${x},${yFor(upper[m], 1).toFixed(1)}`);
+          bottom.unshift(`${x},${yFor(lower[m], 1).toFixed(1)}`);
+        }
+        areas.push({ points: top.concat(bottom).join(' '), color: sr.color, opacity: dim(sr.id) * 0.9, hover: hoverSeries(sr.id) });
+        for (let m = 0; m < ACTIVE; m += 1) lower[m] = upper[m];
+      });
+    }
+    // 그래프 위 마우스 위치 → (시리즈, 월) 판정. viewBox가 늘어나 있으므로 비율로 환산.
+    const plotMove = (event) => {
+      const box = event.currentTarget.getBoundingClientRect();
+      const fx = (event.clientX - box.left) / box.width;
+      const fy = (event.clientY - box.top) / box.height;
+      const m = Math.floor(fx * 12);
+      if (m < 0 || m >= ACTIVE) { if (s.hoverMonth !== null || s.hoverSeries) this.setState({ hoverSeries: null, hoverMonth: null }); return; }
+      const yVal = fy * PLOT_H;
+      let hit = null;
+      if (s.chart === 'stacked') {
+        let cum = 0;
+        for (const sr of series) {
+          const v = sr.values[m]; if (v <= 0) continue;
+          const y0 = yFor(cum, maxStack), y1 = yFor(cum + v, maxStack);
+          if (yVal <= y0 && yVal >= y1) { hit = sr.id; break; }
+          cum += v;
+        }
+      } else if (s.chart === 'line') {
+        let best = Infinity;
+        series.forEach((sr) => { const d = Math.abs(yFor(sr.values[m], maxSingle) - yVal); if (d < best) { best = d; hit = sr.id; } });
+      } else {
+        const share = 1 - (yVal - PLOT_TOP) / (PLOT_H - PLOT_TOP);
+        let lower = 0;
+        for (const sr of series) {
+          const upper = lower + (monthTotal[m] ? sr.values[m] / monthTotal[m] : 0);
+          if (share >= lower && share <= upper) { hit = sr.id; break; }
+          lower = upper;
+        }
+      }
+      if (hit !== s.hoverSeries || m !== s.hoverMonth) this.setState({ hoverSeries: hit, hoverMonth: hit ? m : null });
+    };
+    const tipSeries = series.find((sr) => sr.id === s.hoverSeries);
+    const tipMonth = s.hoverMonth;
+    let plotTip = { show: false, left: 0, shift: 0, color: '#18181b', series: '', month: '', amount: '', total: '', share: '', delta: '', deltaColor: '#a1a1aa' };
+    if (tipSeries && tipMonth !== null) {
+      const v = tipSeries.values[tipMonth];
+      const prev = tipMonth > 0 ? tipSeries.values[tipMonth - 1] : null;
+      const d = prev === null ? null : v - prev;
+      plotTip = {
+        show: true, left: (tipMonth / 12) * 100, shift: tipMonth <= 1 ? 90 : (tipMonth >= ACTIVE - 1 ? -90 : 0), color: tipSeries.color,
+        series: tipSeries.label, month: MONTHS[tipMonth] + (tipMonth === CURRENT ? ' (진행)' : ''), amount: won(v), total: won(monthTotal[tipMonth]),
+        share: monthTotal[tipMonth] ? (v / monthTotal[tipMonth] * 100).toFixed(1) : '0.0',
+        delta: d === null ? '–' : (d === 0 ? '변동 없음' : `${d > 0 ? '▲' : '▼'} ${won(Math.abs(d))}`),
+        deltaColor: d === null || d === 0 ? '#a1a1aa' : (d > 0 ? '#f87171' : '#4ade80'),
+      };
+    }
+    const axisMax = s.chart === 'area' ? null : (s.chart === 'stacked' ? maxStack : maxSingle);
+    const axisTicks = [1, 0.5, 0].map((r) => ({ top: yFor(r, 1), text: axisMax === null ? `${Math.round(r * 100)}%` : compact(Math.round(axisMax * r)) }));
+    const chartHint = s.chart === 'stacked' ? '막대 높이 = 월 합계, 색 = 항목 비중' : s.chart === 'line' ? '항목별 월 금액, 같은 축' : '월 합계를 100%로 본 항목 비중';
+
+    // ---- 표 ----
+    const buildCells = (id, label, values, merchants) => months.map((m) => {
+      const v = m < ACTIVE ? values[m] : null;
+      const empty = v === null || v === 0;
+      const ex = isExcluded(id, m);
+      const key = id + ':' + m;
+      const hovered = s.hovered === key && !empty;
+      const tipRows = [];
+      let count = 0;
+      if (!empty) {
+        const parts = [0.42, 0.31, 0.27];
+        merchants.slice(0, 3).forEach((name, i) => { tipRows.push({ name, amount: won(Math.round(v * parts[i] / 100) * 100) }); });
+        count = Math.max(tipRows.length, Math.round(v / 90000) + tipRows.length);
+      }
+      return {
+        key, text: empty ? (m < ACTIVE ? '–' : '') : won(v),
+        color: ex ? '#a1a1aa' : (m === CURRENT ? '#71717a' : (empty ? '#d4d4d8' : '#18181b')),
+        deco: ex ? 'line-through' : 'none', fw: hovered ? 600 : 400, cursor: empty ? 'default' : 'pointer', hovered,
+        tipTitle: `${label} · 2026-${String(m + 1).padStart(2, '0')}`, tipCount: count, tipRows,
+        tipRest: count > tipRows.length ? `외 ${count - tipRows.length}건` : '',
+        tipHint: ex ? '합계·그래프에서 제외됨 · 클릭하면 복원' : '클릭하면 합계·평균·그래프에서 제외',
+        toggle: empty ? () => {} : () => this.setState({ excluded: Object.assign({}, s.excluded, { [key]: !ex }) }),
+        hover: () => this.setState({ hovered: key }), leave: () => this.setState({ hovered: null }),
+      };
+    });
+    const summarize = (id, values) => {
+      let total = 0, cs = 0, cn = 0;
+      for (let m = 0; m < ACTIVE; m += 1) { if (isExcluded(id, m)) continue; total += values[m]; if (m < CURRENT) { cs += values[m]; cn += 1; } }
+      return { total, avg: cn ? Math.round(cs / cn) : 0 };
+    };
+    const spark = (values) => {
+      const last6 = values.slice(ACTIVE - 6, ACTIVE);
+      const max = Math.max(...last6, 1), min = Math.min(...last6), range = Math.max(max - min, 1);
+      const pts = last6.map((v, i) => `${2 + i * 15.2},${(3 + ((max - v) / range) * 14).toFixed(1)}`);
+      const first = (last6[0] + last6[1] + last6[2]) / 3, last = (last6[3] + last6[4] + last6[5]) / 3;
+      const change = first ? (last - first) / first : 0;
+      return { points: pts.join(' '), color: change > 0.08 ? '#dc2626' : change < -0.08 ? '#16a34a' : '#71717a', lastY: (3 + ((max - last6[5]) / range) * 14).toFixed(1) };
+    };
+    const rows = [];
+    const totalsByMonth = months.map(() => 0);
+    series.forEach((sr) => {
+      const maj = sr.maj;
+      const raw = maj ? maj.values : sr.rest;
+      const sum = summarize(sr.id, raw);
+      const sp = spark(raw);
+      const expandable = !!(maj && maj.subs && maj.subs.length);
+      const expanded = expandable && !!s.expanded[maj.id];
+      const isRest = !maj;
+      rows.push({
+        label: sr.label + (maj && maj.irregular ? ' · 비정기' : ''), caret: expandable ? (expanded ? '▾ ' : '▸ ') : '',
+        swatch: sr.color, swatchVis: 'visible',
+        fw: isRest ? 400 : 700, indent: 0, color: isRest ? '#71717a' : '#18181b', pad: '9px', border: isRest ? '#e4e4e7' : '#f4f4f5',
+        bg: s.hoverSeries === sr.id ? '#eff6ff' : (isRest ? '#fff' : '#fafafa'),
+        cells: buildCells(sr.id, sr.label, raw, (maj && maj.merchants) || ['기타 소비']),
+        total: won(sum.total), totalFw: isRest ? 600 : 700, avg: won(sum.avg),
+        sparkPoints: sp.points, sparkColor: sp.color, sparkLastY: sp.lastY, sparkDisplay: 'block',
+        click: expandable ? () => this.setState({ expanded: Object.assign({}, s.expanded, { [maj.id]: !expanded }) }) : () => {},
+        hover: hoverSeries(sr.id), leave: clearSeries,
+      });
+      for (let m = 0; m < ACTIVE; m += 1) totalsByMonth[m] += sr.values[m];
+      if (expanded) {
+        maj.subs.forEach((sub) => {
+          const ss = summarize(sub.id, sub.values);
+          rows.push({ label: sub.label, caret: '', swatch: sr.color, swatchVis: 'hidden', fw: 400, indent: 16, color: '#52525b', pad: '8px', border: '#f4f4f5', bg: '#fff',
+            cells: buildCells(sub.id, maj.label + ' › ' + sub.label, sub.values, maj.merchants || []),
+            total: won(ss.total), totalFw: 600, avg: won(ss.avg), sparkPoints: '', sparkColor: '#fff', sparkLastY: 0, sparkDisplay: 'none',
+            click: () => {}, hover: hoverSeries(sr.id), leave: clearSeries });
+        });
+      }
+    });
+    let grand = 0, gc = 0, gn = 0;
+    const totalCells = months.map((m) => {
+      if (m >= ACTIVE) return { text: '', color: '#18181b' };
+      grand += totalsByMonth[m];
+      if (m < CURRENT) { gc += totalsByMonth[m]; gn += 1; }
+      return { text: won(totalsByMonth[m]), color: m === CURRENT ? '#71717a' : '#18181b' };
+    });
+
+    // ---- 수입·지출·저축 띠 ----
+    const maxBar = Math.max(...INCOME, ...EXPENSE_TOTAL, ...SAVING_TOTAL);
+    const flowStrip = months.map((m) => {
+      if (m >= ACTIVE) return { incH: 0, expH: 0, savH: 0, opacity: 1, dotDisplay: 'none', dotTop: 0, rateTop: 0, rateText: '', dotColor: '#18181b', rateColor: '#71717a' };
+      const rate = (INCOME[m] - EXPENSE_TOTAL[m]) / INCOME[m] * 100;
+      const dotTop = Math.max(0, Math.min(37, (50 - rate) / 50 * 40));
+      return { incH: Math.round(INCOME[m] / maxBar * 118), expH: Math.round(EXPENSE_TOTAL[m] / maxBar * 118), savH: Math.round(SAVING_TOTAL[m] / maxBar * 118),
+        opacity: m === CURRENT ? 0.55 : 1, dotDisplay: 'block', dotTop, rateTop: dotTop + 10, rateText: rate.toFixed(1), dotColor: rate >= 30 ? '#16a34a' : '#18181b', rateColor: rate < 20 ? '#dc2626' : '#71717a' };
+    });
+    const incSum = INCOME.reduce((a, b) => a + b, 0), expSum = EXPENSE_TOTAL.reduce((a, b) => a + b, 0);
+    const annualRate = `${((incSum - expSum) / incSum * 100).toFixed(1)}%`;
+
+    const excludedCount = Object.values(s.excluded).filter(Boolean).length;
+    const note = (excludedCount ? `제외된 셀 ${excludedCount}개 · 표와 그래프 모두에서 빠집니다. 취소선 셀을 다시 클릭하면 복원. ` : '') + '8월은 진행 중이라 합계에는 넣고 월평균에서 뺍니다 · 추세는 최근 6개월 · ' + (axisEnabled ? '결제수단 축은 같은 지출을 카드별로 자른 것입니다.' : '수입·저축은 카테고리 축만 있습니다.');
+
+    return {
+      flowTabs, chartTabs, axisTabs, axisBorder: axisEnabled ? '#18181b' : '#e4e4e7', axisOpacity: axisEnabled ? 1 : 0.5,
+      isStacked: s.chart === 'stacked', isLine: s.chart === 'line', isArea: s.chart === 'area', bars, lines, areas, axisTicks, chartHint, clearSeries, plotMove, plotTip,
+      axisLabel: axis === 'account' ? '결제수단' : '항목',
+      monthHeads: MONTHS.map((label, m) => ({ label: m === CURRENT ? label + '·진행' : label, color: m === s.hoverMonth ? '#18181b' : (m === CURRENT ? '#2563eb' : (m >= ACTIVE ? '#d4d4d8' : '#71717a')) })),
+      flowStrip, annualRate, rows,
+      totals: { cells: totalCells, total: won(grand), avg: won(gn ? Math.round(gc / gn) : 0) },
+      note,
+    };
+  }
+}
+</script>
+</body>
+</html>
