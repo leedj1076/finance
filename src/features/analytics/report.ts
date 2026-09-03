@@ -115,7 +115,16 @@ export function buildAnnualReport({
   const selectedPrefix = `${year}-`
   const previousPrefix = `${year - 1}-`
   const selectedRows = transactionRows.filter((row) => row.date.startsWith(selectedPrefix))
-  const previousRows = transactionRows.filter((row) => row.date.startsWith(previousPrefix))
+  const currentYear = Number(currentMonthKey.slice(0, 4))
+  const comparisonThroughMonth = year < currentYear
+    ? 12
+    : year === currentYear
+      ? Number(currentMonthKey.slice(5, 7))
+      : 0
+  const previousRows = transactionRows.filter((row) => (
+    row.date.startsWith(previousPrefix)
+    && Number(row.date.slice(5, 7)) <= comparisonThroughMonth
+  ))
   const annual = flowTotals(selectedRows)
   const previous = flowTotals(previousRows)
   const hasPrevious = previous.income + previous.expense > 0
@@ -125,12 +134,22 @@ export function buildAnnualReport({
     if (row.flow !== 'expense') continue
     expenseByMajor.set(row.major, (expenseByMajor.get(row.major) ?? 0) + row.amount)
   }
+  const previousExpenseByMajor = new Map<string, number>()
+  for (const row of previousRows) {
+    if (row.flow !== 'expense') continue
+    previousExpenseByMajor.set(row.major, (previousExpenseByMajor.get(row.major) ?? 0) + row.amount)
+  }
   const topExpenses = [...expenseByMajor.entries()]
-    .map(([major, amount]) => ({
-      major,
-      amount,
-      percent: annual.expense > 0 ? roundOneDecimal((amount / annual.expense) * 100) : 0,
-    }))
+    .map(([major, amount]) => {
+      const previousAmount = previousExpenseByMajor.get(major) ?? 0
+      return {
+        major,
+        amount,
+        percent: annual.expense > 0 ? roundOneDecimal((amount / annual.expense) * 100) : 0,
+        previous: previousAmount,
+        delta: amount - previousAmount,
+      }
+    })
     .sort((left, right) => right.amount - left.amount || left.major.localeCompare(right.major, 'ko'))
     .slice(0, 6)
 
@@ -145,9 +164,26 @@ export function buildAnnualReport({
     value.count += 1
     merchantMap.set(key, value)
   }
+  const previousMerchantMap = new Map<string, number>()
+  for (const row of previousRows) {
+    if (row.flow !== 'expense') continue
+    const merchant = row.rawMerchant || row.memo || ''
+    const key = normalizeAnalyticsMerchant(merchant)
+    if (!key) continue
+    previousMerchantMap.set(key, (previousMerchantMap.get(key) ?? 0) + row.amount)
+  }
   const topMerchants = [...merchantMap.values()]
+    .map((merchant) => {
+      const key = normalizeAnalyticsMerchant(merchant.name)
+      const previousAmount = previousMerchantMap.get(key) ?? 0
+      return {
+        ...merchant,
+        previous: previousAmount,
+        delta: merchant.amount - previousAmount,
+      }
+    })
     .sort((left, right) => right.amount - left.amount || right.count - left.count || left.name.localeCompare(right.name, 'ko'))
-    .slice(0, 6)
+    .slice(0, 8)
 
   const expenseRows = selectedRows
     .filter((row) => row.flow === 'expense')
@@ -175,7 +211,6 @@ export function buildAnnualReport({
     null,
   )
 
-  const currentYear = Number(currentMonthKey.slice(0, 4))
   const completedRows = selectedRows.filter(
     (row) => year !== currentYear || row.date.slice(0, 7) < currentMonthKey,
   )

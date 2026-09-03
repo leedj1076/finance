@@ -22,7 +22,7 @@ function transaction(
 describe('annual report calculations', () => {
   const transactions: ReportTransactionRow[] = [
     transaction(1, '2025-01-10', 'income', 8_000_000, '급여'),
-    transaction(2, '2025-01-11', 'expense', 5_000_000, '주거'),
+    transaction(2, '2025-01-11', 'expense', 5_000_000, '주거', '주택 비용'),
     transaction(3, '2025-01-12', 'saving', 1_000_000, '저축'),
     transaction(4, '2026-01-10', 'income', 10_000_000, '급여'),
     transaction(5, '2026-01-11', 'expense', 6_000_000, '주거', '주택 비용'),
@@ -50,7 +50,10 @@ describe('annual report calculations', () => {
     const report = buildAnnualReport({
       year: 2026,
       currentMonthKey: '2026-09',
-      transactions,
+      transactions: [
+        ...transactions,
+        transaction(17, '2025-11-02', 'expense', 999_000, '주거', '주택 비용'),
+      ],
       assetBalances: balances,
     })
 
@@ -78,8 +81,20 @@ describe('annual report calculations', () => {
     expect(report.topExpenses.map((row) => row.major)).toEqual([
       '주거', '여행', '식비', '교통', '교육', '의료',
     ])
-    expect(report.topExpenses[0]).toEqual({ major: '주거', amount: 6_000_000, percent: 30 })
-    expect(report.topMerchants[0]).toEqual({ name: '주택 비용', amount: 6_000_000, count: 1 })
+    expect(report.topExpenses[0]).toEqual({
+      major: '주거',
+      amount: 6_000_000,
+      percent: 30,
+      previous: 5_000_000,
+      delta: 1_000_000,
+    })
+    expect(report.topMerchants[0]).toEqual({
+      name: '주택 비용',
+      amount: 6_000_000,
+      count: 1,
+      previous: 5_000_000,
+      delta: 1_000_000,
+    })
     expect(report.largestExpense).toMatchObject({ amount: 6_000_000, memo: '주택 비용', date: '2026-01-11', major: '주거' })
     expect(report.bestMonth).toEqual({ month: 2, savingsRate: 50 })
     expect(report.worstMonth).toEqual({ month: 9, savingsRate: 10 })

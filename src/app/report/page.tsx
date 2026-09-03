@@ -48,6 +48,11 @@ function yoyAmountText({
   return `${delta > 0 ? '▲' : '▼'} ${formatWon(Math.abs(delta))}원${pct === null ? '' : ` (${formatRate(Math.abs(pct))}%)`}`
 }
 
+function expenseDeltaPercent(delta: number, previous: number) {
+  if (previous <= 0 || delta === 0) return null
+  return (delta / previous) * 100
+}
+
 function AnnualFlowOverview({
   monthly,
   annualRate,
@@ -226,18 +231,23 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
         <section className="grid gap-8 border-b border-finance-hairline py-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-12">
           <div>
-            <h2 className="t-section text-finance-ink">어디에 썼나 <span className="ml-1 font-normal text-finance-muted">올해 지출 대분류 · 비중</span></h2>
+            <h2 className="t-section text-finance-ink">어디에 썼나 <span className="ml-1 font-normal text-finance-muted">올해 지출 대분류 · 비중 · 전년 대비</span></h2>
             {data.topExpenses.length > 0 ? (
               <ol className="mt-4 space-y-2.5">
-                {data.topExpenses.map((item) => (
-                  <li className="grid grid-cols-[90px_minmax(0,1fr)_100px_56px_90px] items-center gap-x-3 t-caption" key={item.major}>
-                    <span className="truncate font-semibold text-finance-ink">{item.major}</span>
-                    <span className="h-1.5 bg-finance-track"><span className="block h-full bg-finance-ink" style={{ width: `${(item.amount / topExpenseMax) * 100}%` }} /></span>
-                    <span className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(item.amount)}</span>
-                    <span className="text-right tabular-nums text-finance-muted">{formatRate(item.percent)}%</span>
-                    <span className="text-right text-finance-faint">전년 –</span>
-                  </li>
-                ))}
+                {data.topExpenses.map((item) => {
+                  const deltaPct = expenseDeltaPercent(item.delta, item.previous)
+                  return (
+                    <li className="grid grid-cols-[90px_minmax(0,1fr)_100px_56px_90px] items-center gap-x-3 t-caption" key={item.major}>
+                      <span className="truncate font-semibold text-finance-ink">{item.major}</span>
+                      <span className="h-1.5 bg-finance-track"><span className="block h-full bg-finance-ink" style={{ width: `${(item.amount / topExpenseMax) * 100}%` }} /></span>
+                      <span className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(item.amount)}</span>
+                      <span className="text-right tabular-nums text-finance-muted">{formatRate(item.percent)}%</span>
+                      <span className={`text-right tabular-nums ${deltaPct === null ? 'text-finance-faint' : deltaTone(item.delta, false)}`}>
+                        {deltaPct === null ? '–' : `${item.delta > 0 ? '▲' : '▼'} ${formatRate(Math.abs(deltaPct))}%`}
+                      </span>
+                    </li>
+                  )
+                })}
               </ol>
             ) : <p className="py-10 text-center t-body text-finance-muted">이 연도에는 지출 기록이 없습니다.</p>}
             {data.largestExpense && (
@@ -258,7 +268,9 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
                   <span className="truncate font-medium text-finance-ink">{merchant.name}</span>
                   <span className="text-right text-finance-muted">{merchant.count}건</span>
                   <span className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(merchant.amount)}</span>
-                  <span className="text-right text-finance-faint">–</span>
+                  <span className={`text-right tabular-nums ${merchant.delta === 0 || merchant.previous === 0 ? 'text-finance-faint' : deltaTone(merchant.delta, false)}`}>
+                    {merchant.delta === 0 || merchant.previous === 0 ? '–' : `${merchant.delta > 0 ? '▲' : '▼'} ${formatWon(Math.abs(merchant.delta))}`}
+                  </span>
                 </div>
               ))}
               {data.topMerchants.length === 0 && <p className="py-10 text-center t-body text-finance-muted">가맹점 정보가 없습니다.</p>}
