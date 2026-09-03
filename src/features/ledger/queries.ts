@@ -44,6 +44,46 @@ async function totalsForMonth(householdId: string, month: string): Promise<Total
   }
 }
 
+async function filteredTotalsForMonth(
+  householdId: string,
+  month: string,
+  filters: LedgerFilters,
+) {
+  const { start, end } = monthBounds(month)
+  const accountId = parseLedgerAccountId(filters.account)
+  const [row] = await db
+    .select({
+      count: sql<string>`count(*)`,
+      income: sql<string>`coalesce(sum(case when ${transactions.flow} = 'income' then ${transactions.amount} else 0 end), 0)`,
+      expense: sql<string>`coalesce(sum(case when ${transactions.flow} = 'expense' then ${transactions.amount} else 0 end), 0)`,
+      saving: sql<string>`coalesce(sum(case when ${transactions.flow} = 'saving' then ${transactions.amount} else 0 end), 0)`,
+    })
+    .from(transactions)
+    .leftJoin(
+      categories,
+      and(eq(categories.id, transactions.categoryId), eq(categories.householdId, householdId)),
+    )
+    .where(
+      and(
+        eq(transactions.householdId, householdId),
+        gte(transactions.date, start),
+        lt(transactions.date, end),
+        filters.account
+          ? accountId === null ? sql`false` : eq(transactions.accountId, accountId)
+          : undefined,
+        filters.flow ? eq(transactions.flow, filters.flow) : undefined,
+        filters.major ? eq(categories.major, filters.major) : undefined,
+        filters.q ? ilike(transactions.memo, `%${filters.q}%`) : undefined,
+      ),
+    )
+  return {
+    count: Number(row.count),
+    income: Number(row.income),
+    expense: Number(row.expense),
+    saving: Number(row.saving),
+  }
+}
+
 const emptyFilters: LedgerFilters = { account: '', flow: '', major: '', q: '' }
 
 export async function getLedgerData(
@@ -77,6 +117,7 @@ export async function getLedgerData(
 
   const [
     totals,
+    filteredTotals,
     previousTotals,
     availableMonths,
     rows,
@@ -89,6 +130,7 @@ export async function getLedgerData(
     unclassifiedRows,
   ] = await Promise.all([
     totalsForMonth(householdId, month),
+    filteredTotalsForMonth(householdId, month, filters),
     totalsForMonth(householdId, previousMonth),
     db
       .select({
@@ -306,6 +348,7 @@ export async function getLedgerData(
       netSaving: totals.income - totals.expense,
       savingsRate: savingsRate(totals.income, totals.expense),
     },
+    filteredTotals,
     comparison: {
       previousExpense: previousTotals.expense,
       expenseDelta,

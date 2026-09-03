@@ -3,10 +3,11 @@ import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
 import { SubmitButton } from '@/components/submit-button'
+import { getFinancialHealthData } from '@/features/analytics/financial-health'
 import { AssetForm } from '@/features/assets/asset-form'
 import { NetWorthChart } from '@/features/assets/net-worth-chart'
 import { getAssetData } from '@/features/assets/queries'
-import { formatRate, formatWon } from '@/lib/finance'
+import { formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 
 type AssetsPageProps = {
@@ -42,7 +43,10 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   const params = await searchParams
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
   const saved = params.saved === '1'
-  const data = await getAssetData(household.householdId, requestedMonth)
+  const [data, financialHealth] = await Promise.all([
+    getAssetData(household.householdId, requestedMonth),
+    getFinancialHealthData(household.householdId),
+  ])
   const deltaLabel = data.netWorthDelta === 0
     ? '전월과 동일'
     : `전월보다 ${formatWon(Math.abs(data.netWorthDelta))}원 ${data.netWorthDelta > 0 ? '증가' : '감소'}`
@@ -75,28 +79,28 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         )}
 
         <section className="mt-6 grid border-y border-finance-ink sm:grid-cols-2 sm:divide-x sm:divide-finance-hairline xl:grid-cols-4">
-          <SummaryCard label="총자산" tone="asset" value={`${formatWon(data.overview.assets)}원`} description="부채를 제외한 보유 자산" />
+          <SummaryCard label="총자산" tone="asset" value={`${formatWon(data.overview.assets)}원`} description={`현금성·투자 ${formatWon(data.overview.liquidAssets)}원`} />
           <SummaryCard label="부채" tone="debt" value={`${formatWon(data.overview.debt)}원`} description="대출 잔액 합계" />
           <SummaryCard label="순자산" tone="good" value={`${formatWon(data.overview.netWorth)}원`} description={deltaLabel} />
           <SummaryCard label="이번 달 입력" value={`${data.overview.enteredCount}/${data.overview.rows.length}개`} description="나머지는 직전 잔액 유지" />
         </section>
 
-        <section className="mt-6 grid border-y border-finance-hairline sm:grid-cols-3 sm:divide-x sm:divide-finance-hairline">
-          <article className="px-4 py-5 first:pl-0 sm:px-6">
-            <p className="text-sm font-medium text-zinc-500">현금성·투자 자산</p>
-            <p className="mt-2 text-xl font-semibold text-zinc-950">{formatWon(data.overview.liquidAssets)}원</p>
-            <p className="mt-2 text-xs text-zinc-500">현금 + 저축·투자</p>
-          </article>
-          <article className="px-4 py-5 sm:px-6">
-            <p className="text-sm font-medium text-zinc-500">비상금 여력</p>
-            <p className="mt-2 text-xl font-semibold text-zinc-950">{data.emergencyMonths === null ? '-' : `${formatRate(data.emergencyMonths)}개월`}</p>
-            <p className="mt-2 text-xs text-zinc-500">최근 최대 6개월 평균 지출 기준</p>
-          </article>
-          <article className="px-4 py-5 last:pr-0 sm:px-6">
-            <p className="text-sm font-medium text-zinc-500">부채비율</p>
-            <p className={`mt-2 text-xl font-semibold ${data.debtRatio !== null && data.debtRatio > 50 ? 'text-rose-700' : 'text-zinc-950'}`}>{data.debtRatio === null ? '-' : `${formatRate(data.debtRatio)}%`}</p>
-            <p className="mt-2 text-xs text-zinc-500">총자산 대비 부채</p>
-          </article>
+        <section className="mt-6 grid gap-6 border-y border-finance-hairline py-5 sm:grid-cols-2 xl:grid-cols-4">
+          {financialHealth.map((item) => {
+            const tone = {
+              good: 'border-finance-green',
+              ok: 'border-finance-amber',
+              warn: 'border-finance-red',
+              none: 'border-finance-faint',
+            }[item.status]
+            return (
+              <article className={`border-l-2 pl-4 ${tone}`} key={item.key}>
+                <p className="text-[11px] font-semibold text-finance-muted">{item.key}</p>
+                <p className="mt-1.5 text-lg font-semibold tracking-tight text-finance-ink">{item.value}</p>
+                <p className="mt-1 text-[11px] leading-4 text-finance-faint">{item.hint}</p>
+              </article>
+            )
+          })}
         </section>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">

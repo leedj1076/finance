@@ -2,6 +2,14 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import {
+  AccountMonthlyPanel,
+  CategoryMonthlyPanel,
+} from '@/features/analytics/account-monthly-panel'
+import { getCategoryDetails } from '@/features/analytics/category-detail'
+import { CategoryDetailTable } from '@/features/analytics/category-detail-table'
+import { MonthlyCashflowChart } from '@/features/analytics/monthly-cashflow-chart'
+import { getDashboardData } from '@/features/analytics/queries'
 import { getReportData } from '@/features/analytics/report'
 import { formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
@@ -60,6 +68,10 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
   const params = await searchParams
   const rawYear = Array.isArray(params.year) ? params.year[0] : params.year
   const data = await getReportData(household.householdId, rawYear ? Number(rawYear) : undefined)
+  const [dashboard, categoryDetails] = await Promise.all([
+    getDashboardData(household.householdId, data.year),
+    getCategoryDetails(household.householdId, data.year),
+  ])
 
   return (
     <div className="min-h-screen bg-white">
@@ -129,6 +141,26 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
               <p className="mt-1 font-semibold text-rose-900">{data.worstMonth ? `${data.worstMonth.month}월 · ${formatRate(data.worstMonth.savingsRate)}%` : '수입 기록 없음'}</p>
             </div>
           </div>
+        </section>
+
+        <section className="mt-6 border-t border-finance-ink py-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-finance-ink">월별 수입 · 지출</h2>
+              <p className="mt-1 text-xs text-finance-muted">{data.year}년 달력 기준 현금흐름</p>
+            </div>
+            <p className="text-[11px] text-finance-muted">연 누적 수입 {formatWon(dashboard.annual.income)}원 · 지출 {formatWon(dashboard.annual.expense)}원 · 순저축 {formatWon(dashboard.annual.netSaving)}원</p>
+          </div>
+          <div className="mt-5 overflow-x-auto">
+            <MonthlyCashflowChart data={dashboard.monthly} />
+          </div>
+        </section>
+
+        <AccountMonthlyPanel data={dashboard.accountMonthly} />
+        <CategoryMonthlyPanel data={dashboard.categoryMonthly} year={dashboard.year} />
+
+        <section className="mt-6">
+          <CategoryDetailTable details={categoryDetails} key={data.year} year={data.year} />
         </section>
 
         <section className="mt-6 overflow-hidden border-t border-finance-ink">

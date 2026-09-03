@@ -11,6 +11,7 @@ import {
   transactions,
 } from '@/db/schema'
 import { calculateBudgetPace } from '@/features/budgets/pace'
+import { calculateExpenseForecast, calculateSafeToSpend } from '@/features/ledger/forecast'
 import {
   currentMonthInKorea,
   isMonthKey,
@@ -30,6 +31,7 @@ import {
 } from './calculations'
 import { buildAccountMonthly, buildCategoryMonthly } from './account-monthly'
 import { getFinancialHealthData } from './financial-health'
+import { calculateMonthPace } from './home-pace'
 
 function validYear(value: number | undefined, fallback: number) {
   return Number.isInteger(value) && value! >= 2000 && value! <= 2100 ? value! : fallback
@@ -97,7 +99,11 @@ function parseSavingsTarget(value: string | null | undefined) {
   return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 80) : 30
 }
 
-export async function getDashboardData(householdId: string, requestedYear?: number) {
+export async function getDashboardData(
+  householdId: string,
+  requestedYear?: number,
+  requestedFocusMonth?: string,
+) {
   const latestDate = await latestTransactionDate(householdId)
   const fallbackYear = Number(latestDate.slice(0, 4))
   const year = validYear(requestedYear, fallbackYear)
@@ -116,7 +122,9 @@ export async function getDashboardData(householdId: string, requestedYear?: numb
     )
     .orderBy(desc(transactions.date))
     .limit(1)
-  const focusMonth = latestInYear?.date.slice(0, 7) ?? `${year}-01`
+  const focusMonth = isMonthKey(requestedFocusMonth) && Number(requestedFocusMonth.slice(0, 4)) === year
+    ? requestedFocusMonth
+    : latestInYear?.date.slice(0, 7) ?? `${year}-01`
   const previousMonth = shiftMonth(focusMonth, -1)
   const previousStart = monthBounds(previousMonth).start
   const queryStart = previousStart < yearStart ? previousStart : yearStart
@@ -178,6 +186,10 @@ export async function getDashboardData(householdId: string, requestedYear?: numb
   const currentIncome = sumFlow(currentRows, 'income')
   const currentExpense = sumFlow(currentRows, 'expense')
   const currentSaving = sumFlow(currentRows, 'saving')
+  const currentFixedExpense = currentRows
+    .filter((row) => row.flow === 'expense' && row.fixed)
+    .reduce((sum, row) => sum + row.amount, 0)
+  const currentVariableExpense = currentExpense - currentFixedExpense
   const previousIncome = sumFlow(previousRows, 'income')
   const previousExpense = sumFlow(previousRows, 'expense')
   const completedMonthly = monthly.filter(
@@ -191,11 +203,21 @@ export async function getDashboardData(householdId: string, requestedYear?: numb
     completedMonthly.reduce((sum, item) => sum + item.expense, 0) / averageDivisor,
   )
   const totalBudget = [...budgetMap.values()].reduce((sum, amount) => sum + amount, 0)
-  const budgetCategories = ranks.map((rank) => ({
-    ...rank,
-    budget: budgetMap.get(rank.major) ?? 0,
-    remaining: (budgetMap.get(rank.major) ?? 0) - rank.amount,
-  }))
+  const ranksByMajor = new Map(ranks.map((rank) => [rank.major, rank]))
+  const budgetCategories = [...new Set([...budgetMap.keys(), ...ranks.map((rank) => rank.major)])]
+    .map((major) => {
+      const rank = ranksByMajor.get(major) ?? {
+        major,
+        amount: 0,
+        previous: 0,
+        delta: 0,
+        changeRate: null,
+        percent: 0,
+      }
+      const budget = budgetMap.get(major) ?? 0
+      return { ...rank, budget, remaining: budget - rank.amount }
+    })
+    .sort((left, right) => right.amount - left.amount || right.budget - left.budget)
   const paceWarnings = calculateBudgetPace(
     budgetCategories.map((row) => ({
       major: row.major,
@@ -209,6 +231,37 @@ export async function getDashboardData(householdId: string, requestedYear?: numb
     .filter((row) => row.flow === 'expense')
     .sort((left, right) => right.amount - left.amount)[0] ?? null
   const anomalies = anomalyAlerts(yearRows, focusMonth, irregularMajors)
+  const merchantByCategory = new Map<string, Map<string, number>>()
+  currentRows.filter((row) => row.flow === 'expense' && row.merchant).forEach((row) => {
+    const merchantsForMajor = merchantByCategory.get(row.major) ?? new Map<string, number>()
+    merchantsForMajor.set(row.merchant, (merchantsForMajor.get(row.merchant) ?? 0) + row.amount)
+    merchantByCategory.set(row.major, merchantsForMajor)
+  })
+  const largestMerchantByCategory = Object.fromEntries(
+    [...merchantByCategory].map(([major, merchantAmounts]) => {
+      const largest = [...merchantAmounts]
+        .map(([name, amount]) => ({ name, amount }))
+        .sort((left, right) => right.amount - left.amount)[0]
+      return [major, largest]
+    }),
+  )
+  const pace = calculateMonthPace(focusMonth)
+  const forecast = calculateExpenseForecast({
+    mtd: currentExpense,
+    historicalExpenseTotal: completedMonthly.reduce((sum, item) => sum + item.expense, 0),
+    historicalMonthCount: completedMonthly.filter((item) => item.expense > 0).length,
+    elapsed: pace.elapsed,
+    daysInMonth: pace.daysInMonth,
+    isCurrentMonth: focusMonth === currentMonthInKorea(),
+  })
+  const safeToSpend = calculateSafeToSpend({
+    averageIncome,
+    savingsTarget,
+    mtdExpense: currentExpense,
+    currentDay: pace.elapsed,
+    daysInMonth: pace.daysInMonth,
+    isCurrentMonth: focusMonth === currentMonthInKorea(),
+  })
 
   const insights: Array<{
     tone: 'expense' | 'muted' | 'saving'
@@ -291,7 +344,10 @@ export async function getDashboardData(householdId: string, requestedYear?: numb
     current: {
       income: currentIncome,
       expense: currentExpense,
+      fixedExpense: currentFixedExpense,
+      variableExpense: currentVariableExpense,
       saving: currentSaving,
+      cashRemaining: currentIncome - currentExpense - currentSaving,
       netSaving: currentIncome - currentExpense,
       savingsRate: savingsRate(currentIncome, currentExpense),
       previousExpense,
@@ -305,6 +361,12 @@ export async function getDashboardData(householdId: string, requestedYear?: numb
       categories: budgetCategories,
       paceWarnings,
     },
+    pace,
+    forecast,
+    safeToSpend,
+    anomalies,
+    largestExpense,
+    largestMerchantByCategory,
     monthly,
     accountMonthly,
     categoryMonthly,

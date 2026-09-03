@@ -103,7 +103,7 @@ describe('dashboard household scope', () => {
     expect(health).toEqual([
       expect.objectContaining({ key: '저축률', value: '60.0%' }),
       expect.objectContaining({ key: '비상금', value: '3.0개월' }),
-      expect.objectContaining({ key: '부채비율', value: '0%' }),
+      expect.objectContaining({ key: '부채/자산 비율', value: '0%' }),
       expect.objectContaining({ key: '고정비 비율', value: '100%' }),
     ])
   })
@@ -135,7 +135,7 @@ describe('financial health', () => {
     })).toEqual([
       expect.objectContaining({ key: '저축률', value: '33.3%', status: 'good' }),
       expect.objectContaining({ key: '비상금', value: '6.0개월', status: 'good' }),
-      expect.objectContaining({ key: '부채비율', value: '40%', status: 'ok' }),
+      expect.objectContaining({ key: '부채/자산 비율', value: '40%', status: 'ok' }),
       expect.objectContaining({ key: '고정비 비율', value: '60%', status: 'ok' }),
     ])
   })

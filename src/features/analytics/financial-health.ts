@@ -76,10 +76,10 @@ export function calculateFinancialHealth({
       hint: '생활비 3~6개월치 권장',
     },
     {
-      key: '부채비율',
+      key: '부채/자산 비율',
       value: debtRatio === null ? '자산 입력 필요' : `${debtRatio.toFixed(0)}%`,
       status: financialHealthSignal(debtRatio, 30, 50, false),
-      hint: '총자산 대비 부채, 낮을수록 안전',
+      hint: '부채 ÷ 총자산, 낮을수록 안전 (DTI와 별도)',
     },
     {
       key: '고정비 비율',

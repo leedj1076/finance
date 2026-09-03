@@ -133,7 +133,7 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
             x={LEFT + (plotWidth * index) / 11}
             y={HEIGHT - 12}
           >
-            {index + 1}월
+            {monthLabel(point.month, index)}
           </text>
         ))}
           {series.map((item) => {
