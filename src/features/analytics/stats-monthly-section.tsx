@@ -20,12 +20,15 @@ import { buildSeriesChartGeometry } from './series-chart-geometry'
 import { SeriesChart, type SeriesChartKind } from './series-chart'
 import {
   buildStatsMonthlyModel,
+  selectedStatsMonthlyRows,
   STATS_VIEW_EVENT,
   statsCellKey,
   statsSparkline,
   statsViewSearch,
+  toggleStatsSeriesSelection,
   type StatsMonthlyAxis,
   type StatsMonthlyFlow,
+  type StatsSeriesSelection,
 } from './stats-monthly'
 
 const FLOW_LABELS: Record<StatsMonthlyFlow, string> = {
@@ -111,6 +114,7 @@ export function StatsMonthlySection({
   ))
   const [hoverSeries, setHoverSeries] = useState<string | null>(null)
   const [hoverMonth, setHoverMonth] = useState<number | null>(null)
+  const [selection, setSelection] = useState<StatsSeriesSelection | null>(null)
   const [cellTooltip, setCellTooltip] = useState<CellTooltipState | null>(null)
   const cache = useRef(new Map<string, CellTransactionResult>())
   const activeCell = useRef<string | null>(null)
@@ -132,6 +136,10 @@ export function StatsMonthlySection({
     [chart, model.activeMonths, model.series],
   )
   const hoveredSeries = model.series.find((item) => item.id === hoverSeries) ?? null
+  const selectedSeries = model.series.find((item) => item.id === selection?.seriesId) ?? null
+  const selectedRows = selectedStatsMonthlyRows(model.rows, selectedSeries?.id ?? null)
+  const highlightedSeriesId = hoverSeries ?? selectedSeries?.id ?? null
+  const highlightedMonth = hoverMonth ?? selection?.month ?? null
   const hoveredValue = hoveredSeries && hoverMonth !== null ? hoveredSeries.values[hoverMonth] ?? 0 : 0
   const hoveredTotal = hoverMonth !== null ? model.monthTotals[hoverMonth] : 0
   const hoveredPrevious = hoveredSeries && hoverMonth !== null && hoverMonth > 0
@@ -227,6 +235,7 @@ export function StatsMonthlySection({
     setExcluded(new Set())
     setHoverSeries(null)
     setHoverMonth(null)
+    setSelection(null)
   }
 
   function selectAxis(nextAxis: StatsMonthlyAxis) {
@@ -236,6 +245,7 @@ export function StatsMonthlySection({
     setExcluded(new Set())
     setHoverSeries(null)
     setHoverMonth(null)
+    setSelection(null)
   }
 
   function toggleExpanded(label: string) {
@@ -249,6 +259,14 @@ export function StatsMonthlySection({
   function updateHover(seriesId: string | null, month: number | null) {
     setHoverSeries(seriesId)
     setHoverMonth(month)
+  }
+
+  function selectSeries(seriesId: string, month: number) {
+    const next = toggleStatsSeriesSelection(selection, { seriesId, month })
+    setSelection(next)
+    if (!next || effectiveAxis !== 'category') return
+    const row = model.rows.find((item) => item.id === next.seriesId)
+    if (row) setExpanded((current) => new Set(current).add(row.label))
   }
 
   const axisLabels = chart === 'area'
@@ -265,7 +283,7 @@ export function StatsMonthlySection({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="t-section text-finance-ink">달마다 어떻게 달랐나</h2>
-          <p className="mt-1 t-caption text-finance-faint">그래프와 표가 같은 데이터·같은 색·같은 12개 열 · 행을 가리키면 시리즈 강조 · 셀 클릭은 합계와 그래프에서 제외</p>
+          <p className="mt-1 t-caption text-finance-faint">그래프의 항목을 클릭하면 아래에서 그 항목만 상세 확인 · 셀 클릭은 합계와 그래프에서 제외</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <div aria-label="그래프 종류" className="inline-flex border border-finance-ink" role="group">
@@ -310,7 +328,18 @@ export function StatsMonthlySection({
                 <span className="absolute bottom-0 right-2">{axisLabels[2]}</span>
               </div>
               <div className="relative col-span-12">
-                <SeriesChart activeMonths={model.activeMonths} currentMonthIndex={model.currentMonthIndex} hoverMonth={hoverMonth} hoverSeries={hoverSeries} kind={chart} onHover={updateHover} series={model.series} />
+                <SeriesChart
+                  activeMonths={model.activeMonths}
+                  currentMonthIndex={model.currentMonthIndex}
+                  hoverMonth={hoverMonth}
+                  hoverSeries={hoverSeries}
+                  kind={chart}
+                  onHover={updateHover}
+                  onSelect={selectSeries}
+                  selectedMonth={selection?.month ?? null}
+                  selectedSeries={selectedSeries?.id ?? null}
+                  series={model.series}
+                />
                 {hoveredSeries && hoverMonth !== null && hoverMonth < model.activeMonths && (
                   <div
                     className="pointer-events-none absolute top-2 z-20 flex w-[8.3333%] justify-center"
@@ -334,14 +363,30 @@ export function StatsMonthlySection({
                   </div>
                 )}
               </div>
-              <div className="col-span-3 self-end pb-1 t-caption text-finance-muted">{chartHint}</div>
+              <div className="col-span-3 self-end pb-1 t-caption text-finance-muted">
+                <p>{chartHint}</p>
+                <p className="mt-1 font-semibold text-finance-ink">그래프를 클릭해 상세 항목 선택</p>
+              </div>
             </div>
 
+            {selectedRows.length === 0 ? (
+              <div className="mt-4 border-y border-finance-hairline py-9 text-center">
+                <p className="t-body-strong text-finance-ink">그래프에서 확인할 항목을 선택하세요.</p>
+                <p className="mt-1 t-caption text-finance-muted">선·막대·영역을 클릭하면 해당 항목의 12개월 비용과 상세 항목이 표시됩니다.</p>
+              </div>
+            ) : (
             <div className="mt-4 border-t border-finance-ink">
+              <div className="flex items-center justify-between border-b border-finance-hairline py-2">
+                <p className="t-body-strong text-finance-ink">
+                  <span className="mr-2 inline-block h-[9px] w-[9px]" style={{ background: selectedSeries?.color }} />
+                  {selectedSeries?.label} · {selection?.month !== null && selection?.month !== undefined ? `${selection.month + 1}월 선택` : '항목 선택'}
+                </p>
+                <button className="t-caption font-semibold text-finance-blue hover:text-finance-ink" onClick={() => setSelection(null)} type="button">선택 해제</button>
+              </div>
               <div className="grid items-center gap-x-1.5 border-b border-finance-hairline py-[9px] t-label text-finance-muted" style={{ gridTemplateColumns: GRID_COLUMNS }}>
                 <div>{effectiveAxis === 'account' ? '결제수단' : '항목'}</div>
                 {Array.from({ length: 12 }, (_, month) => (
-                  <div className={`text-right ${month === hoverMonth ? 'font-bold text-finance-ink' : month === model.currentMonthIndex ? 'text-finance-blue' : month >= model.activeMonths ? 'text-finance-faint' : ''}`} key={month}>
+                  <div className={`text-right ${month === highlightedMonth ? 'font-bold text-finance-ink' : month === model.currentMonthIndex ? 'text-finance-blue' : month >= model.activeMonths ? 'text-finance-faint' : ''}`} key={month}>
                     {month + 1}월{month === model.currentMonthIndex ? '·진행' : ''}
                   </div>
                 ))}
@@ -350,13 +395,13 @@ export function StatsMonthlySection({
                 <div className="text-center">추세</div>
               </div>
 
-              {model.rows.map((row) => {
+              {selectedRows.map((row) => {
                 const canExpand = effectiveAxis === 'category' && row.subs.length > 0
                 const isExpanded = canExpand && expanded.has(row.label)
                 return (
                   <div key={row.id}>
                     <div
-                      className={`grid items-center gap-x-1.5 border-b border-finance-track py-[9px] t-caption ${hoverSeries === row.id ? 'bg-finance-blue-tint' : 'bg-finance-panel'}`}
+                      className={`grid items-center gap-x-1.5 border-b border-finance-track py-[9px] t-caption ${highlightedSeriesId === row.id ? 'bg-finance-blue-tint' : 'bg-finance-panel'}`}
                       id={highlightedMajor === row.label ? 'highlighted-category' : undefined}
                       onMouseEnter={() => updateHover(row.id, null)}
                       onMouseLeave={() => updateHover(null, null)}
@@ -393,7 +438,7 @@ export function StatsMonthlySection({
 
                     {isExpanded && row.subs.map((sub) => (
                       <div
-                        className={`grid items-center gap-x-1.5 border-b border-finance-track py-2 t-caption ${hoverSeries === row.id ? 'bg-finance-blue-tint' : 'bg-white'}`}
+                        className={`grid items-center gap-x-1.5 border-b border-finance-track py-2 t-caption ${highlightedSeriesId === row.id ? 'bg-finance-blue-tint' : 'bg-white'}`}
                         key={sub.id}
                         onMouseEnter={() => updateHover(row.id, null)}
                         onMouseLeave={() => updateHover(null, null)}
@@ -438,18 +483,8 @@ export function StatsMonthlySection({
                 )
               })}
 
-              <div className="grid items-center gap-x-1.5 border-b border-finance-ink py-[11px] t-caption" style={{ gridTemplateColumns: GRID_COLUMNS }}>
-                <div className="font-bold text-finance-ink">총계</div>
-                {model.monthTotals.map((amount, month) => (
-                  <div className={`text-right font-semibold tabular-nums ${month === model.currentMonthIndex ? 'text-finance-muted' : month >= model.activeMonths ? 'text-finance-faint' : 'text-finance-ink'}`} key={month}>
-                    {month >= model.activeMonths ? '' : amount === 0 ? '–' : formatWon(amount)}
-                  </div>
-                ))}
-                <div className="text-right font-bold tabular-nums text-finance-ink">{formatWon(model.total)}</div>
-                <div className="text-right tabular-nums text-finance-muted">{formatWon(model.average)}</div>
-                <div />
-              </div>
             </div>
+            )}
           </div>
         </div>
       )}

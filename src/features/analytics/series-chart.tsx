@@ -30,7 +30,10 @@ export function SeriesChart({
   activeMonths,
   hoverSeries,
   hoverMonth,
+  selectedSeries,
+  selectedMonth,
   onHover,
+  onSelect,
 }: {
   series: SeriesChartSeries[]
   kind: SeriesChartKind
@@ -38,7 +41,10 @@ export function SeriesChart({
   activeMonths: number
   hoverSeries: string | null
   hoverMonth: number | null
+  selectedSeries: string | null
+  selectedMonth: number | null
   onHover: (seriesId: string | null, month: number | null) => void
+  onSelect: (seriesId: string, month: number) => void
 }) {
   const palette = useFinanceChartPalette()
   const labels = useMemo(() => Array.from({ length: 12 }, (_, month) => `${month + 1}월`), [])
@@ -47,7 +53,8 @@ export function SeriesChart({
   const data = useMemo<ChartData<'bar'> | ChartData<'line'>>(() => {
     const datasets = series.map((row, seriesIndex) => {
       const color = resolveChartColor(row.color, palette)
-      const dimmed = hoverSeries !== null && hoverSeries !== row.id
+      const focusedSeries = hoverSeries ?? selectedSeries
+      const dimmed = focusedSeries !== null && focusedSeries !== row.id
       const values = Array.from({ length: 12 }, (_, month) => {
         if (month >= activeMonths) return null
         return kind === 'area' ? normalizedPercent(series, seriesIndex, month) : row.values[month] ?? 0
@@ -72,21 +79,26 @@ export function SeriesChart({
         data: values,
         backgroundColor: kind === 'area' ? alpha(color, dimmed ? 0.08 : 0.72) : color,
         borderColor: alpha(color, dimmed ? 0.16 : 1),
-        borderWidth: hoverSeries === row.id ? CHART_LINE_WIDTH_ACTIVE : CHART_LINE_WIDTH,
+        borderWidth: focusedSeries === row.id ? CHART_LINE_WIDTH_ACTIVE : CHART_LINE_WIDTH,
         fill: kind === 'area' ? 'origin' : false,
         pointBackgroundColor: color,
         pointBorderColor: palette.background,
         pointBorderWidth: 1.5,
         pointRadius: (context: { dataIndex: number }) => {
-          if (hoverSeries !== row.id) return 0
-          return context.dataIndex === hoverMonth ? CHART_POINT_RADIUS_ACTIVE : CHART_POINT_RADIUS
+          if (hoverSeries === row.id) {
+            return context.dataIndex === hoverMonth ? CHART_POINT_RADIUS_ACTIVE : CHART_POINT_RADIUS
+          }
+          if (selectedSeries === row.id && context.dataIndex === selectedMonth) {
+            return CHART_POINT_RADIUS_ACTIVE
+          }
+          return 0
         },
         pointHoverRadius: CHART_POINT_RADIUS_ACTIVE,
         tension: kind === 'line' ? 0.22 : 0,
       }
     })
     return { labels, datasets } as ChartData<'bar'> | ChartData<'line'>
-  }, [activeMonths, currentMonthIndex, hoverMonth, hoverSeries, isBar, kind, labels, palette, series])
+  }, [activeMonths, currentMonthIndex, hoverMonth, hoverSeries, isBar, kind, labels, palette, selectedMonth, selectedSeries, series])
 
   const commonOptions = useMemo(() => ({
     responsive: true,
@@ -100,6 +112,12 @@ export function SeriesChart({
         return
       }
       onHover(series[element.datasetIndex]?.id ?? null, element.index)
+    },
+    onClick: (_event: unknown, elements: Array<{ datasetIndex: number; index: number }>) => {
+      const element = elements[0]
+      const seriesId = element ? series[element.datasetIndex]?.id : null
+      if (!element || element.index >= activeMonths || !seriesId) return
+      onSelect(seriesId, element.index)
     },
     plugins: { legend: { display: false }, tooltip: { enabled: false } },
     scales: {
@@ -120,12 +138,12 @@ export function SeriesChart({
         ticks: { display: false },
       },
     },
-  }), [activeMonths, kind, onHover, palette.track, series])
+  }), [activeMonths, kind, onHover, onSelect, palette.track, series])
 
   return (
     <div
       aria-label={`${kind === 'stacked' ? '누적 막대' : kind === 'line' ? '선' : '100% 누적 영역'} 월별 차트`}
-      className="relative block h-[220px] w-full"
+      className="relative block h-[220px] w-full cursor-crosshair"
       onMouseLeave={() => onHover(null, null)}
       role="img"
     >

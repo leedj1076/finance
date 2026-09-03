@@ -5,9 +5,11 @@ import type { CategoryDetails } from '@/features/analytics/category-detail'
 import {
   buildStatsMonthlyModel,
   parseStatsViewState,
+  selectedStatsMonthlyRows,
   statsCellKey,
   statsSparkline,
   statsViewSearch,
+  toggleStatsSeriesSelection,
 } from '@/features/analytics/stats-monthly'
 
 const details: CategoryDetails = {
@@ -47,6 +49,32 @@ const accountMonthly: Record<'expense' | 'income', AccountMonthlyData> = {
 }
 
 describe('stats monthly shared model', () => {
+  test('keeps only the selected series row and its category details', () => {
+    const model = buildStatsMonthlyModel({
+      flow: 'expense', axis: 'category', details, accountMonthly, excluded: new Set(),
+    })
+    const selected = selectedStatsMonthlyRows(model.rows, 'category\u0000식비')
+
+    expect(selected.map((row) => row.label)).toEqual(['식비'])
+    expect(selected[0].subs.map((row) => row.label)).toEqual(['외식', '장보기'])
+    expect(selectedStatsMonthlyRows(model.rows, null)).toEqual([])
+    expect(selectedStatsMonthlyRows(model.rows, 'category\u0000없는 항목')).toEqual([])
+  })
+
+  test('selects a chart point, updates its month, and clears the same point', () => {
+    expect(toggleStatsSeriesSelection(null, { seriesId: 'category\u0000식비', month: 0 })).toEqual({
+      seriesId: 'category\u0000식비', month: 0,
+    })
+    expect(toggleStatsSeriesSelection(
+      { seriesId: 'category\u0000식비', month: 0 },
+      { seriesId: 'category\u0000식비', month: 1 },
+    )).toEqual({ seriesId: 'category\u0000식비', month: 1 })
+    expect(toggleStatsSeriesSelection(
+      { seriesId: 'category\u0000식비', month: 1 },
+      { seriesId: 'category\u0000식비', month: 1 },
+    )).toBeNull()
+  })
+
   test('parses shareable view state and locks non-expense flows to category', () => {
     expect(parseStatsViewState({ chart: 'line', flow: 'expense', axis: 'account' })).toEqual({
       chart: 'line', flow: 'expense', axis: 'account',

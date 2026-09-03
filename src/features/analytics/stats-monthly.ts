@@ -79,6 +79,26 @@ export type StatsMonthlyModel = {
   divisor: number
 }
 
+export type StatsSeriesSelection = {
+  seriesId: string
+  month: number | null
+}
+
+export function selectedStatsMonthlyRows(
+  rows: StatsMonthlyRow[],
+  selectedSeriesId: string | null,
+) {
+  if (!selectedSeriesId) return []
+  return rows.filter((row) => row.id === selectedSeriesId)
+}
+
+export function toggleStatsSeriesSelection(
+  current: StatsSeriesSelection | null,
+  next: StatsSeriesSelection,
+) {
+  return current?.seriesId === next.seriesId && current.month === next.month ? null : next
+}
+
 export function statsSeriesId(axis: StatsMonthlyAxis, label: string) {
   return `${axis}\u0000${label}`
 }
