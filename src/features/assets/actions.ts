@@ -30,6 +30,83 @@ function parseIds(values: FormDataEntryValue[]) {
   return Array.from(new Set(ids))
 }
 
+export async function saveAssetAccounts(
+  _previousState: AssetActionState,
+  formData: FormData,
+): Promise<AssetActionState> {
+  const household = await requireHousehold()
+  if (!household) return { error: '가족 가계부에 연결된 계정이 아닙니다.' }
+
+  const ids = parseIds(formData.getAll('accountId'))
+  if (!ids) return { error: '자산 계정 정보가 올바르지 않습니다.' }
+  const stored = await db
+    .select({ id: assetAccounts.id, major: assetAccounts.major })
+    .from(assetAccounts)
+    .where(and(eq(assetAccounts.householdId, household.householdId), eq(assetAccounts.active, true)))
+  const storedById = new Map(stored.map((row) => [row.id, row]))
+  if (ids.length !== stored.length || ids.some((id) => !storedById.has(id))) {
+    return { error: '자산 계정 목록이 변경되었습니다. 새로고침 후 다시 저장해 주세요.' }
+  }
+
+  const updates = ids.map((id, index) => ({
+    id,
+    major: storedById.get(id)!.major,
+    name: parseAssetName(formData.get(`name:${id}`)),
+    deleted: formData.get(`deleted:${id}`) === 'on',
+    sortOrder: index + 1,
+  }))
+  if (updates.some((row) => row.name === null)) return { error: '자산 계정 이름은 1~80자로 입력해 주세요.' }
+
+  const newAssets = parseNewAssets(formData.get('newAssets'))
+  if (!newAssets) return { error: '추가할 자산 계정을 확인해 주세요.' }
+  const activeNames = updates
+    .filter((row) => !row.deleted)
+    .map((row) => `${row.major}\u0000${row.name!.toLocaleLowerCase('ko-KR')}`)
+  const newNames = newAssets.map((row) => `${row.major}\u0000${row.name.toLocaleLowerCase('ko-KR')}`)
+  if (new Set([...activeNames, ...newNames]).size !== activeNames.length + newNames.length) {
+    return { error: '같은 그룹에 동일한 자산 계정 이름이 있습니다.' }
+  }
+
+  await db.transaction(async (transaction) => {
+    const [sortRow] = await transaction
+      .select({ value: max(assetAccounts.sortOrder) })
+      .from(assetAccounts)
+      .where(eq(assetAccounts.householdId, household.householdId))
+    let sortOrder = sortRow?.value ?? 0
+
+    for (const update of updates) {
+      await transaction
+        .update(assetAccounts)
+        .set({ name: `__asset_edit_${update.id}` })
+        .where(and(eq(assetAccounts.householdId, household.householdId), eq(assetAccounts.id, update.id)))
+    }
+    for (const update of updates) {
+      await transaction
+        .update(assetAccounts)
+        .set({
+          active: !update.deleted,
+          name: update.deleted ? `${update.name} · 보관 ${update.id}` : update.name!,
+          sortOrder: update.sortOrder,
+        })
+        .where(and(eq(assetAccounts.householdId, household.householdId), eq(assetAccounts.id, update.id)))
+    }
+    for (const newAsset of newAssets) {
+      sortOrder += 1
+      await transaction.insert(assetAccounts).values({
+        householdId: household.householdId,
+        major: newAsset.major,
+        name: newAsset.name,
+        kind: newAsset.kind,
+        sortOrder,
+      })
+    }
+  })
+
+  revalidatePath('/assets')
+  revalidatePath('/settings')
+  redirect('/settings?section=assets&saved=1')
+}
+
 export async function saveAssets(
   _previousState: AssetActionState,
   formData: FormData,

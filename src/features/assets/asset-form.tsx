@@ -46,7 +46,7 @@ function SaveButton() {
   )
 }
 
-export function AssetForm({ groups, month }: { groups: AssetGroup[]; month: string }) {
+export function AssetForm({ groups, month, balanceOnly = false }: { groups: AssetGroup[]; month: string; balanceOnly?: boolean }) {
   const [state, action] = useActionState(saveAssets, initialState)
   const [deletedIds, setDeletedIds] = useState<Set<number>>(() => new Set())
   const [newRows, setNewRows] = useState<NewRow[]>([])
@@ -97,9 +97,9 @@ export function AssetForm({ groups, month }: { groups: AssetGroup[]; month: stri
       <section className="overflow-hidden border-t border-finance-ink">
         <div className="flex flex-col justify-between gap-4 border-b border-finance-hairline py-4 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-sm font-bold text-finance-ink">잔고 입력 · {month}</h2>
+            <h2 className="text-sm font-bold text-finance-ink">잔고 보정 · {month}</h2>
             <p className="mt-1 text-xs text-finance-muted">
-              빈칸은 직전 잔액을 유지합니다. 기존 값을 지우고 저장하면 이번 달 스냅샷만 삭제됩니다.
+              빈칸은 직전 잔액을 유지합니다. 기존 값을 지우고 저장하면 이번 달 스냅샷만 삭제됩니다. 계정 이름과 그룹은 설정에서 관리합니다.
             </p>
           </div>
           <SaveButton />
@@ -126,21 +126,21 @@ export function AssetForm({ groups, month }: { groups: AssetGroup[]; month: stri
                     const deleted = deletedIds.has(row.id)
                     return (
                       <div
-                        className={`grid grid-cols-[24px_minmax(0,1fr)_minmax(115px,0.8fr)_36px] items-center gap-2 border-b border-finance-hairline p-2 ${deleted ? 'bg-finance-red-tint opacity-60' : 'bg-white'} ${draggingId === row.id ? 'opacity-40' : ''}`}
+                        className={`grid items-center gap-2 border-b border-finance-hairline p-2 ${balanceOnly ? 'grid-cols-[minmax(0,1fr)_minmax(115px,0.8fr)]' : 'grid-cols-[24px_minmax(0,1fr)_minmax(115px,0.8fr)_36px]'} ${deleted ? 'bg-finance-red-tint opacity-60' : 'bg-white'} ${draggingId === row.id ? 'opacity-40' : ''}`}
                         key={row.id}
                         onDragOver={(event) => event.preventDefault()}
                         onDrop={() => dropRow(group, row.id)}
                       >
                         <input name="accountId" type="hidden" value={row.id} />
                         <input name={`deleted:${row.id}`} type="hidden" value={deleted ? 'on' : ''} />
-                        <span className="cursor-grab text-center text-zinc-300" draggable onDragEnd={() => setDraggingId(null)} onDragStart={() => setDraggingId(row.id)} title="끌어서 순서 변경">⠿</span>
-                        <input
-                          aria-label={`${row.name} 이름`}
-                          className={`h-[34px] min-w-0 border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink outline-none focus:border-finance-blue ${deleted ? 'line-through' : ''}`}
-                          defaultValue={row.name}
-                          name={`name:${row.id}`}
-                          type="text"
-                        />
+                        {balanceOnly ? (
+                          <><input name={`name:${row.id}`} type="hidden" value={row.name} /><span className="text-[13px] font-medium text-finance-ink">{row.name}</span></>
+                        ) : (
+                          <>
+                            <span className="cursor-grab text-center text-zinc-300" draggable onDragEnd={() => setDraggingId(null)} onDragStart={() => setDraggingId(row.id)} title="끌어서 순서 변경">⠿</span>
+                            <input aria-label={`${row.name} 이름`} className={`h-[34px] min-w-0 border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink outline-none focus:border-finance-blue ${deleted ? 'line-through' : ''}`} defaultValue={row.name} name={`name:${row.id}`} type="text" />
+                          </>
+                        )}
                         <label className="relative">
                           <span className="sr-only">{row.name} 잔액</span>
                           <input
@@ -154,19 +154,19 @@ export function AssetForm({ groups, month }: { groups: AssetGroup[]; month: stri
                           />
                           <span className="pointer-events-none absolute right-2 top-2.5 text-xs text-zinc-400">원</span>
                         </label>
-                        <button
+                        {!balanceOnly && <button
                           aria-label={`${row.name} ${deleted ? '삭제 취소' : '삭제'}`}
                           className={`h-[34px] text-lg ${deleted ? 'bg-finance-red-tint text-finance-red' : 'text-finance-faint hover:bg-finance-track hover:text-finance-ink'}`}
                           onClick={() => toggleDeleted(row.id)}
                           type="button"
                         >
                           {deleted ? '↶' : '×'}
-                        </button>
+                        </button>}
                       </div>
                     )
                   })}
 
-                  {groupNewRows.map((row) => (
+                  {!balanceOnly && groupNewRows.map((row) => (
                     <div className="grid grid-cols-[24px_minmax(0,1fr)_minmax(115px,0.8fr)_36px] items-center gap-2 border-b border-finance-green bg-finance-green-tint p-2" key={row.key}>
                       <span className="text-center text-zinc-300">＋</span>
                       <input
@@ -203,13 +203,13 @@ export function AssetForm({ groups, month }: { groups: AssetGroup[]; month: stri
                   ))}
                 </div>
 
-                <button
+                {!balanceOnly && <button
                   className="mt-3 h-[30px] px-2 text-xs font-semibold text-finance-blue hover:bg-finance-blue-tint"
                   onClick={() => addRow(group.major, group.kind)}
                   type="button"
                 >
                   + 항목 추가
-                </button>
+                </button>}
               </section>
             )
           })}

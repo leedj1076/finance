@@ -1,12 +1,11 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { ActionNotice } from '@/components/action-notice'
 import { AppHeader } from '@/components/app-header'
+import { SettingsNav, type SettingsSection } from '@/components/settings-nav'
 import { SubmitButton } from '@/components/submit-button'
 import { saveAlias } from '@/features/manage/actions'
 import { AccountsManager } from '@/features/manage/accounts-manager'
-import { BulkClassifyForm } from '@/features/manage/bulk-classify-form'
 import { CategoriesManager } from '@/features/manage/categories-manager'
 import { MerchantDictionary } from '@/features/manage/merchant-dictionary'
 import { getManageData, type ManageTab } from '@/features/manage/queries'
@@ -24,8 +23,7 @@ type ManagePageProps = {
 const tabs: Array<{ key: ManageTab; label: string }> = [
   { key: 'accounts', label: '결제수단' },
   { key: 'categories', label: '카테고리' },
-  { key: 'rules', label: '가맹점 사전' },
-  { key: 'unclassified', label: '미분류 거래' },
+  { key: 'rules', label: '가져오기 규칙' },
 ]
 
 const inputClass = 'h-[34px] border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink outline-none focus:border-finance-blue'
@@ -49,17 +47,15 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
   const saved = typeof params.saved === 'string' ? params.saved : null
   const error = typeof params.error === 'string' ? params.error : null
   const data = await getManageData(household.householdId, { tab, ruleQuery })
-  const tabCounts: Record<ManageTab, number> = {
-    accounts: data.counts.accounts,
-    categories: data.counts.categories,
-    rules: data.counts.rules,
-    unclassified: data.counts.unclassified,
-  }
+  const settingsSection: SettingsSection = tab === 'categories' ? 'categories' : tab === 'rules' ? 'rules' : 'accounts'
 
   return (
     <div className="min-h-screen bg-white">
       <AppHeader active="settings" email={household.email} />
-      <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
+      <main className="mx-auto w-full max-w-[1440px] px-5 pb-14 pt-10 sm:px-12">
+        <div className="grid gap-8 lg:grid-cols-[200px_minmax(0,1fr)]">
+          <SettingsNav active={settingsSection} />
+          <div className="min-w-0">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">기준 정보</p>
           <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">가계부 관리</h1>
@@ -67,18 +63,6 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
         </div>
 
         <ActionNotice error={error ?? undefined} notice={saved ?? undefined} />
-
-        <nav aria-label="관리 메뉴" className="mt-6 flex gap-0 overflow-x-auto border-b border-finance-hairline">
-          {tabs.map((item) => (
-            <Link
-              className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-semibold ${tab === item.key ? 'border-finance-blue text-finance-blue' : 'border-transparent text-finance-muted hover:text-finance-ink'}`}
-              href={`/manage?tab=${item.key}`}
-              key={item.key}
-            >
-              {item.label} <span className="ml-1 bg-finance-track px-2 py-0.5 text-[11px] text-finance-muted">{tabCounts[item.key]}</span>
-            </Link>
-          ))}
-        </nav>
 
         {tab === 'accounts' && (
           <AccountsManager initialRows={data.accounts} />
@@ -120,19 +104,8 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
           </section>
         )}
 
-        {tab === 'unclassified' && (
-          <section className="mt-6 space-y-3">
-            {data.unclassified.length === 0 ? (
-              <div className="border-t border-finance-green py-12 text-center"><p className="font-semibold text-finance-green">미분류 거래가 없습니다.</p><p className="mt-2 text-xs text-finance-muted">현재 모든 거래에 카테고리가 연결되어 있습니다.</p></div>
-            ) : (
-              <BulkClassifyForm
-                categories={data.categories.filter((category) => !category.hidden)}
-                rows={data.unclassified}
-              />
-            )}
-            {data.counts.unclassified > data.unclassified.length && <p className="text-center text-xs text-zinc-500">최근 100개만 표시됩니다. 먼저 보이는 거래를 분류하면 다음 항목이 나타납니다.</p>}
-          </section>
-        )}
+          </div>
+        </div>
       </main>
     </div>
   )

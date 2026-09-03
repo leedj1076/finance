@@ -63,6 +63,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             <p className="mt-2 text-xs text-finance-muted">{data.month} · 순자산 = 총자산 − 부채</p>
           </div>
           <div className="flex items-center gap-2">
+            <Link className="h-[34px] border border-finance-hairline px-3 py-2 text-xs font-semibold text-finance-muted hover:text-finance-blue" href="/settings?section=assets">자산 계정 설정</Link>
             <Link aria-label="이전 달" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/assets?month=${data.previousMonth}`}>←</Link>
             <form action="/assets" className="flex items-center gap-2">
               <input aria-label="자산 기준 월" className="h-[34px] border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink" defaultValue={data.month} name="month" type="month" />
@@ -129,7 +130,13 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
           </article>
         </section>
 
-        <AssetForm groups={data.overview.groups} month={data.month} />
+        <details className="group mt-6 border-t border-finance-ink" id="balance-adjustment">
+          <summary className="flex cursor-pointer list-none items-center justify-between py-4 text-sm font-bold text-finance-ink">
+            <span>잔고 보정 <span className="ml-2 font-normal text-finance-muted">자동 스냅샷에 없는 계정이나 잔액만 직접 고칩니다</span></span>
+            <span className="text-finance-muted group-open:rotate-180" aria-hidden="true">⌄</span>
+          </summary>
+          <AssetForm balanceOnly groups={data.overview.groups} month={data.month} />
+        </details>
       </main>
     </div>
   )
