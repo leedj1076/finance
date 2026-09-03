@@ -51,7 +51,7 @@ export default async function RecurringPage({ searchParams }: RecurringPageProps
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">자동 입력</p>
           <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">정기거래 규칙</h1>
-          <p className="mt-2 t-caption text-finance-muted">매월 반복되는 수입·지출·저축의 규칙을 관리합니다. 월 반영은 거래 화면에서 실행합니다.</p>
+          <p className="mt-2 t-caption text-finance-muted">매월 반복되는 수입·지출·저축의 규칙을 관리합니다. 월 반영은 내역 화면에서 실행합니다.</p>
         </div>
 
         {saved && <p className="mt-5 border-l-2 border-finance-green bg-finance-green-tint px-4 py-3 text-[13px] text-finance-green">정기거래 규칙을 저장했습니다.</p>}
@@ -64,7 +64,7 @@ export default async function RecurringPage({ searchParams }: RecurringPageProps
         </section>
 
         <p className="mt-5 border-l-2 border-finance-blue bg-finance-blue-tint px-3 py-3 t-caption text-finance-blue">
-          {data.month} 기준 {data.generatedCount}/{data.activeCount}개가 반영되었습니다. <Link className="font-semibold underline underline-offset-2" href={`/ledger?month=${data.month}&tab=list`}>거래에서 반영 상태 확인 →</Link>
+          {data.month} 기준 {data.generatedCount}/{data.activeCount}개가 반영되었습니다. <Link className="font-semibold underline underline-offset-2" href={`/ledger?month=${data.month}&tab=list`}>내역에서 반영 상태 확인 →</Link>
         </p>
 
         <RecurringManager

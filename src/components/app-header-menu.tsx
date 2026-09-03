@@ -15,12 +15,13 @@ type AppHeaderMenuProps = {
 type MenuName = 'more' | 'settings' | null
 
 const primaryLinks: Array<{ key: HeaderSection; href: string; label: string; mobile?: boolean }> = [
-  // 왼쪽 다섯은 돈을 보는 화면(시간축 순), 맨 끝은 돈을 넣는 작업. 모바일 하단은 mobile: true 순서.
+  // 한국 가계부 앱의 표준 어휘(내역·예산·자산·통계), 자주 쓰는 순. 맨 끝은 돈을 넣는 작업.
+  // 모바일 하단은 mobile: true 순서.
   { key: 'dashboard', href: '/dashboard', label: '홈', mobile: true },
-  { key: 'ledger', href: '/ledger', label: '거래', mobile: true },
+  { key: 'ledger', href: '/ledger', label: '내역', mobile: true },
   { key: 'budgets', href: '/budgets', label: '예산', mobile: true },
-  { key: 'report', href: '/report', label: '연간' },
   { key: 'assets', href: '/assets', label: '자산' },
+  { key: 'report', href: '/report', label: '통계' },
   { key: 'inbox', href: '/inbox', label: '가져오기', mobile: true },
 ]
 
@@ -130,8 +131,8 @@ export function AppHeaderMenu({ active, email, pendingInboxCount }: AppHeaderMen
         {openMenu === 'more' && (
           <div className="finance-mobile-more" role="menu">
             <p>업무</p>
-            <Link className={navClass(active === 'report')} href="/report" role="menuitem">연간</Link>
             <Link className={navClass(active === 'assets')} href="/assets" role="menuitem">자산</Link>
+            <Link className={navClass(active === 'report')} href="/report" role="menuitem">통계</Link>
             <p>설정</p>
             {settingsLinks.map((link) => (
               <Link className={navClass(active === 'settings')} href={link.href} key={link.href} role="menuitem">

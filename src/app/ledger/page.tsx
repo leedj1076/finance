@@ -99,7 +99,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <p className="t-label uppercase text-finance-blue">월간 기록과 분석</p>
-            <h1 className="mt-2 t-page-title text-finance-ink">거래</h1>
+            <h1 className="mt-2 t-page-title text-finance-ink">내역</h1>
             <p className="mt-2 t-caption text-finance-muted">필터를 한 번 잡고 합계에서 거래 행까지 내려봅니다</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">

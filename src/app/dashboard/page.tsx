@@ -103,7 +103,7 @@ export default async function DashboardPage() {
           <h1 className="mt-2 t-page-title text-finance-ink">홈</h1>
           <p className="mt-2 t-caption text-finance-muted">
             {year}년 {Number(month.slice(5))}월 · {data.pace.elapsed}일 경과 / {data.pace.daysInMonth}일 · 모든 수치는 <strong className="font-semibold text-finance-ink">월 단위</strong>
-            {' · '}지난 달은 <Link className="font-semibold text-finance-blue" href={`/ledger?month=${data.previousMonth}&tab=list`}>거래</Link>, 다른 해는 <Link className="font-semibold text-finance-blue" href="/report">연간</Link>에서
+            {' · '}지난 달은 <Link className="font-semibold text-finance-blue" href={`/ledger?month=${data.previousMonth}&tab=list`}>내역</Link>, 다른 해는 <Link className="font-semibold text-finance-blue" href="/report">통계</Link>에서
           </p>
         </header>
 
@@ -217,7 +217,7 @@ export default async function DashboardPage() {
         <section className="border-b border-finance-border py-7">
           <div className="flex items-baseline justify-between gap-4">
             <div><h2 className="t-section text-finance-ink">카테고리별 추세</h2><p className="mt-1 t-caption text-finance-faint">최근 6개월 · 마지막 점이 이번 달</p></div>
-            <Link className="t-caption font-semibold text-finance-blue" href={`/report?year=${year}`}>연간 › 항목별 월별 표 →</Link>
+            <Link className="t-caption font-semibold text-finance-blue" href={`/report?year=${year}`}>통계 › 항목별 월별 표 →</Link>
           </div>
           {categoryRows.length > 0 ? (
             <div className="mt-4 overflow-x-auto border-t border-finance-ink">
@@ -244,7 +244,7 @@ export default async function DashboardPage() {
 
         <section className="grid gap-10 py-7 xl:grid-cols-[minmax(0,1.35fr)_minmax(420px,0.8fr)]">
           <article className="min-w-0">
-            <div className="flex items-baseline justify-between"><div><h2 className="t-section text-finance-ink">월별 수입 · 지출</h2><p className="mt-1 t-caption text-finance-faint">{year}년 1~{Number(month.slice(5))}월 · 다른 해는 연간에서</p></div><Link className="t-caption font-semibold text-finance-blue" href="/report">연간 →</Link></div>
+            <div className="flex items-baseline justify-between"><div><h2 className="t-section text-finance-ink">월별 수입 · 지출</h2><p className="mt-1 t-caption text-finance-faint">{year}년 1~{Number(month.slice(5))}월 · 다른 해는 통계에서</p></div><Link className="t-caption font-semibold text-finance-blue" href="/report">통계 →</Link></div>
             <div className="mt-5 overflow-x-auto"><MonthlyCashflowChart data={data.monthly} /></div>
             <p className="mt-2 t-caption text-finance-muted">올해 누적 · 수입 <strong className="text-finance-blue">{formatWon(data.annual.income)}</strong> · 지출 <strong className="text-finance-ink">{formatWon(data.annual.expense)}</strong> · 순저축 <strong className="text-finance-green">{formatWon(data.annual.netSaving)}</strong></p>
           </article>
