@@ -147,7 +147,6 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
         <StatsMonthlySection
           accountMonthly={dashboard.accountMonthly}
-          categoryMonthly={dashboard.categoryMonthly}
           details={categoryDetails}
           highlightedMajor={highlightedMajor}
           initialAxis={statsView.axis}

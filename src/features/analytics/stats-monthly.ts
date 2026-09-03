@@ -4,10 +4,7 @@ import type {
   CategoryDetailFlow,
   CategoryDetails,
 } from './category-detail'
-import type {
-  AccountMonthlyData,
-  CategoryMonthlyData,
-} from './account-monthly'
+import type { AccountMonthlyData } from './account-monthly'
 import { OTHER_SERIES_NAME, seriesColor } from './chart-theme'
 import type { SeriesChartKind, SeriesChartSeries } from './series-chart-geometry'
 
@@ -122,27 +119,35 @@ function latestActiveMonth(series: Array<Array<number | null>>) {
 
 function buildCategoryModel({
   detail,
-  monthly,
   excluded,
 }: {
   detail: CategoryDetail
-  monthly: CategoryMonthlyData
   excluded: ReadonlySet<string>
 }) {
-  const groups = new Map(detail.groups.map((group) => [group.major, group]))
   const rows: StatsMonthlyRow[] = []
   const series: SeriesChartSeries[] = []
+  const activeMonths = detail.months.at(-1) ?? 0
+  const groups = detail.groups
+    .map((group) => ({
+      group,
+      total: group.subs.reduce(
+        (sum, sub) => sum + sub.months.reduce((monthSum, value) => monthSum + value, 0),
+        0,
+      ),
+    }))
+    .filter((item) => item.total > 0)
+    .sort((left, right) => right.total - left.total)
 
-  monthly.categories.forEach((name, index) => {
+  groups.forEach(({ group }, index) => {
+    const name = group.major
     const id = statsSeriesId('category', name)
-    const group = groups.get(name)
-    const rawDisplay = monthly.series[name] ?? Array<number | null>(12).fill(null)
+    const rawDisplay = Array.from({ length: 12 }, (_, month) => (
+      month < activeMonths
+        ? group.subs.reduce((sum, sub) => sum + sub.months[month], 0)
+        : null
+    ))
     const rawValues = normalizedValues(rawDisplay)
-    const folded = name === OTHER_SERIES_NAME ? monthly.folded ?? [] : []
-    const label = name === OTHER_SERIES_NAME && folded.length > 0
-      ? `그 외 ${folded.length}개 대분류`
-      : name
-    const subs = (group?.subs ?? []).map((sub) => {
+    const subs = group.subs.map((sub) => {
       const values = sub.months.map((value, month) => (
         excluded.has(statsCellKey({ axis: 'category', label: name, sub: sub.sub, month }))
           ? 0
@@ -159,7 +164,6 @@ function buildCategoryModel({
     })
     const values = rawValues.map((rawValue, month) => {
       if (excluded.has(statsCellKey({ axis: 'category', label: name, month }))) return 0
-      if (!group) return rawValue
       const excludedSubTotal = group.subs.reduce((sum, sub) => (
         excluded.has(statsCellKey({ axis: 'category', label: name, sub: sub.sub, month }))
           ? sum + sub.months[month]
@@ -171,16 +175,16 @@ function buildCategoryModel({
     const color = seriesColor(index, name)
     rows.push({
       id,
-      label,
+      label: name,
       color,
       values,
       displayValues: rawDisplay,
       total: summary.total,
       average: summary.average,
-      folded,
+      folded: [],
       subs,
     })
-    series.push({ id, label, color, values })
+    series.push({ id, label: name, color, values })
   })
 
   return { rows, series }
@@ -231,14 +235,12 @@ export function buildStatsMonthlyModel({
   flow,
   axis,
   details,
-  categoryMonthly,
   accountMonthly,
   excluded,
 }: {
   flow: StatsMonthlyFlow
   axis: StatsMonthlyAxis
   details: CategoryDetails
-  categoryMonthly: Record<StatsMonthlyFlow, CategoryMonthlyData>
   accountMonthly: Record<'expense' | 'income', AccountMonthlyData>
   excluded: ReadonlySet<string>
 }): StatsMonthlyModel {
@@ -246,33 +248,32 @@ export function buildStatsMonthlyModel({
   const detail = details[flow]
   const result = effectiveAxis === 'account'
     ? buildAccountModel({ detail, monthly: accountMonthly.expense, excluded })
-    : buildCategoryModel({ detail, monthly: categoryMonthly[flow], excluded })
+    : buildCategoryModel({ detail, excluded })
   const monthTotals = Array.from({ length: 12 }, (_, month) => (
     result.series.reduce((sum, item) => sum + (item.values[month] ?? 0), 0)
   ))
   const currentMonthIndex = detail.currentMonth ? detail.currentMonth - 1 : null
   const total = monthTotals.reduce((sum, value) => sum + value, 0)
   const current = currentMonthIndex === null ? 0 : monthTotals[currentMonthIndex]
-  const rawSeries = effectiveAxis === 'account'
-    ? Object.values(accountMonthly.expense.series)
-    : Object.values(categoryMonthly[flow].series)
+  const activeMonths = effectiveAxis === 'account'
+    ? latestActiveMonth(Object.values(accountMonthly.expense.series))
+    : detail.months.at(-1) ?? 0
 
   return {
     ...result,
     monthTotals,
     total,
     average: categoryDetailMonthlyAverage(total, current, detail.divisor),
-    activeMonths: latestActiveMonth(rawSeries),
+    activeMonths,
     currentMonthIndex,
     divisor: detail.divisor,
   }
 }
 
-export function statsSparkline(values: number[], flow: StatsMonthlyFlow) {
-  const active = values.reduce<number[]>((result, value, month) => {
-    if (value > 0 || result.length > 0 || values.slice(month + 1).some((next) => next > 0)) result.push(value)
-    return result
-  }, [])
+export function statsSparkline(values: number[], flow: StatsMonthlyFlow, activeMonths = values.length) {
+  const relevant = values.slice(0, Math.max(0, Math.min(activeMonths, values.length)))
+  const firstValue = relevant.findIndex((value) => value > 0)
+  const active = firstValue < 0 ? [] : relevant.slice(firstValue)
   const points = active.slice(-6)
   if (points.length < 2) return null
   const max = Math.max(...points, 1)

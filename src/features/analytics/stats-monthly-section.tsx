@@ -12,13 +12,9 @@ import {
 
 import { formatWon } from '@/lib/finance'
 
-import type { AccountMonthlyData, CategoryMonthlyData } from './account-monthly'
+import type { AccountMonthlyData } from './account-monthly'
 import { toggleCategoryDetailCell } from './category-detail-calculations'
-import type {
-  CategoryDetailFlow,
-  CategoryDetails,
-  CellTransactionResult,
-} from './category-detail'
+import type { CategoryDetails, CellTransactionResult } from './category-detail'
 import { compactWon } from './chart-theme'
 import { buildSeriesChartGeometry } from './series-chart-geometry'
 import { SeriesChart, type SeriesChartKind } from './series-chart'
@@ -30,7 +26,6 @@ import {
   statsViewSearch,
   type StatsMonthlyAxis,
   type StatsMonthlyFlow,
-  type StatsMonthlyRow,
 } from './stats-monthly'
 
 const FLOW_LABELS: Record<StatsMonthlyFlow, string> = {
@@ -69,11 +64,21 @@ function trendDeltaColor(delta: number | null, flow: StatsMonthlyFlow) {
   return good ? 'text-finance-green' : 'text-finance-red'
 }
 
-function Sparkline({ row, flow }: { row: StatsMonthlyRow; flow: StatsMonthlyFlow }) {
-  const spark = statsSparkline(row.values, flow)
+function Sparkline({
+  values,
+  flow,
+  activeMonths,
+  label,
+}: {
+  values: number[]
+  flow: StatsMonthlyFlow
+  activeMonths: number
+  label: string
+}) {
+  const spark = statsSparkline(values, flow, activeMonths)
   if (!spark) return <span className="text-finance-faint">–</span>
   return (
-    <svg aria-label={`${row.label} 최근 추세`} className="h-5 w-20" role="img" viewBox="0 0 80 20">
+    <svg aria-label={`${label} 최근 추세`} className="h-5 w-20" role="img" viewBox="0 0 80 20">
       <polyline fill="none" points={spark.points} stroke={spark.color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
       <circle cx="78" cy={spark.lastY} fill={spark.color} r="2.5" />
     </svg>
@@ -83,7 +88,6 @@ function Sparkline({ row, flow }: { row: StatsMonthlyRow; flow: StatsMonthlyFlow
 export function StatsMonthlySection({
   year,
   details,
-  categoryMonthly,
   accountMonthly,
   highlightedMajor,
   initialFlow = 'expense',
@@ -92,7 +96,6 @@ export function StatsMonthlySection({
 }: {
   year: number
   details: CategoryDetails
-  categoryMonthly: Record<CategoryDetailFlow, CategoryMonthlyData>
   accountMonthly: Record<'expense' | 'income', AccountMonthlyData>
   highlightedMajor?: string
   initialFlow?: StatsMonthlyFlow
@@ -104,7 +107,7 @@ export function StatsMonthlySection({
   const [chart, setChart] = useState<SeriesChartKind>(initialChart)
   const [excluded, setExcluded] = useState<Set<string>>(() => new Set())
   const [expanded, setExpanded] = useState<Set<string>>(() => (
-    new Set(highlightedMajor ? [highlightedMajor] : [categoryMonthly.expense.categories[0]].filter(Boolean))
+    new Set(highlightedMajor ? [highlightedMajor] : [details.expense.groups[0]?.major].filter(Boolean))
   ))
   const [hoverSeries, setHoverSeries] = useState<string | null>(null)
   const [hoverMonth, setHoverMonth] = useState<number | null>(null)
@@ -121,10 +124,9 @@ export function StatsMonthlySection({
     flow,
     axis: effectiveAxis,
     details,
-    categoryMonthly,
     accountMonthly,
     excluded,
-  }), [accountMonthly, categoryMonthly, details, effectiveAxis, excluded, flow])
+  }), [accountMonthly, details, effectiveAxis, excluded, flow])
   const geometry = useMemo(
     () => buildSeriesChartGeometry(model.series, chart, model.activeMonths),
     [chart, model.activeMonths, model.series],
@@ -386,7 +388,7 @@ export function StatsMonthlySection({
                       })}
                       <div className="text-right font-bold tabular-nums text-finance-ink">{formatWon(row.total)}</div>
                       <div className="text-right tabular-nums text-finance-muted">{formatWon(row.average)}</div>
-                      <div className="flex justify-center"><Sparkline flow={flow} row={row} /></div>
+                      <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} flow={flow} label={row.label} values={row.values} /></div>
                     </div>
 
                     {isExpanded && row.subs.map((sub) => (
@@ -429,7 +431,7 @@ export function StatsMonthlySection({
                         })}
                         <div className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(sub.total)}</div>
                         <div className="text-right tabular-nums text-finance-muted">{formatWon(sub.average)}</div>
-                        <div />
+                        <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} flow={flow} label={`${sub.major} ${sub.label}`} values={sub.values} /></div>
                       </div>
                     ))}
                   </div>

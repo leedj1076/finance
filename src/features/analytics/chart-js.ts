@@ -62,7 +62,11 @@ const FALLBACK_PALETTE: FinanceChartPalette = {
   red: '#dc2626',
   green: '#16a34a',
   amber: '#d97706',
-  series: ['#2563eb', '#d97706', '#0d9488', '#be123c', '#7c3aed', '#4d7c0f'],
+  series: [
+    '#2563eb', '#d97706', '#0d9488', '#be123c', '#7c3aed', '#4d7c0f',
+    '#0891b2', '#ea580c', '#4f46e5', '#059669', '#c026d3', '#92400e',
+    '#0284c7', '#db2777', '#9333ea', '#65a30d', '#475569', '#ca8a04',
+  ],
   other: '#a1a1aa',
 }
 
@@ -113,7 +117,7 @@ export function alpha(color: string, opacity: number) {
 }
 
 export function resolveChartColor(color: string, palette: FinanceChartPalette) {
-  const seriesMatch = color.match(/^var\(--chart-(\d)\)$/)
+  const seriesMatch = color.match(/^var\(--chart-(\d+)\)$/)
   if (seriesMatch) return palette.series[Number(seriesMatch[1]) - 1] ?? palette.other
   if (color === 'var(--chart-other)') return palette.other
   const roles: Record<string, string> = {

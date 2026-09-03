@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'vitest'
 
-import type { AccountMonthlyData, CategoryMonthlyData } from '@/features/analytics/account-monthly'
+import type { AccountMonthlyData } from '@/features/analytics/account-monthly'
 import type { CategoryDetails } from '@/features/analytics/category-detail'
-import { CHART_OTHER } from '@/features/analytics/chart-theme'
 import {
   buildStatsMonthlyModel,
   parseStatsViewState,
   statsCellKey,
+  statsSparkline,
   statsViewSearch,
 } from '@/features/analytics/stats-monthly'
 
@@ -20,6 +20,12 @@ const details: CategoryDetails = {
       { major: '생활', subs: [
         { sub: '쇼핑', months: [50, 70, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
       ] },
+      { major: '교통', subs: [
+        { sub: '대중교통', months: [20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+      ] },
+      { major: '의료', subs: [
+        { sub: '병원', months: [0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+      ] },
     ],
     months: [1, 2],
     divisor: 2,
@@ -27,20 +33,6 @@ const details: CategoryDetails = {
   },
   income: { groups: [], months: [], divisor: 1, currentMonth: null },
   saving: { groups: [], months: [], divisor: 1, currentMonth: null },
-}
-
-const categoryMonthly: Record<'expense' | 'income' | 'saving', CategoryMonthlyData> = {
-  expense: {
-    categories: ['식비', '생활', '그 외'],
-    series: {
-      식비: [100, 100, null, null, null, null, null, null, null, null, null, null],
-      생활: [50, 70, null, null, null, null, null, null, null, null, null, null],
-      '그 외': [20, 30, null, null, null, null, null, null, null, null, null, null],
-    },
-    folded: ['교통', '의료'],
-  },
-  income: { categories: [], series: {} },
-  saving: { categories: [], series: {} },
 }
 
 const accountMonthly: Record<'expense' | 'income', AccountMonthlyData> = {
@@ -73,16 +65,17 @@ describe('stats monthly shared model', () => {
     })).toBe('year=2025&major=%EC%8B%9D%EB%B9%84&chart=area&flow=saving&axis=category')
   })
 
-  test('uses the same values, order, and colors for category rows and chart series', () => {
+  test('expands folded category data into every major for rows and chart series', () => {
     const model = buildStatsMonthlyModel({
-      flow: 'expense', axis: 'category', details, categoryMonthly, accountMonthly, excluded: new Set(),
+      flow: 'expense', axis: 'category', details, accountMonthly, excluded: new Set(),
     })
 
-    expect(model.series.map((item) => item.label)).toEqual(['식비', '생활', '그 외 2개 대분류'])
+    expect(model.series.map((item) => item.label)).toEqual(['식비', '생활', '의료', '교통'])
     expect(model.rows.map((row) => row.values)).toEqual(model.series.map((item) => item.values))
     expect(model.rows[0].subs.map((row) => row.label)).toEqual(['외식', '장보기'])
-    expect(model.rows[2].color).toBe(CHART_OTHER)
+    expect(model.rows.some((row) => row.label.startsWith('그 외'))).toBe(false)
     expect(model.monthTotals.slice(0, 2)).toEqual([170, 200])
+    expect(model.activeMonths).toBe(2)
   })
 
   test('removes an excluded subcategory cell from its parent series, total, and average', () => {
@@ -90,7 +83,7 @@ describe('stats monthly shared model', () => {
       statsCellKey({ axis: 'category', label: '식비', sub: '외식', month: 0 }),
     ])
     const model = buildStatsMonthlyModel({
-      flow: 'expense', axis: 'category', details, categoryMonthly, accountMonthly, excluded,
+      flow: 'expense', axis: 'category', details, accountMonthly, excluded,
     })
 
     expect(model.rows[0].values.slice(0, 2)).toEqual([60, 100])
@@ -102,11 +95,18 @@ describe('stats monthly shared model', () => {
 
   test('switches the shared chart and rows to the payment-method axis', () => {
     const model = buildStatsMonthlyModel({
-      flow: 'expense', axis: 'account', details, categoryMonthly, accountMonthly, excluded: new Set(),
+      flow: 'expense', axis: 'account', details, accountMonthly, excluded: new Set(),
     })
 
     expect(model.rows.map((row) => row.label)).toEqual(['DJ 카드', 'YJ 카드'])
     expect(model.series.map((item) => item.values.slice(0, 2))).toEqual([[90, 80], [80, 120]])
     expect(model.rows.every((row) => row.subs.length === 0)).toBe(true)
+  })
+
+  test('builds trends from recorded months instead of trailing future zeros', () => {
+    const trend = statsSparkline([100, 200, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'expense', 3)
+
+    expect(trend?.points.split(' ')).toHaveLength(3)
+    expect(trend?.lastY).toBe(3)
   })
 })

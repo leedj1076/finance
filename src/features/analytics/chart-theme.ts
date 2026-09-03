@@ -26,7 +26,9 @@ export const BAR_PAIR_GAP = 3
 export const BAR_STACK_WIDTH = 32
 export const DIMMED_OPACITY = 0.16
 
-// Categorical series: fixed order, never cycled. A 7th series is "그 외".
+// Categorical series: fixed order, never cycled. The extended palette keeps
+// the full household taxonomy distinguishable when annual stats show every
+// major category; "그 외" remains a dedicated neutral color for folded axes.
 export const CHART_SERIES = [
   'var(--chart-1)',
   'var(--chart-2)',
@@ -34,6 +36,18 @@ export const CHART_SERIES = [
   'var(--chart-4)',
   'var(--chart-5)',
   'var(--chart-6)',
+  'var(--chart-7)',
+  'var(--chart-8)',
+  'var(--chart-9)',
+  'var(--chart-10)',
+  'var(--chart-11)',
+  'var(--chart-12)',
+  'var(--chart-13)',
+  'var(--chart-14)',
+  'var(--chart-15)',
+  'var(--chart-16)',
+  'var(--chart-17)',
+  'var(--chart-18)',
 ] as const
 export const CHART_OTHER = 'var(--chart-other)'
 export const OTHER_SERIES_NAME = '그 외'
