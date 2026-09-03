@@ -21,27 +21,25 @@
       <span>우리집 가계부</span>
     </div>
     <div style="display: flex; align-items: center; gap: 28px; font-size: 13px; font-weight: 500; color: #71717a; height: 100%;">
-      <span>가계부</span>
-      <span style="color: #18181b; font-weight: 700; border-bottom: 2px solid #2563eb; display: inline-flex; white-space: nowrap; align-items: center; height: 100%; box-sizing: border-box; padding-top: 2px;">대시보드</span>
+      <span style="color: #18181b; font-weight: 700; border-bottom: 2px solid #2563eb; display: inline-flex; white-space: nowrap; align-items: center; height: 100%; box-sizing: border-box; padding-top: 2px;">홈</span>
+      <span>거래</span>
+      <span style="display: inline-flex; white-space: nowrap; align-items: center; gap: 6px;">가져오기 <span style="display: inline-grid; place-items: center; min-width: 17px; height: 17px; background: #dc2626; color: #fff; font-size: 10px; font-weight: 700; border-radius: 9px; padding: 0 4px;">12</span></span>
+      <span>예산</span>
+      <span>연간</span>
       <span>자산</span>
-      <span style="display: inline-flex; white-space: nowrap; align-items: center; gap: 6px;">인박스 <span style="display: inline-grid; place-items: center; min-width: 17px; height: 17px; background: #dc2626; color: #fff; font-size: 10px; font-weight: 700; border-radius: 9px; padding: 0 4px;">12</span></span>
-      <span>분석 ▾</span>
-      <span>설정 ▾</span>
     </div>
-    <div style="margin-left: auto; font-size: 11px; color: #a1a1aa;">user@example.com</div>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 14px;">
+      <span aria-label="설정" style="display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1px solid #e4e4e7; color: #71717a; font-size: 13px;">⚙</span>
+      <span style="display: inline-grid; place-items: center; width: 28px; height: 28px; background: #f4f4f5; color: #52525b; font-size: 11px; font-weight: 700;">DJ</span>
+    </div>
   </div>
 
   <!-- title -->
   <div style="padding: 36px 48px 0; display: flex; align-items: flex-end; justify-content: space-between;">
     <div>
-      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; color: #2563eb;">가계 현황</div>
-      <div style="margin-top: 8px; font-size: 30px; font-weight: 700; letter-spacing: -0.03em; line-height: 1;">대시보드</div>
-      <div style="margin-top: 8px; font-size: 12px; color: #71717a;">2026년 8월 · 20일 경과 / 31일 · 모든 수치는 <strong style="color: #52525b; font-weight: 600;">월 단위</strong></div>
-    </div>
-    <div style="display: flex; align-items: center; border: 1px solid #18181b;">
-      <span style="display: grid; place-items: center; width: 34px; height: 32px; border-right: 1px solid #18181b; font-size: 13px;">←</span>
-      <span style="display: grid; place-items: center; width: 88px; height: 32px; font-size: 13px; font-weight: 600;">2026년</span>
-      <span style="display: grid; place-items: center; width: 34px; height: 32px; border-left: 1px solid #18181b; font-size: 13px;">→</span>
+      <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; color: #2563eb;">이번 달</div>
+      <div style="margin-top: 8px; font-size: 30px; font-weight: 700; letter-spacing: -0.03em; line-height: 1;">홈</div>
+      <div style="margin-top: 8px; font-size: 12px; color: #71717a;">2026년 8월 · 20일 경과 / 31일 · 모든 수치는 <strong style="color: #52525b; font-weight: 600;">월 단위</strong> · 지난 달은 <span style="color: #2563eb; font-weight: 600;">거래</span>, 다른 해는 <span style="color: #2563eb; font-weight: 600;">연간</span>에서</div>
     </div>
   </div>
 
@@ -94,8 +92,12 @@
     </div>
   </div>
 
-  <!-- 알림: 최대 3줄, 사각 점 + 한 줄 -->
+  <!-- 해야 할 일: 최대 3줄, 사각 점 + 한 줄 -->
   <div style="margin: 0 48px; border-bottom: 1px solid #e4e4e7;">
+    <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 14px 0 4px;">
+      <div style="font-size: 12px; font-weight: 700;">해야 할 일 <span style="font-weight: 400; color: #71717a;">3건</span></div>
+      <div style="font-size: 11px; color: #a1a1aa;">이례적 지출 → 지출 속도 → 검토 대기 → 미분류 → 월말 리뷰 → 정기거래 순</div>
+    </div>
     <div style="display: flex; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 13px;">
       <span style="width: 7px; height: 7px; background: #dc2626; flex: none;"></span>
       <span style="font-weight: 600;">여행 284,000원</span>
@@ -110,9 +112,9 @@
     </div>
     <div style="display: flex; align-items: center; gap: 12px; padding: 11px 0; font-size: 13px;">
       <span style="width: 7px; height: 7px; background: #2563eb; flex: none;"></span>
-      <span style="font-weight: 600;">인박스 12건 대기</span>
+      <span style="font-weight: 600;">검토 대기 12건</span>
       <span style="color: #71717a;">분류를 확인하고 반영하세요</span>
-      <span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #2563eb;">확인 →</span>
+      <span style="margin-left: auto; font-size: 12px; font-weight: 600; color: #2563eb;">가져오기 →</span>
     </div>
   </div>
 
@@ -267,7 +269,7 @@
         <div style="font-size: 14px; font-weight: 700;">카테고리별 추세</div>
         <div style="margin-top: 3px; font-size: 11px; color: #a1a1aa;">최근 6개월 · 스파크라인의 마지막 점이 이번 달</div>
       </div>
-      <div style="font-size: 12px; font-weight: 600; color: #2563eb;">항목별 상세 →</div>
+      <div style="font-size: 12px; font-weight: 600; color: #2563eb;">연간 › 항목별 월별 표 →</div>
     </div>
     <div style="margin-top: 16px; border-top: 1px solid #18181b;">
       <div style="display: grid; grid-template-columns: 150px 130px 150px 110px 120px minmax(0, 1fr); padding: 9px 0; border-bottom: 1px solid #e4e4e7; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #71717a; align-items: center;">
@@ -336,7 +338,7 @@
       <div style="display: flex; align-items: baseline; justify-content: space-between;">
         <div>
           <div style="font-size: 14px; font-weight: 700;">월별 수입 · 지출</div>
-          <div style="margin-top: 3px; font-size: 11px; color: #a1a1aa;">2026년 · 단위 백만원</div>
+          <div style="margin-top: 3px; font-size: 11px; color: #a1a1aa;">2026년 1~8월 · 단위 백만원 · 다른 해는 연간에서</div>
         </div>
         <div style="display: flex; gap: 18px; font-size: 11px; color: #71717a; align-items: center;">
           <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 10px; height: 10px; background: #2563eb;"></span>수입</span>
@@ -356,6 +358,7 @@
       <div style="display: flex; margin-top: 8px;">
         <div style="flex: 1; text-align: center; font-size: 11px; color: #a1a1aa;">1월</div><div style="flex: 1; text-align: center; font-size: 11px; color: #a1a1aa;">2월</div><div style="flex: 1; text-align: center; font-size: 11px; color: #a1a1aa;">3월</div><div style="flex: 1; text-align: center; font-size: 11px; color: #a1a1aa;">4월</div><div style="flex: 1; text-align: center; font-size: 11px; color: #a1a1aa;">5월</div><div style="flex: 1; text-align: center; font-size: 11px; color: #a1a1aa;">6월</div><div style="flex: 1; text-align: center; font-size: 11px; color: #a1a1aa;">7월</div><div style="flex: 1; text-align: center; font-size: 11px; color: #a1a1aa;">8월</div>
       </div>
+      <div style="margin-top: 12px; font-size: 11px; color: #71717a;">올해 누적 · 수입 <strong style="color: #2563eb;">64,120,000</strong> · 지출 <strong style="color: #18181b;">43,870,000</strong> · 순저축 <strong style="color: #16a34a;">20,250,000</strong></div>
     </div>
 
     <div style="border-left: 1px solid #e4e4e7; padding-left: 44px;">
