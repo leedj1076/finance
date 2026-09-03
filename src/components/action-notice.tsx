@@ -21,15 +21,15 @@ export function ActionNotice({ notice, error }: { notice?: string; error?: strin
   useEffect(() => {
     if (!message) return
     setVisible(true)
-    const params = new URLSearchParams(searchParams.toString())
-    if (params.has('notice') || params.has('error') || params.has('saved')) {
+    const timer = setTimeout(() => {
+      setVisible(false)
+      const params = new URLSearchParams(searchParams.toString())
       params.delete('notice')
       params.delete('error')
       params.delete('saved')
       const query = params.toString()
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
-    }
-    const timer = setTimeout(() => setVisible(false), AUTO_DISMISS_MS)
+    }, AUTO_DISMISS_MS)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message])
@@ -49,7 +49,15 @@ export function ActionNotice({ notice, error }: { notice?: string; error?: strin
       <button
         aria-label="알림 닫기"
         className="shrink-0 p-1 leading-none opacity-60 hover:opacity-100"
-        onClick={() => setVisible(false)}
+        onClick={() => {
+          setVisible(false)
+          const params = new URLSearchParams(searchParams.toString())
+          params.delete('notice')
+          params.delete('error')
+          params.delete('saved')
+          const query = params.toString()
+          router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+        }}
         type="button"
       >
         ✕

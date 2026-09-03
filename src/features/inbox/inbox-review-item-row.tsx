@@ -106,6 +106,7 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
       <td className="px-3 py-3">
         <div className="flex items-center gap-2">
           <select
+            aria-label={`${item.merchant || '거래'} 거래 유형`}
             className="h-[30px] w-20 border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
             onChange={(event) => {
               const nextFlow = event.target.value as TransactionFlow
@@ -130,6 +131,7 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
           </select>
           <SuggestionBadges item={item} />
           <select
+            aria-label={`${item.merchant || '거래'} 카테고리`}
             className="h-[30px] min-w-44 flex-1 border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
             onChange={(event) =>
               setCategoryIds((current) => ({ ...current, [item.id]: event.target.value }))
@@ -147,6 +149,7 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
       </td>
       <td className="px-3 py-3">
         <select
+          aria-label={`${item.merchant || '거래'} 결제수단`}
           className="h-[30px] w-full border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
           onChange={(event) => setAccountIds((current) => ({
             ...current,

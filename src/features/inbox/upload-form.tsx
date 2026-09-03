@@ -230,7 +230,9 @@ function CardStatementForm({
       <div className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
         <span>기본 카드</span>
         <div
+          aria-label="자동 선택된 기본 카드"
           aria-live="polite"
+          data-account-id={matchedAccount?.id}
           className={`flex h-[34px] items-center justify-between gap-2 border px-3 text-[13px] font-normal normal-case tracking-normal ${matchedAccount ? 'border-finance-border bg-finance-panel text-finance-ink' : 'border-finance-red text-finance-red'}`}
         >
           <span>{matchedAccount?.name ?? '일치하는 카드 없음'}</span>

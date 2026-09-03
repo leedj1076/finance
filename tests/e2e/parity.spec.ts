@@ -77,7 +77,7 @@ async function createTestUser(
     .from('accounts')
     .insert({
       household_id: household.id,
-      name: 'Parity E2E 카드',
+      name: 'DJ 삼성카드',
       owner: 'DJ',
       type: 'card',
       active: true,
@@ -207,7 +207,8 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await page.getByRole('tab', { name: '카드사 명세서' }).click()
     await page.locator('select[name="issuer"]').selectOption('samsung')
     await page.locator('select[name="owner"]').selectOption('DJ')
-    await expect(page.locator('select[name="accountId"]')).toHaveValue(String(setup.accountId))
+    await expect(page.getByLabel('자동 선택된 기본 카드')).toContainText('DJ 삼성카드')
+    await expect(page.getByLabel('자동 선택된 기본 카드')).toHaveAttribute('data-account-id', String(setup.accountId))
     const fileInput = page.locator('input[name="file"]')
     await fileInput.setInputFiles(statementPath)
     expect(await fileInput.evaluate((input) => (input as HTMLInputElement).files?.[0]?.name))
@@ -218,10 +219,10 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     const inboxRow = page.getByRole('row').filter({ hasText: merchant })
     await expect(inboxRow).toHaveCount(1)
     await expect(inboxRow.getByRole('checkbox', { name: `${merchant} 선택` })).not.toBeChecked()
-    await page.getByRole('checkbox', { name: 'DJ · 삼성카드 그룹 선택' }).check()
+    await page.getByRole('checkbox', { name: 'DJ 삼성카드 그룹 선택' }).check()
     await expect(inboxRow.getByRole('checkbox', { name: `${merchant} 선택` })).toBeChecked()
-    await inboxRow.locator('select[name^="category_"]').selectOption(String(setup.categoryId))
-    await inboxRow.locator('select[name^="account_"]').selectOption(String(setup.accountId))
+    await inboxRow.getByRole('combobox', { name: `${merchant} 카테고리` }).selectOption(String(setup.categoryId))
+    await inboxRow.getByRole('combobox', { name: `${merchant} 결제수단` }).selectOption(String(setup.accountId))
     await page.getByRole('button', { name: '선택 반영' }).first().click()
 
     await expect(page).toHaveURL(/\/inbox\?notice=/)
@@ -231,7 +232,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await expect(ledgerRow).toHaveCount(1)
     await expect(ledgerRow).toContainText('5,000원')
     await expect(ledgerRow).toContainText('식비')
-    await expect(ledgerRow).toContainText('Parity E2E 카드')
+    await expect(ledgerRow).toContainText('DJ 삼성카드')
 
     const admin = createAdminClient()
     const { data: sourceRow, error: sourceError } = await admin
@@ -255,13 +256,14 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await page.getByRole('tab', { name: '카드사 명세서' }).click()
     await page.locator('select[name="issuer"]').selectOption('samsung')
     await page.locator('select[name="owner"]').selectOption('DJ')
-    await expect(page.locator('select[name="accountId"]')).toHaveValue(String(setup.accountId))
+    await expect(page.getByLabel('자동 선택된 기본 카드')).toContainText('DJ 삼성카드')
     await page.locator('input[name="file"]').setInputFiles(repeatStatementPath)
     await page.getByRole('button', { name: '인박스로 불러오기' }).click({ noWaitAfter: true })
 
-    await expect(page.getByText(/자동 분류 1건/)).toBeVisible()
-    await expect(page.getByText('자동 분류됨 1건')).toBeVisible()
-    await page.getByRole('button', { name: '1건 일괄 승인' }).click()
+    await expect(page.getByText(/자동 분류 1건/).first()).toBeVisible()
+    const repeatRow = page.getByRole('row').filter({ hasText: merchant })
+    await expect(repeatRow.getByText('자동 분류')).toBeVisible()
+    await repeatRow.getByRole('button', { name: `${merchant} 바로 반영` }).click()
     await expect(page.getByText('확인할 거래가 없습니다.')).toBeVisible()
 
     await page.getByRole('link', { name: '가계부', exact: true }).click()
@@ -287,8 +289,8 @@ test('dashboard category detail interaction and annual report navigation render'
     await expect(page.getByRole('tooltip')).toContainText('수입: 2,000,000원')
 
     const accountChart = page.getByRole('img', { name: '결제수단별 월간 금액 누적 막대 차트' })
-    await accountChart.locator('[aria-label="1월 Parity E2E 카드 500,000원"]').hover()
-    await expect(page.getByRole('tooltip')).toContainText('Parity E2E 카드: 500,000원')
+    await accountChart.locator('[aria-label="1월 DJ 삼성카드 500,000원"]').hover()
+    await expect(page.getByRole('tooltip')).toContainText('DJ 삼성카드: 500,000원')
 
     const categoryChart = page.getByRole('img', { name: '분류별 월간 추이' })
     await categoryChart.locator('[aria-label="분류별 차트 hover 영역"]').hover()
