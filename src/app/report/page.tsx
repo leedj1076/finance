@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { AnnualFlowOverview } from '@/features/analytics/annual-flow-overview'
 import { getCategoryDetails } from '@/features/analytics/category-detail'
 import { SavingsProgressRing } from '@/features/analytics/home-dashboard-charts'
 import { getDashboardData } from '@/features/analytics/queries'
@@ -20,15 +21,6 @@ type ReportPageProps = {
     major?: string | string[]
     year?: string | string[]
   }>
-}
-
-type MonthlyFlowRow = {
-  month: string
-  income: number
-  expense: number
-  saving: number
-  savingsRate: number
-  active: boolean
 }
 
 function signedWon(value: number) {
@@ -55,91 +47,6 @@ function yoyAmountText({
 function expenseDeltaPercent(delta: number, previous: number) {
   if (previous <= 0 || delta === 0) return null
   return (delta / previous) * 100
-}
-
-function AnnualFlowOverview({
-  monthly,
-  annualRate,
-  savingsTarget,
-}: {
-  monthly: MonthlyFlowRow[]
-  annualRate: number
-  savingsTarget: number
-}) {
-  const maxValue = Math.max(1, ...monthly.flatMap((item) => item.active ? [item.income, item.expense, item.saving] : []))
-  const currentMonthKey = currentMonthInKorea()
-  const gridColumns = '150px repeat(12, minmax(0, 1fr)) 110px 95px 90px'
-  const targetTop = Math.max(0, Math.min(37, ((50 - savingsTarget) / 50) * 40))
-
-  return (
-    <section className="border-b border-finance-hairline py-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-baseline sm:justify-between">
-        <div>
-          <h2 className="t-section text-finance-ink">수입 · 지출 · 저축</h2>
-          <p className="mt-1 t-caption text-finance-faint">월별 수입·지출·저축 납입과 순저축률 · 아래 표와 같은 12개 열</p>
-        </div>
-        <div className="flex flex-wrap gap-4 t-caption text-finance-muted">
-          <span><i className="mr-1.5 inline-block h-[9px] w-[9px] bg-finance-blue" />수입</span>
-          <span><i className="mr-1.5 inline-block h-[9px] w-[9px] bg-finance-ink" />지출</span>
-          <span><i className="mr-1.5 inline-block h-[9px] w-[9px] bg-finance-green" />저축 납입</span>
-          <span><i className="mr-1.5 inline-block h-[7px] w-[7px] border-2 border-finance-green" />순저축률</span>
-        </div>
-      </div>
-      <div className="mt-4 overflow-x-auto">
-        <div className="min-w-[1200px]">
-          <div className="grid h-[120px] items-end gap-x-1.5" style={{ gridTemplateColumns: gridColumns }}>
-            <div className="relative h-full t-axis text-finance-faint">
-              <span className="absolute right-2 top-0">{Math.round(maxValue / 10_000)}만</span>
-              <span className="absolute right-2 top-[52px]">{Math.round(maxValue / 20_000)}만</span>
-              <span className="absolute bottom-0 right-2">0</span>
-            </div>
-            {monthly.map((item) => {
-              const inProgress = item.month === currentMonthKey
-              return (
-                <div className={`relative flex h-[120px] items-end justify-center gap-0.5 border-t border-finance-track ${inProgress ? 'opacity-60' : ''}`} key={item.month}>
-                  <span className="absolute inset-x-0 top-[60px] border-t border-finance-track" />
-                  {item.active && (
-                    <>
-                      <span className="relative w-3 bg-finance-blue" style={{ height: `${Math.round((item.income / maxValue) * 118)}px` }} />
-                      <span className="relative w-3 bg-finance-ink" style={{ height: `${Math.round((item.expense / maxValue) * 118)}px` }} />
-                      <span className="relative w-3 bg-finance-green" style={{ height: `${Math.round((item.saving / maxValue) * 118)}px` }} />
-                    </>
-                  )}
-                </div>
-              )
-            })}
-            <div className="self-end text-right t-caption text-finance-muted">연 합계</div>
-            <div />
-            <div />
-          </div>
-          <div className="mt-2 grid h-11 items-center gap-x-1.5" style={{ gridTemplateColumns: gridColumns }}>
-            <div className="t-caption text-finance-muted">순저축률 <span className="text-finance-faint">· 목표 {formatRate(savingsTarget)}%</span></div>
-            <div className="relative col-span-12 h-11">
-              <span className="absolute inset-x-0 border-t-[1.5px] border-dashed border-finance-green" style={{ top: `${targetTop}px` }} />
-              <div className="absolute inset-0 grid grid-cols-12">
-                {monthly.map((item) => {
-                  const dotTop = Math.max(0, Math.min(37, ((50 - item.savingsRate) / 50) * 40))
-                  return (
-                    <div className="relative" key={item.month}>
-                      {item.active && (
-                        <>
-                          <span className={`absolute left-1/2 h-[7px] w-[7px] -translate-x-1/2 ${item.savingsRate >= savingsTarget ? 'bg-finance-green' : 'bg-finance-ink'} ${item.month === currentMonthKey ? 'opacity-60' : ''}`} style={{ top: `${dotTop}px` }} />
-                          <span className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap t-axis ${item.savingsRate < 20 ? 'text-finance-red' : 'text-finance-muted'}`} style={{ top: `${dotTop + 10}px` }}>{formatRate(item.savingsRate)}</span>
-                        </>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-            <div className={`text-right t-body-strong ${annualRate >= savingsTarget ? 'text-finance-green' : 'text-finance-ink'}`}>{formatRate(annualRate)}%</div>
-            <div className="text-right t-caption text-finance-muted">연 저축률</div>
-            <div />
-          </div>
-        </div>
-      </div>
-    </section>
-  )
 }
 
 export default async function ReportPage({ searchParams }: ReportPageProps) {
@@ -255,11 +162,15 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
             <h2 className="t-section text-finance-ink">어디에 썼나 <span className="ml-1 font-normal text-finance-muted">올해 지출 대분류 · 비중 · 전년 대비</span></h2>
             {data.topExpenses.length > 0 ? (
               <div className="mt-4 overflow-x-auto">
-                <ol className="min-w-[520px] space-y-2.5">
+                <div className="min-w-[520px] border-t border-finance-ink">
+                  <div className="grid grid-cols-[90px_minmax(0,1fr)_110px_58px_90px] items-center gap-x-3 border-b border-finance-hairline py-2 t-label text-finance-muted">
+                    <span>대분류</span><span /><span className="text-right">올해</span><span className="text-right">비중</span><span className="text-right">전년 대비</span>
+                  </div>
+                <ol>
                   {data.topExpenses.map((item) => {
                     const deltaPct = expenseDeltaPercent(item.delta, item.previous)
                     return (
-                      <li className="grid grid-cols-[90px_minmax(0,1fr)_100px_56px_90px] items-center gap-x-3 t-caption" key={item.major}>
+                      <li className="grid grid-cols-[90px_minmax(0,1fr)_110px_58px_90px] items-center gap-x-3 border-b border-finance-track py-2.5 t-caption" key={item.major}>
                         <span className="truncate font-semibold text-finance-ink">{item.major}</span>
                         <span className="h-1.5 bg-finance-track"><span className="block h-full bg-finance-ink" style={{ width: `${(item.amount / topExpenseMax) * 100}%` }} /></span>
                         <span className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(item.amount)}</span>
@@ -271,6 +182,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
                     )
                   })}
                 </ol>
+                </div>
               </div>
             ) : <p className="py-10 text-center t-body text-finance-muted">이 연도에는 지출 기록이 없습니다.</p>}
             {data.largestExpense && (
@@ -283,11 +195,11 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
             <h2 className="t-section text-finance-ink">가맹점 TOP <span className="ml-1 font-normal text-finance-muted">같은 가맹점 이름을 정규화해 집계</span></h2>
             <div className="mt-4 overflow-x-auto">
               <div className="min-w-[520px] border-t border-finance-ink">
-              <div className="grid grid-cols-[30px_minmax(0,1fr)_70px_120px_90px] border-b border-finance-hairline py-2 t-label text-finance-muted">
+              <div className="grid grid-cols-[30px_minmax(0,1fr)_70px_120px_90px] items-center border-b border-finance-hairline py-2 t-label text-finance-muted">
                 <span>#</span><span>가맹점</span><span className="text-right">건수</span><span className="text-right">올해</span><span className="text-right">전년 대비</span>
               </div>
               {data.topMerchants.map((merchant, index) => (
-                <div className="grid grid-cols-[30px_minmax(0,1fr)_70px_120px_90px] border-b border-finance-track py-2.5 t-caption" key={merchant.name}>
+                <div className="grid grid-cols-[30px_minmax(0,1fr)_70px_120px_90px] items-center border-b border-finance-track py-2.5 t-caption" key={merchant.name}>
                   <span className="text-finance-faint">{index + 1}</span>
                   <span className="truncate font-medium text-finance-ink">{merchant.name}</span>
                   <span className="text-right text-finance-muted">{merchant.count}건</span>

@@ -1,35 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import type { ChartData, ChartOptions, TooltipItem } from 'chart.js'
+import { useMemo, useState } from 'react'
+import { Bar } from 'react-chartjs-2'
 
 import { formatWon } from '@/lib/finance'
 
 import type { AccountMonthlyData } from './account-monthly'
 import {
-  BAR_STACK_WIDTH,
-  BOTTOM,
-  ChartFrame,
-  ChartLegendToggles,
-  Grid,
-  HEIGHT,
-  OTHER_SERIES_NAME,
-  TOP,
-  seriesColor,
-  tooltipAt,
-  xAt,
-} from './chart-primitives'
-import type { ChartTooltipState } from './chart-tooltip'
+  CHART_HEIGHT,
+  CHART_TICK_FONT,
+  CHART_TOOLTIP_FONT,
+  resolveChartColor,
+  useFinanceChartPalette,
+} from './chart-js'
+import { ChartLegendToggles } from './chart-primitives'
+import { OTHER_SERIES_NAME, compactWon, seriesColor } from './chart-theme'
 
 export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
   const [hidden, setHidden] = useState<Set<string>>(() => new Set())
-  const [tooltip, setTooltip] = useState<ChartTooltipState | null>(null)
-  const visibleAccounts = data.accounts.filter((account) => !hidden.has(account))
-  const monthTotals = Array.from({ length: 12 }, (_, index) => data.accounts.reduce(
-    (sum, account) => sum + (hidden.has(account) ? 0 : (data.series[account][index] ?? 0)),
-    0,
-  ))
-  const maxValue = Math.max(1, ...monthTotals)
-  const plotHeight = HEIGHT - TOP - BOTTOM
+  const palette = useFinanceChartPalette()
 
   function toggle(account: string) {
     setHidden((current) => {
@@ -38,8 +28,42 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
       else next.add(account)
       return next
     })
-    setTooltip(null)
   }
+
+  const chartData = useMemo<ChartData<'bar'>>(() => ({
+    labels: Array.from({ length: 12 }, (_, month) => `${month + 1}월`),
+    datasets: data.accounts.flatMap((account, index) => hidden.has(account) ? [] : [{
+      label: account === OTHER_SERIES_NAME && data.folded?.length ? `${OTHER_SERIES_NAME} (${data.folded.join(', ')})` : account,
+      data: data.series[account],
+      backgroundColor: resolveChartColor(seriesColor(index, account), palette),
+      borderColor: palette.background,
+      borderWidth: 0.5,
+      barPercentage: 0.72,
+      categoryPercentage: 0.82,
+    }]),
+  }), [data, hidden, palette])
+  const options = useMemo<ChartOptions<'bar'>>(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 450 },
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: palette.ink,
+        bodyColor: palette.background,
+        titleColor: palette.background,
+        titleFont: CHART_TOOLTIP_FONT,
+        bodyFont: { ...CHART_TICK_FONT, size: 11 },
+        padding: 11,
+        callbacks: { label: (context: TooltipItem<'bar'>) => `${context.dataset.label}: ${formatWon(Number(context.raw ?? 0))}원` },
+      },
+    },
+    scales: {
+      x: { stacked: true, border: { display: false }, grid: { display: false }, ticks: { color: palette.muted, font: CHART_TICK_FONT, maxRotation: 0 } },
+      y: { stacked: true, beginAtZero: true, border: { display: false }, grid: { color: palette.track, drawTicks: false }, ticks: { color: palette.faint, font: CHART_TICK_FONT, maxTicksLimit: 4, padding: 8, callback: (value) => compactWon(Number(value)) } },
+    },
+  }), [palette])
 
   return (
     <div>
@@ -49,48 +73,9 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
         label="결제수단 범례"
         onToggle={toggle}
       />
-      <ChartFrame onLeave={() => setTooltip(null)} tooltip={tooltip}>
-        {(width) => {
-          return (
-            <svg aria-label="결제수단별 월간 금액 누적 막대 차트" height={HEIGHT} role="img" viewBox={`0 0 ${width} ${HEIGHT}`} width={width}>
-              <Grid maxValue={maxValue} width={width} />
-              {Array.from({ length: 12 }, (_, monthIndex) => {
-                let cumulative = 0
-                return visibleAccounts.map((account) => {
-                  const accountIndex = data.accounts.indexOf(account)
-                  const value = data.series[account][monthIndex]
-                  if (value === null || value <= 0) return null
-                  const previous = cumulative
-                  cumulative += value
-                  const x = xAt(monthIndex, 12, width) - BAR_STACK_WIDTH / 2
-                  const y = TOP + plotHeight - (cumulative / maxValue) * plotHeight
-                  const barHeight = ((cumulative - previous) / maxValue) * plotHeight
-                  const color = seriesColor(accountIndex, account)
-                  const label = account === OTHER_SERIES_NAME && data.folded?.length
-                    ? `${OTHER_SERIES_NAME} (${data.folded.join(', ')})`
-                    : account
-                  const rows = [{ color, label, value }]
-                  return (
-                    <rect
-                      aria-label={`${monthIndex + 1}월 ${account} ${formatWon(value)}원`}
-                      className="chart-bar-enter"
-                      fill={color}
-                      height={barHeight}
-                      key={`${account}-${monthIndex}`}
-                      onPointerEnter={(event) => setTooltip(tooltipAt(event, `${monthIndex + 1}월`, rows))}
-                      onPointerMove={(event) => setTooltip(tooltipAt(event, `${monthIndex + 1}월`, rows))}
-                      width={BAR_STACK_WIDTH}
-                      x={x}
-                      y={y}
-                      style={{ animationDelay: `${monthIndex * 35}ms` }}
-                    />
-                  )
-                })
-              })}
-            </svg>
-          )
-        }}
-      </ChartFrame>
+      <div className="relative w-full" style={{ height: CHART_HEIGHT }}>
+        <Bar aria-label="결제수단별 월간 금액 누적 막대 차트" data={chartData} options={options} role="img" />
+      </div>
     </div>
   )
 }

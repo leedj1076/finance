@@ -1,18 +1,26 @@
 'use client'
 
-import type { MouseEvent } from 'react'
+import type { ChartData, ChartOptions } from 'chart.js'
+import { useMemo } from 'react'
+import { Bar, Line } from 'react-chartjs-2'
 
 import {
-  buildSeriesChartGeometry,
-  hitTestSeriesChart,
-  SERIES_MONTH_SLOT,
-  SERIES_PLOT_HEIGHT,
-  SERIES_PLOT_WIDTH,
-  type SeriesChartKind,
-  type SeriesChartSeries,
-} from './series-chart-geometry'
+  CHART_LINE_WIDTH,
+  CHART_LINE_WIDTH_ACTIVE,
+  CHART_POINT_RADIUS_ACTIVE,
+  alpha,
+  resolveChartColor,
+  useFinanceChartPalette,
+} from './chart-js'
+import type { SeriesChartKind, SeriesChartSeries } from './series-chart-geometry'
 
 export * from './series-chart-geometry'
+
+function normalizedPercent(series: SeriesChartSeries[], seriesIndex: number, month: number) {
+  const total = series.reduce((sum, row) => sum + Math.max(row.values[month] ?? 0, 0), 0)
+  if (total <= 0) return 0
+  return (Math.max(series[seriesIndex].values[month] ?? 0, 0) / total) * 100
+}
 
 export function SeriesChart({
   series,
@@ -31,90 +39,95 @@ export function SeriesChart({
   hoverMonth: number | null
   onHover: (seriesId: string | null, month: number | null) => void
 }) {
-  const geometry = buildSeriesChartGeometry(series, kind, activeMonths)
+  const palette = useFinanceChartPalette()
+  const labels = useMemo(() => Array.from({ length: 12 }, (_, month) => `${month + 1}월`), [])
+  const isBar = kind === 'stacked'
 
-  function opacityFor(seriesId: string, month?: number) {
-    const seriesOpacity = hoverSeries && hoverSeries !== seriesId ? 0.18 : 1
-    return month === currentMonthIndex ? seriesOpacity * 0.6 : seriesOpacity
-  }
+  const data = useMemo<ChartData<'bar'> | ChartData<'line'>>(() => {
+    const datasets = series.map((row, seriesIndex) => {
+      const color = resolveChartColor(row.color, palette)
+      const dimmed = hoverSeries !== null && hoverSeries !== row.id
+      const values = Array.from({ length: 12 }, (_, month) => {
+        if (month >= activeMonths) return null
+        return kind === 'area' ? normalizedPercent(series, seriesIndex, month) : row.values[month] ?? 0
+      })
 
-  function handleMouseMove(event: MouseEvent<SVGSVGElement>) {
-    const bounds = event.currentTarget.getBoundingClientRect()
-    const hit = hitTestSeriesChart({
-      series,
-      kind,
-      activeMonths,
-      xRatio: (event.clientX - bounds.left) / Math.max(bounds.width, 1),
-      yRatio: (event.clientY - bounds.top) / Math.max(bounds.height, 1),
+      if (isBar) {
+        return {
+          id: row.id,
+          label: row.label,
+          data: values,
+          backgroundColor: values.map((_, month) => alpha(color, dimmed ? 0.16 : month === currentMonthIndex ? 0.58 : 1)),
+          borderColor: palette.background,
+          borderWidth: 0.5,
+          barPercentage: 0.72,
+          categoryPercentage: 0.82,
+        }
+      }
+
+      return {
+        id: row.id,
+        label: row.label,
+        data: values,
+        backgroundColor: kind === 'area' ? alpha(color, dimmed ? 0.08 : 0.72) : color,
+        borderColor: alpha(color, dimmed ? 0.16 : 1),
+        borderWidth: hoverSeries === row.id ? CHART_LINE_WIDTH_ACTIVE : CHART_LINE_WIDTH,
+        fill: kind === 'area' ? 'origin' : false,
+        pointBackgroundColor: color,
+        pointBorderColor: palette.background,
+        pointBorderWidth: 1.5,
+        pointRadius: (context: { dataIndex: number }) => context.dataIndex === hoverMonth ? CHART_POINT_RADIUS_ACTIVE : 0,
+        pointHoverRadius: CHART_POINT_RADIUS_ACTIVE,
+        tension: kind === 'line' ? 0.22 : 0,
+      }
     })
-    onHover(hit?.seriesId ?? null, hit?.month ?? null)
-  }
+    return { labels, datasets } as ChartData<'bar'> | ChartData<'line'>
+  }, [activeMonths, currentMonthIndex, hoverMonth, hoverSeries, isBar, kind, labels, palette, series])
+
+  const commonOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 300 },
+    interaction: { mode: 'nearest' as const, intersect: false },
+    onHover: (_event: unknown, elements: Array<{ datasetIndex: number; index: number }>) => {
+      const element = elements[0]
+      if (!element || element.index >= activeMonths) {
+        onHover(null, null)
+        return
+      }
+      onHover(series[element.datasetIndex]?.id ?? null, element.index)
+    },
+    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+    scales: {
+      x: {
+        stacked: true,
+        offset: true,
+        display: false,
+        border: { display: false },
+        grid: { display: false },
+      },
+      y: {
+        stacked: kind !== 'line',
+        beginAtZero: true,
+        max: kind === 'area' ? 100 : undefined,
+        display: true,
+        border: { display: false },
+        grid: { color: palette.track, drawTicks: false },
+        ticks: { display: false },
+      },
+    },
+  }), [activeMonths, kind, onHover, palette.track, series])
 
   return (
-    <svg
+    <div
       aria-label={`${kind === 'stacked' ? '누적 막대' : kind === 'line' ? '선' : '100% 누적 영역'} 월별 차트`}
-      className="block h-[220px] w-full"
+      className="relative block h-[220px] w-full"
       onMouseLeave={() => onHover(null, null)}
-      onMouseMove={handleMouseMove}
-      preserveAspectRatio="none"
       role="img"
-      viewBox={`0 0 ${SERIES_PLOT_WIDTH} ${SERIES_PLOT_HEIGHT}`}
     >
-      <line stroke="var(--finance-track)" x1="0" x2={SERIES_PLOT_WIDTH} y1="1" y2="1" />
-      <line stroke="var(--finance-track)" x1="0" x2={SERIES_PLOT_WIDTH} y1="110" y2="110" />
-      <line stroke="var(--finance-border)" x1="0" x2={SERIES_PLOT_WIDTH} y1="219" y2="219" />
-
-      {kind === 'area' && geometry.areas.map((area) => (
-        <polygon
-          fill={area.color}
-          key={area.seriesId}
-          opacity={opacityFor(area.seriesId)}
-          points={area.points}
-          stroke="var(--finance-bg)"
-          strokeWidth="1"
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
-      {kind === 'stacked' && geometry.bars.map((bar) => (
-        <rect
-          fill={bar.color}
-          height={bar.height}
-          key={`${bar.seriesId}:${bar.month}`}
-          opacity={opacityFor(bar.seriesId, bar.month)}
-          stroke="var(--finance-bg)"
-          strokeWidth="1"
-          vectorEffect="non-scaling-stroke"
-          width={bar.width}
-          x={bar.x}
-          y={bar.y}
-        />
-      ))}
-      {kind === 'line' && geometry.lines.map((line) => (
-        <polyline
-          fill="none"
-          key={line.seriesId}
-          opacity={opacityFor(line.seriesId)}
-          points={line.points}
-          stroke={line.color}
-          strokeLinejoin="round"
-          strokeWidth={hoverSeries === line.seriesId ? 2.5 : 2}
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
-
-      {hoverMonth !== null && hoverMonth < activeMonths && (
-        <rect
-          fill="transparent"
-          height={SERIES_PLOT_HEIGHT}
-          pointerEvents="none"
-          stroke="var(--finance-ink)"
-          strokeOpacity="0.08"
-          vectorEffect="non-scaling-stroke"
-          width={SERIES_MONTH_SLOT}
-          x={hoverMonth * SERIES_MONTH_SLOT}
-          y="0"
-        />
-      )}
-    </svg>
+      {isBar
+        ? <Bar data={data as ChartData<'bar'>} options={commonOptions as ChartOptions<'bar'>} />
+        : <Line data={data as ChartData<'line'>} options={commonOptions as ChartOptions<'line'>} />}
+    </div>
   )
 }

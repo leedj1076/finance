@@ -185,7 +185,7 @@ export default async function DashboardPage() {
               <Link className="t-caption font-semibold text-finance-blue" href="/assets">자산 보기 →</Link>
             </div>
             {netWorth.length > 0 ? (
-              <div className="mt-5 overflow-x-auto"><NetWorthChart data={netWorth.map((point) => ({ ...point, debt: point.liabilities, active: true }))} /></div>
+              <div className="mt-5 min-w-0"><NetWorthChart data={netWorth.map((point) => ({ ...point, debt: point.liabilities, active: true }))} /></div>
             ) : (
               <p className="mt-5 grid min-h-[260px] place-items-center border-y border-finance-border t-body text-finance-muted">자산을 입력하면 12개월 추이가 보입니다.</p>
             )}
@@ -193,7 +193,7 @@ export default async function DashboardPage() {
           <article className="min-w-0 xl:border-l xl:border-finance-border xl:pl-10">
             <div><h2 className="t-section text-finance-ink">이번 달 돈의 흐름</h2><p className="mt-1 t-caption text-finance-faint">수입에서 지출과 저축 납입을 차례로 차감</p></div>
             {data.current.income + data.current.expense + data.current.saving > 0 ? (
-              <div className="mt-5 overflow-x-auto"><CashflowWaterfall cashRemaining={data.current.cashRemaining} fixedExpense={data.current.fixedExpense} income={data.current.income} saving={data.current.saving} variableExpense={data.current.variableExpense} /></div>
+              <div className="mt-5 min-w-0"><CashflowWaterfall cashRemaining={data.current.cashRemaining} fixedExpense={data.current.fixedExpense} income={data.current.income} saving={data.current.saving} variableExpense={data.current.variableExpense} /></div>
             ) : (
               <p className="mt-5 grid min-h-[220px] place-items-center border-y border-finance-border t-body text-finance-muted">이번 달 거래를 입력하면 돈의 흐름이 보입니다.</p>
             )}
@@ -245,12 +245,12 @@ export default async function DashboardPage() {
         <section className="grid gap-10 py-7 xl:grid-cols-[minmax(0,1.35fr)_minmax(420px,0.8fr)]">
           <article className="min-w-0">
             <div className="flex items-baseline justify-between"><div><h2 className="t-section text-finance-ink">월별 수입 · 지출</h2><p className="mt-1 t-caption text-finance-faint">{year}년 1~{Number(month.slice(5))}월 · 다른 해는 통계에서</p></div><Link className="t-caption font-semibold text-finance-blue" href="/report">통계 →</Link></div>
-            <div className="mt-5 overflow-x-auto"><MonthlyCashflowChart data={data.monthly} /></div>
+            <div className="mt-5 min-w-0"><MonthlyCashflowChart data={data.monthly} /></div>
             <p className="mt-2 t-caption text-finance-muted">올해 누적 · 수입 <strong className="text-finance-blue">{formatWon(data.annual.income)}</strong> · 지출 <strong className="text-finance-ink">{formatWon(data.annual.expense)}</strong> · 순저축 <strong className="text-finance-green">{formatWon(data.annual.netSaving)}</strong></p>
           </article>
           <article className="min-w-0 xl:border-l xl:border-finance-border xl:pl-10">
             <div><h2 className="t-section text-finance-ink">월별 저축률</h2><p className="mt-1 t-caption text-finance-faint">점선 = 목표 {formatRate(data.savingsTarget)}% · 연 누적 {formatRate(data.annual.savingsRate)}%</p></div>
-            <div className="mt-4 overflow-x-auto"><SavingsRateChart data={data.monthly} target={data.savingsTarget} /></div>
+            <div className="mt-4 min-w-0"><SavingsRateChart data={data.monthly} target={data.savingsTarget} /></div>
             <p className="mt-2 t-caption text-finance-muted">목표 달성 <strong className="text-finance-green">{targetReached.length}개월</strong>{bestMonth && <> · 최고 {Number(bestMonth.month.slice(5))}월 {formatRate(bestMonth.savingsRate)}%</>}{worstMonth && <> · 최저 {Number(worstMonth.month.slice(5))}월 {formatRate(worstMonth.savingsRate)}%</>}</p>
           </article>
         </section>

@@ -1,30 +1,27 @@
 'use client'
 
+import type { ChartData, ChartOptions, TooltipItem } from 'chart.js'
 import Link from 'next/link'
-import { useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useMemo, useState } from 'react'
+import { Line } from 'react-chartjs-2'
+
+import { formatWon } from '@/lib/finance'
 
 import type { CategoryMonthlyData } from './account-monthly'
 import {
-  BOTTOM,
-  ChartFrame,
-  ChartLegendToggles,
-  DIMMED_OPACITY,
-  Grid,
-  HEIGHT,
-  LEFT,
-  LINE_WIDTH,
-  LINE_WIDTH_ACTIVE,
-  OTHER_SERIES_NAME,
-  POINT_RADIUS,
-  POINT_RADIUS_ACTIVE,
-  TOP,
-  coordinates,
-  pathFor,
-  plotWidthFor,
-  pointerPosition,
-  seriesColor,
-} from './chart-primitives'
-import type { ChartTooltipState } from './chart-tooltip'
+  CHART_HEIGHT,
+  CHART_LINE_WIDTH,
+  CHART_LINE_WIDTH_ACTIVE,
+  CHART_POINT_RADIUS,
+  CHART_POINT_RADIUS_ACTIVE,
+  CHART_TICK_FONT,
+  CHART_TOOLTIP_FONT,
+  alpha,
+  resolveChartColor,
+  useFinanceChartPalette,
+} from './chart-js'
+import { ChartLegendToggles } from './chart-primitives'
+import { DIMMED_OPACITY, OTHER_SERIES_NAME, compactWon, seriesColor } from './chart-theme'
 
 export function CategoryMonthlyChart({
   data,
@@ -35,13 +32,7 @@ export function CategoryMonthlyChart({
 }) {
   const [hidden, setHidden] = useState<Set<string>>(() => new Set())
   const [hovered, setHovered] = useState<string | null>(null)
-  const [tooltip, setTooltip] = useState<ChartTooltipState | null>(null)
-  const visibleCategories = data.categories.filter((category) => !hidden.has(category))
-  const maxValue = Math.max(
-    1,
-    ...visibleCategories.flatMap((category) => data.series[category])
-      .filter((value): value is number => value !== null),
-  )
+  const palette = useFinanceChartPalette()
 
   function toggle(category: string) {
     setHidden((current) => {
@@ -51,53 +42,50 @@ export function CategoryMonthlyChart({
       return next
     })
     setHovered(null)
-    setTooltip(null)
   }
 
-  function showNearestCategory(event: ReactPointerEvent<SVGElement>, width: number) {
-    const position = pointerPosition(event)
-    let nearest: { category: string; color: string; distance: number } | null = null
-
-    for (const category of visibleCategories) {
-      const points = coordinates(data.series[category], maxValue, 0, width)
-      let distance = Number.POSITIVE_INFINITY
-
-      points.forEach((point) => {
-        if (point.y === null) return
-        distance = Math.min(distance, Math.hypot(position.x - point.x, position.y - point.y))
-      })
-      for (let index = 1; index < points.length; index += 1) {
-        const start = points[index - 1]
-        const end = points[index]
-        if (start.y === null || end.y === null) continue
-        const dx = end.x - start.x
-        const dy = end.y - start.y
-        const lengthSquared = dx * dx + dy * dy
-        const progress = lengthSquared === 0 ? 0 : Math.min(1, Math.max(0,
-          ((position.x - start.x) * dx + (position.y - start.y) * dy) / lengthSquared,
-        ))
-        distance = Math.min(distance, Math.hypot(position.x - (start.x + progress * dx), position.y - (start.y + progress * dy)))
-      }
-
-      const color = seriesColor(data.categories.indexOf(category), category)
-      if (!nearest || distance < nearest.distance) nearest = { category, color, distance }
-    }
-
-    if (!nearest) {
-      setHovered(null)
-      setTooltip(null)
-      return
-    }
-
-    const rows = data.series[nearest.category].flatMap((value, index) => value === null
-      ? []
-      : [{ color: nearest.color, label: `${index + 1}월`, separator: '  ', value }])
-    const title = nearest.category === OTHER_SERIES_NAME && data.folded?.length
-      ? `${OTHER_SERIES_NAME} · ${data.folded.join(', ')}`
-      : nearest.category
-    setHovered(nearest.category)
-    setTooltip({ ...position, title, rows })
-  }
+  const chartData = useMemo<ChartData<'line'>>(() => ({
+    labels: Array.from({ length: 12 }, (_, month) => `${month + 1}월`),
+    datasets: data.categories.flatMap((category, index) => {
+      if (hidden.has(category)) return []
+      const color = resolveChartColor(seriesColor(index, category), palette)
+      const active = hovered === category
+      const dimmed = hovered !== null && !active
+      return [{
+        label: category === OTHER_SERIES_NAME && data.folded?.length ? `${OTHER_SERIES_NAME} (${data.folded.join(', ')})` : category,
+        data: data.series[category],
+        borderColor: alpha(color, dimmed ? DIMMED_OPACITY : 1),
+        backgroundColor: color,
+        borderWidth: active ? CHART_LINE_WIDTH_ACTIVE : CHART_LINE_WIDTH,
+        pointRadius: active ? CHART_POINT_RADIUS_ACTIVE : CHART_POINT_RADIUS,
+        pointHoverRadius: CHART_POINT_RADIUS_ACTIVE,
+        tension: 0.22,
+      }]
+    }),
+  }), [data, hidden, hovered, palette])
+  const options = useMemo<ChartOptions<'line'>>(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 400 },
+    interaction: { mode: 'nearest', intersect: false },
+    onHover: (_event, elements) => setHovered(elements[0] ? data.categories.filter((name) => !hidden.has(name))[elements[0].datasetIndex] ?? null : null),
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: palette.ink,
+        bodyColor: palette.background,
+        titleColor: palette.background,
+        titleFont: CHART_TOOLTIP_FONT,
+        bodyFont: { ...CHART_TICK_FONT, size: 11 },
+        padding: 11,
+        callbacks: { label: (context: TooltipItem<'line'>) => `${context.dataset.label}: ${formatWon(Number(context.raw ?? 0))}원` },
+      },
+    },
+    scales: {
+      x: { border: { display: false }, grid: { display: false }, ticks: { color: palette.muted, font: CHART_TICK_FONT, maxRotation: 0 } },
+      y: { beginAtZero: true, border: { display: false }, grid: { color: palette.track, drawTicks: false }, ticks: { color: palette.faint, font: CHART_TICK_FONT, maxTicksLimit: 4, padding: 8, callback: (value) => compactWon(Number(value)) } },
+    },
+  }), [data.categories, hidden, palette])
 
   return (
     <div>
@@ -117,64 +105,9 @@ export function CategoryMonthlyChart({
           </Link>
         ) : undefined}
       />
-      <ChartFrame
-        onLeave={() => {
-          setHovered(null)
-          setTooltip(null)
-        }}
-        tooltip={tooltip}
-      >
-        {(width) => (
-          <svg aria-label="분류별 월간 추이" height={HEIGHT} role="img" viewBox={`0 0 ${width} ${HEIGHT}`} width={width}>
-            <Grid maxValue={maxValue} width={width} />
-            {data.categories.map((category, index) => {
-              if (hidden.has(category)) return null
-              const color = seriesColor(index, category)
-              const points = coordinates(data.series[category], maxValue, 0, width)
-              const dimmed = hovered !== null && hovered !== category
-              const active = hovered === category
-              return (
-                <g key={category} opacity={dimmed ? DIMMED_OPACITY : 1}>
-                  <path
-                    aria-label={`${category} 월별 금액`}
-                    className="chart-line-enter"
-                    d={pathFor(points)}
-                    fill="none"
-                    pathLength={1}
-                    pointerEvents="none"
-                    stroke={color}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={active ? LINE_WIDTH_ACTIVE : LINE_WIDTH}
-                  />
-                  {points.map((point, monthIndex) => point.y === null ? null : (
-                    <circle
-                      className="chart-point-enter"
-                      cx={point.x}
-                      cy={point.y}
-                      fill={color}
-                      key={monthIndex}
-                      pointerEvents="none"
-                      r={active ? POINT_RADIUS_ACTIVE : POINT_RADIUS}
-                      style={{ animationDelay: `${180 + monthIndex * 28}ms` }}
-                    />
-                  ))}
-                </g>
-              )
-            })}
-            <rect
-              aria-label="분류별 차트 hover 영역"
-              fill="transparent"
-              height={HEIGHT - TOP - BOTTOM}
-              onPointerEnter={(event) => showNearestCategory(event, width)}
-              onPointerMove={(event) => showNearestCategory(event, width)}
-              width={plotWidthFor(width)}
-              x={LEFT}
-              y={TOP}
-            />
-          </svg>
-        )}
-      </ChartFrame>
+      <div className="relative w-full" onMouseLeave={() => setHovered(null)} style={{ height: CHART_HEIGHT }}>
+        <Line aria-label="분류별 월간 추이" data={chartData} options={options} role="img" />
+      </div>
     </div>
   )
 }

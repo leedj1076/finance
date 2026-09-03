@@ -108,7 +108,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
           <article className="overflow-hidden border-t border-finance-ink pt-4">
             <h2 className="t-section text-finance-ink">{data.year}년 순자산 추이</h2>
             <p className="mt-1 t-caption text-finance-muted">미입력 월은 직전 잔액을 이어서 계산합니다.</p>
-            <div className="mt-5 overflow-x-auto"><NetWorthChart data={data.trend} /></div>
+            <div className="mt-5 min-w-0"><NetWorthChart data={data.trend} /></div>
           </article>
           <article className="border-t border-finance-ink pt-4">
             <h2 className="t-section text-finance-ink">자산 배분</h2>

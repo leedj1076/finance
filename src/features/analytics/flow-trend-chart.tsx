@@ -1,26 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import type { ChartData, ChartOptions, TooltipItem } from 'chart.js'
+import { useMemo } from 'react'
+import { Line } from 'react-chartjs-2'
 
 import { formatWon } from '@/lib/finance'
 
 import {
-  BOTTOM,
-  ChartFrame,
-  Grid,
-  HEIGHT,
-  LEFT,
-  LINE_WIDTH,
-  POINT_RADIUS,
-  ROLE,
-  TOP,
-  coordinates,
-  monthLabel,
-  pathFor,
-  plotWidthFor,
-  tooltipAt,
-} from './chart-primitives'
-import type { ChartTooltipState } from './chart-tooltip'
+  CHART_HEIGHT,
+  CHART_LINE_WIDTH,
+  CHART_POINT_RADIUS,
+  CHART_POINT_RADIUS_ACTIVE,
+  CHART_TICK_FONT,
+  CHART_TOOLTIP_FONT,
+  useFinanceChartPalette,
+} from './chart-js'
+import { compactWon, monthLabel } from './chart-theme'
 
 type TrendPoint = {
   month: string
@@ -29,40 +24,47 @@ type TrendPoint = {
 }
 
 export function FlowTrendChart({ data, label, tone }: { data: TrendPoint[]; label: string; tone: 'blue' | 'emerald' | 'rose' }) {
-  const [tooltip, setTooltip] = useState<ChartTooltipState | null>(null)
-  const values = data.map((item) => item.active ? item.amount : null)
-  const maxValue = Math.max(1, ...values.filter((value): value is number => value !== null))
-  const color = tone === 'blue' ? ROLE.income : tone === 'emerald' ? ROLE.saving : ROLE.over
-  const months = data.map((item, index) => monthLabel(item.month, index))
+  const palette = useFinanceChartPalette()
+  const color = tone === 'blue' ? palette.blue : tone === 'emerald' ? palette.green : palette.red
+  const chartData = useMemo<ChartData<'line'>>(() => ({
+    labels: data.map((row, index) => monthLabel(row.month, index)),
+    datasets: [{
+      label,
+      data: data.map((row) => row.active ? row.amount : null),
+      borderColor: color,
+      backgroundColor: color,
+      borderWidth: CHART_LINE_WIDTH,
+      pointRadius: CHART_POINT_RADIUS,
+      pointHoverRadius: CHART_POINT_RADIUS_ACTIVE,
+      tension: 0.22,
+    }],
+  }), [color, data, label])
+  const options = useMemo<ChartOptions<'line'>>(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 450 },
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: palette.ink,
+        bodyColor: palette.background,
+        titleColor: palette.background,
+        titleFont: CHART_TOOLTIP_FONT,
+        bodyFont: { ...CHART_TICK_FONT, size: 11 },
+        padding: 11,
+        callbacks: { label: (context: TooltipItem<'line'>) => `${label}: ${formatWon(Number(context.raw ?? 0))}원` },
+      },
+    },
+    scales: {
+      x: { border: { display: false }, grid: { display: false }, ticks: { color: palette.muted, font: CHART_TICK_FONT, maxRotation: 0 } },
+      y: { beginAtZero: true, border: { display: false }, grid: { color: palette.track, drawTicks: false }, ticks: { color: palette.faint, font: CHART_TICK_FONT, maxTicksLimit: 4, padding: 8, callback: (value) => compactWon(Number(value)) } },
+    },
+  }), [label, palette])
 
   return (
-    <ChartFrame onLeave={() => setTooltip(null)} tooltip={tooltip}>
-      {(width) => {
-        const points = coordinates(values, maxValue, 0, width)
-        const hitWidth = plotWidthFor(width) / Math.max(data.length, 1)
-        return (
-          <svg aria-label={`월별 ${label} 추이`} height={HEIGHT} role="img" viewBox={`0 0 ${width} ${HEIGHT}`} width={width}>
-            <Grid maxValue={maxValue} months={months} width={width} />
-            <path className="chart-line-enter" d={pathFor(points)} fill="none" pathLength={1} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth={LINE_WIDTH} />
-            {points.map((point, index) => point.y === null ? null : (
-              <circle className="chart-point-enter" cx={point.x} cy={point.y} fill={color} key={index} pointerEvents="none" r={POINT_RADIUS} style={{ animationDelay: `${180 + index * 35}ms` }} />
-            ))}
-            {points.map((point, index) => point.y === null ? null : (
-              <rect
-                aria-label={`${months[index]} ${label} ${formatWon(point.value ?? 0)}원`}
-                fill="transparent"
-                height={HEIGHT - TOP - BOTTOM}
-                key={`hit-${index}`}
-                onPointerEnter={(event) => setTooltip(tooltipAt(event, months[index], [{ color, label, value: point.value ?? 0 }]))}
-                onPointerMove={(event) => setTooltip(tooltipAt(event, months[index], [{ color, label, value: point.value ?? 0 }]))}
-                width={hitWidth}
-                x={Math.max(LEFT, point.x - hitWidth / 2)}
-                y={TOP}
-              />
-            ))}
-          </svg>
-        )
-      }}
-    </ChartFrame>
+    <div className="relative w-full" style={{ height: CHART_HEIGHT }}>
+      <Line aria-label={`월별 ${label} 추이`} data={chartData} options={options} role="img" />
+    </div>
   )
 }
