@@ -11,11 +11,11 @@ type EditableSub = { key: string; id: number | null; sub: string; hidden: boolea
 type EditableGroup = { key: string; kind: ManageFlow; major: string; rows: EditableSub[] }
 const labels = { expense: '지출', income: '수입', saving: '저축' } as const
 const tones = { expense: 'border-l-rose-400', income: 'border-l-blue-400', saving: 'border-l-emerald-500' } as const
-const inputClass = 'w-full rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-sm text-zinc-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+const inputClass = 'h-[34px] w-full border border-finance-hairline bg-white px-2.5 text-[13px] text-finance-ink outline-none focus:border-finance-blue'
 
 function SaveButton() {
   const { pending } = useFormStatus()
-  return <button className="rounded-md bg-zinc-800 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700 disabled:opacity-50" disabled={pending} type="submit">{pending ? '저장 중…' : '변경사항 저장'}</button>
+  return <button className="h-[34px] bg-finance-ink px-4 text-xs font-semibold text-white hover:opacity-80 disabled:opacity-50" disabled={pending} type="submit">{pending ? '저장 중…' : '변경사항 저장'}</button>
 }
 
 function initialGroups(rows: CategoryRow[]) {
@@ -106,25 +106,25 @@ export function CategoriesManager({ initialRows }: { initialRows: CategoryRow[] 
   return (
     <form action={bulkSaveCategories} className="mt-6">
       <input name="categories" type="hidden" value={payload} />
-      <div className="sticky top-[54px] z-20 flex flex-col gap-3 border border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-        <div><h2 className="font-semibold text-zinc-900">카테고리 구조</h2><p className="mt-1 text-xs text-zinc-500">대분류와 소분류를 같은 화면에서 편집하고 끌어서 순서를 바꿉니다.</p></div>
+      <div className="sticky top-14 z-20 flex flex-col gap-3 border-y border-finance-ink bg-white/95 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <div><h2 className="text-sm font-bold text-finance-ink">카테고리 구조</h2><p className="mt-1 text-xs text-finance-muted">대분류와 소분류를 같은 화면에서 편집하고 끌어서 순서를 바꿉니다.</p></div>
         <SaveButton />
       </div>
       {(['expense', 'income', 'saving'] as const).map((kind) => {
         const kindGroups = groups.filter((group) => group.kind === kind)
         return (
           <section className="mt-6" key={kind}>
-            <div className="mb-3 flex items-center justify-between"><h3 className="text-lg font-semibold text-zinc-900">{labels[kind]} <span className="text-sm font-normal text-zinc-400">{kindGroups.reduce((sum, group) => sum + group.rows.length, 0)}개</span></h3><button className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50" onClick={() => addGroup(kind)} type="button">+ 대분류 추가</button></div>
+            <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold text-finance-ink">{labels[kind]} <span className="text-xs font-normal text-finance-faint">{kindGroups.reduce((sum, group) => sum + group.rows.length, 0)}개</span></h3><button className="h-[30px] border border-finance-hairline bg-white px-3 text-xs font-semibold text-finance-ink hover:bg-finance-panel" onClick={() => addGroup(kind)} type="button">+ 대분류 추가</button></div>
             <div className="space-y-3">
               {kindGroups.map((group) => (
-                <article className={`overflow-hidden rounded-lg border border-zinc-200 border-l-4 bg-white ${tones[kind]} ${draggingGroup === group.key ? 'opacity-40' : ''}`} key={group.key} onDragOver={(event) => event.preventDefault()} onDrop={() => dropGroup(group)}>
-                  <div className="flex items-center gap-3 border-b border-zinc-200 bg-zinc-50/70 px-3 py-2.5">
+                <article className={`overflow-hidden border border-finance-hairline border-l-4 bg-white ${tones[kind]} ${draggingGroup === group.key ? 'opacity-40' : ''}`} key={group.key} onDragOver={(event) => event.preventDefault()} onDrop={() => dropGroup(group)}>
+                  <div className="flex items-center gap-3 border-b border-finance-hairline bg-finance-panel px-3 py-2.5">
                     <span className="cursor-grab text-zinc-400" draggable onDragEnd={() => setDraggingGroup(null)} onDragStart={() => setDraggingGroup(group.key)} title="끌어서 대분류 순서 변경">⠿</span>
                     <input aria-label={`${labels[kind]} 대분류 이름`} autoFocus={group.key.startsWith('new-group')} className={`${inputClass} max-w-xs font-semibold`} onChange={(event) => updateGroup(group.key, (current) => ({ ...current, major: event.target.value }))} placeholder="대분류 이름" required value={group.major} />
                     <span className="text-xs text-zinc-400">소분류 {group.rows.length}개</span>
                     <button className="ml-auto rounded px-2 py-1 text-xs text-zinc-500 hover:bg-rose-50 hover:text-rose-700" onClick={() => toggleGroupDeleted(group)} type="button">대분류 {group.rows.every((row) => row.deleted) ? '삭제 취소' : '삭제'}</button>
                   </div>
-                  <div className="divide-y divide-zinc-100">
+                  <div className="divide-y divide-finance-hairline">
                     {group.rows.map((row, index) => (
                       <div className={`grid grid-cols-[28px_minmax(0,1fr)_auto_auto_auto] items-center gap-2 px-3 py-2 ${row.deleted ? 'bg-rose-50 opacity-60' : ''}`} key={row.key} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.stopPropagation(); dropSub(group.key, row.key) }}>
                         <span className="cursor-grab text-center text-zinc-300" draggable onDragEnd={() => setDraggingSub(null)} onDragStart={(event) => { event.stopPropagation(); setDraggingSub({ group: group.key, row: row.key }) }}>⠿</span>
@@ -142,7 +142,7 @@ export function CategoriesManager({ initialRows }: { initialRows: CategoryRow[] 
           </section>
         )
       })}
-      <p className="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">사용 이력이 없는 항목은 삭제되고, 거래나 정기거래가 연결된 항목은 기록 보존을 위해 숨김 처리됩니다.</p>
+      <p className="mt-5 border-l-2 border-finance-amber bg-finance-amber-tint px-4 py-3 text-xs leading-5 text-finance-amber">사용 이력이 없는 항목은 삭제되고, 거래나 정기거래가 연결된 항목은 기록 보존을 위해 숨김 처리됩니다.</p>
     </form>
   )
 }

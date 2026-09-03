@@ -36,7 +36,7 @@ function SaveButton() {
   const { pending } = useFormStatus()
   return (
     <button
-      className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+      className="h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={pending}
       type="submit"
     >
@@ -157,14 +157,14 @@ export function RecurringManager({
   return (
     <>
       {candidates.length > 0 && (
-        <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <section className="mt-6 border-t border-finance-ink py-5">
           <div>
-            <h2 className="font-semibold text-zinc-950">감지된 반복 지출</h2>
-            <p className="mt-1 text-xs text-zinc-500">최근 거래에서 3개월 이상 연속으로 나타난 고정비 후보입니다.</p>
+            <h2 className="text-sm font-bold text-finance-ink">감지된 반복 지출</h2>
+            <p className="mt-1 text-xs text-finance-muted">최근 거래에서 3개월 이상 연속으로 나타난 고정비 후보입니다.</p>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {candidates.map((candidate) => (
-              <article className="rounded-xl bg-zinc-50 p-4" key={`${candidate.name}-${candidate.lastDate}`}>
+              <article className="border-b border-finance-hairline py-4" key={`${candidate.name}-${candidate.lastDate}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-zinc-800">{candidate.name}</p>
@@ -202,15 +202,15 @@ export function RecurringManager({
             active,
           })))}
         />
-        <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <div className="flex flex-col justify-between gap-4 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center">
+        <section className="overflow-hidden border-t border-finance-ink">
+          <div className="flex flex-col justify-between gap-4 border-b border-finance-hairline py-4 sm:flex-row sm:items-center">
             <div>
-              <h2 className="font-semibold text-zinc-950">정기거래 목록</h2>
-              <p className="mt-1 text-xs text-zinc-500">사용 중인 전체 규칙 합계 {formatWon(activeTotal)}원 · 방향키/Enter 이동 · 스프레드시트 범위 붙여넣기</p>
+              <h2 className="text-sm font-bold text-finance-ink">정기거래 목록</h2>
+              <p className="mt-1 text-xs text-finance-muted">사용 중인 전체 규칙 합계 {formatWon(activeTotal)}원 · 방향키/Enter 이동 · 스프레드시트 범위 붙여넣기</p>
             </div>
             <div className="flex gap-2">
               <button
-                className="rounded-lg border border-zinc-300 px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                className="h-[34px] border border-finance-hairline px-3 text-xs font-semibold text-finance-ink hover:bg-finance-panel"
                 onClick={() => addRule()}
                 type="button"
               >
@@ -220,13 +220,13 @@ export function RecurringManager({
             </div>
           </div>
 
-          <div className="divide-y divide-zinc-200">
+          <div className="divide-y divide-finance-hairline">
             {rules.map((rule, rowIndex) => {
               const flow = flowFor(rule.flowToken)
               const filteredCategories = categories.filter((category) => category.kind === flow)
               const isNew = rule.id === null
               return (
-                <article className={`${rule.active ? 'bg-white' : 'bg-zinc-50 opacity-65'} p-5`} key={rule.key}>
+                <article className={`${rule.active ? 'bg-white' : 'bg-finance-panel opacity-65'} py-5`} key={rule.key}>
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <label className="flex items-center gap-2 text-xs font-medium text-zinc-600">
@@ -239,8 +239,8 @@ export function RecurringManager({
                         />
                         사용
                       </label>
-                      {rule.generated && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">{month} 반영됨</span>}
-                      {isNew && <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">새 규칙</span>}
+                      {rule.generated && <span className="bg-finance-green-tint px-2 py-0.5 text-[11px] font-semibold text-finance-green">{month} 반영됨</span>}
+                      {isNew && <span className="bg-finance-blue-tint px-2 py-0.5 text-[11px] font-semibold text-finance-blue">새 규칙</span>}
                     </div>
                     {isNew && (
                       <button className="text-xs text-zinc-400 hover:text-rose-700" onClick={() => removeNewRule(rule.key)} type="button">제거</button>
@@ -252,7 +252,7 @@ export function RecurringManager({
                       구분
                       <select
                         aria-label={`${rule.memo || '새 정기거래'} 구분`}
-                        className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                        className="mt-1 h-[34px] w-full border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink"
                         data-grid-column="0"
                         data-grid-row={rowIndex}
                         onChange={(event) => updateRule(rule.key, {
@@ -271,7 +271,7 @@ export function RecurringManager({
                       분류
                       <select
                         aria-label={`${rule.memo || '새 정기거래'} 분류`}
-                        className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                        className="mt-1 h-[34px] w-full border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink"
                         data-grid-column="1"
                         data-grid-row={rowIndex}
                         onChange={(event) => updateRule(rule.key, { categoryId: event.target.value ? Number(event.target.value) : null })}
@@ -287,7 +287,7 @@ export function RecurringManager({
                       사용내역
                       <input
                         aria-label={`${rule.memo || '새 정기거래'} 사용내역`}
-                        className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                        className="mt-1 h-[34px] w-full border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink"
                         data-grid-column="2"
                         data-grid-row={rowIndex}
                         onChange={(event) => updateRule(rule.key, { memo: event.target.value })}
@@ -300,7 +300,7 @@ export function RecurringManager({
                       금액
                       <input
                         aria-label={`${rule.memo || '새 정기거래'} 금액`}
-                        className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-right text-sm text-zinc-900"
+                        className="mt-1 h-[34px] w-full border border-finance-hairline bg-white px-3 text-right text-[13px] tabular-nums text-finance-ink"
                         data-grid-column="3"
                         data-grid-row={rowIndex}
                         inputMode="numeric"
@@ -313,7 +313,7 @@ export function RecurringManager({
                       결제수단
                       <select
                         aria-label={`${rule.memo || '새 정기거래'} 결제수단`}
-                        className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900"
+                        className="mt-1 h-[34px] w-full border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink"
                         data-grid-column="4"
                         data-grid-row={rowIndex}
                         onChange={(event) => updateRule(rule.key, { accountId: event.target.value ? Number(event.target.value) : null })}
@@ -327,7 +327,7 @@ export function RecurringManager({
                       결제일
                       <input
                         aria-label={`${rule.memo || '새 정기거래'} 결제일`}
-                        className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-right text-sm text-zinc-900"
+                        className="mt-1 h-[34px] w-full border border-finance-hairline bg-white px-3 text-right text-[13px] tabular-nums text-finance-ink"
                         data-grid-column="5"
                         data-grid-row={rowIndex}
                         max={31}

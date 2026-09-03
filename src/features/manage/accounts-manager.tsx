@@ -16,11 +16,11 @@ type AccountRow = {
 }
 
 type EditableAccount = Omit<AccountRow, 'id'> & { id: number | null; key: string }
-const inputClass = 'w-full rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-sm text-zinc-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100'
+const inputClass = 'h-[34px] w-full border border-finance-hairline bg-white px-2.5 text-[13px] text-finance-ink outline-none focus:border-finance-blue'
 
 function SaveButton() {
   const { pending } = useFormStatus()
-  return <button className="rounded-md bg-zinc-800 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700 disabled:opacity-50" disabled={pending} type="submit">{pending ? '저장 중…' : '변경사항 저장'}</button>
+  return <button className="h-[34px] bg-finance-ink px-4 text-xs font-semibold text-white hover:opacity-80 disabled:opacity-50" disabled={pending} type="submit">{pending ? '저장 중…' : '변경사항 저장'}</button>
 }
 
 function move<T>(rows: T[], from: number, to: number) {
@@ -63,15 +63,15 @@ export function AccountsManager({ initialRows }: { initialRows: AccountRow[] }) 
     <form action={bulkSaveAccounts} className="mt-6">
       <input name="accounts" type="hidden" value={payload} />
       <datalist id="account-owners"><option value="DJ" /><option value="YJ" /><option value="공용" /></datalist>
-      <section className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-        <div className="flex flex-col gap-3 border-b border-zinc-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="font-semibold text-zinc-900">결제수단</h2><p className="mt-1 text-xs text-zinc-500">끌어서 순서를 바꾸고 한 번에 저장합니다. 과거 거래 연결은 그대로 유지됩니다.</p></div>
-          <div className="flex gap-2"><button className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50" onClick={addRow} type="button">+ 결제수단 추가</button><SaveButton /></div>
+      <section className="overflow-hidden border-t border-finance-ink">
+        <div className="flex flex-col gap-3 border-b border-finance-hairline py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><h2 className="text-sm font-bold text-finance-ink">결제수단</h2><p className="mt-1 text-xs text-finance-muted">끌어서 순서를 바꾸고 한 번에 저장합니다. 과거 거래 연결은 그대로 유지됩니다.</p></div>
+          <div className="flex gap-2"><button className="h-[34px] border border-finance-hairline px-3 text-xs font-semibold text-finance-ink hover:bg-finance-panel" onClick={addRow} type="button">+ 결제수단 추가</button><SaveButton /></div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[850px] text-left text-sm">
-            <thead className="bg-zinc-50 text-xs text-zinc-500"><tr><th className="w-10 px-2 py-2.5"><span className="sr-only">순서</span></th><th className="px-2 py-2.5 font-medium">이름</th><th className="px-2 py-2.5 font-medium">소유자</th><th className="px-2 py-2.5 font-medium">종류</th><th className="px-2 py-2.5 font-medium">메모</th><th className="px-2 py-2.5 text-center font-medium">사용</th><th className="px-3 py-2.5 text-right font-medium">거래</th><th className="w-12 px-2 py-2.5"><span className="sr-only">관리</span></th></tr></thead>
-            <tbody className="divide-y divide-zinc-100">
+            <thead className="border-b border-finance-hairline bg-finance-panel text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted"><tr><th className="w-10 px-2 py-2.5"><span className="sr-only">순서</span></th><th className="px-2 py-2.5 font-semibold">이름</th><th className="px-2 py-2.5 font-semibold">소유자</th><th className="px-2 py-2.5 font-semibold">종류</th><th className="px-2 py-2.5 font-semibold">메모</th><th className="px-2 py-2.5 text-center font-semibold">사용</th><th className="px-3 py-2.5 text-right font-semibold">거래</th><th className="w-12 px-2 py-2.5"><span className="sr-only">관리</span></th></tr></thead>
+            <tbody className="divide-y divide-finance-hairline">
               {rows.map((row, index) => (
                 <tr className={`${draggingKey === row.key ? 'opacity-40' : ''} ${row.active ? '' : 'bg-zinc-50 text-zinc-400'}`} key={row.key} onDragOver={(event) => event.preventDefault()} onDrop={() => dropOn(row.key)}>
                   <td className="px-3 py-2 text-center text-zinc-400"><span className="cursor-grab" draggable onDragEnd={() => setDraggingKey(null)} onDragStart={() => setDraggingKey(row.key)} title="끌어서 순서 변경">⠿</span></td>

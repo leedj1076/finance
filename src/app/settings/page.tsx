@@ -16,17 +16,17 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   const params = await searchParams
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-white">
       <AppHeader active="settings" email={auth.email} />
-      <main className="mx-auto w-full max-w-lg px-6 py-12">
-        <Link className="text-sm text-zinc-600 hover:text-zinc-950" href="/ledger">
+      <main className="mx-auto w-full max-w-2xl px-6 py-12">
+        <Link className="text-xs font-semibold text-finance-muted hover:text-finance-ink" href="/ledger">
           ← 가계부로 돌아가기
         </Link>
-        <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
-          <p className="text-sm font-medium text-emerald-700">설정</p>
-          <h1 className="mt-2 text-2xl font-semibold text-zinc-950">비밀번호 변경</h1>
-          <p className="mt-2 text-sm text-zinc-500">로그인 계정: {auth.email}</p>
-          {params.passwordChanged === '1' && <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">비밀번호를 변경했습니다.</p>}
+        <section className="mt-6 border-t border-finance-ink pt-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">설정</p>
+          <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">비밀번호 변경</h1>
+          <p className="mt-2 text-xs text-finance-muted">로그인 계정: {auth.email}</p>
+          {params.passwordChanged === '1' && <p className="mt-5 border-l-2 border-finance-green bg-finance-green-tint px-4 py-3 text-[13px] text-finance-green">비밀번호를 변경했습니다.</p>}
           <PasswordChangeForm />
         </section>
       </main>

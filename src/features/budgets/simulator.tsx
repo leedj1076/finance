@@ -51,14 +51,14 @@ export function VariableSpendSimulator({
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="flex flex-col justify-between gap-1 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center">
-        <h2 className="font-semibold text-zinc-950">어디서 줄일까</h2>
-        <p className="text-xs text-zinc-500">변동비 감축 시뮬레이터</p>
+    <section className="overflow-hidden border-t border-finance-ink">
+      <div className="flex flex-col justify-between gap-1 border-b border-finance-hairline py-4 sm:flex-row sm:items-center">
+        <h2 className="text-sm font-bold text-finance-ink">어디서 줄일까</h2>
+        <p className="text-xs text-finance-muted">변동비 감축 시뮬레이터</p>
       </div>
 
-      <div className="p-5">
-        <div className="mb-5 rounded-xl bg-zinc-50 p-4" aria-live="polite">
+      <div className="py-5">
+        <div className="mb-5 border-y border-finance-hairline py-4" aria-live="polite">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
             <span className="text-zinc-500">예상 저축률</span>
             <strong className={simulation.savingsRate >= savingsTarget ? 'text-emerald-700' : 'text-rose-700'}>
@@ -76,11 +76,11 @@ export function VariableSpendSimulator({
             aria-valuemax={100}
             aria-valuemin={0}
             aria-valuenow={Math.max(0, simulation.progressPercent)}
-            className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200"
+            className="mt-3 h-[5px] overflow-hidden bg-finance-track"
             role="progressbar"
           >
             <div
-              className={`h-full rounded-full transition-[width] ${simulation.savingsRate >= savingsTarget ? 'bg-emerald-600' : 'bg-blue-600'}`}
+              className={`h-full transition-[width] ${simulation.savingsRate >= savingsTarget ? 'bg-finance-green' : 'bg-finance-blue'}`}
               style={{ width: `${Math.max(0, simulation.progressPercent)}%` }}
             />
           </div>
@@ -90,14 +90,14 @@ export function VariableSpendSimulator({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[620px] border-collapse text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 text-xs text-zinc-500">
+                <tr className="border-b border-finance-hairline bg-finance-panel text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
                   <th className="px-2 py-2 text-left font-medium" scope="col">분류</th>
                   <th className="px-2 py-2 text-right font-medium" scope="col">월평균</th>
                   <th className="px-2 py-2 text-right font-medium" scope="col">감축액</th>
                   <th className="px-2 py-2 text-center font-medium" scope="col">빠른 선택</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100">
+              <tbody className="divide-y divide-finance-hairline">
                 {rows.map((row) => (
                   <tr key={row.major}>
                     <th className="px-2 py-3 text-left font-medium text-zinc-800" scope="row">
@@ -109,7 +109,7 @@ export function VariableSpendSimulator({
                     <td className="px-2 py-3 text-right">
                       <input
                         aria-label={`${row.major} 감축액`}
-                        className="w-32 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-right tabular-nums text-zinc-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                        className="h-[34px] w-32 border border-finance-hairline bg-white px-3 text-right text-[13px] tabular-nums text-finance-ink outline-none focus:border-finance-blue"
                         min={0}
                         onChange={(event) => updateCut(row.major, event.target.value)}
                         step={10_000}
@@ -121,7 +121,7 @@ export function VariableSpendSimulator({
                       <div className="inline-flex gap-1">
                         {([10, 20] as const).map((percent) => (
                           <button
-                            className="rounded-md border border-zinc-300 px-2.5 py-1.5 text-xs font-medium text-zinc-600 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800"
+                            className="h-[30px] border border-finance-hairline px-2.5 text-xs font-semibold text-finance-muted hover:border-finance-blue hover:text-finance-blue"
                             key={percent}
                             onClick={() => updateCut(row.major, String(quickCutAmount(row.average, percent)))}
                             type="button"
@@ -137,14 +137,14 @@ export function VariableSpendSimulator({
             </table>
           </div>
         ) : (
-          <p className="rounded-xl bg-zinc-50 px-4 py-5 text-sm text-zinc-500">
+          <p className="border-y border-finance-hairline px-4 py-5 text-[13px] text-finance-muted">
             완료된 달의 변동비 지출이 쌓이면 감축안을 계산할 수 있습니다.
           </p>
         )}
 
         <div className="mt-5 flex flex-col items-start gap-2 sm:flex-row sm:items-center">
           <button
-            className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-800"
+            className="h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:opacity-80"
             onClick={applyToBudget}
             type="button"
           >

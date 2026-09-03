@@ -30,10 +30,10 @@ function Summary({ label, value, note, tone = 'neutral' }: {
   tone?: 'bad' | 'good' | 'neutral'
 }) {
   return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-zinc-500">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${tone === 'bad' ? 'text-rose-700' : tone === 'good' ? 'text-emerald-700' : 'text-zinc-950'}`}>{value}</p>
-      {note && <p className="mt-2 text-xs text-zinc-500">{note}</p>}
+    <article className="px-4 py-5 first:pl-0 last:pr-0 sm:px-6">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-finance-muted">{label}</p>
+      <p className={`mt-2 text-[26px] font-semibold leading-none tabular-nums ${tone === 'bad' ? 'text-finance-red' : tone === 'good' ? 'text-finance-green' : 'text-finance-ink'}`}>{value}</p>
+      {note && <p className="mt-2 text-xs text-finance-muted">{note}</p>}
     </article>
   )
 }
@@ -65,42 +65,42 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
     : { year: data.year }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-white">
       <AppHeader active="analysis" email={household.email} />
-      <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
+      <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
-            <p className="text-sm font-medium text-emerald-700">거래 패턴</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">분석</h1>
-            <p className="mt-2 text-sm text-zinc-500">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">거래 패턴</p>
+            <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">분석</h1>
+            <p className="mt-2 text-xs text-finance-muted">
               {data.period === 'month' ? data.month : `${data.year}년`} · {flowLabel} 분류별 순위와 변화
             </p>
           </div>
           <div className="flex items-center gap-2">
             {data.period === 'month' ? (
               <>
-                <Link aria-label="이전 달" className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-700 hover:bg-zinc-50" href={`/analysis?period=month&month=${data.previousMonth}&flow=${data.flow}${accountSuffix}`}>←</Link>
-                <span className="min-w-24 text-center text-sm font-semibold text-zinc-800">{data.month}</span>
-                <Link aria-label="다음 달" className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-700 hover:bg-zinc-50" href={`/analysis?period=month&month=${data.nextMonth}&flow=${data.flow}${accountSuffix}`}>→</Link>
+                <Link aria-label="이전 달" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/analysis?period=month&month=${data.previousMonth}&flow=${data.flow}${accountSuffix}`}>←</Link>
+                <span className="min-w-24 text-center text-[13px] font-semibold text-finance-ink">{data.month}</span>
+                <Link aria-label="다음 달" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/analysis?period=month&month=${data.nextMonth}&flow=${data.flow}${accountSuffix}`}>→</Link>
               </>
             ) : (
               <>
-                <Link aria-label="이전 해" className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-700 hover:bg-zinc-50" href={`/analysis?period=year&year=${data.previousYear}&flow=${data.flow}${accountSuffix}`}>←</Link>
-                <span className="min-w-20 text-center text-sm font-semibold text-zinc-800">{data.year}년</span>
-                <Link aria-label="다음 해" className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-700 hover:bg-zinc-50" href={`/analysis?period=year&year=${data.nextYear}&flow=${data.flow}${accountSuffix}`}>→</Link>
+                <Link aria-label="이전 해" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/analysis?period=year&year=${data.previousYear}&flow=${data.flow}${accountSuffix}`}>←</Link>
+                <span className="min-w-20 text-center text-[13px] font-semibold text-finance-ink">{data.year}년</span>
+                <Link aria-label="다음 해" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/analysis?period=year&year=${data.nextYear}&flow=${data.flow}${accountSuffix}`}>→</Link>
               </>
             )}
           </div>
         </div>
 
-        <section className="mt-6 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <section className="mt-8 flex flex-col gap-3 border-y border-finance-hairline py-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-2">
-            <Link className={`rounded-lg px-3 py-2 text-sm font-medium ${data.period === 'month' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`} href={`/analysis?period=month&month=${data.month}&flow=${data.flow}${accountSuffix}`}>월간</Link>
-            <Link className={`rounded-lg px-3 py-2 text-sm font-medium ${data.period === 'year' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`} href={`/analysis?period=year&year=${data.year}&flow=${data.flow}${accountSuffix}`}>연간</Link>
-            <span className="mx-1 hidden w-px bg-zinc-200 sm:block" />
+            <Link className={`h-[30px] border px-3 py-1.5 text-xs font-semibold ${data.period === 'month' ? 'border-finance-ink bg-finance-ink text-white' : 'border-finance-hairline bg-white text-finance-muted hover:border-finance-ink'}`} href={`/analysis?period=month&month=${data.month}&flow=${data.flow}${accountSuffix}`}>월간</Link>
+            <Link className={`h-[30px] border px-3 py-1.5 text-xs font-semibold ${data.period === 'year' ? 'border-finance-ink bg-finance-ink text-white' : 'border-finance-hairline bg-white text-finance-muted hover:border-finance-ink'}`} href={`/analysis?period=year&year=${data.year}&flow=${data.flow}${accountSuffix}`}>연간</Link>
+            <span className="mx-1 hidden w-px bg-finance-hairline sm:block" />
             {(Object.keys(flowLabels) as Array<keyof typeof flowLabels>).map((flow) => (
               <Link
-                className={`rounded-lg px-3 py-2 text-sm font-medium ${data.flow === flow ? 'bg-emerald-700 text-white' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}`}
+                className={`h-[30px] border px-3 py-1.5 text-xs font-semibold ${data.flow === flow ? 'border-finance-blue bg-finance-blue text-white' : 'border-finance-hairline bg-white text-finance-muted hover:border-finance-blue hover:text-finance-blue'}`}
                 href={`/analysis?${basePeriod}&flow=${flow}${accountSuffix}`}
                 key={flow}
               >
@@ -113,14 +113,14 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
             {data.period === 'month' ? <input name="month" type="hidden" value={data.month} /> : <input name="year" type="hidden" value={data.year} />}
             <input name="flow" type="hidden" value={data.flow} />
             <label className="sr-only" htmlFor="analysis-account">결제수단</label>
-            <AutoSubmitSelect className="min-w-48 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-700" defaultValue={data.selectedAccount ?? ''} id="analysis-account" name="account">
+            <AutoSubmitSelect className="h-[34px] min-w-48 border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink" defaultValue={data.selectedAccount ?? ''} id="analysis-account" name="account">
               <option value="">전체 결제수단</option>
               {data.accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
             </AutoSubmitSelect>
           </form>
         </section>
 
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-6 grid border-y border-finance-ink sm:grid-cols-2 sm:divide-x sm:divide-finance-hairline xl:grid-cols-4">
           <Summary label={`총 ${flowLabel}`} value={`${formatWon(data.total)}원`} note={`${data.count.toLocaleString('ko-KR')}건`} />
           <Summary label="건당 평균" value={`${formatWon(data.average)}원`} note="선택 기간의 거래 평균" />
           {data.period === 'month' ? (
@@ -137,11 +137,11 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
         </section>
 
         {data.anomalies.length > 0 && (
-          <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-            <h2 className="font-semibold text-amber-950">평소보다 큰 지출</h2>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <section className="mt-6 border-t border-finance-ink py-4">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-finance-ink"><span className="h-[7px] w-[7px] bg-finance-amber" />평소보다 큰 지출</h2>
+            <div className="mt-3 grid gap-x-8 gap-y-2 md:grid-cols-2">
               {data.anomalies.slice(0, 4).map((alert) => (
-                <div className="rounded-xl bg-white/70 px-4 py-3 text-sm text-amber-900" key={alert.major}>
+                <div className="border-b border-finance-hairline py-3 text-[13px] text-finance-ink" key={alert.major}>
                   <strong>{alert.major}</strong> {formatWon(alert.current)}원 · 평소 약 {formatWon(alert.typical)}원
                 </div>
               ))}
@@ -149,10 +149,10 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
           </section>
         )}
 
-        <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <section className="mt-6 border-t border-finance-ink pt-4">
           <div>
-            <h2 className="font-semibold text-zinc-950">{data.year}년 월별 {flowLabel}</h2>
-            <p className="mt-1 text-xs text-zinc-500">선택한 결제수단 필터가 추이에도 적용됩니다.</p>
+            <h2 className="text-sm font-bold text-finance-ink">{data.year}년 월별 {flowLabel}</h2>
+            <p className="mt-1 text-xs text-finance-muted">선택한 결제수단 필터가 추이에도 적용됩니다.</p>
           </div>
           <div className="mt-5 overflow-x-auto">
             <FlowTrendChart data={data.trend} label={flowLabel} tone={tone} />
@@ -160,10 +160,10 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
         </section>
 
         <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
-          <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <article className="border-t border-finance-ink pt-4">
             <div className="flex items-center justify-between">
-              <div><h2 className="font-semibold text-zinc-950">{flowLabel} 분류 순위</h2><p className="mt-1 text-xs text-zinc-500">전월 대비 증가·감소 포함</p></div>
-              <span className="text-sm font-semibold text-zinc-700">{formatWon(data.total)}원</span>
+              <div><h2 className="text-sm font-bold text-finance-ink">{flowLabel} 분류 순위</h2><p className="mt-1 text-xs text-finance-muted">전월 대비 증가·감소 포함</p></div>
+              <span className="text-[13px] font-semibold tabular-nums text-finance-ink">{formatWon(data.total)}원</span>
             </div>
             <div className="mt-5 space-y-4">
               {data.ranks.map((rank, index) => {
@@ -188,7 +188,7 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
                       </div>
                       <div className="text-right"><p className="font-semibold text-zinc-950">{formatWon(rank.amount)}원</p>{data.period === 'month' && <p className={`mt-0.5 text-[11px] ${rank.delta === 0 ? 'text-zinc-400' : deltaGood ? 'text-emerald-600' : 'text-rose-600'}`}>{rank.delta === 0 ? '–' : `${rank.delta > 0 ? '▲' : '▼'} ${formatWon(Math.abs(rank.delta))}원`}</p>}</div>
                     </div>
-                    <div className="ml-8 mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100"><div className={`h-full rounded-full ${data.flow === 'expense' ? 'bg-rose-500' : data.flow === 'income' ? 'bg-blue-500' : 'bg-emerald-500'}`} style={{ width: `${(rank.amount / maxRank) * 100}%` }} /></div>
+                    <div className="ml-8 mt-2 h-[5px] overflow-hidden bg-finance-track"><div className={`h-full ${data.flow === 'expense' ? 'bg-finance-red' : data.flow === 'income' ? 'bg-finance-blue' : 'bg-finance-green'}`} style={{ width: `${(rank.amount / maxRank) * 100}%` }} /></div>
                   </div>
                 )
               })}
@@ -196,11 +196,11 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
             </div>
           </article>
 
-          <article className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-            <div className="border-b border-zinc-200 px-5 py-4"><h2 className="font-semibold text-zinc-950">큰 거래 TOP 10</h2><p className="mt-1 text-xs text-zinc-500">단일 거래 금액 기준</p></div>
-            <div className="divide-y divide-zinc-100">
+          <article className="overflow-hidden border-t border-finance-ink">
+            <div className="border-b border-finance-hairline py-4"><h2 className="text-sm font-bold text-finance-ink">큰 거래 TOP 10</h2><p className="mt-1 text-xs text-finance-muted">단일 거래 금액 기준</p></div>
+            <div className="divide-y divide-finance-hairline">
               {data.topTransactions.map((transaction, index) => (
-                <div className="flex items-center gap-3 px-5 py-3" key={transaction.id}>
+                <div className="flex items-center gap-3 py-3" key={transaction.id}>
                   <span className="w-5 text-xs text-zinc-400">{index + 1}</span>
                   <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-zinc-800">{transaction.merchant || transaction.major}</p><p className="mt-0.5 text-xs text-zinc-400">{transaction.date} · {transaction.major}{transaction.accountName ? ` · ${transaction.accountName}` : ''}</p></div>
                   <span className="shrink-0 text-sm font-semibold text-zinc-950">{formatWon(transaction.amount)}원</span>
@@ -212,12 +212,12 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
         </section>
 
         {data.merchants.length > 0 && (
-          <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-            <div className="border-b border-zinc-200 px-5 py-4"><h2 className="font-semibold text-zinc-950">가맹점 TOP {data.merchants.length}</h2><p className="mt-1 text-xs text-zinc-500">공백·지점번호를 제거해 같은 가맹점으로 묶었습니다.</p></div>
+          <section className="mt-6 overflow-hidden border-t border-finance-ink">
+            <div className="border-b border-finance-hairline py-4"><h2 className="text-sm font-bold text-finance-ink">가맹점 TOP {data.merchants.length}</h2><p className="mt-1 text-xs text-finance-muted">공백·지점번호를 제거해 같은 가맹점으로 묶었습니다.</p></div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="bg-zinc-50 text-xs text-zinc-500"><tr><th className="px-5 py-3 font-medium">#</th><th className="px-3 py-3 font-medium">가맹점</th><th className="px-3 py-3 text-right font-medium">건수</th><th className="px-3 py-3 text-right font-medium">이번 달</th><th className="px-3 py-3 text-right font-medium">지난달</th><th className="px-5 py-3 text-right font-medium">증감</th></tr></thead>
-                <tbody className="divide-y divide-zinc-100">
+                <thead className="border-b border-finance-hairline bg-finance-panel text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted"><tr><th className="px-5 py-3 font-semibold">#</th><th className="px-3 py-3 font-semibold">가맹점</th><th className="px-3 py-3 text-right font-semibold">건수</th><th className="px-3 py-3 text-right font-semibold">이번 달</th><th className="px-3 py-3 text-right font-semibold">지난달</th><th className="px-5 py-3 text-right font-semibold">증감</th></tr></thead>
+                <tbody className="divide-y divide-finance-hairline">
                   {data.merchants.map((merchant, index) => <tr key={merchant.name}><td className="px-5 py-3 text-zinc-400">{index + 1}</td><td className="px-3 py-3 font-medium text-zinc-800">{merchant.name}</td><td className="px-3 py-3 text-right text-zinc-500">{merchant.count}건</td><td className="px-3 py-3 text-right">{formatWon(merchant.amount)}원</td><td className="px-3 py-3 text-right text-zinc-500">{merchant.previous ? `${formatWon(merchant.previous)}원` : '–'}</td><td className={`px-5 py-3 text-right ${merchant.delta > 0 ? 'text-rose-600' : merchant.delta < 0 ? 'text-emerald-600' : 'text-zinc-400'}`}>{merchant.delta === 0 ? '–' : `${merchant.delta > 0 ? '▲' : '▼'} ${formatWon(Math.abs(merchant.delta))}원`}</td></tr>)}
                 </tbody>
               </table>
@@ -226,12 +226,12 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
         )}
 
         {data.categoryMonthly.length > 0 && (
-          <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-            <div className="border-b border-zinc-200 px-5 py-4"><h2 className="font-semibold text-zinc-950">항목별 월 추이</h2><p className="mt-1 text-xs text-zinc-500">상위 {data.categoryMonthly.length}개 대분류</p></div>
+          <section className="mt-6 overflow-hidden border-t border-finance-ink">
+            <div className="border-b border-finance-hairline py-4"><h2 className="text-sm font-bold text-finance-ink">항목별 월 추이</h2><p className="mt-1 text-xs text-finance-muted">상위 {data.categoryMonthly.length}개 대분류</p></div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[940px] text-right text-xs">
-                <thead className="bg-zinc-50 text-zinc-500"><tr><th className="sticky left-0 bg-zinc-50 px-5 py-3 text-left font-medium">분류</th>{Array.from({ length: 12 }, (_, index) => <th className="px-3 py-3 font-medium" key={index}>{index + 1}월</th>)}</tr></thead>
-                <tbody className="divide-y divide-zinc-100">
+                <thead className="border-b border-finance-hairline bg-finance-panel text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted"><tr><th className="sticky left-0 bg-finance-panel px-5 py-3 text-left font-semibold">분류</th>{Array.from({ length: 12 }, (_, index) => <th className="px-3 py-3 font-semibold" key={index}>{index + 1}월</th>)}</tr></thead>
+                <tbody className="divide-y divide-finance-hairline">
                   {data.categoryMonthly.map((category) => <tr key={category.major}><th className="sticky left-0 bg-white px-5 py-3 text-left text-sm font-medium text-zinc-800"><Link className="underline decoration-zinc-300 underline-offset-2 hover:text-emerald-700" href={categoryPageUrl({ flow: data.flow, major: category.major, period: { year: data.year }, accountId: data.selectedAccount })}>{category.major}</Link></th>{category.values.map((amount, index) => <td className="px-3 py-3 text-zinc-600" key={index}>{amount ? formatWon(amount) : '–'}</td>)}</tr>)}
                 </tbody>
               </table>

@@ -30,10 +30,10 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-sm items-center px-6">
-      <section className="w-full rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
-        <p className="mb-2 text-sm font-medium text-emerald-700">우리집 가계부</p>
-        <h1 className="text-2xl font-semibold text-zinc-950">로그인</h1>
-        <p className="mb-6 mt-2 text-sm text-zinc-500">
+      <section className="w-full border-t border-finance-ink py-8">
+        <div className="mb-8 flex items-center gap-3"><span className="grid h-7 w-7 place-items-center bg-finance-ink text-xs font-bold text-white">우</span><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">우리집 가계부</p></div>
+        <h1 className="text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">로그인</h1>
+        <p className="mb-6 mt-2 text-xs text-finance-muted">
           등록된 가족 계정만 로그인할 수 있습니다.
         </p>
 
@@ -41,7 +41,7 @@ export default function LoginPage() {
           <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
             이메일
             <input
-              className="rounded-lg border border-zinc-300 px-3 py-2.5 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="h-[34px] border border-finance-hairline bg-white px-3 text-[13px] outline-none focus:border-finance-blue"
               type="email"
               placeholder="이메일"
               autoComplete="email"
@@ -53,7 +53,7 @@ export default function LoginPage() {
           <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
             비밀번호
             <input
-              className="rounded-lg border border-zinc-300 px-3 py-2.5 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+              className="h-[34px] border border-finance-hairline bg-white px-3 text-[13px] outline-none focus:border-finance-blue"
               type="password"
               placeholder="비밀번호"
               autoComplete="current-password"
@@ -64,7 +64,7 @@ export default function LoginPage() {
             />
           </label>
           <button
-            className="mt-2 rounded-lg bg-emerald-700 px-4 py-2.5 font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-2 h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={busy}
             type="submit"
           >

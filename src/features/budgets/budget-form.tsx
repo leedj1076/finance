@@ -42,7 +42,7 @@ function SaveButton() {
   const { pending } = useFormStatus()
   return (
     <button
-      className="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+      className="h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={pending}
       type="submit"
     >
@@ -90,7 +90,7 @@ export function BudgetForm({
     <form action={action} className="mt-6 space-y-6">
       <input name="month" type="hidden" value={month} />
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <section className="border-t border-finance-ink py-5">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
           <div className="min-w-64">
             <label className="text-sm font-medium text-zinc-700" htmlFor="savings-target">
@@ -113,16 +113,16 @@ export function BudgetForm({
               </output>
             </div>
           </div>
-          <div className="grid flex-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-xl bg-zinc-50 p-4">
+          <div className="grid flex-1 border-y border-finance-hairline sm:grid-cols-3 sm:divide-x sm:divide-finance-hairline">
+            <div className="p-4">
               <p className="text-xs text-zinc-500">월평균 수입</p>
               <p className="mt-1 font-semibold text-zinc-950">{formatWon(averageIncome)}원</p>
             </div>
-            <div className="rounded-xl bg-zinc-50 p-4">
+            <div className="p-4">
               <p className="text-xs text-zinc-500">현재 순저축률</p>
               <p className="mt-1 font-semibold text-zinc-950">{formatRate(currentSavingsRate)}%</p>
             </div>
-            <div className="rounded-xl bg-emerald-50 p-4">
+            <div className="p-4">
               <p className="text-xs text-emerald-700">목표 지출 상한</p>
               <p className="mt-1 font-semibold text-emerald-800">{formatWon(targetSpendCeiling)}원</p>
             </div>
@@ -147,24 +147,24 @@ export function BudgetForm({
       />
 
       <section
-        className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
+        className="overflow-hidden border-t border-finance-ink"
         id="budget-list"
       >
-        <div className="flex flex-col justify-between gap-4 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col justify-between gap-4 border-b border-finance-hairline py-4 sm:flex-row sm:items-center">
           <div>
-            <h2 className="font-semibold text-zinc-950">분류별 월 예산</h2>
+            <h2 className="text-sm font-bold text-finance-ink">분류별 월 예산</h2>
             <p className="mt-1 text-xs text-zinc-500">입력 합계 {formatWon(totalBudget)}원</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+              className="h-[30px] border border-finance-hairline px-3 text-xs font-semibold text-finance-ink hover:bg-finance-panel"
               onClick={() => fillFrom('previousBudget')}
               type="button"
             >
               지난달 예산 채우기
             </button>
             <button
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+              className="h-[30px] border border-finance-hairline px-3 text-xs font-semibold text-finance-ink hover:bg-finance-panel"
               onClick={() => fillFrom('average')}
               type="button"
             >
@@ -174,7 +174,7 @@ export function BudgetForm({
           </div>
         </div>
 
-        <div className="divide-y divide-zinc-200">
+        <div className="divide-y divide-finance-hairline">
           {groups.map((group) => {
             const groupRows = rows.filter((row) => row.group === group.key)
             if (groupRows.length === 0) return null
@@ -190,7 +190,7 @@ export function BudgetForm({
                     const percent = currentBudget > 0 ? (row.actual / currentBudget) * 100 : null
                     return (
                       <div
-                        className="grid items-center gap-3 rounded-xl bg-zinc-50 p-3 md:grid-cols-[minmax(120px,1fr)_150px_130px_minmax(140px,0.8fr)]"
+                        className="grid items-center gap-3 border-b border-finance-hairline py-3 md:grid-cols-[minmax(120px,1fr)_150px_130px_minmax(140px,0.8fr)]"
                         key={row.major}
                       >
                         <div>
@@ -201,7 +201,7 @@ export function BudgetForm({
                           <span className="sr-only">{row.major} 예산</span>
                           <input
                             aria-label={`${row.major} 예산`}
-                            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-right text-sm text-zinc-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                            className="h-[34px] w-full border border-finance-hairline bg-white px-3 text-right text-[13px] tabular-nums text-finance-ink outline-none focus:border-finance-blue"
                             min={0}
                             name={`budget:${row.major}`}
                             onChange={(event) =>
@@ -225,9 +225,9 @@ export function BudgetForm({
                           </p>
                         </div>
                         <div>
-                          <div className="h-2 overflow-hidden rounded-full bg-zinc-200">
+                          <div className="h-[5px] overflow-hidden bg-finance-track">
                             <div
-                              className={`h-full rounded-full ${percent !== null && percent > 100 ? 'bg-rose-600' : 'bg-emerald-600'}`}
+                              className={`h-full ${percent !== null && percent > 100 ? 'bg-finance-red' : 'bg-finance-green'}`}
                               style={{ width: `${Math.min(percent ?? 0, 100)}%` }}
                             />
                           </div>

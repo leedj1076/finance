@@ -40,8 +40,8 @@ type BulkClassifyFormProps = {
   rows: BulkTransaction[]
 }
 
-const inputClass = 'rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100'
-const saveButton = 'rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'h-[34px] border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink outline-none focus:border-finance-blue'
+const saveButton = 'h-[34px] bg-finance-ink px-3 text-xs font-semibold text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60'
 
 const tokenLabels: Record<BulkClassificationToken, string> = {
   exp_var: '변동지출',
@@ -103,11 +103,11 @@ export function BulkClassifyForm({ categories, rows }: BulkClassifyFormProps) {
   }
 
   return (
-    <form action={bulkClassifyTransactions} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-      <div className="flex flex-col justify-between gap-3 border-b border-zinc-200 px-5 py-4 sm:flex-row sm:items-center">
+    <form action={bulkClassifyTransactions} className="overflow-hidden border-t border-finance-ink">
+      <div className="flex flex-col justify-between gap-3 border-b border-finance-hairline py-4 sm:flex-row sm:items-center">
         <div>
-          <h2 className="font-semibold text-zinc-950">미분류 거래 일괄 분류</h2>
-          <p className="mt-1 text-xs text-zinc-500">
+          <h2 className="text-sm font-bold text-finance-ink">미분류 거래 일괄 분류</h2>
+          <p className="mt-1 text-xs text-finance-muted">
             가맹점 사전·이력 추천은 미리 선택했습니다. 유형과 카테고리를 확인한 뒤 저장해 주세요.
           </p>
         </div>
@@ -139,7 +139,7 @@ export function BulkClassifyForm({ categories, rows }: BulkClassifyFormProps) {
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1040px] text-left text-sm">
-          <thead className="bg-zinc-50 text-xs text-zinc-500">
+          <thead className="border-b border-finance-hairline bg-finance-panel text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
             <tr>
               <th className="w-14 px-4 py-3 font-medium" scope="col">선택</th>
               <th className="px-3 py-3 font-medium" scope="col">날짜</th>

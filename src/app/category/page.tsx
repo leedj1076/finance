@@ -42,52 +42,52 @@ export default async function CategoryPage({ searchParams }: CategoryPageProps) 
   })
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-white">
       <AppHeader active="analysis" email={household.email} />
-      <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
+      <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
-            <p className="text-sm font-medium text-emerald-700">분류 상세</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">분류 상세</p>
+            <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">
               {data.major || '분류 미선택'}
             </h1>
-            <p className="mt-2 text-sm text-zinc-500">
+            <p className="mt-2 text-xs text-finance-muted">
               {data.label} · {flowLabel}
               {data.selectedAccount ? ` · ${data.selectedAccount.name}` : ''}
             </p>
           </div>
           <Link
-            className="inline-flex min-h-11 items-center self-start rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 sm:self-auto"
+            className="inline-flex h-[34px] items-center self-start border border-finance-hairline bg-white px-4 text-xs font-semibold text-finance-ink hover:bg-finance-panel sm:self-auto"
             href={backUrl}
           >
             ← 분석으로
           </Link>
         </div>
 
-        <section className="mt-6 grid gap-4 sm:grid-cols-2">
-          <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-zinc-500">{data.major || '선택 분류'} 합계</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-zinc-950">
+        <section className="mt-6 grid border-y border-finance-ink sm:grid-cols-2 sm:divide-x sm:divide-finance-hairline">
+          <article className="px-4 py-5 first:pl-0 sm:px-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-finance-muted">{data.major || '선택 분류'} 합계</p>
+            <p className="mt-2 text-[26px] font-semibold leading-none tabular-nums text-finance-ink">
               {formatWon(data.categoryTotal)}원
             </p>
           </article>
-          <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-zinc-500">{flowLabel} 대비 비중</p>
-            <p className="mt-2 text-2xl font-semibold tracking-tight text-emerald-700">
+          <article className="px-4 py-5 last:pr-0 sm:px-6">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-finance-muted">{flowLabel} 대비 비중</p>
+            <p className="mt-2 text-[26px] font-semibold leading-none tabular-nums text-finance-green">
               {formatRate(data.percent)}%
             </p>
             <p className="mt-2 text-xs text-zinc-500">기간 전체 {flowLabel} {formatWon(data.periodTotal)}원</p>
           </article>
         </section>
 
-        <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <div className="border-b border-zinc-200 px-5 py-4">
-            <h2 className="font-semibold text-zinc-950">소분류별</h2>
+        <section className="mt-6 overflow-hidden border-t border-finance-ink">
+          <div className="border-b border-finance-hairline py-4">
+            <h2 className="text-sm font-bold text-finance-ink">소분류별</h2>
           </div>
           {data.subs.length === 0 ? (
             <p className="px-5 py-12 text-center text-sm text-zinc-500">거래가 없습니다.</p>
           ) : (
-            <ol className="divide-y divide-zinc-100 px-5">
+            <ol className="divide-y divide-finance-hairline">
               {data.subs.map((sub, index) => (
                 <li className="grid grid-cols-[24px_minmax(100px,1fr)_auto] items-center gap-3 py-4" key={sub.sub}>
                   <span className="text-xs text-zinc-400">{index + 1}</span>
@@ -96,9 +96,9 @@ export default async function CategoryPage({ searchParams }: CategoryPageProps) 
                       <p className="truncate text-sm font-medium text-zinc-800">{sub.sub}</p>
                       <span className="shrink-0 text-xs text-zinc-500">{sub.count}건</span>
                     </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+                    <div className="mt-2 h-[5px] overflow-hidden bg-finance-track">
                       <div
-                        className="h-full rounded-full bg-emerald-600"
+                        className="h-full bg-finance-blue"
                         style={{ width: `${data.categoryTotal > 0 ? (sub.amount / data.categoryTotal) * 100 : 0}%` }}
                       />
                     </div>
@@ -111,14 +111,14 @@ export default async function CategoryPage({ searchParams }: CategoryPageProps) 
         </section>
 
         {data.merchants.length > 0 && (
-          <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-            <div className="border-b border-zinc-200 px-5 py-4">
-              <h2 className="font-semibold text-zinc-950">가맹점 TOP {data.merchants.length}</h2>
+          <section className="mt-6 overflow-hidden border-t border-finance-ink">
+            <div className="border-b border-finance-hairline py-4">
+              <h2 className="text-sm font-bold text-finance-ink">가맹점 TOP {data.merchants.length}</h2>
               <p className="mt-1 text-xs text-zinc-500">공백·지점번호를 제거해 같은 가맹점으로 묶었습니다.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[600px] text-left text-sm">
-                <thead className="bg-zinc-50 text-xs text-zinc-500">
+                <thead className="border-b border-finance-hairline bg-finance-panel text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
                   <tr>
                     <th className="px-5 py-3 font-medium">#</th>
                     <th className="px-3 py-3 font-medium">가맹점</th>
@@ -126,7 +126,7 @@ export default async function CategoryPage({ searchParams }: CategoryPageProps) 
                     <th className="px-5 py-3 text-right font-medium">합계</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100">
+                <tbody className="divide-y divide-finance-hairline">
                   {data.merchants.map((merchant, index) => (
                     <tr key={`${merchant.name}-${index}`}>
                       <td className="px-5 py-3 text-zinc-400">{index + 1}</td>
@@ -141,14 +141,14 @@ export default async function CategoryPage({ searchParams }: CategoryPageProps) 
           </section>
         )}
 
-        <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
-            <h2 className="font-semibold text-zinc-950">거래 내역</h2>
+        <section className="mt-6 overflow-hidden border-t border-finance-ink">
+          <div className="flex items-center justify-between border-b border-finance-hairline py-4">
+            <h2 className="text-sm font-bold text-finance-ink">거래 내역</h2>
             <span className="text-sm text-zinc-500">{data.transactions.length.toLocaleString('ko-KR')}건</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="bg-zinc-50 text-xs text-zinc-500">
+              <thead className="border-b border-finance-hairline bg-finance-panel text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
                 <tr>
                   <th className="px-5 py-3 font-medium">날짜</th>
                   <th className="px-3 py-3 font-medium">구분</th>
@@ -158,12 +158,12 @@ export default async function CategoryPage({ searchParams }: CategoryPageProps) 
                   <th className="px-5 py-3 font-medium">결제수단</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100">
+              <tbody className="divide-y divide-finance-hairline">
                 {data.transactions.map((transaction) => (
                   <tr key={transaction.id}>
                     <td className="whitespace-nowrap px-5 py-3 tabular-nums text-zinc-500">{transaction.date}</td>
                     <td className="px-3 py-3">
-                      <span className="whitespace-nowrap rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">
+                      <span className="whitespace-nowrap bg-finance-track px-2 py-1 text-[11px] font-semibold text-finance-muted">
                         {transactionLabel(transaction.flow, transaction.fixed)}
                       </span>
                     </td>

@@ -25,9 +25,9 @@ function SummaryCard({ label, value, tone = 'default' }: {
         ? 'text-emerald-700'
         : 'text-zinc-950'
   return (
-    <article className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-zinc-500">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold tracking-tight ${color}`}>{value}</p>
+    <article className="px-4 py-5 first:pl-0 last:pr-0 sm:px-6">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-finance-muted">{label}</p>
+      <p className={`mt-2 text-[26px] font-semibold leading-none tabular-nums ${color}`}>{value}</p>
     </article>
   )
 }
@@ -43,39 +43,39 @@ export default async function RecurringPage({ searchParams }: RecurringPageProps
   const monthError = params.error === 'month'
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-white">
       <AppHeader active="recurring" email={household.email} />
-      <main className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
+      <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
         <div>
-          <p className="text-sm font-medium text-emerald-700">자동 입력</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">정기거래</h1>
-          <p className="mt-2 text-sm text-zinc-500">매월 반복되는 수입·지출·저축을 한 번에 가계부에 반영합니다.</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">자동 입력</p>
+          <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">정기거래</h1>
+          <p className="mt-2 text-xs text-finance-muted">매월 반복되는 수입·지출·저축을 한 번에 가계부에 반영합니다.</p>
         </div>
 
-        {saved && <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">정기거래 규칙을 저장했습니다.</p>}
-        {monthError && <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">반영할 월을 확인해 주세요.</p>}
+        {saved && <p className="mt-5 border-l-2 border-finance-green bg-finance-green-tint px-4 py-3 text-[13px] text-finance-green">정기거래 규칙을 저장했습니다.</p>}
+        {monthError && <p className="mt-5 border-l-2 border-finance-red bg-finance-red-tint px-4 py-3 text-[13px] text-finance-red">반영할 월을 확인해 주세요.</p>}
 
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-6 grid border-y border-finance-ink sm:grid-cols-2 sm:divide-x sm:divide-finance-hairline xl:grid-cols-4">
           <SummaryCard label="사용 중인 규칙" value={`${data.activeCount}개`} />
           <SummaryCard label="월 정기지출" tone="expense" value={`${formatWon(data.totals.expense)}원`} />
           <SummaryCard label="월 정기수입" tone="income" value={`${formatWon(data.totals.income)}원`} />
           <SummaryCard label="월 저축 납입" tone="saving" value={`${formatWon(data.totals.saving)}원`} />
         </section>
 
-        <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <section className="mt-6 border-t border-finance-ink py-4">
           <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
             <div>
-              <h2 className="font-semibold text-zinc-950">선택한 달에 반영</h2>
-              <p className="mt-1 text-xs text-zinc-500">
+              <h2 className="text-sm font-bold text-finance-ink">선택한 달에 반영</h2>
+              <p className="mt-1 text-xs text-finance-muted">
                 {data.month} 기준 {data.generatedCount}/{data.activeCount}개 반영됨 · 같은 달에 다시 실행해도 중복되지 않습니다.
               </p>
             </div>
             <form action={applyRecurringMonth} className="flex items-center gap-2">
-              <input aria-label="정기거래 적용 월" className="rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-800" defaultValue={data.month} name="month" type="month" />
-              <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60" pendingLabel="반영 중…" type="submit">선택한 달에 반영</SubmitButton>
+              <input aria-label="정기거래 적용 월" className="h-[34px] border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink" defaultValue={data.month} name="month" type="month" />
+              <SubmitButton className="h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60" pendingLabel="반영 중…" type="submit">선택한 달에 반영</SubmitButton>
             </form>
           </div>
-          <p className="mt-4 rounded-xl bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-800">
+          <p className="mt-4 border-l-2 border-finance-amber bg-finance-amber-tint px-3 py-3 text-xs leading-5 text-finance-amber">
             다른 경로로 이미 입력한 동일 거래까지 자동으로 판별하지는 않습니다. 새 달을 시작할 때 한 번 실행하는 방식이 가장 안전합니다.
           </p>
         </section>
