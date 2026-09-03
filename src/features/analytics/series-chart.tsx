@@ -7,6 +7,7 @@ import { Bar, Line } from 'react-chartjs-2'
 import {
   CHART_LINE_WIDTH,
   CHART_LINE_WIDTH_ACTIVE,
+  CHART_POINT_RADIUS,
   CHART_POINT_RADIUS_ACTIVE,
   alpha,
   resolveChartColor,
@@ -76,7 +77,10 @@ export function SeriesChart({
         pointBackgroundColor: color,
         pointBorderColor: palette.background,
         pointBorderWidth: 1.5,
-        pointRadius: (context: { dataIndex: number }) => context.dataIndex === hoverMonth ? CHART_POINT_RADIUS_ACTIVE : 0,
+        pointRadius: (context: { dataIndex: number }) => {
+          if (hoverSeries !== row.id) return 0
+          return context.dataIndex === hoverMonth ? CHART_POINT_RADIUS_ACTIVE : CHART_POINT_RADIUS
+        },
         pointHoverRadius: CHART_POINT_RADIUS_ACTIVE,
         tension: kind === 'line' ? 0.22 : 0,
       }
