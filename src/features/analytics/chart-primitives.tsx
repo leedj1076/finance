@@ -18,6 +18,7 @@ import {
   TOP,
   WIDTH,
   compactWon,
+  xAt,
 } from './chart-theme'
 
 export * from './chart-theme'
@@ -52,12 +53,10 @@ export function plotWidthFor(width: number) {
 }
 
 export function coordinates(values: Array<number | null>, maxValue: number, minValue = 0, width = WIDTH) {
-  const plotWidth = plotWidthFor(width)
   const plotHeight = HEIGHT - TOP - BOTTOM
   const range = Math.max(maxValue - minValue, 1)
-  const step = plotWidth / Math.max(values.length - 1, 1)
   return values.map((value, index) => ({
-    x: LEFT + step * index,
+    x: xAt(index, values.length, width),
     y: value === null ? null : TOP + plotHeight - ((value - minValue) / range) * plotHeight,
     value,
   }))
@@ -102,7 +101,6 @@ export function Grid({ maxValue, minValue = 0, months, width = WIDTH, formatValu
 }) {
   const range = Math.max(maxValue - minValue, 1)
   const count = months?.length ?? 12
-  const step = plotWidthFor(width) / Math.max(count - 1, 1)
   return (
     <g>
       {[0, 0.5, 1].map((ratio) => {
@@ -118,7 +116,7 @@ export function Grid({ maxValue, minValue = 0, months, width = WIDTH, formatValu
         )
       })}
       {Array.from({ length: count }, (_, index) => (
-        <text className="chart-axis-label" fill={ROLE.muted} key={index} textAnchor="middle" x={LEFT + step * index} y={HEIGHT - 12}>
+        <text className="chart-axis-label" fill={ROLE.muted} key={index} textAnchor="middle" x={xAt(index, count, width)} y={HEIGHT - 12}>
           {months?.[index] ?? `${index + 1}월`}
         </text>
       ))}

@@ -16,6 +16,7 @@ import {
   ROLE,
   TOP,
   plotWidthFor,
+  xAt,
 } from './chart-primitives'
 
 // Trend charts for the home screen and the annual page. Same frame, same
@@ -38,8 +39,7 @@ export function SavingsRateChart({ data, target }: {
   return (
     <ChartFrame>
       {(width) => {
-        const step = plotWidthFor(width) / Math.max(active.length - 1, 1)
-        const x = (index: number) => LEFT + step * index
+        const x = (index: number) => xAt(index, active.length, width)
         const points = active.map((row, index) => `${x(index)},${y(row.savingsRate)}`).join(' ')
         return (
           <svg aria-label="올해 월별 순저축률" height={HEIGHT} role="img" viewBox={`0 0 ${width} ${HEIGHT}`} width={width}>

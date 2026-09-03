@@ -12,12 +12,11 @@ import {
   ChartLegendToggles,
   Grid,
   HEIGHT,
-  LEFT,
   OTHER_SERIES_NAME,
   TOP,
-  plotWidthFor,
   seriesColor,
   tooltipAt,
+  xAt,
 } from './chart-primitives'
 import type { ChartTooltipState } from './chart-tooltip'
 
@@ -52,7 +51,6 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
       />
       <ChartFrame onLeave={() => setTooltip(null)} tooltip={tooltip}>
         {(width) => {
-          const step = plotWidthFor(width) / 11
           return (
             <svg aria-label="결제수단별 월간 금액 누적 막대 차트" height={HEIGHT} role="img" viewBox={`0 0 ${width} ${HEIGHT}`} width={width}>
               <Grid maxValue={maxValue} width={width} />
@@ -64,7 +62,7 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
                   if (value === null || value <= 0) return null
                   const previous = cumulative
                   cumulative += value
-                  const x = LEFT + step * monthIndex - BAR_STACK_WIDTH / 2
+                  const x = xAt(monthIndex, 12, width) - BAR_STACK_WIDTH / 2
                   const y = TOP + plotHeight - (cumulative / maxValue) * plotHeight
                   const barHeight = ((cumulative - previous) / maxValue) * plotHeight
                   const color = seriesColor(accountIndex, account)

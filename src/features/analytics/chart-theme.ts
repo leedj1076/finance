@@ -10,6 +10,10 @@ export const LEFT = 54
 export const RIGHT = 18
 export const TOP = 18
 export const BOTTOM = 38
+// Inner horizontal padding of the plot so the first and last marks (a 32px
+// stacked bar is 16px either side of its center) stay clear of the axis
+// labels and the right edge. Every chart's x positions go through xAt().
+export const PLOT_INSET = 20
 
 export const LINE_WIDTH = 2
 export const LINE_WIDTH_ACTIVE = 2.5
@@ -53,6 +57,12 @@ export const ROLE = {
   grid: 'var(--finance-border)',
   track: 'var(--finance-track)',
 } as const
+
+// x of the index-th of `count` evenly spaced marks inside the inset plot.
+export function xAt(index: number, count: number, width: number) {
+  const inner = width - LEFT - RIGHT - PLOT_INSET * 2
+  return LEFT + PLOT_INSET + (inner * index) / Math.max(count - 1, 1)
+}
 
 export function compactWon(value: number) {
   const absolute = Math.abs(value)

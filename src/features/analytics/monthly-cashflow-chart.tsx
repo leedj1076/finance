@@ -12,12 +12,11 @@ import {
   ChartLegend,
   Grid,
   HEIGHT,
-  LEFT,
   ROLE,
   TOP,
   monthLabel,
-  plotWidthFor,
   tooltipAt,
+  xAt,
 } from './chart-primitives'
 import type { ChartTooltipState } from './chart-tooltip'
 
@@ -47,13 +46,12 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
       <ChartLegend items={LEGEND} />
       <ChartFrame onLeave={() => setTooltip(null)} tooltip={tooltip}>
         {(width) => {
-          const step = plotWidthFor(width) / Math.max(data.length - 1, 1)
           return (
             <svg aria-label="월별 수입과 지출 막대 차트" height={HEIGHT} role="img" viewBox={`0 0 ${width} ${HEIGHT}`} width={width}>
               <Grid maxValue={maxValue} months={months} width={width} />
               {data.map((item, index) => {
                 if (!item.active) return null
-                const center = LEFT + step * index
+                const center = xAt(index, data.length, width)
                 return ([
                   { color: ROLE.income, label: '수입', value: item.income, x: center - BAR_PAIR_WIDTH - BAR_PAIR_GAP / 2 },
                   { color: ROLE.expense, label: '지출', value: item.expense, x: center + BAR_PAIR_GAP / 2 },

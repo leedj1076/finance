@@ -20,6 +20,7 @@ import {
   pathFor,
   plotWidthFor,
   pointerPosition,
+  xAt,
 } from '@/features/analytics/chart-primitives'
 import type { ChartTooltipState } from '@/features/analytics/chart-tooltip'
 
@@ -61,7 +62,6 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
       <ChartLegend items={SERIES.map((item) => ({ name: item.label, color: item.color }))} />
       <ChartFrame onLeave={() => setTooltip(null)} tooltip={tooltip}>
         {(width) => {
-          const step = plotWidthFor(width) / Math.max(data.length - 1, 1)
           const hitWidth = plotWidthFor(width) / Math.max(data.length, 1)
           return (
             <svg aria-label="월별 순자산 추이" height={HEIGHT} role="img" viewBox={`0 0 ${width} ${HEIGHT}`} width={width}>
@@ -96,7 +96,7 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
                   onPointerEnter={(event) => showTooltip(event, index)}
                   onPointerMove={(event) => showTooltip(event, index)}
                   width={hitWidth}
-                  x={Math.max(LEFT, LEFT + step * index - hitWidth / 2)}
+                  x={Math.max(LEFT, xAt(index, data.length, width) - hitWidth / 2)}
                   y={TOP}
                 />
               ))}
