@@ -75,6 +75,17 @@ current.fixedExpense / current.variableExpense
 **(3) 적정 페이스 기준선** — 불릿 차트의 옅은 구간
 - `경과일 / 그 달의 총일수`. 과거 달을 보고 있으면 100%.
 
+**(4) 할 일 집계** — `src/features/analytics/home-todos.ts` (신규)
+
+```
+getHomeTodos(householdId)
+  → Array<{ kind, priority, title, detail, href }>  // priority 오름차순, 화면은 상위 3개만
+```
+- 소스가 흩어져 있어 한 곳에 모아야 한다: 이례적 지출(`anomalyAlerts`) · 지출 속도 경고(`budget.paceWarnings`) · 검토 대기 건수(`import_inbox` pending) · 미분류 거래 건수(현재 `manage` 쿼리의 unclassified) · 월말 리뷰 필요 여부(다음 달 예산 부재 + 월 후반) · 정기거래 미반영 여부(`recurring` 활성 규칙 중 이번 달 미생성).
+- 우선순위는 이 순서로 고정: 이례적 지출 → 페이스 경고 → 검토 대기 → 미분류 → 월말 리뷰 → 정기거래.
+- 각 항목은 그 작업을 처리하는 화면으로 바로 가는 `href`를 가진다 (검토 대기 → 가져오기, 미분류 → 가져오기의 미분류 탭, 월말 리뷰 → `/budgets/review`).
+- **householdId 필터 필수.** 정보구조 기획서 §7.1 3번 항목이 이 함수를 전제한다.
+
 ## 컴포넌트 (`src/features/analytics/`에 신규)
 
 `chart-specs.html`에 치수가 있다. 요약:
