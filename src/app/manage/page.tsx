@@ -38,6 +38,12 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
 
   const params = await searchParams
   const requestedTab = typeof params.tab === 'string' ? params.tab : 'accounts'
+  if (requestedTab === 'unclassified') {
+    const query = new URLSearchParams({ tab: 'unclassified' })
+    if (typeof params.saved === 'string') query.set('notice', params.saved)
+    if (typeof params.error === 'string') query.set('error', params.error)
+    redirect(`/inbox?${query.toString()}`)
+  }
   const tab = tabs.some((item) => item.key === requestedTab) ? requestedTab as ManageTab : 'accounts'
   const ruleQuery = typeof params.q === 'string' ? params.q.slice(0, 100) : ''
   const saved = typeof params.saved === 'string' ? params.saved : null

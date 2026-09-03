@@ -253,7 +253,7 @@ test('rejects a category whose kind differs from the selected transaction flow',
   formData.set('ids', String(transactionIds[2]))
   formData.set(`category_${transactionIds[2]}`, String(incomeCategoryId))
   formData.set(`flow_${transactionIds[2]}`, 'exp_var')
-  await expect(bulkClassifyTransactions(formData)).rejects.toThrow('REDIRECT:/manage?tab=unclassified&error=')
+  await expect(bulkClassifyTransactions(formData)).rejects.toThrow('REDIRECT:/inbox?tab=unclassified&error=')
 
   const [row] = await db
     .select({ categoryId: transactions.categoryId })
@@ -267,7 +267,7 @@ test('cannot classify a transaction from another household', async () => {
   formData.set('ids', String(foreignTransactionId))
   formData.set(`category_${foreignTransactionId}`, String(expenseCategoryId))
   formData.set(`flow_${foreignTransactionId}`, 'exp_var')
-  await expect(bulkClassifyTransactions(formData)).rejects.toThrow('REDIRECT:/manage?tab=unclassified&error=')
+  await expect(bulkClassifyTransactions(formData)).rejects.toThrow('REDIRECT:/inbox?tab=unclassified&error=')
 
   const foreignRows = await db
     .select({ id: transactions.id })
@@ -290,7 +290,7 @@ test('bulk classifies selected rows and learns user merchant dictionary entries'
   formData.set(`category_${transactionIds[1]}`, String(incomeCategoryId))
   formData.set(`flow_${transactionIds[0]}`, 'exp_fix')
   formData.set(`flow_${transactionIds[1]}`, 'income')
-  await expect(bulkClassifyTransactions(formData)).rejects.toThrow('REDIRECT:/manage?tab=unclassified&saved=')
+  await expect(bulkClassifyTransactions(formData)).rejects.toThrow('REDIRECT:/inbox?tab=unclassified&notice=')
 
   const rows = await db
     .select({ id: transactions.id, categoryId: transactions.categoryId, fixed: transactions.fixed, flow: transactions.flow })
@@ -319,7 +319,7 @@ test('updates flow, fixed, and category together', async () => {
   formData.set('ids', String(flowChangeTransactionId))
   formData.set(`category_${flowChangeTransactionId}`, String(incomeCategoryId))
   formData.set(`flow_${flowChangeTransactionId}`, 'income')
-  await expect(bulkClassifyTransactions(formData)).rejects.toThrow('REDIRECT:/manage?tab=unclassified&saved=')
+  await expect(bulkClassifyTransactions(formData)).rejects.toThrow('REDIRECT:/inbox?tab=unclassified&notice=')
 
   const [row] = await db
     .select({ flow: transactions.flow, fixed: transactions.fixed, categoryId: transactions.categoryId })
@@ -333,7 +333,7 @@ test('rejects hidden categories even when the request is forged', async () => {
   formData.set('ids', String(hiddenValidationTransactionId))
   formData.set(`category_${hiddenValidationTransactionId}`, String(hiddenCategoryId))
   formData.set(`flow_${hiddenValidationTransactionId}`, 'exp_var')
-  await expect(bulkClassifyTransactions(formData)).rejects.toThrow('REDIRECT:/manage?tab=unclassified&error=')
+  await expect(bulkClassifyTransactions(formData)).rejects.toThrow('REDIRECT:/inbox?tab=unclassified&error=')
 
   const [row] = await db
     .select({ categoryId: transactions.categoryId })

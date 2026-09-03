@@ -16,6 +16,9 @@ import { manageFlow, optionalText, parseBulkAccounts, parseBulkCategories, posit
 type ManageTab = 'accounts' | 'categories' | 'rules' | 'unclassified'
 
 function finish(tab: ManageTab, key: 'error' | 'saved', message: string): never {
+  if (tab === 'unclassified') {
+    redirect(`/inbox?tab=unclassified&${key === 'saved' ? 'notice' : 'error'}=${encodeURIComponent(message)}`)
+  }
   redirect(`/manage?tab=${tab}&${key}=${encodeURIComponent(message)}`)
 }
 
