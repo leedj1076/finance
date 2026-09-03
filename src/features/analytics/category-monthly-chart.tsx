@@ -6,17 +6,24 @@ import { useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { CategoryMonthlyData } from './account-monthly'
 import {
   BOTTOM,
+  ChartLegendToggles,
   ChartPlaceholder,
+  DIMMED_OPACITY,
   Grid,
   HEIGHT,
   LEFT,
-  PALETTE,
+  LINE_WIDTH,
+  LINE_WIDTH_ACTIVE,
+  OTHER_SERIES_NAME,
+  POINT_RADIUS,
+  POINT_RADIUS_ACTIVE,
   RIGHT,
   TOP,
   WIDTH,
   coordinates,
   pathFor,
   pointerPosition,
+  seriesColor,
   useHydrated,
 } from './chart-primitives'
 import { ChartTooltip, type ChartTooltipState } from './chart-tooltip'
@@ -79,7 +86,7 @@ export function CategoryMonthlyChart({
         distance = Math.min(distance, Math.hypot(position.x - nearestX, position.y - nearestY))
       }
 
-      const color = PALETTE[data.categories.indexOf(category) % PALETTE.length]
+      const color = seriesColor(data.categories.indexOf(category), category)
       if (!nearest || distance < nearest.distance) nearest = { category, color, distance }
     }
 
@@ -92,43 +99,31 @@ export function CategoryMonthlyChart({
     const rows = data.series[nearest.category].flatMap((value, index) => value === null
       ? []
       : [{ color: nearest.color, label: `${index + 1}월`, separator: '  ', value }])
+    const title = nearest.category === OTHER_SERIES_NAME && data.folded?.length
+      ? `${OTHER_SERIES_NAME} · ${data.folded.join(', ')}`
+      : nearest.category
     setHovered(nearest.category)
-    setTooltip({ ...position, title: nearest.category, rows })
+    setTooltip({ ...position, title, rows })
   }
 
   return (
     <div>
-      <div aria-label="분류 범례" className="mb-4 flex flex-wrap gap-2" role="group">
-        {data.categories.map((category, index) => {
-          const visible = !hidden.has(category)
-          return (
-            <span className="inline-flex items-center gap-1" key={category}>
-              <button
-                aria-pressed={visible}
-                className={`inline-flex h-[30px] items-center gap-1.5 border px-2.5 text-xs transition-opacity ${visible ? 'border-finance-hairline bg-white text-finance-ink' : 'border-finance-hairline bg-finance-track text-finance-faint line-through'}`}
-                onBlur={() => setHovered(null)}
-                onClick={() => toggle(category)}
-                onFocus={() => visible && setHovered(category)}
-                onMouseEnter={() => visible && setHovered(category)}
-                onMouseLeave={() => setHovered(null)}
-                type="button"
-              >
-                <span className="h-2.5 w-2.5" style={{ backgroundColor: PALETTE[index % PALETTE.length] }} />
-                {category}
-              </button>
-              {detailHref && (
-                <Link
-                  aria-label={`${category} 상세 보기`}
-                  className="px-1.5 py-1 text-[10px] font-semibold text-finance-faint hover:bg-finance-blue-tint hover:text-finance-blue"
-                  href={detailHref(category)}
-                >
-                  상세
-                </Link>
-              )}
-            </span>
-          )
-        })}
-      </div>
+      <ChartLegendToggles
+        hidden={hidden}
+        items={data.categories.map((category, index) => ({ name: category, color: seriesColor(index, category) }))}
+        label="분류 범례"
+        onHover={setHovered}
+        onToggle={toggle}
+        renderExtra={detailHref ? (category) => (
+          <Link
+            aria-label={`${category} 상세 보기`}
+            className="px-1.5 py-1 t-badge text-finance-faint hover:bg-finance-blue-tint hover:text-finance-blue"
+            href={detailHref(category)}
+          >
+            상세
+          </Link>
+        ) : undefined}
+      />
       <div
         className="relative min-w-[620px]"
         onPointerLeave={() => {
@@ -145,12 +140,12 @@ export function CategoryMonthlyChart({
           <Grid maxValue={maxValue} />
           {data.categories.map((category, index) => {
             if (hidden.has(category)) return null
-            const color = PALETTE[index % PALETTE.length]
+            const color = seriesColor(index, category)
             const points = coordinates(data.series[category], maxValue)
             const dimmed = hovered !== null && hovered !== category
             const active = hovered === category
             return (
-              <g key={category} opacity={dimmed ? 0.16 : 1}>
+              <g key={category} opacity={dimmed ? DIMMED_OPACITY : 1}>
                 <path
                   aria-label={`${category} 월별 금액`}
                   className="chart-line-enter"
@@ -161,7 +156,7 @@ export function CategoryMonthlyChart({
                   stroke={color}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={active ? 2 : 1.25}
+                  strokeWidth={active ? LINE_WIDTH_ACTIVE : LINE_WIDTH}
                 />
                 {points.map((point, monthIndex) => point.y === null ? null : (
                   <circle
@@ -171,7 +166,7 @@ export function CategoryMonthlyChart({
                     fill={color}
                     key={monthIndex}
                     pointerEvents="none"
-                    r={active ? 3.5 : 2.2}
+                    r={active ? POINT_RADIUS_ACTIVE : POINT_RADIUS}
                     style={{ animationDelay: `${180 + monthIndex * 28}ms` }}
                   />
                 ))}

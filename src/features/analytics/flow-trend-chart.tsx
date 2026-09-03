@@ -10,7 +10,10 @@ import {
   Grid,
   HEIGHT,
   LEFT,
+  LINE_WIDTH,
+  POINT_RADIUS,
   RIGHT,
+  ROLE,
   TOP,
   WIDTH,
   coordinates,
@@ -33,7 +36,7 @@ export function FlowTrendChart({ data, label, tone }: { data: TrendPoint[]; labe
   const values = data.map((item) => item.active ? item.amount : null)
   const maxValue = Math.max(1, ...values.filter((value): value is number => value !== null))
   const points = coordinates(values, maxValue)
-  const color = tone === 'blue' ? 'var(--finance-blue)' : tone === 'emerald' ? 'var(--finance-green)' : 'var(--finance-red)'
+  const color = tone === 'blue' ? ROLE.income : tone === 'emerald' ? ROLE.saving : ROLE.over
 
   if (!hydrated) return <ChartPlaceholder />
 
@@ -48,9 +51,9 @@ export function FlowTrendChart({ data, label, tone }: { data: TrendPoint[]; labe
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       >
         <Grid maxValue={maxValue} />
-        <path className="chart-line-enter" d={pathFor(points)} fill="none" pathLength={1} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+        <path className="chart-line-enter" d={pathFor(points)} fill="none" pathLength={1} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth={LINE_WIDTH} />
         {points.map((point, index) => point.y === null ? null : (
-          <circle className="chart-point-enter" cx={point.x} cy={point.y} fill={color} key={index} pointerEvents="none" r="4" style={{ animationDelay: `${180 + index * 35}ms` }} />
+          <circle className="chart-point-enter" cx={point.x} cy={point.y} fill={color} key={index} pointerEvents="none" r={POINT_RADIUS} style={{ animationDelay: `${180 + index * 35}ms` }} />
         ))}
         {points.map((point, index) => point.y === null ? null : (
           <rect

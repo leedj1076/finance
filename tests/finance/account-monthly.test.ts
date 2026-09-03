@@ -43,6 +43,113 @@ describe('account monthly data', () => {
   })
 })
 
+describe('series folding into "그 외"', () => {
+  function rowFor(month: string, name: string, amount: number): MonthlyBreakdownRow {
+    return { date: `2026-${month}-01`, flow: 'expense', amount, accountName: name, major: name }
+  }
+
+  test('folds 8 series into the top 6 by total plus a "그 외" series that sums the leftovers', () => {
+    // Input order intentionally differs from total order: H has the highest
+    // total (800) but appears last, A appears first with the lowest total.
+    const foldRows: MonthlyBreakdownRow[] = [
+      rowFor('01', 'A', 10),
+      rowFor('01', 'B', 20),
+      rowFor('01', 'C', 30),
+      rowFor('01', 'D', 40),
+      rowFor('01', 'E', 50),
+      rowFor('01', 'F', 60),
+      rowFor('01', 'G', 70),
+      rowFor('01', 'H', 800),
+    ]
+
+    const result = buildAccountMonthly(foldRows, 'expense')
+
+    expect(result.accounts).toHaveLength(7)
+    expect(result.accounts).toEqual(['C', 'D', 'E', 'F', 'G', 'H', '그 외'])
+    expect(result.accounts).not.toContain('A')
+    expect(result.accounts).not.toContain('B')
+    // Leftovers A(10) + B(20) = 30
+    expect(result.series['그 외'][0]).toBe(30)
+    expect(result.folded).toEqual(['B', 'A'])
+  })
+
+  test('keeps all 7 series as-is when exactly 7 are present (no folding)', () => {
+    const sevenRows: MonthlyBreakdownRow[] = [
+      rowFor('01', 'A', 10),
+      rowFor('01', 'B', 20),
+      rowFor('01', 'C', 30),
+      rowFor('01', 'D', 40),
+      rowFor('01', 'E', 50),
+      rowFor('01', 'F', 60),
+      rowFor('01', 'G', 70),
+    ]
+
+    const result = buildAccountMonthly(sevenRows, 'expense')
+
+    expect(result.accounts).toHaveLength(7)
+    expect(result.accounts).not.toContain('그 외')
+    expect(result.folded).toBeUndefined()
+  })
+
+  test('leaves 6-or-fewer series unchanged', () => {
+    const sixRows: MonthlyBreakdownRow[] = [
+      rowFor('01', 'A', 10),
+      rowFor('01', 'B', 20),
+      rowFor('01', 'C', 30),
+      rowFor('01', 'D', 40),
+      rowFor('01', 'E', 50),
+      rowFor('01', 'F', 60),
+    ]
+
+    const result = buildAccountMonthly(sixRows, 'expense')
+
+    expect(result.accounts).toEqual(['F', 'E', 'D', 'C', 'B', 'A'])
+    expect(result.accounts).not.toContain('그 외')
+    expect(result.folded).toBeUndefined()
+  })
+
+  test('keeps the selected top 6 in original input order rather than total-sorted order', () => {
+    const foldRows: MonthlyBreakdownRow[] = [
+      rowFor('01', 'A', 10),
+      rowFor('01', 'B', 20),
+      rowFor('01', 'C', 30),
+      rowFor('01', 'D', 40),
+      rowFor('01', 'E', 50),
+      rowFor('01', 'F', 60),
+      rowFor('01', 'G', 70),
+      rowFor('01', 'H', 800),
+    ]
+
+    const result = buildAccountMonthly(foldRows, 'expense')
+
+    // C, D, E, F, G, H is exactly the order they first appear in foldRows,
+    // not the total-descending order (H, G, F, E, D, C).
+    expect(result.accounts.slice(0, 6)).toEqual(['C', 'D', 'E', 'F', 'G', 'H'])
+  })
+
+  test('"그 외" is null for months with no activity at all, matching the existing global null mask', () => {
+    // Only January has any transactions; February has none for any account, so
+    // the shared active-month mask (existing Flask semantics) keeps it null.
+    const foldRows: MonthlyBreakdownRow[] = [
+      rowFor('01', 'A', 10),
+      rowFor('01', 'B', 20),
+      rowFor('01', 'C', 30),
+      rowFor('01', 'D', 40),
+      rowFor('01', 'E', 50),
+      rowFor('01', 'F', 60),
+      rowFor('01', 'G', 70),
+      rowFor('01', 'H', 800),
+    ]
+
+    const result = buildAccountMonthly(foldRows, 'expense')
+
+    expect(result.accounts).toContain('그 외')
+    // Leftovers A(10) + B(20) = 30
+    expect(result.series['그 외'][0]).toBe(30)
+    expect(result.series['그 외'][1]).toBeNull()
+  })
+})
+
 describe('dashboard household scope', () => {
   const raw = postgres(process.env.DATABASE_URL!, { prepare: false })
   const householdIds: string[] = []

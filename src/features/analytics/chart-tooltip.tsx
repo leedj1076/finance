@@ -50,10 +50,10 @@ export function ChartTooltip({
         aria-hidden
         className={`absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rotate-45 bg-finance-ink ${placeOnLeft ? '-right-1' : '-left-1'}`}
       />
-      <p className="mb-1.5 whitespace-nowrap text-sm font-semibold">{tooltip.title}</p>
+      <p className="mb-1.5 whitespace-nowrap t-body-strong">{tooltip.title}</p>
       <div className="space-y-1">
         {tooltip.rows.map((row) => (
-          <div className="flex items-center gap-2 whitespace-nowrap text-xs" key={`${row.label}-${row.value}`}>
+          <div className="flex items-center gap-2 whitespace-nowrap t-caption" key={`${row.label}-${row.value}`}>
             <span
               aria-hidden
               className="h-3 w-3 shrink-0 border border-white/70"

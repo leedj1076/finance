@@ -6,15 +6,18 @@ import { formatWon } from '@/lib/finance'
 
 import type { AccountMonthlyData } from './account-monthly'
 import {
+  BAR_STACK_WIDTH,
   BOTTOM,
+  ChartLegendToggles,
   ChartPlaceholder,
   Grid,
   HEIGHT,
   LEFT,
-  PALETTE,
+  OTHER_SERIES_NAME,
   RIGHT,
   TOP,
   WIDTH,
+  seriesColor,
   tooltipAt,
   useHydrated,
 } from './chart-primitives'
@@ -32,7 +35,7 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
   const maxValue = Math.max(1, ...monthTotals)
   const plotHeight = HEIGHT - TOP - BOTTOM
   const plotWidth = WIDTH - LEFT - RIGHT
-  const barWidth = 32
+  const barWidth = BAR_STACK_WIDTH
 
   if (!hydrated) return <ChartPlaceholder />
 
@@ -48,20 +51,12 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap gap-3 text-xs text-finance-muted">
-        {data.accounts.map((account, index) => (
-          <button
-            aria-pressed={!hidden.has(account)}
-            className={`flex h-[30px] items-center gap-1.5 border px-2 text-xs transition-opacity ${hidden.has(account) ? 'border-finance-hairline bg-finance-track text-finance-faint line-through' : 'border-finance-hairline bg-white text-finance-ink'}`}
-            key={account}
-            onClick={() => toggle(account)}
-            type="button"
-          >
-            <span className="h-2.5 w-2.5" style={{ backgroundColor: PALETTE[index % PALETTE.length] }} />
-            {account}
-          </button>
-        ))}
-      </div>
+      <ChartLegendToggles
+        hidden={hidden}
+        items={data.accounts.map((account, index) => ({ name: account, color: seriesColor(index, account) }))}
+        label="결제수단 범례"
+        onToggle={toggle}
+      />
       <div className="relative min-w-[620px]" onPointerLeave={() => setTooltip(null)}>
         <svg
           aria-label="결제수단별 월간 금액 누적 막대 차트"
@@ -81,7 +76,10 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
               const x = LEFT + (plotWidth * monthIndex) / 11 - barWidth / 2
               const y = TOP + plotHeight - (cumulative / maxValue) * plotHeight
               const height = ((cumulative - previous) / maxValue) * plotHeight
-              const color = PALETTE[accountIndex % PALETTE.length]
+              const color = seriesColor(accountIndex, account)
+              const label = account === OTHER_SERIES_NAME && data.folded?.length
+                ? `${OTHER_SERIES_NAME} (${data.folded.join(', ')})`
+                : account
               return (
                 <rect
                   aria-label={`${monthIndex + 1}월 ${account} ${formatWon(value)}원`}
@@ -89,8 +87,8 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
                   fill={color}
                   height={height}
                   key={`${account}-${monthIndex}`}
-                  onPointerEnter={(event) => setTooltip(tooltipAt(event, `${monthIndex + 1}월`, [{ color, label: account, value }]))}
-                  onPointerMove={(event) => setTooltip(tooltipAt(event, `${monthIndex + 1}월`, [{ color, label: account, value }]))}
+                  onPointerEnter={(event) => setTooltip(tooltipAt(event, `${monthIndex + 1}월`, [{ color, label, value }]))}
+                  onPointerMove={(event) => setTooltip(tooltipAt(event, `${monthIndex + 1}월`, [{ color, label, value }]))}
                   rx="0"
                   width={barWidth}
                   x={x}

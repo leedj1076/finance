@@ -5,12 +5,16 @@ import { useState } from 'react'
 import { formatWon } from '@/lib/finance'
 
 import {
+  BAR_PAIR_GAP,
+  BAR_PAIR_WIDTH,
   BOTTOM,
+  ChartLegend,
   ChartPlaceholder,
   Grid,
   HEIGHT,
   LEFT,
   RIGHT,
+  ROLE,
   TOP,
   WIDTH,
   monthLabel,
@@ -27,6 +31,11 @@ type MonthlyCashflow = {
   active: boolean
 }
 
+const LEGEND = [
+  { name: '수입', color: ROLE.income },
+  { name: '지출', color: ROLE.expense },
+]
+
 export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
   const hydrated = useHydrated()
   const [tooltip, setTooltip] = useState<ChartTooltipState | null>(null)
@@ -35,17 +44,14 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
   const maxValue = Math.max(1, ...incomeValues.filter((value): value is number => value !== null), ...expenseValues.filter((value): value is number => value !== null))
   const plotHeight = HEIGHT - TOP - BOTTOM
   const plotWidth = WIDTH - LEFT - RIGHT
-  const barWidth = 17
-  const barGap = 3
+  const barWidth = BAR_PAIR_WIDTH
+  const barGap = BAR_PAIR_GAP
 
   if (!hydrated) return <ChartPlaceholder />
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-finance-muted">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 bg-finance-blue" />수입</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 bg-finance-ink" />지출</span>
-      </div>
+      <ChartLegend items={LEGEND} />
       <div className="relative min-w-[620px]" onPointerLeave={() => setTooltip(null)}>
         <svg
           aria-label="월별 수입과 지출 막대 차트"
@@ -59,8 +65,8 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
             const center = LEFT + (plotWidth * index) / 11
             const displayMonth = monthLabel(item.month, index)
             return ([
-              { color: 'var(--finance-blue)', label: '수입', value: item.income, x: center - barWidth - barGap / 2 },
-              { color: 'var(--finance-ink)', label: '지출', value: item.expense, x: center + barGap / 2 },
+              { color: ROLE.income, label: '수입', value: item.income, x: center - barWidth - barGap / 2 },
+              { color: ROLE.expense, label: '지출', value: item.expense, x: center + barGap / 2 },
             ]).map((bar) => {
               const height = (bar.value / maxValue) * plotHeight
               return (
