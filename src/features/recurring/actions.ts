@@ -164,6 +164,6 @@ export async function applyRecurringMonth(formData: FormData) {
   revalidatePath('/recurring')
   revalidatePath('/ledger')
   revalidatePath('/dashboard')
-  revalidatePath('/analysis')
+  revalidatePath('/report')
   redirect(`/ledger?month=${monthValue}&recurringAdded=${result.added}&recurringSkipped=${result.skipped}`)
 }

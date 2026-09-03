@@ -9,6 +9,8 @@ import {
 } from '@/db/schema'
 import { currentMonthInKorea, shiftMonth } from '@/lib/finance'
 
+import { normalizeAnalyticsMerchant } from './calculations'
+
 export type ReportFlow = 'expense' | 'income' | 'saving'
 
 export type ReportTransactionRow = {
@@ -18,6 +20,7 @@ export type ReportTransactionRow = {
   amount: number
   major: string
   memo: string | null
+  rawMerchant?: string | null
 }
 
 export type ReportAssetBalanceRow = {
@@ -131,6 +134,21 @@ export function buildAnnualReport({
     .sort((left, right) => right.amount - left.amount || left.major.localeCompare(right.major, 'ko'))
     .slice(0, 6)
 
+  const merchantMap = new Map<string, { name: string; amount: number; count: number }>()
+  for (const row of selectedRows) {
+    if (row.flow !== 'expense') continue
+    const merchant = row.rawMerchant || row.memo || ''
+    const key = normalizeAnalyticsMerchant(merchant)
+    if (!key) continue
+    const value = merchantMap.get(key) ?? { name: merchant, amount: 0, count: 0 }
+    value.amount += row.amount
+    value.count += 1
+    merchantMap.set(key, value)
+  }
+  const topMerchants = [...merchantMap.values()]
+    .sort((left, right) => right.amount - left.amount || right.count - left.count || left.name.localeCompare(right.name, 'ko'))
+    .slice(0, 6)
+
   const expenseRows = selectedRows
     .filter((row) => row.flow === 'expense')
     .sort((left, right) => right.amount - left.amount || left.date.localeCompare(right.date) || left.id - right.id)
@@ -193,6 +211,7 @@ export function buildAnnualReport({
     },
     savingsRateDelta: roundOneDecimal(annual.savingsRate - previous.savingsRate),
     topExpenses,
+    topMerchants,
     largestExpense,
     bestMonth,
     worstMonth,
@@ -224,6 +243,7 @@ export async function getReportData(householdId: string, requestedYear?: number)
         amount: transactions.amount,
         major: sql<string>`coalesce(${categories.major}, '미분류')`,
         memo: transactions.memo,
+        rawMerchant: transactions.rawMerchant,
       })
       .from(transactions)
       .leftJoin(

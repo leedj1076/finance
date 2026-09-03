@@ -8,6 +8,7 @@ import {
 } from '@/features/analytics/account-monthly-panel'
 import { getCategoryDetails } from '@/features/analytics/category-detail'
 import { CategoryDetailTable } from '@/features/analytics/category-detail-table'
+import { SavingsRateChart } from '@/features/analytics/home-dashboard-charts'
 import { MonthlyCashflowChart } from '@/features/analytics/monthly-cashflow-chart'
 import { getDashboardData } from '@/features/analytics/queries'
 import { getReportData } from '@/features/analytics/report'
@@ -15,7 +16,11 @@ import { formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 
 type ReportPageProps = {
-  searchParams: Promise<{ year?: string | string[] }>
+  searchParams: Promise<{
+    flow?: string | string[]
+    major?: string | string[]
+    year?: string | string[]
+  }>
 }
 
 const KPI_META = [
@@ -67,6 +72,9 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
   const params = await searchParams
   const rawYear = Array.isArray(params.year) ? params.year[0] : params.year
+  const highlightedMajor = Array.isArray(params.major) ? params.major[0] : params.major
+  const rawFlow = Array.isArray(params.flow) ? params.flow[0] : params.flow
+  const initialFlow = rawFlow === 'income' || rawFlow === 'saving' ? rawFlow : 'expense'
   const data = await getReportData(household.householdId, rawYear ? Number(rawYear) : undefined)
   const [dashboard, categoryDetails] = await Promise.all([
     getDashboardData(household.householdId, data.year),
@@ -135,12 +143,18 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
             <div className="p-4">
               <p className="text-xs text-emerald-700">최고 월</p>
               <p className="mt-1 font-semibold text-emerald-900">{data.bestMonth ? `${data.bestMonth.month}월 · ${formatRate(data.bestMonth.savingsRate)}%` : '수입 기록 없음'}</p>
+              <p className="mt-1 text-[11px] text-finance-muted">목표 달성 {dashboard.annual.targetHitMonths}/{dashboard.annual.activeMonths}개월</p>
             </div>
             <div className="p-4">
               <p className="text-xs text-rose-700">최저 월</p>
               <p className="mt-1 font-semibold text-rose-900">{data.worstMonth ? `${data.worstMonth.month}월 · ${formatRate(data.worstMonth.savingsRate)}%` : '수입 기록 없음'}</p>
             </div>
           </div>
+        </section>
+
+        <section className="mt-6 border-t border-finance-ink py-5">
+          <div><h2 className="text-sm font-bold text-finance-ink">월별 순저축률</h2><p className="mt-1 text-xs text-finance-muted">목표 {formatRate(dashboard.savingsTarget)}% · 달성·미달 월을 같은 기준선에서 비교합니다</p></div>
+          <div className="mt-5 overflow-x-auto"><SavingsRateChart data={dashboard.monthly} target={dashboard.savingsTarget} /></div>
         </section>
 
         <section className="mt-6 border-t border-finance-ink py-5">
@@ -156,12 +170,18 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
           </div>
         </section>
 
+        <section className="mt-6" id="category-detail">
+          <CategoryDetailTable
+            details={categoryDetails}
+            highlightedMajor={highlightedMajor}
+            initialFlow={initialFlow}
+            key={`${data.year}:${initialFlow}:${highlightedMajor ?? ''}`}
+            year={data.year}
+          />
+        </section>
+
         <AccountMonthlyPanel data={dashboard.accountMonthly} />
         <CategoryMonthlyPanel data={dashboard.categoryMonthly} year={dashboard.year} />
-
-        <section className="mt-6">
-          <CategoryDetailTable details={categoryDetails} key={data.year} year={data.year} />
-        </section>
 
         <section className="mt-6 overflow-hidden border-t border-finance-ink">
           <div className="border-b border-finance-hairline py-4">
@@ -196,6 +216,21 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
               </p>
             )}
           </div>
+        </section>
+
+        <section className="mt-6 overflow-hidden border-t border-finance-ink">
+          <div className="border-b border-finance-hairline py-4"><h2 className="text-sm font-bold text-finance-ink">가맹점 TOP {data.topMerchants.length}</h2><p className="mt-1 text-xs text-finance-muted">{data.year}년 전체 지출 · 같은 가맹점 이름을 정규화해 집계</p></div>
+          <ol className="divide-y divide-finance-hairline">
+            {data.topMerchants.map((merchant, index) => (
+              <li className="grid grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-3 py-3 text-sm" key={merchant.name}>
+                <span className="text-finance-faint">{index + 1}</span>
+                <span className="truncate font-medium text-finance-ink">{merchant.name}</span>
+                <span className="text-xs text-finance-muted">{merchant.count}건</span>
+                <span className="font-semibold tabular-nums text-finance-ink">{formatWon(merchant.amount)}원</span>
+              </li>
+            ))}
+            {data.topMerchants.length === 0 && <li className="py-10 text-center text-sm text-finance-muted">가맹점 정보가 없습니다.</li>}
+          </ol>
         </section>
 
         <section className="mt-6 overflow-hidden border-t border-finance-ink">

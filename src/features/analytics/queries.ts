@@ -383,6 +383,8 @@ export type AnalysisRequest = {
   year?: number
   flow?: string
   accountId?: number
+  major?: string
+  q?: string
 }
 
 export async function getAnalysisData(householdId: string, request: AnalysisRequest) {
@@ -416,11 +418,17 @@ export async function getAnalysisData(householdId: string, request: AnalysisRequ
   const filteredRows = selectedAccount === null
     ? rows
     : rows.filter((row) => row.accountId === selectedAccount)
-  const yearRows = filteredRows.filter((row) => row.date >= yearStart && row.date < yearEnd)
+  const requestedMajor = request.major?.trim().slice(0, 100) ?? ''
+  const requestedQuery = request.q?.trim().toLocaleLowerCase('ko-KR') ?? ''
+  const scopedRows = filteredRows.filter((row) => (
+    (!requestedMajor || row.major === requestedMajor)
+    && (!requestedQuery || row.merchant.toLocaleLowerCase('ko-KR').includes(requestedQuery))
+  ))
+  const yearRows = scopedRows.filter((row) => row.date >= yearStart && row.date < yearEnd)
   const currentRows = period === 'month'
-    ? rowsForMonth(filteredRows, month)
+    ? rowsForMonth(scopedRows, month)
     : yearRows
-  const previousRows = period === 'month' ? rowsForMonth(filteredRows, previousMonth) : []
+  const previousRows = period === 'month' ? rowsForMonth(scopedRows, previousMonth) : []
   const ranks = categoryRanks(currentRows, previousRows, flow)
   const total = sumFlow(currentRows, flow)
   const previousTotal = period === 'month' ? sumFlow(previousRows, flow) : 0
@@ -455,6 +463,8 @@ export async function getAnalysisData(householdId: string, request: AnalysisRequ
     nextYear: year + 1,
     flow,
     selectedAccount,
+    selectedMajor: requestedMajor,
+    query: requestedQuery,
     accounts: accountRows,
     total,
     count: currentRows.filter((row) => row.flow === flow).length,

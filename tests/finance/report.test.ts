@@ -79,6 +79,7 @@ describe('annual report calculations', () => {
       '주거', '여행', '식비', '교통', '교육', '의료',
     ])
     expect(report.topExpenses[0]).toEqual({ major: '주거', amount: 6_000_000, percent: 30 })
+    expect(report.topMerchants[0]).toEqual({ name: '주택 비용', amount: 6_000_000, count: 1 })
     expect(report.largestExpense).toMatchObject({ amount: 6_000_000, memo: '주택 비용', date: '2026-01-11', major: '주거' })
     expect(report.bestMonth).toEqual({ month: 2, savingsRate: 50 })
     expect(report.worstMonth).toEqual({ month: 9, savingsRate: 10 })
@@ -126,6 +127,7 @@ describe('annual report calculations', () => {
       hasPrevious: false,
       annual: { income: 0, expense: 0, saving: 0, netSaving: 0, savingsRate: 0 },
       topExpenses: [],
+      topMerchants: [],
       largestExpense: null,
       bestMonth: null,
       worstMonth: null,

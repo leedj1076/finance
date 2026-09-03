@@ -45,11 +45,15 @@ function cellKey(flow: CategoryDetailFlow, major: string, sub: string, month: nu
 export function CategoryDetailTable({
   year,
   details,
+  highlightedMajor,
+  initialFlow = 'expense',
 }: {
   year: number
   details: CategoryDetails
+  highlightedMajor?: string
+  initialFlow?: CategoryDetailFlow
 }) {
-  const [flow, setFlow] = useState<CategoryDetailFlow>('expense')
+  const [flow, setFlow] = useState<CategoryDetailFlow>(initialFlow)
   const [excluded, setExcluded] = useState<Set<string>>(() => new Set())
   const [tooltip, setTooltip] = useState<TooltipState | null>(null)
   const cache = useRef(new Map<string, CellTransactionResult>())
@@ -257,12 +261,13 @@ export function CategoryDetailTable({
             </tr>
           </thead>
           {computed.groups.map((group) => (
-            <tbody className="divide-y divide-finance-track" key={group.major}>
+            <tbody className={`divide-y divide-finance-track ${highlightedMajor === group.major ? 'bg-finance-blue-tint' : ''}`} key={group.major}>
                 {group.subs.map((sub, subIndex) => (
                   <tr className="hover:bg-finance-panel" key={`${group.major}-${sub.sub}`}>
                     {subIndex === 0 && (
                       <th
                         className="sticky left-0 z-10 border-r border-finance-border bg-white px-4 py-3 align-top font-bold text-finance-ink"
+                        id={highlightedMajor === group.major ? 'highlighted-category' : undefined}
                         rowSpan={group.subs.length + 1}
                         scope="rowgroup"
                       >
@@ -385,6 +390,12 @@ export function CategoryDetailTable({
               )}
             </div>
           )}
+          <Link
+            className="mt-3 block border-t border-zinc-700 pt-2 text-right text-xs font-semibold text-white hover:text-finance-blue"
+            href={`/ledger?month=${year}-${String(tooltip.month).padStart(2, '0')}&tab=list&flow=${flow}&major=${encodeURIComponent(tooltip.major)}`}
+          >
+            이 달 거래 보기 →
+          </Link>
         </div>
       )}
     </section>

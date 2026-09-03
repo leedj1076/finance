@@ -64,10 +64,10 @@ describe('category page request and links', () => {
   test('builds consistently encoded category and back links', () => {
     expect(categoryPageUrl({
       flow: 'expense', major: '식비/외식', period: { month: '2026-09' }, accountId: 12,
-    })).toBe('/category?flow=expense&major=%EC%8B%9D%EB%B9%84%2F%EC%99%B8%EC%8B%9D&ym=2026-09&account=12')
+    })).toBe('/ledger?month=2026-09&tab=categories&flow=expense&major=%EC%8B%9D%EB%B9%84%2F%EC%99%B8%EC%8B%9D&account=12')
     expect(categoryAnalysisUrl({
       flow: 'income', period: { year: 2026 }, accountId: null,
-    })).toBe('/analysis?period=year&flow=income&year=2026')
+    })).toBe('/report?year=2026')
   })
 })
 

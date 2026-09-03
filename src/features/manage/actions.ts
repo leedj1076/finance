@@ -23,7 +23,7 @@ function finish(tab: ManageTab, key: 'error' | 'saved', message: string): never 
 }
 
 function refreshDataPaths() {
-  for (const path of ['/manage', '/ledger', '/budgets', '/inbox', '/recurring', '/dashboard', '/analysis']) {
+  for (const path of ['/manage', '/ledger', '/budgets', '/inbox', '/recurring', '/dashboard', '/report']) {
     revalidatePath(path)
   }
 }

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, ilike, inArray, isNull, lt, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, lt, sql } from 'drizzle-orm'
 
 import { db } from '@/db/client'
 import { accounts, budgets, categories, importInbox, settings, transactions } from '@/db/schema'
@@ -73,7 +73,9 @@ async function filteredTotalsForMonth(
           : undefined,
         filters.flow ? eq(transactions.flow, filters.flow) : undefined,
         filters.major ? eq(categories.major, filters.major) : undefined,
-        filters.q ? ilike(transactions.memo, `%${filters.q}%`) : undefined,
+        filters.q
+          ? sql`coalesce(nullif(${transactions.rawMerchant}, ''), ${transactions.memo}, '') ilike ${`%${filters.q}%`}`
+          : undefined,
       ),
     )
   return {
@@ -85,6 +87,52 @@ async function filteredTotalsForMonth(
 }
 
 const emptyFilters: LedgerFilters = { account: '', flow: '', major: '', q: '' }
+
+export async function getLedgerShellData(
+  householdId: string,
+  requestedMonth?: string,
+  filters: LedgerFilters = emptyFilters,
+) {
+  const [latest] = await db
+    .select({ date: transactions.date })
+    .from(transactions)
+    .where(eq(transactions.householdId, householdId))
+    .orderBy(desc(transactions.date))
+    .limit(1)
+
+  const latestMonth = latest?.date.slice(0, 7) ?? currentMonthInKorea()
+  const month = isMonthKey(requestedMonth) ? requestedMonth : latestMonth
+  const [totals, filteredTotals, availableMonths] = await Promise.all([
+    totalsForMonth(householdId, month),
+    filteredTotalsForMonth(householdId, month, filters),
+    db
+      .select({
+        month: sql<string>`to_char(${transactions.date}, 'YYYY-MM')`,
+        count: sql<string>`count(*)`,
+      })
+      .from(transactions)
+      .where(eq(transactions.householdId, householdId))
+      .groupBy(sql`to_char(${transactions.date}, 'YYYY-MM')`)
+      .orderBy(desc(sql`to_char(${transactions.date}, 'YYYY-MM')`)),
+  ])
+
+  return {
+    month,
+    previousMonth: shiftMonth(month, -1),
+    nextMonth: shiftMonth(month, 1),
+    latestMonth,
+    totals: {
+      ...totals,
+      netSaving: totals.income - totals.expense,
+      savingsRate: savingsRate(totals.income, totals.expense),
+    },
+    filteredTotals,
+    availableMonths: availableMonths.map((item) => ({
+      month: item.month,
+      count: Number(item.count),
+    })),
+  }
+}
 
 export async function getLedgerData(
   householdId: string,
@@ -178,7 +226,9 @@ export async function getLedgerData(
             : undefined,
           filters.flow ? eq(transactions.flow, filters.flow) : undefined,
           filters.major ? eq(categories.major, filters.major) : undefined,
-          filters.q ? ilike(transactions.memo, `%${filters.q}%`) : undefined,
+          filters.q
+            ? sql`coalesce(nullif(${transactions.rawMerchant}, ''), ${transactions.memo}, '') ilike ${`%${filters.q}%`}`
+            : undefined,
         ),
       )
       .orderBy(desc(transactions.date), desc(transactions.id))

@@ -107,7 +107,7 @@ export default async function DashboardPage() {
           <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">홈</h1>
           <p className="mt-2 text-xs text-finance-muted">
             {year}년 {Number(month.slice(5))}월 · {data.pace.elapsed}일 경과 / {data.pace.daysInMonth}일 · 모든 수치는 <strong className="font-semibold text-finance-ink">월 단위</strong>
-            {' · '}지난 달은 <Link className="font-semibold text-finance-blue" href={`/ledger?month=${data.previousMonth}`}>거래</Link>, 다른 해는 <Link className="font-semibold text-finance-blue" href="/report">연간</Link>에서
+            {' · '}지난 달은 <Link className="font-semibold text-finance-blue" href={`/ledger?month=${data.previousMonth}&tab=list`}>거래</Link>, 다른 해는 <Link className="font-semibold text-finance-blue" href="/report">연간</Link>에서
           </p>
         </header>
 

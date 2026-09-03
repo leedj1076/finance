@@ -7,7 +7,7 @@ import {
   parseLedgerAccountId,
   parseLedgerFilters,
 } from '@/features/ledger/filters'
-import { getLedgerData } from '@/features/ledger/queries'
+import { getLedgerData, getLedgerShellData } from '@/features/ledger/queries'
 
 describe('ledger filters', () => {
   test('accepts the four supported filters and trims the query', () => {
@@ -73,7 +73,10 @@ describe('ledger filter database behavior', () => {
     const [household] = await raw`
       insert into households (name) values (${`ledger-filter-${suffix}`}) returning id
     `
-    householdIds.push(household.id)
+    const [otherHousehold] = await raw`
+      insert into households (name) values (${`ledger-filter-other-${suffix}`}) returning id
+    `
+    householdIds.push(household.id, otherHousehold.id)
     const [accountA] = await raw`
       insert into accounts (household_id, name) values (${household.id}, 'A 카드') returning id
     `
@@ -84,7 +87,14 @@ describe('ledger filter database behavior', () => {
       insert into transactions (household_id, date, flow, memo, amount, account_id, source)
       values
         (${household.id}, '2026-06-01', 'expense', 'Coffee ABC', 12000, ${accountA.id}, 'test'),
-        (${household.id}, '2026-06-02', 'expense', '다른 내역', 34000, ${accountB.id}, 'test')
+        (${household.id}, '2026-06-02', 'expense', '다른 내역', 34000, ${accountB.id}, 'test'),
+        (${household.id}, '2026-06-03', 'expense', '카드 사용', 56000, ${accountA.id}, 'test'),
+        (${otherHousehold.id}, '2026-06-04', 'expense', '섞이면 안 됨', 9999999, null, 'test')
+    `
+    await raw`
+      update transactions
+      set raw_merchant = 'Store XYZ'
+      where household_id = ${household.id} and memo = '카드 사용'
     `
 
     const byQuery = await getLedgerData(household.id, '2026-06', {
@@ -96,9 +106,18 @@ describe('ledger filter database behavior', () => {
     const unsafeAccount = await getLedgerData(household.id, '2026-06', {
       account: '9007199254740992', flow: '', major: '', q: '',
     })
+    const byMerchant = await getLedgerData(household.id, '2026-06', {
+      account: '', flow: '', major: '', q: 'store xyz',
+    })
+    const shell = await getLedgerShellData(household.id, '2026-06', {
+      account: '', flow: '', major: '', q: '',
+    })
 
     expect(byQuery.transactions.map((row) => row.memo)).toEqual(['Coffee ABC'])
-    expect(byAccount.transactions.map((row) => row.memo)).toEqual(['Coffee ABC'])
+    expect(byAccount.transactions.map((row) => row.memo)).toEqual(['카드 사용', 'Coffee ABC'])
     expect(unsafeAccount.transactions).toEqual([])
+    expect(byMerchant.transactions.map((row) => row.rawMerchant)).toEqual(['Store XYZ'])
+    expect(shell.filteredTotals).toMatchObject({ count: 3, expense: 102000 })
+    expect(shell.availableMonths).toContainEqual({ month: '2026-06', count: 3 })
   })
 })
