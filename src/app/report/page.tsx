@@ -8,7 +8,7 @@ import {
 } from '@/features/analytics/account-monthly-panel'
 import { getCategoryDetails } from '@/features/analytics/category-detail'
 import { CategoryDetailTable } from '@/features/analytics/category-detail-table'
-import { SavingsRateChart } from '@/features/analytics/home-dashboard-charts'
+import { SavingsRateChart } from '@/features/analytics/home-trend-charts'
 import { MonthlyCashflowChart } from '@/features/analytics/monthly-cashflow-chart'
 import { getDashboardData } from '@/features/analytics/queries'
 import { getReportData } from '@/features/analytics/report'
@@ -29,8 +29,6 @@ const KPI_META = [
   { key: 'netSaving', label: '순저축 (수입−지출)', tone: 'saving' },
   { key: 'saving', label: '저축 납입', tone: 'income' },
 ] as const
-
-const TOP_COLORS = ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#B07AA1']
 
 function signedWon(value: number) {
   if (value === 0) return '+0원'
@@ -193,12 +191,11 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
               <div className="overflow-x-auto">
                 <ol className="min-w-[620px] space-y-4">
                   {data.topExpenses.map((item, index) => (
-                    <li className="grid grid-cols-[24px_12px_minmax(90px,0.6fr)_minmax(100px,1fr)_auto_auto] items-center gap-3 t-body" key={item.major}>
+                    <li className="grid grid-cols-[24px_minmax(90px,0.6fr)_minmax(100px,1fr)_auto_auto] items-center gap-3 t-body" key={item.major}>
                       <span className="text-finance-faint">{index + 1}</span>
-                      <span aria-hidden className="h-2.5 w-2.5" style={{ backgroundColor: TOP_COLORS[index] }} />
                       <span className="truncate font-medium text-finance-ink">{item.major}</span>
                       <span className="h-[5px] overflow-hidden bg-finance-track">
-                        <span className="block h-full" style={{ backgroundColor: TOP_COLORS[index], width: `${item.percent}%` }} />
+                        <span className="block h-full bg-finance-ink" style={{ width: `${item.percent}%` }} />
                       </span>
                       <span className="whitespace-nowrap text-right font-semibold text-finance-ink">{formatWon(item.amount)}원</span>
                       <span className="w-14 text-right t-caption text-finance-muted">{formatRate(item.percent)}%</span>

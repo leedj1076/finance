@@ -2,12 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
-import {
-  CashflowWaterfall,
-  SavingsProgressRing,
-  SavingsRateChart,
-  Sparkline,
-} from '@/features/analytics/home-dashboard-charts'
+import { SavingsProgressRing, Sparkline } from '@/features/analytics/home-dashboard-charts'
+import { CashflowWaterfall, SavingsRateChart } from '@/features/analytics/home-trend-charts'
 import { getHomeTodos } from '@/features/analytics/home-todos'
 import { MonthlyCashflowChart } from '@/features/analytics/monthly-cashflow-chart'
 import { getNetWorthSeries } from '@/features/analytics/net-worth'

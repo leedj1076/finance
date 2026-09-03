@@ -1,8 +1,14 @@
 'use client'
 
-import { useSyncExternalStore, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react'
 
-import type { ChartTooltipRow } from './chart-tooltip'
+import { ChartTooltip, type ChartTooltipRow, type ChartTooltipState } from './chart-tooltip'
 import {
   BOTTOM,
   HEIGHT,
@@ -16,22 +22,42 @@ import {
 
 export * from './chart-theme'
 
-const subscribe = () => () => undefined
+// Charts render at 1:1 pixels: the SVG is as wide as its container and the
+// viewBox matches, so an 11px label is 11px in a half-width column and in a
+// full-width one. Scaling a fixed viewBox to the container made the same
+// chart look bold in one place and thin in another.
+export const MIN_CHART_WIDTH = 620
 
-export function useHydrated() {
-  return useSyncExternalStore(subscribe, () => true, () => false)
+export function useMeasuredWidth<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return
+    const measure = () => setWidth(Math.round(element.getBoundingClientRect().width))
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  return [ref, width] as const
 }
 
 export function ChartPlaceholder({ height = HEIGHT }: { height?: number }) {
-  return <div aria-hidden className="min-w-[620px] animate-pulse border-y border-finance-border bg-finance-panel" style={{ height }} />
+  return <div aria-hidden className="animate-pulse border-y border-finance-border bg-finance-panel" style={{ height }} />
 }
 
-export function coordinates(values: Array<number | null>, maxValue: number, minValue = 0) {
-  const plotWidth = WIDTH - LEFT - RIGHT
+export function plotWidthFor(width: number) {
+  return width - LEFT - RIGHT
+}
+
+export function coordinates(values: Array<number | null>, maxValue: number, minValue = 0, width = WIDTH) {
+  const plotWidth = plotWidthFor(width)
   const plotHeight = HEIGHT - TOP - BOTTOM
   const range = Math.max(maxValue - minValue, 1)
+  const step = plotWidth / Math.max(values.length - 1, 1)
   return values.map((value, index) => ({
-    x: LEFT + (plotWidth * index) / 11,
+    x: LEFT + step * index,
     y: value === null ? null : TOP + plotHeight - ((value - minValue) / range) * plotHeight,
     value,
   }))
@@ -51,14 +77,11 @@ export function pathFor(points: ReturnType<typeof coordinates>) {
   return path
 }
 
-export function pointerPosition(event: ReactPointerEvent<SVGElement>, width = WIDTH, height = HEIGHT) {
-  const svg = event.currentTarget.ownerSVGElement
-  if (!svg) return { x: 0, y: 0 }
+// 1:1 rendering means pointer offsets are SVG coordinates already.
+export function pointerPosition(event: ReactPointerEvent<SVGElement>) {
+  const svg = event.currentTarget.ownerSVGElement ?? (event.currentTarget as unknown as SVGSVGElement)
   const bounds = svg.getBoundingClientRect()
-  return {
-    x: ((event.clientX - bounds.left) / bounds.width) * width,
-    y: ((event.clientY - bounds.top) / bounds.height) * height,
-  }
+  return { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
 }
 
 export function tooltipAt(
@@ -70,12 +93,16 @@ export function tooltipAt(
 }
 
 // Three horizontal hairlines with values on the left and month labels below.
-export function Grid({ maxValue, minValue = 0, months }: {
+export function Grid({ maxValue, minValue = 0, months, width = WIDTH, formatValue = compactWon }: {
   maxValue: number
   minValue?: number
   months?: string[]
+  width?: number
+  formatValue?: (value: number) => string
 }) {
   const range = Math.max(maxValue - minValue, 1)
+  const count = months?.length ?? 12
+  const step = plotWidthFor(width) / Math.max(count - 1, 1)
   return (
     <g>
       {[0, 0.5, 1].map((ratio) => {
@@ -83,22 +110,43 @@ export function Grid({ maxValue, minValue = 0, months }: {
         const value = Math.round(maxValue - range * ratio)
         return (
           <g key={ratio}>
-            <line stroke={ROLE.grid} x1={LEFT} x2={WIDTH - RIGHT} y1={y} y2={y} />
+            <line stroke={ROLE.grid} x1={LEFT} x2={width - RIGHT} y1={y} y2={y} />
             <text className="chart-axis-label" fill={ROLE.faint} textAnchor="end" x={LEFT - 8} y={y + 3}>
-              {compactWon(value)}
+              {formatValue(value)}
             </text>
           </g>
         )
       })}
-      {Array.from({ length: 12 }, (_, index) => {
-        const x = LEFT + ((WIDTH - LEFT - RIGHT) * index) / 11
-        return (
-          <text className="chart-axis-label" fill={ROLE.muted} key={index} textAnchor="middle" x={x} y={HEIGHT - 12}>
-            {months?.[index] ?? `${index + 1}월`}
-          </text>
-        )
-      })}
+      {Array.from({ length: count }, (_, index) => (
+        <text className="chart-axis-label" fill={ROLE.muted} key={index} textAnchor="middle" x={LEFT + step * index} y={HEIGHT - 12}>
+          {months?.[index] ?? `${index + 1}월`}
+        </text>
+      ))}
     </g>
+  )
+}
+
+// Measures its container, renders the chart at that exact width, and hosts
+// the shared tooltip. Children receive the measured width.
+export function ChartFrame({
+  children,
+  height = HEIGHT,
+  minWidth = MIN_CHART_WIDTH,
+  onLeave,
+  tooltip = null,
+}: {
+  children: (width: number) => ReactNode
+  height?: number
+  minWidth?: number
+  onLeave?: () => void
+  tooltip?: ChartTooltipState | null
+}) {
+  const [ref, width] = useMeasuredWidth<HTMLDivElement>()
+  return (
+    <div className="relative" onPointerLeave={onLeave} ref={ref} style={{ minWidth }}>
+      {width > 0 ? children(width) : <ChartPlaceholder height={height} />}
+      {width > 0 && <ChartTooltip chartHeight={height} chartWidth={width} tooltip={tooltip} />}
+    </div>
   )
 }
 
