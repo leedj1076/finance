@@ -15,12 +15,13 @@ type AppHeaderMenuProps = {
 type MenuName = 'more' | 'settings' | null
 
 const primaryLinks: Array<{ key: HeaderSection; href: string; label: string; mobile?: boolean }> = [
+  // 왼쪽 다섯은 돈을 보는 화면(시간축 순), 맨 끝은 돈을 넣는 작업. 모바일 하단은 mobile: true 순서.
   { key: 'dashboard', href: '/dashboard', label: '홈', mobile: true },
   { key: 'ledger', href: '/ledger', label: '거래', mobile: true },
-  { key: 'inbox', href: '/inbox', label: '가져오기', mobile: true },
   { key: 'budgets', href: '/budgets', label: '예산', mobile: true },
   { key: 'report', href: '/report', label: '연간' },
   { key: 'assets', href: '/assets', label: '자산' },
+  { key: 'inbox', href: '/inbox', label: '가져오기', mobile: true },
 ]
 
 const settingsLinks: Array<{ href: string; label: string; description: string }> = [
