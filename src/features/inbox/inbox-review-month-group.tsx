@@ -2,11 +2,11 @@
 
 import { Fragment } from 'react'
 
-import type { InboxMonthPaymentSourceGroup } from './grouping'
+import type { InboxMonthOwnerPaymentSourceGroup } from './grouping'
 import { formatInboxMonth } from './grouping'
 import { GroupSelectionCheckbox } from './inbox-review-shared'
 import type { InboxRowState } from './inbox-review-item-row'
-import { InboxSourceGroup } from './inbox-review-source-group'
+import { InboxOwnerGroup } from './inbox-review-owner-group'
 import type { AccountOption, InboxItem } from './inbox-review-types'
 
 export function InboxMonthGroup({
@@ -15,17 +15,21 @@ export function InboxMonthGroup({
   toggleMonth,
   selected,
   toggleItems,
+  expandedOwners,
+  toggleOwner,
   expandedSources,
   toggleSource,
   accounts,
   setSourceAccount,
   rowState,
 }: {
-  monthGroup: InboxMonthPaymentSourceGroup<InboxItem>
+  monthGroup: InboxMonthOwnerPaymentSourceGroup<InboxItem>
   monthExpanded: boolean
   toggleMonth: (month: string) => void
   selected: Set<number>
   toggleItems: (itemIds: number[], select: boolean) => void
+  expandedOwners: Set<string>
+  toggleOwner: (key: string) => void
   expandedSources: Set<string>
   toggleSource: (key: string) => void
   accounts: AccountOption[]
@@ -36,7 +40,7 @@ export function InboxMonthGroup({
     <Fragment key={monthGroup.month}>
       <tbody className="border-t border-finance-ink first:border-t-0">
         <tr className="bg-finance-ink text-white">
-          <th className="p-0" colSpan={9}>
+          <th className="p-0" colSpan={8}>
             <div className="flex min-h-14 items-center gap-3 px-4 py-3">
               <GroupSelectionCheckbox
                 itemIds={monthGroup.items.map((item) => item.id)}
@@ -58,23 +62,25 @@ export function InboxMonthGroup({
                   {monthGroup.items.length}건
                 </span>
                 <span className="ml-auto text-xs font-normal text-zinc-400">
-                  결제수단 {monthGroup.sources.length}개
+                  사람 {monthGroup.owners.length}명 · 결제수단 {monthGroup.owners.reduce((total, owner) => total + owner.sources.length, 0)}개
                 </span>
               </button>
             </div>
           </th>
         </tr>
       </tbody>
-      {monthExpanded && monthGroup.sources.map((group) => (
-        <InboxSourceGroup
+      {monthExpanded && monthGroup.owners.map((ownerGroup) => (
+        <InboxOwnerGroup
           accounts={accounts}
-          expanded={expandedSources.has(group.key)}
-          group={group}
-          key={group.key}
+          expanded={expandedOwners.has(ownerGroup.key)}
+          expandedSources={expandedSources}
+          group={ownerGroup}
+          key={ownerGroup.key}
           rowState={rowState}
           selected={selected}
           setSourceAccount={setSourceAccount}
           toggleItems={toggleItems}
+          toggleOwner={toggleOwner}
           toggleSource={toggleSource}
         />
       ))}

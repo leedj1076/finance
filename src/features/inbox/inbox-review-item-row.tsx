@@ -45,7 +45,7 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
       className="border-t border-finance-track hover:bg-finance-panel"
       key={item.id}
     >
-      <td className="px-3 py-3 text-center">
+      <td className="px-2 py-3 text-center">
         <input
           aria-label={`${item.merchant ?? '거래'} 선택`}
           checked={selected.has(item.id)}
@@ -54,10 +54,11 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
           type="checkbox"
         />
       </td>
-      <td className="whitespace-nowrap px-3 py-3 text-xs text-finance-muted">{item.date}</td>
-      <td className="max-w-64 px-3 py-3 text-finance-ink">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="break-words">{item.merchant || '-'}</span>
+      <td className="whitespace-nowrap px-2 py-3 text-xs text-finance-muted">{item.date}</td>
+      <td className="max-w-0 px-2 py-3 text-finance-ink">
+        <div className="min-w-0">
+          <span className="block truncate" title={item.merchant || undefined}>{item.merchant || '-'}</span>
+          <div className="mt-1 flex flex-wrap items-center gap-1">
           {item.confidence === 'high' && (
             <span
               className="bg-finance-green-tint px-2 py-0.5 text-[10px] font-semibold text-finance-green"
@@ -79,11 +80,15 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
               중복 의심
             </span>
           )}
+          </div>
         </div>
-        {item.dupNote && <p className="mt-1 text-[11px] text-finance-red">{item.dupNote}</p>}
+        <p className="mt-1 truncate text-[11px] text-finance-faint 2xl:hidden" title={visibleSourceCategories(item)}>
+          {visibleSourceCategories(item)}
+        </p>
+        {item.dupNote && <p className="mt-1 truncate text-[11px] text-finance-red" title={item.dupNote}>{item.dupNote}</p>}
       </td>
       <td
-        className={`whitespace-nowrap px-3 py-3 text-right font-medium ${
+        className={`whitespace-nowrap px-2 py-3 text-right font-medium ${
           flow === 'expense'
             ? 'text-finance-red'
             : flow === 'income'
@@ -93,21 +98,14 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
       >
         {flow === 'expense' ? '−' : '+'}{item.amount.toLocaleString('ko-KR')}원
       </td>
-      <td className="px-3 py-3">
-        <span
-          className="border border-finance-border bg-white px-2 py-1 text-[10px] font-semibold text-finance-muted"
-        >
-          {item.owner}
-        </span>
+      <td className="hidden max-w-0 px-2 py-3 text-xs text-finance-muted 2xl:table-cell">
+        <span className="block truncate" title={visibleSourceCategories(item)}>{visibleSourceCategories(item)}</span>
       </td>
-      <td className="px-3 py-3 text-xs text-finance-muted">
-        {visibleSourceCategories(item)}
-      </td>
-      <td className="px-3 py-3">
-        <div className="flex items-center gap-2">
+      <td className="px-2 py-3">
+        <div className="flex min-w-0 flex-col gap-1.5 xl:flex-row xl:items-center">
           <select
             aria-label={`${item.merchant || '거래'} 거래 유형`}
-            className="h-[30px] w-20 border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
+            className="h-[30px] w-[68px] shrink-0 border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
             onChange={(event) => {
               const nextFlow = event.target.value as TransactionFlow
               setFlows((current) => ({
@@ -129,10 +127,9 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
-          <SuggestionBadges item={item} />
           <select
             aria-label={`${item.merchant || '거래'} 카테고리`}
-            className="h-[30px] min-w-44 flex-1 border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
+            className="h-[30px] min-w-0 flex-1 border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
             onChange={(event) =>
               setCategoryIds((current) => ({ ...current, [item.id]: event.target.value }))
             }
@@ -145,9 +142,10 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
               </option>
             ))}
           </select>
+          <SuggestionBadges item={item} />
         </div>
       </td>
-      <td className="px-3 py-3">
+      <td className="min-w-0 px-2 py-3">
         <select
           aria-label={`${item.merchant || '거래'} 결제수단`}
           className="h-[30px] w-full border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
@@ -166,10 +164,10 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
         </select>
         {item.pay && <p className="mt-1 truncate text-[11px] text-finance-faint" title={item.pay}>{item.pay}</p>}
       </td>
-      <td className="px-3 py-3 text-right">
+      <td className="px-2 py-3 text-right">
         <button
           aria-label={`${item.merchant || '거래'} 바로 반영`}
-          className="inline-flex h-[30px] min-w-16 items-center justify-center gap-1 bg-finance-green px-3 text-xs font-semibold text-white hover:bg-finance-ink disabled:cursor-wait disabled:opacity-50"
+          className="inline-flex h-[30px] w-full items-center justify-center gap-1 bg-finance-green px-2 text-xs font-semibold text-white hover:bg-finance-ink disabled:cursor-wait disabled:opacity-50"
           disabled={applyingIds.has(item.id)}
           onClick={() => void applySingleItem(item)}
           title="현재 분류와 결제수단으로 바로 반영"

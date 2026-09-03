@@ -41,8 +41,8 @@ export function InboxSourceGroup({
   return (
     <tbody className="border-t border-finance-border" key={group.key}>
       <tr className="bg-finance-panel">
-        <th className="p-0" colSpan={9}>
-          <div className="flex min-h-16 flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center">
+        <th className="p-0" colSpan={8}>
+          <div className="flex min-h-16 flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:pl-10">
             <GroupSelectionCheckbox
               itemIds={group.items.map((item) => item.id)}
               label={groupLabel}

@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import type { TransactionFlow } from './banksalad'
-import { formatInboxPaymentSource } from './grouping'
 import type { AccountOption, InboxItem } from './inbox-review-types'
 
 export const flowLabel: Record<TransactionFlow, string> = {
@@ -20,7 +19,7 @@ export function paymentSourceLabel(
   const accountName = group.accountId === null
     ? undefined
     : accounts.find((account) => account.id === group.accountId)?.name
-  return formatInboxPaymentSource(group, accountName)
+  return accountName ?? group.pay ?? '결제 소스 미상'
 }
 
 export function visibleSourceCategories(item: Pick<InboxItem, 'bsCat1' | 'bsCat2'>) {

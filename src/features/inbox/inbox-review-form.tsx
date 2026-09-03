@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 
 import { applyInboxItem, processInbox } from './actions'
 import type { TransactionFlow } from './banksalad'
-import { groupInboxItemsByMonthAndPaymentSource } from './grouping'
+import { groupInboxItemsByMonthOwnerAndPaymentSource } from './grouping'
 import type { InboxRowState } from './inbox-review-item-row'
 import { InboxMonthGroup } from './inbox-review-month-group'
 import { ActionButtons } from './inbox-review-shared'
@@ -30,18 +30,19 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
     () => allItems.filter((item) => !appliedIds.has(item.id)),
     [allItems, appliedIds],
   )
-  const monthGroups = useMemo(() => groupInboxItemsByMonthAndPaymentSource(items), [items])
-  const sourceGroups = useMemo(
-    () => monthGroups.flatMap((monthGroup) => monthGroup.sources),
+  const monthGroups = useMemo(() => groupInboxItemsByMonthOwnerAndPaymentSource(items), [items])
+  const ownerGroups = useMemo(
+    () => monthGroups.flatMap((monthGroup) => monthGroup.owners),
     [monthGroups],
   )
+  const sourceGroups = useMemo(
+    () => ownerGroups.flatMap((ownerGroup) => ownerGroup.sources),
+    [ownerGroups],
+  )
   const [selected, setSelected] = useState<Set<number>>(() => new Set())
-  const [expandedSources, setExpandedSources] = useState(
-    () => new Set(sourceGroups.map((group) => group.key)),
-  )
-  const [expandedMonths, setExpandedMonths] = useState(
-    () => new Set(monthGroups.map((group) => group.month)),
-  )
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(() => new Set())
+  const [expandedOwners, setExpandedOwners] = useState<Set<string>>(() => new Set())
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(() => new Set())
   const [flows, setFlows] = useState<Record<number, TransactionFlow>>(
     () => Object.fromEntries(items.map((item) => [item.id, item.flow])),
   )
@@ -102,6 +103,15 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
 
   const toggleSource = (key: string) => {
     setExpandedSources((current) => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const toggleOwner = (key: string) => {
+    setExpandedOwners((current) => {
       const next = new Set(current)
       if (next.has(key)) next.delete(key)
       else next.add(key)
@@ -263,19 +273,31 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
           <span aria-hidden="true" className="h-4 border-l border-finance-border" />
           <button
             className="text-finance-muted hover:text-finance-ink disabled:text-finance-faint"
-            disabled={expandedSources.size === sourceGroups.length}
-            onClick={() => setExpandedSources(new Set(sourceGroups.map((group) => group.key)))}
+            disabled={
+              expandedMonths.size === monthGroups.length
+              && expandedOwners.size === ownerGroups.length
+              && expandedSources.size === sourceGroups.length
+            }
+            onClick={() => {
+              setExpandedMonths(new Set(monthGroups.map((group) => group.month)))
+              setExpandedOwners(new Set(ownerGroups.map((group) => group.key)))
+              setExpandedSources(new Set(sourceGroups.map((group) => group.key)))
+            }}
             type="button"
           >
-            결제수단 전체 펼치기
+            모든 그룹 펼치기
           </button>
           <button
             className="text-finance-muted hover:text-finance-ink disabled:text-finance-faint"
-            disabled={expandedSources.size === 0}
-            onClick={() => setExpandedSources(new Set())}
+            disabled={expandedMonths.size + expandedOwners.size + expandedSources.size === 0}
+            onClick={() => {
+              setExpandedMonths(new Set())
+              setExpandedOwners(new Set())
+              setExpandedSources(new Set())
+            }}
             type="button"
           >
-            결제수단 전체 접기
+            모든 그룹 접기
           </button>
           <span className="text-finance-muted">
             {selected.size}건 · 합계 {selectedTotal >= 0 ? '+' : '−'}
@@ -286,24 +308,24 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
       </div>
 
       <div className="border-b border-finance-border">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1280px] text-left text-[13px]">
+        <div className="overflow-x-auto lg:overflow-x-visible">
+          <table className="w-full min-w-[900px] table-fixed text-left text-[13px] lg:min-w-0">
             <thead className="border-b border-finance-border border-t border-finance-ink text-[11px] font-semibold uppercase tracking-[0.04em] text-finance-muted">
               <tr>
-                <th className="w-10 px-3 py-[9px] font-semibold">선택</th>
-                <th className="px-3 py-[9px] font-semibold">날짜</th>
-                <th className="px-3 py-[9px] font-semibold">가맹점</th>
-                <th className="px-3 py-[9px] text-right font-semibold">금액</th>
-                <th className="px-3 py-[9px] font-semibold">소유자</th>
-                <th className="px-3 py-[9px] font-semibold">가져온 분류</th>
-                <th className="min-w-72 px-3 py-[9px] font-semibold">반영 분류</th>
-                <th className="min-w-48 px-3 py-[9px] font-semibold">결제수단</th>
-                <th className="w-24 px-3 py-[9px] text-right font-semibold">바로 반영</th>
+                <th className="w-10 px-2 py-[9px] font-semibold">선택</th>
+                <th className="w-24 px-2 py-[9px] font-semibold">날짜</th>
+                <th className="w-[18%] px-2 py-[9px] font-semibold">가맹점</th>
+                <th className="w-28 px-2 py-[9px] text-right font-semibold">금액</th>
+                <th className="hidden w-[12%] px-2 py-[9px] font-semibold 2xl:table-cell">가져온 분류</th>
+                <th className="w-[32%] px-2 py-[9px] font-semibold 2xl:w-[28%]">반영 분류</th>
+                <th className="w-[20%] px-2 py-[9px] font-semibold">결제수단</th>
+                <th className="w-20 px-2 py-[9px] text-right font-semibold">바로 반영</th>
               </tr>
             </thead>
             {monthGroups.map((monthGroup) => (
               <InboxMonthGroup
                 accounts={accounts}
+                expandedOwners={expandedOwners}
                 expandedSources={expandedSources}
                 key={monthGroup.month}
                 monthExpanded={expandedMonths.has(monthGroup.month)}
@@ -313,6 +335,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
                 setSourceAccount={setSourceAccount}
                 toggleItems={toggleItems}
                 toggleMonth={toggleMonth}
+                toggleOwner={toggleOwner}
                 toggleSource={toggleSource}
               />
             ))}

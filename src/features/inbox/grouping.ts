@@ -11,8 +11,15 @@ export type InboxPaymentSourceGroup<T> = {
   items: T[]
 }
 
-export type InboxMonthPaymentSourceGroup<T> = InboxMonthGroup<T> & {
+export type InboxOwnerPaymentSourceGroup<T> = {
+  key: string
+  owner: string
   sources: InboxPaymentSourceGroup<T>[]
+  items: T[]
+}
+
+export type InboxMonthOwnerPaymentSourceGroup<T> = InboxMonthGroup<T> & {
+  owners: InboxOwnerPaymentSourceGroup<T>[]
 }
 
 export function groupInboxItemsByMonth<T extends { date: string }>(items: T[]): InboxMonthGroup<T>[] {
@@ -52,9 +59,44 @@ export function groupInboxItemsByPaymentSource<
   return [...groups.values()]
 }
 
+export function groupInboxItemsByOwner<
+  T extends { owner: string; pay: string | null; accountId?: number | null },
+>(items: T[]): InboxOwnerPaymentSourceGroup<T>[] {
+  const groups = new Map<string, T[]>()
+
+  for (const item of items) {
+    const group = groups.get(item.owner)
+    if (group) group.push(item)
+    else groups.set(item.owner, [item])
+  }
+
+  return Array.from(groups, ([owner, ownerItems]) => ({
+    key: owner,
+    owner,
+    items: ownerItems,
+    sources: groupInboxItemsByPaymentSource(ownerItems),
+  }))
+}
+
+export function groupInboxItemsByMonthOwnerAndPaymentSource<
+  T extends { date: string; owner: string; pay: string | null; accountId?: number | null },
+>(items: T[]): InboxMonthOwnerPaymentSourceGroup<T>[] {
+  return groupInboxItemsByMonth(items).map((monthGroup) => ({
+    ...monthGroup,
+    owners: groupInboxItemsByOwner(monthGroup.items).map((ownerGroup) => ({
+      ...ownerGroup,
+      key: `${monthGroup.month}\u0000${ownerGroup.key}`,
+      sources: ownerGroup.sources.map((source) => ({
+        ...source,
+        key: `${monthGroup.month}\u0000${ownerGroup.key}\u0000${source.key}`,
+      })),
+    })),
+  }))
+}
+
 export function groupInboxItemsByMonthAndPaymentSource<
   T extends { date: string; owner: string; pay: string | null; accountId?: number | null },
->(items: T[]): InboxMonthPaymentSourceGroup<T>[] {
+>(items: T[]): Array<InboxMonthGroup<T> & { sources: InboxPaymentSourceGroup<T>[] }> {
   return groupInboxItemsByMonth(items).map((monthGroup) => ({
     ...monthGroup,
     sources: groupInboxItemsByPaymentSource(monthGroup.items).map((source) => ({

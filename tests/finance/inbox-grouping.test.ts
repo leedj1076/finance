@@ -5,6 +5,8 @@ import {
   formatInboxPaymentSource,
   groupInboxItemsByMonth,
   groupInboxItemsByMonthAndPaymentSource,
+  groupInboxItemsByMonthOwnerAndPaymentSource,
+  groupInboxItemsByOwner,
   groupInboxItemsByPaymentSource,
 } from '@/features/inbox/grouping'
 
@@ -87,6 +89,83 @@ describe('inbox month grouping', () => {
           { key: '2026-07\u0000DJ\u0000국민카드', label: 'DJ · 국민카드', ids: [2] },
         ],
       },
+    ])
+  })
+
+  it('groups the review hierarchy by month, owner, then payment source', () => {
+    const groups = groupInboxItemsByMonthOwnerAndPaymentSource([
+      { id: 6, date: '2026-08-10', owner: 'YJ', pay: '신한카드' },
+      { id: 5, date: '2026-08-09', owner: 'DJ', pay: '국민카드' },
+      { id: 4, date: '2026-08-08', owner: 'YJ', pay: '현대카드' },
+      { id: 3, date: '2026-08-07', owner: 'YJ', pay: '신한카드' },
+      { id: 2, date: '2026-07-31', owner: 'DJ', pay: '국민카드' },
+    ])
+
+    expect(groups.map((month) => ({
+      month: month.month,
+      owners: month.owners.map((owner) => ({
+        key: owner.key,
+        owner: owner.owner,
+        ids: owner.items.map((item) => item.id),
+        sources: owner.sources.map((source) => ({
+          key: source.key,
+          pay: source.pay,
+          ids: source.items.map((item) => item.id),
+        })),
+      })),
+    }))).toEqual([
+      {
+        month: '2026-08',
+        owners: [
+          {
+            key: '2026-08\u0000YJ',
+            owner: 'YJ',
+            ids: [6, 4, 3],
+            sources: [
+              { key: '2026-08\u0000YJ\u0000YJ\u0000신한카드', pay: '신한카드', ids: [6, 3] },
+              { key: '2026-08\u0000YJ\u0000YJ\u0000현대카드', pay: '현대카드', ids: [4] },
+            ],
+          },
+          {
+            key: '2026-08\u0000DJ',
+            owner: 'DJ',
+            ids: [5],
+            sources: [
+              { key: '2026-08\u0000DJ\u0000DJ\u0000국민카드', pay: '국민카드', ids: [5] },
+            ],
+          },
+        ],
+      },
+      {
+        month: '2026-07',
+        owners: [
+          {
+            key: '2026-07\u0000DJ',
+            owner: 'DJ',
+            ids: [2],
+            sources: [
+              { key: '2026-07\u0000DJ\u0000DJ\u0000국민카드', pay: '국민카드', ids: [2] },
+            ],
+          },
+        ],
+      },
+    ])
+  })
+
+  it('keeps each owner payment-source list independent', () => {
+    const groups = groupInboxItemsByOwner([
+      { id: 3, owner: 'DJ', pay: '현대카드' },
+      { id: 2, owner: 'YJ', pay: '현대카드' },
+      { id: 1, owner: 'DJ', pay: '현대카드' },
+    ])
+
+    expect(groups.map((group) => ({
+      owner: group.owner,
+      ids: group.items.map((item) => item.id),
+      sourceIds: group.sources.map((source) => source.items.map((item) => item.id)),
+    }))).toEqual([
+      { owner: 'DJ', ids: [3, 1], sourceIds: [[3, 1]] },
+      { owner: 'YJ', ids: [2], sourceIds: [[2]] },
     ])
   })
 })
