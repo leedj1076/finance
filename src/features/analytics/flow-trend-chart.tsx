@@ -48,7 +48,7 @@ export function FlowTrendChart({ data, label, tone }: { data: TrendPoint[]; labe
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       >
         <Grid maxValue={maxValue} />
-        <path className="chart-line-enter" d={pathFor(points)} fill="none" pathLength={1} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" />
+        <path className="chart-line-enter" d={pathFor(points)} fill="none" pathLength={1} stroke={color} strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
         {points.map((point, index) => point.y === null ? null : (
           <circle className="chart-point-enter" cx={point.x} cy={point.y} fill={color} key={index} pointerEvents="none" r="4" style={{ animationDelay: `${180 + index * 35}ms` }} />
         ))}

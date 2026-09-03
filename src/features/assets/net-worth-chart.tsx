@@ -73,9 +73,9 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
   }
 
   const series = [
-    { key: 'netWorth' as const, label: '순자산', color: 'var(--finance-green)', width: 3 },
-    { key: 'assets' as const, label: '총자산', color: 'var(--finance-blue)', width: 2 },
-    { key: 'debt' as const, label: '부채', color: 'var(--finance-red)', width: 2 },
+    { key: 'netWorth' as const, label: '순자산', color: 'var(--finance-green)', width: 1.75 },
+    { key: 'assets' as const, label: '총자산', color: 'var(--finance-blue)', width: 1.25 },
+    { key: 'debt' as const, label: '부채', color: 'var(--finance-red)', width: 1.25 },
   ]
   const hitWidth = plotWidth / 12
 
@@ -118,7 +118,7 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
           return (
             <g key={ratio}>
               <line stroke="var(--finance-border)" x1={LEFT} x2={WIDTH - RIGHT} y1={y} y2={y} />
-              <text fill="var(--finance-faint)" fontSize="10" textAnchor="end" x={LEFT - 8} y={y + 3}>
+              <text className="chart-axis-label" fill="var(--finance-faint)" textAnchor="end" x={LEFT - 8} y={y + 3}>
                 {compactWon(value)}
               </text>
             </g>
@@ -126,8 +126,8 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
         })}
         {data.map((point, index) => (
           <text
+            className="chart-axis-label"
             fill="var(--finance-muted)"
-            fontSize="10"
             key={point.month}
             textAnchor="middle"
             x={LEFT + (plotWidth * index) / 11}

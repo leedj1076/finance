@@ -91,7 +91,7 @@ export function Grid({ maxValue }: { maxValue: number }) {
         return (
           <g key={ratio}>
             <line stroke="var(--finance-border)" x1={LEFT} x2={WIDTH - RIGHT} y1={y} y2={y} />
-            <text fill="var(--finance-faint)" fontSize="10" textAnchor="end" x={LEFT - 8} y={y + 3}>
+            <text className="chart-axis-label" fill="var(--finance-faint)" textAnchor="end" x={LEFT - 8} y={y + 3}>
               {compactWon(value)}
             </text>
           </g>
@@ -100,7 +100,7 @@ export function Grid({ maxValue }: { maxValue: number }) {
       {Array.from({ length: 12 }, (_, index) => {
         const x = LEFT + ((WIDTH - LEFT - RIGHT) * index) / 11
         return (
-          <text fill="var(--finance-muted)" fontSize="10" key={index} textAnchor="middle" x={x} y={HEIGHT - 12}>
+          <text className="chart-axis-label" fill="var(--finance-muted)" key={index} textAnchor="middle" x={x} y={HEIGHT - 12}>
             {index + 1}월
           </text>
         )

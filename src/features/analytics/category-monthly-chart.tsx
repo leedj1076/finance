@@ -161,7 +161,7 @@ export function CategoryMonthlyChart({
                   stroke={color}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={active ? 3.5 : 2}
+                  strokeWidth={active ? 2 : 1.25}
                 />
                 {points.map((point, monthIndex) => point.y === null ? null : (
                   <circle
