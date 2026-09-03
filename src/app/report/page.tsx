@@ -68,7 +68,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">한 해 돌아보기</p>
-            <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">연간결산</h1>
+            <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">연간</h1>
             <p className="mt-2 text-xs text-finance-muted">{data.year}년 요약 · 전년 대비 · 현금흐름 예측</p>
           </div>
           <div className="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import { PageLoading } from '@/components/page-loading'
 
 export default function Loading() {
-  return <PageLoading title="인박스" />
+  return <PageLoading title="가져오기" />
 }

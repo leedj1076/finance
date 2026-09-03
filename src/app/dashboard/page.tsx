@@ -57,7 +57,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">가계 현황</p>
-            <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">대시보드</h1>
+            <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">홈</h1>
             <p className="mt-2 text-xs text-finance-muted">{data.focusMonth} 기준 · {data.year}년 누적</p>
           </div>
           <div className="flex h-[34px] items-center border border-finance-ink">

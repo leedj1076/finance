@@ -66,12 +66,12 @@ export default async function AnalysisPage({ searchParams }: AnalysisPageProps) 
 
   return (
     <div className="min-h-screen bg-white">
-      <AppHeader active="analysis" email={household.email} />
+      <AppHeader active="ledger" email={household.email} />
       <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">거래 패턴</p>
-            <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">분석</h1>
+            <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">거래 분석</h1>
             <p className="mt-2 text-xs text-finance-muted">
               {data.period === 'month' ? data.month : `${data.year}년`} · {flowLabel} 분류별 순위와 변화
             </p>

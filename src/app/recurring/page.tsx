@@ -44,7 +44,7 @@ export default async function RecurringPage({ searchParams }: RecurringPageProps
 
   return (
     <div className="min-h-screen bg-white">
-      <AppHeader active="recurring" email={household.email} />
+      <AppHeader active="settings" email={household.email} />
       <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">자동 입력</p>

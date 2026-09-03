@@ -52,7 +52,7 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
 
   return (
     <div className="min-h-screen bg-white">
-      <AppHeader active="manage" email={household.email} />
+      <AppHeader active="settings" email={household.email} />
       <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">기준 정보</p>

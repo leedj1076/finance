@@ -33,7 +33,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
       <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">가져오기 · 분류 확인</p>
-          <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">인박스</h1>
+          <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">가져오기</h1>
           <p className="mt-2 text-xs text-finance-muted">
             뱅크샐러드와 카드사 명세서를 먼저 쌓아두고, 분류와 결제수단을 확인한 거래만 가계부에 반영합니다.
           </p>

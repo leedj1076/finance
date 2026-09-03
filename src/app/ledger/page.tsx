@@ -108,7 +108,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
       <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">월별 가계부</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">거래</p>
             <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">
               {data.month.replace('-', '년 ')}월
             </h1>

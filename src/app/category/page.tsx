@@ -43,11 +43,11 @@ export default async function CategoryPage({ searchParams }: CategoryPageProps) 
 
   return (
     <div className="min-h-screen bg-white">
-      <AppHeader active="analysis" email={household.email} />
+      <AppHeader active="ledger" email={household.email} />
       <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">분류 상세</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">카테고리 상세</p>
             <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">
               {data.major || '분류 미선택'}
             </h1>
