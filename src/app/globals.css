@@ -21,6 +21,30 @@
   --finance-violet-tint: #f5f3ff;
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --background: #09090b;
+    --foreground: #f4f4f5;
+    --finance-ink: #f4f4f5;
+    --finance-muted: #a1a1aa;
+    --finance-faint: #71717a;
+    --finance-border: #3f3f46;
+    --finance-track: #27272a;
+    --finance-panel: #18181b;
+    --finance-blue: #60a5fa;
+    --finance-red: #f87171;
+    --finance-green: #4ade80;
+    --finance-amber: #fbbf24;
+    --finance-violet: #c4b5fd;
+    --finance-blue-tint: #172554;
+    --finance-red-tint: #450a0a;
+    --finance-green-tint: #052e16;
+    --finance-amber-tint: #451a03;
+    --finance-violet-tint: #2e1065;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -192,6 +216,60 @@ button.finance-nav-link { cursor: pointer; }
 .finance-signout { cursor: pointer; border-left: 1px solid var(--finance-border); padding: 2px 0 2px 9px; color: var(--finance-muted); font-size: 11px; }
 .finance-signout:hover { color: var(--finance-blue); }
 .finance-mobile-toggle, .finance-mobile-menu { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  body > div > .min-h-screen.bg-zinc-50,
+  [class~="bg-white"],
+  [class~="bg-white/70"],
+  [class~="bg-white/80"],
+  [class~="bg-white/95"] { background-color: var(--background); }
+
+  [class~="bg-zinc-50"],
+  [class~="bg-zinc-50/70"] { background-color: var(--finance-panel); }
+  [class~="bg-zinc-100"],
+  [class~="bg-zinc-200"] { background-color: var(--finance-track); }
+
+  [class~="text-zinc-950"],
+  [class~="text-zinc-900"],
+  [class~="text-zinc-800"],
+  [class~="text-zinc-700"] { color: var(--finance-ink); }
+  [class~="text-zinc-600"],
+  [class~="text-zinc-500"] { color: var(--finance-muted); }
+  [class~="text-zinc-400"],
+  [class~="text-zinc-300"] { color: var(--finance-faint); }
+
+  [class~="border-zinc-100"],
+  [class~="border-zinc-200"],
+  [class~="border-zinc-300"] { border-color: var(--finance-border); }
+
+  [class~="text-blue-500"], [class~="text-blue-600"], [class~="text-blue-700"], [class~="text-blue-800"], [class~="text-blue-900"] { color: var(--finance-blue); }
+  [class~="text-rose-500"], [class~="text-rose-600"], [class~="text-rose-700"], [class~="text-rose-800"], [class~="text-rose-900"],
+  [class~="text-red-500"], [class~="text-red-600"], [class~="text-red-700"], [class~="text-red-800"], [class~="text-red-900"] { color: var(--finance-red); }
+  [class~="text-emerald-500"], [class~="text-emerald-600"], [class~="text-emerald-700"], [class~="text-emerald-800"], [class~="text-emerald-900"] { color: var(--finance-green); }
+  [class~="text-amber-500"], [class~="text-amber-600"], [class~="text-amber-700"], [class~="text-amber-800"], [class~="text-amber-900"], [class~="text-amber-950"] { color: var(--finance-amber); }
+  [class~="text-violet-500"], [class~="text-violet-600"], [class~="text-violet-700"], [class~="text-violet-800"], [class~="text-violet-900"] { color: var(--finance-violet); }
+
+  [class~="bg-blue-50"] { background-color: var(--finance-blue-tint); }
+  [class~="bg-rose-50"], [class~="bg-red-50"] { background-color: var(--finance-red-tint); }
+  [class~="bg-emerald-50"] { background-color: var(--finance-green-tint); }
+  [class~="bg-amber-50"] { background-color: var(--finance-amber-tint); }
+  [class~="bg-violet-50"] { background-color: var(--finance-violet-tint); }
+
+  [class~="border-blue-200"], [class~="border-blue-300"], [class~="border-blue-500"] { border-color: var(--finance-blue); }
+  [class~="border-rose-200"], [class~="border-rose-300"], [class~="border-rose-500"],
+  [class~="border-red-200"], [class~="border-red-300"], [class~="border-red-500"] { border-color: var(--finance-red); }
+  [class~="border-emerald-200"], [class~="border-emerald-300"], [class~="border-emerald-500"] { border-color: var(--finance-green); }
+  [class~="border-amber-200"], [class~="border-amber-300"], [class~="border-amber-500"] { border-color: var(--finance-amber); }
+  [class~="border-violet-200"], [class~="border-violet-300"], [class~="border-violet-500"] { border-color: var(--finance-violet); }
+
+  [class~="bg-finance-ink"][class~="text-white"],
+  .finance-brand-mark,
+  .finance-popover [class~="bg-finance-ink"] { color: var(--background); }
+
+  .finance-header { background: rgb(9 9 11 / 0.98); }
+  .finance-popover,
+  .finance-mobile-menu { background: var(--background); }
+}
 
 @media (max-width: 860px) {
   .finance-header-inner { padding: 0 20px; }

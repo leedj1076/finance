@@ -73,9 +73,9 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
   }
 
   const series = [
-    { key: 'netWorth' as const, label: '순자산', color: '#16a34a', width: 3 },
-    { key: 'assets' as const, label: '총자산', color: '#2563eb', width: 2 },
-    { key: 'debt' as const, label: '부채', color: '#dc2626', width: 2 },
+    { key: 'netWorth' as const, label: '순자산', color: 'var(--finance-green)', width: 3 },
+    { key: 'assets' as const, label: '총자산', color: 'var(--finance-blue)', width: 2 },
+    { key: 'debt' as const, label: '부채', color: 'var(--finance-red)', width: 2 },
   ]
   const hitWidth = plotWidth / 12
 

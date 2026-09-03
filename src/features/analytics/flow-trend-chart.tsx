@@ -33,7 +33,7 @@ export function FlowTrendChart({ data, label, tone }: { data: TrendPoint[]; labe
   const values = data.map((item) => item.active ? item.amount : null)
   const maxValue = Math.max(1, ...values.filter((value): value is number => value !== null))
   const points = coordinates(values, maxValue)
-  const color = tone === 'blue' ? '#2563eb' : tone === 'emerald' ? '#16a34a' : '#dc2626'
+  const color = tone === 'blue' ? 'var(--finance-blue)' : tone === 'emerald' ? 'var(--finance-green)' : 'var(--finance-red)'
 
   if (!hydrated) return <ChartPlaceholder />
 

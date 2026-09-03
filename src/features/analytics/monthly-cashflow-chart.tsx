@@ -59,8 +59,8 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
             const center = LEFT + (plotWidth * index) / 11
             const displayMonth = monthLabel(item.month, index)
             return ([
-              { color: '#2563eb', label: '수입', value: item.income, x: center - barWidth - barGap / 2 },
-              { color: '#18181b', label: '지출', value: item.expense, x: center + barGap / 2 },
+              { color: 'var(--finance-blue)', label: '수입', value: item.income, x: center - barWidth - barGap / 2 },
+              { color: 'var(--finance-ink)', label: '지출', value: item.expense, x: center + barGap / 2 },
             ]).map((bar) => {
               const height = (bar.value / maxValue) * plotHeight
               return (
