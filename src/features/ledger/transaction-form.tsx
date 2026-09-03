@@ -76,15 +76,15 @@ export function TransactionForm({
     >
       <div className="flex items-center justify-between border-b border-finance-border py-4">
         <div>
-          <h2 className="text-sm font-bold text-finance-ink">
+          <h2 className="t-section text-finance-ink">
             {editing ? '거래 수정' : '거래 직접 입력'}
           </h2>
-          <p className="mt-1 text-xs text-finance-muted">
+          <p className="mt-1 t-caption text-finance-muted">
             {editing ? '선택한 거래를 수정하고 있습니다.' : '은행 가져오기 외 거래를 직접 기록합니다.'}
           </p>
         </div>
         {editing && (
-          <Link className="text-xs font-semibold text-finance-blue hover:text-finance-ink" href={ledgerUrl(month, filters)}>
+          <Link className="t-caption font-semibold text-finance-blue hover:text-finance-ink" href={ledgerUrl(month, filters)}>
             수정 취소
           </Link>
         )}
@@ -176,7 +176,7 @@ export function TransactionForm({
         </label>
         <div className="flex items-end">
           {flow === 'expense' && (
-            <label className="flex items-center gap-2 pb-2 text-xs text-finance-muted">
+            <label className="flex items-center gap-2 pb-2 t-caption text-finance-muted">
               <input defaultChecked={editing?.fixed ?? false} name="fixed" type="checkbox" />
               고정지출
             </label>

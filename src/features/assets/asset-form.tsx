@@ -37,7 +37,7 @@ function SaveButton() {
   const { pending } = useFormStatus()
   return (
     <button
-      className="h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
+      className="h-[34px] bg-finance-ink px-4 t-body-strong text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={pending}
       type="submit"
     >
@@ -97,8 +97,8 @@ export function AssetForm({ groups, month, balanceOnly = false }: { groups: Asse
       <section className="overflow-hidden border-t border-finance-ink">
         <div className="flex flex-col justify-between gap-4 border-b border-finance-hairline py-4 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-sm font-bold text-finance-ink">잔고 보정 · {month}</h2>
-            <p className="mt-1 text-xs text-finance-muted">
+            <h2 className="t-section text-finance-ink">잔고 보정 · {month}</h2>
+            <p className="mt-1 t-caption text-finance-muted">
               빈칸은 직전 잔액을 유지합니다. 기존 값을 지우고 저장하면 이번 달 스냅샷만 삭제됩니다. 계정 이름과 그룹은 설정에서 관리합니다.
             </p>
           </div>
@@ -113,12 +113,12 @@ export function AssetForm({ groups, month, balanceOnly = false }: { groups: Asse
               <section className="bg-white p-5" key={`${group.kind}-${group.major}`}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-zinc-900">{group.major}</h3>
+                    <h3 className="t-section text-finance-ink">{group.major}</h3>
                     {group.kind === 'liability' && (
-                      <span className="bg-finance-red-tint px-2 py-0.5 text-[11px] font-semibold text-finance-red">부채</span>
+                      <span className="bg-finance-red-tint px-2 py-0.5 t-badge text-finance-red">부채</span>
                     )}
                   </div>
-                  <span className="text-xs text-zinc-500">소계 {formatWon(group.subtotal)}원</span>
+                  <span className="t-caption text-finance-muted">소계 {formatWon(group.subtotal)}원</span>
                 </div>
 
                 <div className="mt-4 space-y-2">
@@ -134,29 +134,29 @@ export function AssetForm({ groups, month, balanceOnly = false }: { groups: Asse
                         <input name="accountId" type="hidden" value={row.id} />
                         <input name={`deleted:${row.id}`} type="hidden" value={deleted ? 'on' : ''} />
                         {balanceOnly ? (
-                          <><input name={`name:${row.id}`} type="hidden" value={row.name} /><span className="text-[13px] font-medium text-finance-ink">{row.name}</span></>
+                          <><input name={`name:${row.id}`} type="hidden" value={row.name} /><span className="t-body font-medium text-finance-ink">{row.name}</span></>
                         ) : (
                           <>
-                            <span className="cursor-grab text-center text-zinc-300" draggable onDragEnd={() => setDraggingId(null)} onDragStart={() => setDraggingId(row.id)} title="끌어서 순서 변경">⠿</span>
-                            <input aria-label={`${row.name} 이름`} className={`h-[34px] min-w-0 border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink outline-none focus:border-finance-blue ${deleted ? 'line-through' : ''}`} defaultValue={row.name} name={`name:${row.id}`} type="text" />
+                            <span className="cursor-grab text-center text-finance-faint" draggable onDragEnd={() => setDraggingId(null)} onDragStart={() => setDraggingId(row.id)} title="끌어서 순서 변경">⠿</span>
+                            <input aria-label={`${row.name} 이름`} className={`h-[34px] min-w-0 border border-finance-hairline bg-white px-3 t-body text-finance-ink outline-none focus:border-finance-blue ${deleted ? 'line-through' : ''}`} defaultValue={row.name} name={`name:${row.id}`} type="text" />
                           </>
                         )}
                         <label className="relative">
                           <span className="sr-only">{row.name} 잔액</span>
                           <input
                             aria-label={`${row.name} 잔액`}
-                            className="h-[34px] w-full border border-finance-hairline bg-white px-3 pr-7 text-right text-[13px] tabular-nums text-finance-ink outline-none focus:border-finance-blue"
+                            className="h-[34px] w-full border border-finance-hairline bg-white px-3 pr-7 text-right t-body tabular-nums text-finance-ink outline-none focus:border-finance-blue"
                             defaultValue={row.currentAmount ?? ''}
                             inputMode="numeric"
                             name={`amount:${row.id}`}
                             placeholder={row.effectiveAmount ? formatWon(row.effectiveAmount) : '0'}
                             type="text"
                           />
-                          <span className="pointer-events-none absolute right-2 top-2.5 text-xs text-zinc-400">원</span>
+                          <span className="pointer-events-none absolute right-2 top-2.5 t-caption text-finance-faint">원</span>
                         </label>
                         {!balanceOnly && <button
                           aria-label={`${row.name} ${deleted ? '삭제 취소' : '삭제'}`}
-                          className={`h-[34px] text-lg ${deleted ? 'bg-finance-red-tint text-finance-red' : 'text-finance-faint hover:bg-finance-track hover:text-finance-ink'}`}
+                          className={`h-[34px] t-body-strong ${deleted ? 'bg-finance-red-tint text-finance-red' : 'text-finance-faint hover:bg-finance-track hover:text-finance-ink'}`}
                           onClick={() => toggleDeleted(row.id)}
                           type="button"
                         >
@@ -168,11 +168,11 @@ export function AssetForm({ groups, month, balanceOnly = false }: { groups: Asse
 
                   {!balanceOnly && groupNewRows.map((row) => (
                     <div className="grid grid-cols-[24px_minmax(0,1fr)_minmax(115px,0.8fr)_36px] items-center gap-2 border-b border-finance-green bg-finance-green-tint p-2" key={row.key}>
-                      <span className="text-center text-zinc-300">＋</span>
+                      <span className="text-center text-finance-faint">＋</span>
                       <input
                         aria-label={`${group.major} 새 항목 이름`}
                         autoFocus
-                        className="h-[34px] min-w-0 border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink outline-none focus:border-finance-blue"
+                        className="h-[34px] min-w-0 border border-finance-hairline bg-white px-3 t-body text-finance-ink outline-none focus:border-finance-blue"
                         onChange={(event) => updateNewRow(row.key, 'name', event.target.value)}
                         placeholder="새 항목 이름"
                         type="text"
@@ -182,18 +182,18 @@ export function AssetForm({ groups, month, balanceOnly = false }: { groups: Asse
                         <span className="sr-only">{group.major} 새 항목 잔액</span>
                         <input
                           aria-label={`${group.major} 새 항목 잔액`}
-                          className="h-[34px] w-full border border-finance-hairline bg-white px-3 pr-7 text-right text-[13px] tabular-nums text-finance-ink outline-none focus:border-finance-blue"
+                          className="h-[34px] w-full border border-finance-hairline bg-white px-3 pr-7 text-right t-body tabular-nums text-finance-ink outline-none focus:border-finance-blue"
                           inputMode="numeric"
                           onChange={(event) => updateNewRow(row.key, 'amount', event.target.value)}
                           placeholder="0"
                           type="text"
                           value={row.amount}
                         />
-                        <span className="pointer-events-none absolute right-2 top-2.5 text-xs text-zinc-400">원</span>
+                        <span className="pointer-events-none absolute right-2 top-2.5 t-caption text-finance-faint">원</span>
                       </label>
                       <button
                         aria-label={`${group.major} 새 항목 제거`}
-                        className="h-[34px] text-lg text-finance-faint hover:bg-finance-green-tint hover:text-finance-ink"
+                        className="h-[34px] t-body-strong text-finance-faint hover:bg-finance-green-tint hover:text-finance-ink"
                         onClick={() => setNewRows((current) => current.filter((candidate) => candidate.key !== row.key))}
                         type="button"
                       >
@@ -204,7 +204,7 @@ export function AssetForm({ groups, month, balanceOnly = false }: { groups: Asse
                 </div>
 
                 {!balanceOnly && <button
-                  className="mt-3 h-[30px] px-2 text-xs font-semibold text-finance-blue hover:bg-finance-blue-tint"
+                  className="mt-3 h-[30px] px-2 t-body-strong text-finance-blue hover:bg-finance-blue-tint"
                   onClick={() => addRow(group.major, group.kind)}
                   type="button"
                 >
@@ -215,7 +215,7 @@ export function AssetForm({ groups, month, balanceOnly = false }: { groups: Asse
           })}
         </div>
       </section>
-      {state.error && <p className="mt-3 text-sm text-red-700">{state.error}</p>}
+      {state.error && <p className="mt-3 t-body text-finance-red">{state.error}</p>}
     </form>
   )
 }

@@ -228,7 +228,7 @@ export function CategoryDetailTable({
     return (
       <section className="border-t border-finance-ink pt-4">
         <CategoryDetailHeader flow={flow} onSelectFlow={selectFlow} />
-        <p className="py-12 text-center text-[13px] text-finance-muted">표시할 거래가 없습니다.</p>
+        <p className="py-12 text-center t-body text-finance-muted">표시할 거래가 없습니다.</p>
       </section>
     )
   }
@@ -237,13 +237,13 @@ export function CategoryDetailTable({
     <section className="border-b border-finance-border pb-6">
       <div className="border-t border-finance-ink pt-4">
         <CategoryDetailHeader flow={flow} onSelectFlow={selectFlow} />
-        <p className="mt-2 text-[11px] text-finance-faint">
+        <p className="mt-2 t-caption text-finance-faint">
           금액 셀에 마우스를 올리거나 키보드로 이동하면 내역을 볼 수 있습니다. 터치에서는 내역 버튼을 누르세요. 금액을 클릭하면 합계와 월평균에서 제외됩니다.
         </p>
       </div>
       <div className="mt-4 overflow-x-auto border-t border-finance-ink">
-        <table className="w-full min-w-[1080px] border-collapse text-left text-xs">
-          <thead className="border-b border-finance-border text-[11px] font-semibold uppercase tracking-[0.04em] text-finance-muted">
+        <table className="w-full min-w-[1080px] border-collapse text-left t-body">
+          <thead className="border-b border-finance-border t-label uppercase text-finance-muted">
             <tr>
               <th className="sticky left-0 z-20 min-w-28 border-r border-finance-border bg-white px-4 py-[9px] font-semibold">대분류</th>
               <th className="sticky left-28 z-20 min-w-28 border-r border-finance-border bg-white px-3 py-[9px] font-semibold">소분류</th>
@@ -255,7 +255,7 @@ export function CategoryDetailTable({
                   key={month}
                 >
                   {month}월
-                  {month === detail.currentMonth && <span className="ml-1 bg-finance-blue-tint px-1 py-0.5 text-[10px] text-finance-blue">진행</span>}
+                  {month === detail.currentMonth && <span className="ml-1 bg-finance-blue-tint px-1 py-0.5 t-badge text-finance-blue">진행</span>}
                 </th>
               ))}
             </tr>
@@ -312,7 +312,7 @@ export function CategoryDetailTable({
                               aria-describedby={tooltip?.key === cell.key ? tooltipId : undefined}
                               aria-expanded={tooltip?.key === cell.key}
                               aria-label={`${group.major} ${sub.sub} ${cell.month}월 거래 내역 ${tooltip?.key === cell.key ? '닫기' : '보기'}`}
-                              className="px-3 pb-1.5 pt-0.5 text-[10px] font-medium text-finance-faint hover:text-finance-blue focus-visible:outline-2 focus-visible:outline-finance-blue"
+                              className="px-3 pb-1.5 pt-0.5 t-badge text-finance-faint hover:text-finance-blue focus-visible:outline-2 focus-visible:outline-finance-blue"
                               onBlur={() => { if (tooltip?.key === cell.key) scheduleHide(true) }}
                               onClick={(event) => toggleCellDetails(event.currentTarget, group.major, sub.sub, cell.month)}
                               onKeyDown={(event) => { if (event.key === 'Escape') closeTooltip() }}
@@ -367,31 +367,31 @@ export function CategoryDetailTable({
           role="tooltip"
           style={{ left: 8, top: 8, visibility: 'hidden' }}
         >
-          <div className="border-b border-zinc-700 pb-2">
+          <div className="border-b border-finance-border pb-2">
             <p className="font-semibold text-white">{tooltip.major} › {tooltip.sub} · {tooltip.month}월</p>
-            <p className="mt-0.5 text-xs text-zinc-400">{tooltip.data.items.length}건 · {formatWon(tooltip.data.total)}원</p>
+            <p className="mt-0.5 t-caption text-finance-faint">{tooltip.data.items.length}건 · {formatWon(tooltip.data.total)}원</p>
           </div>
           {tooltip.data.items.length === 0 ? (
-            <p className="py-4 text-center text-sm text-zinc-400">내역 없음</p>
+            <p className="py-4 text-center t-body text-finance-faint">내역 없음</p>
           ) : (
-            <div className="divide-y divide-zinc-700">
+            <div className="divide-y divide-finance-border">
               {tooltip.data.items.slice(0, 15).map((item, index) => (
-                <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 py-2 text-xs" key={`${item.date}-${item.name}-${item.amount}-${index}`}>
-                  <span className="text-zinc-400">{item.date.slice(5).replace('-', '/')}</span>
-                  <span className="min-w-0 truncate text-zinc-200">
+                <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 py-2 t-caption" key={`${item.date}-${item.name}-${item.amount}-${index}`}>
+                  <span className="text-finance-faint">{item.date.slice(5).replace('-', '/')}</span>
+                  <span className="min-w-0 truncate text-finance-faint">
                     {item.name}
-                    {item.acct && <span className="ml-1 text-[10px] text-zinc-400">{item.acct}</span>}
+                    {item.acct && <span className="ml-1 t-caption text-finance-faint">{item.acct}</span>}
                   </span>
                   <span className="font-medium tabular-nums text-white">{formatWon(item.amount)}</span>
                 </div>
               ))}
               {tooltip.data.items.length > 15 && (
-                <p className="pt-2 text-center text-xs text-zinc-400">외 {tooltip.data.items.length - 15}건…</p>
+                <p className="pt-2 text-center t-caption text-finance-faint">외 {tooltip.data.items.length - 15}건…</p>
               )}
             </div>
           )}
           <Link
-            className="mt-3 block border-t border-zinc-700 pt-2 text-right text-xs font-semibold text-white hover:text-finance-blue"
+            className="mt-3 block border-t border-finance-border pt-2 text-right t-caption font-semibold text-white hover:text-finance-blue"
             href={`/ledger?month=${year}-${String(tooltip.month).padStart(2, '0')}&tab=list&flow=${flow}&major=${encodeURIComponent(tooltip.major)}`}
           >
             이 달 거래 보기 →
@@ -412,14 +412,14 @@ function CategoryDetailHeader({
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 className="text-sm font-bold text-finance-ink">항목별 월별</h2>
-        <p className="mt-1 text-xs text-finance-muted">대분류·소분류별 월간 {FLOW_LABELS[flow]} 상세</p>
+        <h2 className="t-section text-finance-ink">항목별 월별</h2>
+        <p className="mt-1 t-caption text-finance-muted">대분류·소분류별 월간 {FLOW_LABELS[flow]} 상세</p>
       </div>
       <div aria-label="거래 유형" className="inline-flex border border-finance-border">
         {(Object.keys(FLOW_LABELS) as CategoryDetailFlow[]).map((option) => (
           <button
             aria-pressed={flow === option}
-            className={`h-[30px] border-l border-finance-border px-3.5 text-xs font-medium first:border-l-0 ${flow === option ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track hover:text-finance-ink'}`}
+            className={`h-[30px] border-l border-finance-border px-3.5 t-caption font-medium first:border-l-0 ${flow === option ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track hover:text-finance-ink'}`}
             key={option}
             onClick={() => onSelectFlow(option)}
             type="button"

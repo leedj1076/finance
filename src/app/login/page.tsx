@@ -31,14 +31,14 @@ export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-sm items-center px-6">
       <section className="w-full border-t border-finance-ink py-8">
-        <div className="mb-8 flex items-center gap-3"><span className="grid h-7 w-7 place-items-center bg-finance-ink text-xs font-bold text-white">우</span><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">우리집 가계부</p></div>
+        <div className="mb-8 flex items-center gap-3"><span className="grid h-7 w-7 place-items-center bg-finance-ink t-caption font-bold text-white">우</span><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">우리집 가계부</p></div>
         <h1 className="text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">로그인</h1>
-        <p className="mb-6 mt-2 text-xs text-finance-muted">
+        <p className="mb-6 mt-2 t-caption text-finance-muted">
           등록된 가족 계정만 로그인할 수 있습니다.
         </p>
 
         <form className="grid gap-4" onSubmit={submit}>
-          <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
+          <label className="grid gap-1.5 t-body font-medium text-finance-ink">
             이메일
             <input
               className="h-[34px] border border-finance-hairline bg-white px-3 text-[13px] outline-none focus:border-finance-blue"
@@ -50,7 +50,7 @@ export default function LoginPage() {
               required
             />
           </label>
-          <label className="grid gap-1.5 text-sm font-medium text-zinc-700">
+          <label className="grid gap-1.5 t-body font-medium text-finance-ink">
             비밀번호
             <input
               className="h-[34px] border border-finance-hairline bg-white px-3 text-[13px] outline-none focus:border-finance-blue"
@@ -72,7 +72,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
+        {error && <p className="mt-4 t-body text-finance-red">{error}</p>}
       </section>
     </main>
   )

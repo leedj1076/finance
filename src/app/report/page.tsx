@@ -51,15 +51,15 @@ function SummaryCard({
   good: boolean | null
 }) {
   const valueColor = tone === 'expense'
-    ? 'text-rose-700'
+    ? 'text-finance-red'
     : tone === 'saving'
-      ? 'text-emerald-700'
-      : 'text-blue-700'
+      ? 'text-finance-green'
+      : 'text-finance-blue'
   return (
     <article className="px-4 py-5 first:pl-0 last:pr-0 sm:px-6">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-finance-muted">{label}</p>
-      <p className={`mt-2 text-[26px] font-semibold leading-none tabular-nums ${valueColor}`}>{formatWon(value)}원</p>
-      <p className={`mt-2 text-xs ${good === null ? 'text-zinc-500' : good ? 'text-emerald-700' : 'text-rose-700'}`}>
+      <p className="t-label uppercase text-finance-muted">{label}</p>
+      <p className={`mt-2 t-kpi tabular-nums ${valueColor}`}>{formatWon(value)}원</p>
+      <p className={`mt-2 t-caption ${good === null ? 'text-finance-muted' : good ? 'text-finance-green' : 'text-finance-red'}`}>
         {comparison}
       </p>
     </article>
@@ -87,13 +87,13 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
       <main className="mx-auto w-full max-w-[1440px] px-5 pb-14 pt-10 sm:px-12">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">한 해 돌아보기</p>
-            <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">연간</h1>
-            <p className="mt-2 text-xs text-finance-muted">{data.year}년 요약 · 전년 대비 · 현금흐름 예측</p>
+            <p className="t-label uppercase text-finance-blue">한 해 돌아보기</p>
+            <h1 className="mt-2 t-page-title text-finance-ink">연간</h1>
+            <p className="mt-2 t-caption text-finance-muted">{data.year}년 요약 · 전년 대비 · 현금흐름 예측</p>
           </div>
           <div className="flex items-center gap-2">
             <Link aria-label="이전 해" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/report?year=${data.previousYear}`}>←</Link>
-            <span className="min-w-20 text-center text-[13px] font-semibold text-finance-ink">{data.year}년</span>
+            <span className="min-w-20 text-center t-body-strong text-finance-ink">{data.year}년</span>
             <Link aria-label="다음 해" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/report?year=${data.nextYear}`}>→</Link>
           </div>
         </div>
@@ -126,44 +126,44 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
         <section className="mt-6 border-t border-finance-ink py-4">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-sm font-bold text-finance-ink">연 순저축률</h2>
-              <p className="mt-1 text-xs text-zinc-500">순저축률 = (수입 − 지출) / 수입 · 목표 30%</p>
+              <h2 className="t-section text-finance-ink">연 순저축률</h2>
+              <p className="mt-1 t-caption text-finance-muted">순저축률 = (수입 − 지출) / 수입 · 목표 30%</p>
             </div>
-            <p className={`text-4xl font-semibold tracking-tight ${data.annual.savingsRate >= 30 ? 'text-emerald-700' : data.annual.savingsRate >= 10 ? 'text-amber-700' : 'text-rose-700'}`}>
+            <p className={`t-kpi ${data.annual.savingsRate >= 30 ? 'text-finance-green' : data.annual.savingsRate >= 10 ? 'text-finance-amber' : 'text-finance-red'}`}>
               {formatRate(data.annual.savingsRate)}%
             </p>
           </div>
           <div className="mt-5 grid border-y border-finance-hairline sm:grid-cols-3 sm:divide-x sm:divide-finance-hairline">
             <div className="p-4">
-              <p className="text-xs text-zinc-500">전년</p>
-              <p className="mt-1 font-semibold text-zinc-900">
+              <p className="t-caption text-finance-muted">전년</p>
+              <p className="mt-1 t-body-strong text-finance-ink">
                 {data.hasPrevious ? `${formatRate(data.previous.savingsRate)}% · ${data.savingsRateDelta >= 0 ? '+' : ''}${formatRate(data.savingsRateDelta)}%p` : '데이터 없음'}
               </p>
             </div>
             <div className="p-4">
-              <p className="text-xs text-emerald-700">최고 월</p>
-              <p className="mt-1 font-semibold text-emerald-900">{data.bestMonth ? `${data.bestMonth.month}월 · ${formatRate(data.bestMonth.savingsRate)}%` : '수입 기록 없음'}</p>
-              <p className="mt-1 text-[11px] text-finance-muted">목표 달성 {dashboard.annual.targetHitMonths}/{dashboard.annual.activeMonths}개월</p>
+              <p className="t-caption text-finance-green">최고 월</p>
+              <p className="mt-1 t-body-strong text-finance-green">{data.bestMonth ? `${data.bestMonth.month}월 · ${formatRate(data.bestMonth.savingsRate)}%` : '수입 기록 없음'}</p>
+              <p className="mt-1 t-caption text-finance-muted">목표 달성 {dashboard.annual.targetHitMonths}/{dashboard.annual.activeMonths}개월</p>
             </div>
             <div className="p-4">
-              <p className="text-xs text-rose-700">최저 월</p>
-              <p className="mt-1 font-semibold text-rose-900">{data.worstMonth ? `${data.worstMonth.month}월 · ${formatRate(data.worstMonth.savingsRate)}%` : '수입 기록 없음'}</p>
+              <p className="t-caption text-finance-red">최저 월</p>
+              <p className="mt-1 t-body-strong text-finance-red">{data.worstMonth ? `${data.worstMonth.month}월 · ${formatRate(data.worstMonth.savingsRate)}%` : '수입 기록 없음'}</p>
             </div>
           </div>
         </section>
 
         <section className="mt-6 border-t border-finance-ink py-5">
-          <div><h2 className="text-sm font-bold text-finance-ink">월별 순저축률</h2><p className="mt-1 text-xs text-finance-muted">목표 {formatRate(dashboard.savingsTarget)}% · 달성·미달 월을 같은 기준선에서 비교합니다</p></div>
+          <div><h2 className="t-section text-finance-ink">월별 순저축률</h2><p className="mt-1 t-caption text-finance-muted">목표 {formatRate(dashboard.savingsTarget)}% · 달성·미달 월을 같은 기준선에서 비교합니다</p></div>
           <div className="mt-5 overflow-x-auto"><SavingsRateChart data={dashboard.monthly} target={dashboard.savingsTarget} /></div>
         </section>
 
         <section className="mt-6 border-t border-finance-ink py-5">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-finance-ink">월별 수입 · 지출</h2>
-              <p className="mt-1 text-xs text-finance-muted">{data.year}년 달력 기준 현금흐름</p>
+              <h2 className="t-section text-finance-ink">월별 수입 · 지출</h2>
+              <p className="mt-1 t-caption text-finance-muted">{data.year}년 달력 기준 현금흐름</p>
             </div>
-            <p className="text-[11px] text-finance-muted">연 누적 수입 {formatWon(dashboard.annual.income)}원 · 지출 {formatWon(dashboard.annual.expense)}원 · 순저축 {formatWon(dashboard.annual.netSaving)}원</p>
+            <p className="t-caption text-finance-muted">연 누적 수입 {formatWon(dashboard.annual.income)}원 · 지출 {formatWon(dashboard.annual.expense)}원 · 순저축 {formatWon(dashboard.annual.netSaving)}원</p>
           </div>
           <div className="mt-5 overflow-x-auto">
             <MonthlyCashflowChart data={dashboard.monthly} />
@@ -185,33 +185,33 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
         <section className="mt-6 overflow-hidden border-t border-finance-ink">
           <div className="border-b border-finance-hairline py-4">
-            <h2 className="text-sm font-bold text-finance-ink">지출 TOP {data.topExpenses.length}</h2>
-            <p className="mt-1 text-xs text-zinc-500">{data.year}년 전체 지출 대비 비중</p>
+            <h2 className="t-section text-finance-ink">지출 TOP {data.topExpenses.length}</h2>
+            <p className="mt-1 t-caption text-finance-muted">{data.year}년 전체 지출 대비 비중</p>
           </div>
           <div className="py-5">
             {data.topExpenses.length > 0 ? (
               <div className="overflow-x-auto">
                 <ol className="min-w-[620px] space-y-4">
                   {data.topExpenses.map((item, index) => (
-                    <li className="grid grid-cols-[24px_12px_minmax(90px,0.6fr)_minmax(100px,1fr)_auto_auto] items-center gap-3 text-sm" key={item.major}>
-                      <span className="text-zinc-400">{index + 1}</span>
+                    <li className="grid grid-cols-[24px_12px_minmax(90px,0.6fr)_minmax(100px,1fr)_auto_auto] items-center gap-3 t-body" key={item.major}>
+                      <span className="text-finance-faint">{index + 1}</span>
                       <span aria-hidden className="h-2.5 w-2.5" style={{ backgroundColor: TOP_COLORS[index] }} />
-                      <span className="truncate font-medium text-zinc-800">{item.major}</span>
+                      <span className="truncate font-medium text-finance-ink">{item.major}</span>
                       <span className="h-[5px] overflow-hidden bg-finance-track">
                         <span className="block h-full" style={{ backgroundColor: TOP_COLORS[index], width: `${item.percent}%` }} />
                       </span>
-                      <span className="whitespace-nowrap text-right font-semibold text-zinc-950">{formatWon(item.amount)}원</span>
-                      <span className="w-14 text-right text-xs text-zinc-500">{formatRate(item.percent)}%</span>
+                      <span className="whitespace-nowrap text-right font-semibold text-finance-ink">{formatWon(item.amount)}원</span>
+                      <span className="w-14 text-right t-caption text-finance-muted">{formatRate(item.percent)}%</span>
                     </li>
                   ))}
                 </ol>
               </div>
             ) : (
-              <p className="py-10 text-center text-sm text-zinc-500">이 연도에는 지출 기록이 없습니다.</p>
+              <p className="py-10 text-center t-body text-finance-muted">이 연도에는 지출 기록이 없습니다.</p>
             )}
             {data.largestExpense && (
-              <p className="mt-5 border-t border-zinc-100 pt-4 text-xs text-zinc-500">
-                최대 단일 지출 · <strong className="text-zinc-800">{formatWon(data.largestExpense.amount)}원</strong>
+              <p className="mt-5 border-t border-finance-border pt-4 t-caption text-finance-muted">
+                최대 단일 지출 · <strong className="text-finance-ink">{formatWon(data.largestExpense.amount)}원</strong>
                 {' · '}{data.largestExpense.memo || data.largestExpense.major} ({data.largestExpense.date})
               </p>
             )}
@@ -219,52 +219,52 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
         </section>
 
         <section className="mt-6 overflow-hidden border-t border-finance-ink">
-          <div className="border-b border-finance-hairline py-4"><h2 className="text-sm font-bold text-finance-ink">가맹점 TOP {data.topMerchants.length}</h2><p className="mt-1 text-xs text-finance-muted">{data.year}년 전체 지출 · 같은 가맹점 이름을 정규화해 집계</p></div>
+          <div className="border-b border-finance-hairline py-4"><h2 className="t-section text-finance-ink">가맹점 TOP {data.topMerchants.length}</h2><p className="mt-1 t-caption text-finance-muted">{data.year}년 전체 지출 · 같은 가맹점 이름을 정규화해 집계</p></div>
           <ol className="divide-y divide-finance-hairline">
             {data.topMerchants.map((merchant, index) => (
-              <li className="grid grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-3 py-3 text-sm" key={merchant.name}>
+              <li className="grid grid-cols-[24px_minmax(0,1fr)_auto_auto] items-center gap-3 py-3 t-body" key={merchant.name}>
                 <span className="text-finance-faint">{index + 1}</span>
                 <span className="truncate font-medium text-finance-ink">{merchant.name}</span>
-                <span className="text-xs text-finance-muted">{merchant.count}건</span>
+                <span className="t-caption text-finance-muted">{merchant.count}건</span>
                 <span className="font-semibold tabular-nums text-finance-ink">{formatWon(merchant.amount)}원</span>
               </li>
             ))}
-            {data.topMerchants.length === 0 && <li className="py-10 text-center text-sm text-finance-muted">가맹점 정보가 없습니다.</li>}
+            {data.topMerchants.length === 0 && <li className="py-10 text-center t-body text-finance-muted">가맹점 정보가 없습니다.</li>}
           </ol>
         </section>
 
         <section className="mt-6 overflow-hidden border-t border-finance-ink">
           <div className="flex flex-col gap-2 border-b border-finance-hairline py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-sm font-bold text-finance-ink">6개월 현금흐름 예측</h2>
-              <p className="mt-1 text-xs text-zinc-500">완료월 {data.cashflow.completedMonthDivisor}개월의 월평균 순흐름을 현재 잔액에 누적</p>
+              <h2 className="t-section text-finance-ink">6개월 현금흐름 예측</h2>
+              <p className="mt-1 t-caption text-finance-muted">완료월 {data.cashflow.completedMonthDivisor}개월의 월평균 순흐름을 현재 잔액에 누적</p>
             </div>
-            <span className="text-xs text-zinc-500">추정치</span>
+            <span className="t-caption text-finance-muted">추정치</span>
           </div>
           <div className="py-5">
             <div className="grid border-y border-finance-hairline sm:grid-cols-2 sm:divide-x sm:divide-finance-hairline">
               <div className="p-4">
-                <p className="text-xs text-zinc-500">현재 현금성 자산</p>
-                <p className="mt-1 text-xl font-semibold text-zinc-950">{formatWon(data.cashflow.startCash)}원</p>
-                {data.cashflow.startCash === 0 && <p className="mt-1 text-xs text-zinc-400">자산 페이지에 잔고를 입력하면 실제 잔액으로 예측합니다.</p>}
+                <p className="t-caption text-finance-muted">현재 현금성 자산</p>
+                <p className="mt-1 t-kpi-sm text-finance-ink">{formatWon(data.cashflow.startCash)}원</p>
+                {data.cashflow.startCash === 0 && <p className="mt-1 t-caption text-finance-faint">자산 페이지에 잔고를 입력하면 실제 잔액으로 예측합니다.</p>}
               </div>
               <div className="p-4">
-                <p className={`text-xs ${data.cashflow.monthlyNet >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>월평균 순흐름</p>
-                <p className={`mt-1 text-xl font-semibold ${data.cashflow.monthlyNet >= 0 ? 'text-emerald-900' : 'text-rose-900'}`}>{signedWon(data.cashflow.monthlyNet)}</p>
+                <p className={`t-caption ${data.cashflow.monthlyNet >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>월평균 순흐름</p>
+                <p className={`mt-1 t-kpi-sm ${data.cashflow.monthlyNet >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>{signedWon(data.cashflow.monthlyNet)}</p>
               </div>
             </div>
             <div className="mt-5 overflow-x-auto">
-              <table className="w-full min-w-[520px] text-left text-sm">
+              <table className="w-full min-w-[520px] text-left t-body">
                 <caption className="sr-only">향후 6개월 월별 순흐름 및 예상 잔액</caption>
-                <thead className="border-b border-finance-hairline bg-finance-panel text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
+                <thead className="border-b border-finance-hairline bg-finance-panel t-label uppercase text-finance-muted">
                   <tr><th className="px-4 py-3 font-medium" scope="col">월</th><th className="px-4 py-3 text-right font-medium" scope="col">순흐름</th><th className="px-4 py-3 text-right font-medium" scope="col">예상 잔액</th></tr>
                 </thead>
                 <tbody className="divide-y divide-finance-hairline">
                   {data.cashflow.forecast.map((row) => (
                     <tr key={row.month}>
-                      <th className="px-4 py-3 font-medium text-zinc-700" scope="row">{row.month}</th>
-                      <td className={`px-4 py-3 text-right tabular-nums ${row.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{signedWon(row.net)}</td>
-                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-zinc-950">{formatWon(row.balance)}원</td>
+                      <th className="px-4 py-3 font-medium text-finance-ink" scope="row">{row.month}</th>
+                      <td className={`px-4 py-3 text-right tabular-nums ${row.net >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>{signedWon(row.net)}</td>
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-finance-ink">{formatWon(row.balance)}원</td>
                     </tr>
                   ))}
                 </tbody>

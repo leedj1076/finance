@@ -55,7 +55,7 @@ export function InboxSourceGroup({
               onClick={() => toggleSource(group.key)}
               type="button"
             >
-              <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-finance-muted">
+              <span aria-hidden="true" className="w-4 shrink-0 text-center t-body text-finance-muted">
                 {expanded ? '▾' : '▸'}
               </span>
               <span className="truncate font-semibold text-finance-ink" title={groupLabel}>
@@ -69,16 +69,16 @@ export function InboxSourceGroup({
                   중복 의심 {duplicateCount}건
                 </span>
               )}
-              <span className="ml-auto hidden whitespace-nowrap text-xs font-normal text-finance-muted xl:inline">
+              <span className="ml-auto hidden whitespace-nowrap t-caption font-normal text-finance-muted xl:inline">
                 선택 {selectedItems.length}/{group.items.length}건 · {selectedAmount >= 0 ? '+' : '−'}
                 {Math.abs(selectedAmount).toLocaleString('ko-KR')}원
               </span>
             </button>
-            <label className="flex shrink-0 items-center gap-2 text-xs font-medium text-finance-muted">
+            <label className="flex shrink-0 items-center gap-2 t-caption font-medium text-finance-muted">
               그룹 결제수단
               <select
                 aria-label={`${groupLabel} 그룹 결제수단`}
-                className="h-[30px] w-52 border border-finance-border bg-white px-2 text-xs font-normal text-finance-ink outline-none focus:border-finance-blue"
+                className="h-[30px] w-52 border border-finance-border bg-white px-2 t-caption font-normal text-finance-ink outline-none focus:border-finance-blue"
                 onChange={(event) => setSourceAccount(
                   group.items.map((item) => item.id),
                   event.target.value,

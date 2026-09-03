@@ -19,6 +19,14 @@
   --finance-green-tint: #f0fdf4;
   --finance-amber-tint: #fffbeb;
   --finance-violet-tint: #f5f3ff;
+  /* categorical series, fixed order, validated for color-vision deficiency (docs/design/swiss-ledger/chart-specs.html) */
+  --chart-1: #2563eb;
+  --chart-2: #d97706;
+  --chart-3: #0d9488;
+  --chart-4: #be123c;
+  --chart-5: #7c3aed;
+  --chart-6: #4d7c0f;
+  --chart-other: #a1a1aa;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +50,13 @@
     --finance-green-tint: #052e16;
     --finance-amber-tint: #451a03;
     --finance-violet-tint: #2e1065;
+    --chart-1: #3b82f6;
+    --chart-2: #d97706;
+    --chart-3: #0d9488;
+    --chart-4: #f43f5e;
+    --chart-5: #8b5cf6;
+    --chart-6: #65a30d;
+    --chart-other: #71717a;
   }
 }
 
@@ -52,6 +67,8 @@
   --color-finance-muted: var(--finance-muted);
   --color-finance-faint: var(--finance-faint);
   --color-finance-border: var(--finance-border);
+  /* alias used across the app; without it Tailwind emits nothing and borders fall back to currentColor */
+  --color-finance-hairline: var(--finance-border);
   --color-finance-track: var(--finance-track);
   --color-finance-panel: var(--finance-panel);
   --color-finance-blue: var(--finance-blue);
@@ -468,3 +485,25 @@ button.finance-nav-link { cursor: pointer; }
     width: 100%;
   }
 }
+
+/* ------------------------------------------------------------------
+   Type scale — the only text sizes the app uses.
+   Source: docs/design/swiss-ledger/foundation.html
+   30 page title · 34 hero number · 26 KPI · 20 small KPI · 14 section
+   13 body/table · 12 caption · 11 label · 10 badge
+   ------------------------------------------------------------------ */
+.t-page-title { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+.t-hero { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.t-kpi { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.t-kpi-sm { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.t-section { font-size: 14px; font-weight: 700; line-height: 1.3; }
+.t-body { font-size: 13px; line-height: 1.5; }
+.t-body-strong { font-size: 13px; font-weight: 600; line-height: 1.5; }
+.t-caption { font-size: 12px; line-height: 1.5; }
+.t-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; line-height: 1.3; }
+.t-badge { font-size: 10px; font-weight: 600; line-height: 1; white-space: nowrap; }
+
+/* Charts: text inside SVG wears text tokens, never the series color. */
+.chart-value-label { font-size: 11px; font-weight: 700; letter-spacing: -0.01em; }
+.chart-hero-value { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+.chart-caption { font-size: 10px; font-weight: 500; }

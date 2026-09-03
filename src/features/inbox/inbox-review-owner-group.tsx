@@ -49,19 +49,19 @@ export function InboxOwnerGroup({
                 onClick={() => toggleOwner(group.key)}
                 type="button"
               >
-                <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-finance-blue">
+                <span aria-hidden="true" className="w-4 shrink-0 text-center t-body text-finance-blue">
                   {expanded ? '▾' : '▸'}
                 </span>
-                <span className="inline-flex h-7 min-w-7 items-center justify-center bg-finance-blue px-2 text-xs font-bold text-white">
+                <span className="inline-flex h-7 min-w-7 items-center justify-center bg-finance-blue px-2 t-caption font-bold text-white">
                   {group.owner}
                 </span>
-                <span className="text-xs font-semibold text-finance-ink">{group.items.length}건</span>
+                <span className="t-caption font-semibold text-finance-ink">{group.items.length}건</span>
                 {duplicateCount > 0 && (
                   <span className="bg-finance-red-tint px-2 py-0.5 text-[10px] font-semibold text-finance-red">
                     중복 의심 {duplicateCount}건
                   </span>
                 )}
-                <span className="ml-auto text-xs font-normal text-finance-muted">
+                <span className="ml-auto t-caption font-normal text-finance-muted">
                   결제수단 {group.sources.length}개
                 </span>
               </button>

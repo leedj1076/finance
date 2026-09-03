@@ -206,14 +206,14 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
       <section>
         <div className="mb-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-bold text-finance-ink">확인 대기 <span className="text-finance-red">{items.length}건</span></h3>
+            <h3 className="t-section text-finance-ink">확인 대기 <span className="text-finance-red">{items.length}건</span></h3>
             {highConfidenceIds.length > 0 && (
               <span className="bg-finance-green-tint px-2 py-0.5 text-[10px] font-semibold text-finance-green">
                 자동 분류 {highConfidenceIds.length}건
               </span>
             )}
           </div>
-          <p className="mt-1 text-xs text-finance-muted">모든 거래를 바로 수정할 수 있습니다. 한 건씩 오른쪽에서 즉시 반영하거나, 체크박스로 여러 건을 선택해 한 번에 처리하세요.</p>
+          <p className="mt-1 t-caption text-finance-muted">모든 거래를 바로 수정할 수 있습니다. 한 건씩 오른쪽에서 즉시 반영하거나, 체크박스로 여러 건을 선택해 한 번에 처리하세요.</p>
         </div>
       {actionMessage && (
         <div
@@ -246,7 +246,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
         </Fragment>
       ))}
       <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-        <div className="flex flex-wrap items-center gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-3 t-caption">
           <button
             className="font-semibold text-finance-ink hover:text-finance-blue"
             onClick={() => setSelected(new Set(items.map((item) => item.id)))}

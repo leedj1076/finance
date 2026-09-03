@@ -40,8 +40,8 @@ type BulkClassifyFormProps = {
   rows: BulkTransaction[]
 }
 
-const inputClass = 'h-[34px] border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink outline-none focus:border-finance-blue'
-const saveButton = 'h-[34px] bg-finance-ink px-3 text-xs font-semibold text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'h-[34px] border border-finance-hairline bg-white px-3 t-body text-finance-ink outline-none focus:border-finance-blue'
+const saveButton = 'h-[34px] bg-finance-ink px-3 t-body-strong text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60'
 
 const tokenLabels: Record<BulkClassificationToken, string> = {
   exp_var: '변동지출',
@@ -106,27 +106,27 @@ export function BulkClassifyForm({ categories, rows }: BulkClassifyFormProps) {
     <form action={bulkClassifyTransactions} className="overflow-hidden border-t border-finance-ink">
       <div className="flex flex-col justify-between gap-3 border-b border-finance-hairline py-4 sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-sm font-bold text-finance-ink">미분류 거래 일괄 분류</h2>
-          <p className="mt-1 text-xs text-finance-muted">
+          <h2 className="t-section text-finance-ink">미분류 거래 일괄 분류</h2>
+          <p className="mt-1 t-caption text-finance-muted">
             가맹점 사전·이력 추천은 미리 선택했습니다. 유형과 카테고리를 확인한 뒤 저장해 주세요.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            className="text-xs font-medium text-zinc-600 underline decoration-zinc-300 underline-offset-4"
+            className="t-caption font-medium text-finance-muted underline decoration-finance-border underline-offset-4"
             onClick={() => setSelected(new Set(selectableIds))}
             type="button"
           >
             분류된 행 전체 선택
           </button>
           <button
-            className="text-xs text-zinc-500 underline decoration-zinc-300 underline-offset-4"
+            className="t-caption text-finance-muted underline decoration-finance-border underline-offset-4"
             onClick={() => setSelected(new Set())}
             type="button"
           >
             선택 해제
           </button>
-          <span className="text-xs text-zinc-500">{selected.size}건 선택</span>
+          <span className="t-caption text-finance-muted">{selected.size}건 선택</span>
           <SubmitButton
             className={saveButton}
             disabled={selected.size === 0}
@@ -138,8 +138,8 @@ export function BulkClassifyForm({ categories, rows }: BulkClassifyFormProps) {
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1040px] text-left text-sm">
-          <thead className="border-b border-finance-hairline bg-finance-panel text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
+        <table className="w-full min-w-[1040px] text-left t-body">
+          <thead className="border-b border-finance-hairline bg-finance-panel t-label uppercase text-finance-muted">
             <tr>
               <th className="w-14 px-4 py-3 font-medium" scope="col">선택</th>
               <th className="px-3 py-3 font-medium" scope="col">날짜</th>
@@ -149,7 +149,7 @@ export function BulkClassifyForm({ categories, rows }: BulkClassifyFormProps) {
               <th className="min-w-72 px-3 py-3 font-medium" scope="col">카테고리</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-100">
+          <tbody className="divide-y divide-finance-border">
             {rows.map((transaction) => {
               const classification = classificationFromToken(tokens[transaction.id])!
               const visibleCategories = categories.filter(
@@ -159,7 +159,7 @@ export function BulkClassifyForm({ categories, rows }: BulkClassifyFormProps) {
               const categorySelected = Boolean(categoryIds[transaction.id])
 
               return (
-                <tr className="hover:bg-zinc-50" key={transaction.id}>
+                <tr className="hover:bg-finance-panel" key={transaction.id}>
                   <td className="px-4 py-3 text-center">
                     <input
                       aria-label={`${transaction.rawMerchant || transaction.memo || '거래'} 선택`}
@@ -172,18 +172,18 @@ export function BulkClassifyForm({ categories, rows }: BulkClassifyFormProps) {
                       value={transaction.id}
                     />
                   </td>
-                  <td className="whitespace-nowrap px-3 py-3 text-xs text-zinc-500">
+                  <td className="whitespace-nowrap px-3 py-3 t-caption text-finance-muted">
                     {transaction.date}
                   </td>
                   <td className="max-w-80 px-3 py-3">
-                    <p className="truncate font-medium text-zinc-950">
+                    <p className="truncate font-medium text-finance-ink">
                       {transaction.rawMerchant || transaction.memo || '내용 없음'}
                     </p>
-                    <p className="mt-1 truncate text-xs text-zinc-400">
+                    <p className="mt-1 truncate t-caption text-finance-faint">
                       {transaction.accountName ?? '결제수단 없음'}
                     </p>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-3 text-right font-semibold text-zinc-900">
+                  <td className="whitespace-nowrap px-3 py-3 text-right font-semibold text-finance-ink">
                     {formatWon(transaction.amount)}원
                   </td>
                   <td className="px-3 py-3">
@@ -219,12 +219,12 @@ export function BulkClassifyForm({ categories, rows }: BulkClassifyFormProps) {
                         ))}
                       </select>
                       {source && (
-                        <span className={`shrink-0 rounded px-1.5 py-1 text-[10px] font-medium ${
+                        <span className={`shrink-0 rounded px-1.5 py-1 t-badge ${
                           source === 'user'
-                            ? 'bg-emerald-50 text-emerald-700'
+                            ? 'bg-finance-green-tint text-finance-green'
                             : source === 'ai'
                               ? 'bg-violet-50 text-violet-700'
-                              : 'bg-blue-50 text-blue-700'
+                              : 'bg-finance-blue-tint text-finance-blue'
                         }`}>
                           {source === 'user' ? '확정' : source === 'ai' ? 'AI' : '이력'}
                         </span>

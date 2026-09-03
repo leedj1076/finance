@@ -54,13 +54,13 @@ export function VariableSpendSimulator({
     <section className="overflow-hidden border-t border-finance-hairline py-5">
       <div>
         <div className="mb-5 border-y border-finance-hairline py-4" aria-live="polite">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
-            <span className="text-zinc-500">예상 저축률</span>
-            <strong className={simulation.savingsRate >= savingsTarget ? 'text-emerald-700' : 'text-rose-700'}>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 t-body">
+            <span className="text-finance-muted">예상 저축률</span>
+            <strong className={simulation.savingsRate >= savingsTarget ? 'text-finance-green' : 'text-finance-red'}>
               {formatRate(simulation.savingsRate)}%
             </strong>
-            <span className="text-zinc-500">/ 목표 {savingsTarget}%</span>
-            <span className={simulation.targetReached ? 'text-emerald-700' : 'text-rose-700'}>
+            <span className="text-finance-muted">/ 목표 {savingsTarget}%</span>
+            <span className={simulation.targetReached ? 'text-finance-green' : 'text-finance-red'}>
               {simulation.targetReached
                 ? '(목표 달성)'
                 : `(목표까지 ${formatWon(simulation.targetGap)}원 추가 감축 필요)`}
@@ -83,7 +83,7 @@ export function VariableSpendSimulator({
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] border-collapse text-sm">
+            <table className="w-full min-w-[620px] border-collapse t-body">
               <thead>
                 <tr className="border-b border-finance-hairline bg-finance-panel text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
                   <th className="px-2 py-2 text-left font-medium" scope="col">분류</th>
@@ -95,10 +95,10 @@ export function VariableSpendSimulator({
               <tbody className="divide-y divide-finance-hairline">
                 {rows.map((row) => (
                   <tr key={row.major}>
-                    <th className="px-2 py-3 text-left font-medium text-zinc-800" scope="row">
+                    <th className="px-2 py-3 text-left font-medium text-finance-ink" scope="row">
                       {row.major}
                     </th>
-                    <td className="px-2 py-3 text-right tabular-nums text-zinc-600">
+                    <td className="px-2 py-3 text-right tabular-nums text-finance-muted">
                       {formatWon(row.average)}원
                     </td>
                     <td className="px-2 py-3 text-right">
@@ -116,7 +116,7 @@ export function VariableSpendSimulator({
                       <div className="inline-flex gap-1">
                         {([10, 20] as const).map((percent) => (
                           <button
-                            className="h-[30px] border border-finance-hairline px-2.5 text-xs font-semibold text-finance-muted hover:border-finance-blue hover:text-finance-blue"
+                            className="h-[30px] border border-finance-hairline px-2.5 t-caption font-semibold text-finance-muted hover:border-finance-blue hover:text-finance-blue"
                             key={percent}
                             onClick={() => updateCut(row.major, String(quickCutAmount(row.average, percent)))}
                             type="button"
@@ -146,7 +146,7 @@ export function VariableSpendSimulator({
             이 감축안을 이번 달 예산에 반영
           </button>
           {applied && (
-            <p className="text-xs text-emerald-700" role="status">
+            <p className="t-caption text-finance-green" role="status">
               예산 입력칸에 반영했습니다. 실제 저장은 아래 저장 버튼을 눌러 완료해 주세요.
             </p>
           )}

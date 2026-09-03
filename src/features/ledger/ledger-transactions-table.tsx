@@ -30,11 +30,11 @@ type LedgerRow = {
 const flowLabel = { income: '수입', expense: '지출', saving: '저축' } as const
 const flowStyle = { income: 'bg-finance-blue-tint text-finance-blue', expense: 'bg-finance-red-tint text-finance-red', saving: 'bg-finance-green-tint text-finance-green' } as const
 const initialState: TransactionActionState = {}
-const editInput = 'h-[30px] w-full border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue'
+const editInput = 'h-[30px] w-full border border-finance-border bg-white px-2 t-body text-finance-ink outline-none focus:border-finance-blue'
 
 function RowSaveButton() {
   const { pending } = useFormStatus()
-  return <button aria-label="거래 수정 저장" className="h-[30px] bg-finance-green px-2.5 text-xs font-semibold text-white hover:bg-finance-ink disabled:opacity-50" disabled={pending} type="submit">{pending ? '…' : '✓'}</button>
+  return <button aria-label="거래 수정 저장" className="h-[30px] bg-finance-green px-2.5 t-body-strong text-white hover:bg-finance-ink disabled:opacity-50" disabled={pending} type="submit">{pending ? '…' : '✓'}</button>
 }
 
 function EditableRow({ accounts, categories, filters, onCancel, onSaved, row }: {
@@ -87,11 +87,11 @@ function EditableRow({ accounts, categories, filters, onCancel, onSaved, row }: 
             <input name="inline" type="hidden" value="1" />
             <input name="transactionId" type="hidden" value={row.id} /><input name="returnAccount" type="hidden" value={filters.account} /><input name="returnFlow" type="hidden" value={filters.flow} /><input name="returnMajor" type="hidden" value={filters.major} /><input name="returnQ" type="hidden" value={filters.q} />
             <RowSaveButton />
-            <button aria-label="거래 수정 취소" className="h-[30px] px-2 text-xs text-finance-muted hover:bg-white hover:text-finance-ink" onClick={onCancel} type="button">✕</button>
+            <button aria-label="거래 수정 취소" className="h-[30px] px-2 t-caption text-finance-muted hover:bg-white hover:text-finance-ink" onClick={onCancel} type="button">✕</button>
           </form>
         </td>
       </tr>
-      {state.error && <tr><td className="border-l-2 border-finance-red px-4 py-2 text-xs text-finance-red" colSpan={7}>{state.error}</td></tr>}
+      {state.error && <tr><td className="border-l-2 border-finance-red px-4 py-2 t-caption text-finance-red" colSpan={7}>{state.error}</td></tr>}
     </>
   )
 }
@@ -140,8 +140,8 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
 
   return (
     <div className="overflow-x-auto border-t border-finance-ink">
-      <table className="w-full min-w-[920px] text-left text-[13px]">
-        <thead className="border-b border-finance-border text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted"><tr><th className="py-[9px] pr-2 font-semibold">날짜</th><th className="px-2 py-[9px] font-semibold">가맹점·사용내역</th><th className="px-2 py-[9px] font-semibold">분류</th><th className="px-2 py-[9px] font-semibold">결제수단</th><th className="px-2 py-[9px] text-center font-semibold">구분</th><th className="px-2 py-[9px] text-right font-semibold">금액</th><th className="py-[9px] pl-2 text-right font-semibold">관리</th></tr></thead>
+      <table className="w-full min-w-[920px] text-left t-body">
+        <thead className="border-b border-finance-border t-label uppercase text-finance-muted"><tr><th className="py-[9px] pr-2 font-semibold">날짜</th><th className="px-2 py-[9px] font-semibold">가맹점·사용내역</th><th className="px-2 py-[9px] font-semibold">분류</th><th className="px-2 py-[9px] font-semibold">결제수단</th><th className="px-2 py-[9px] text-center font-semibold">구분</th><th className="px-2 py-[9px] text-right font-semibold">금액</th><th className="py-[9px] pl-2 text-right font-semibold">관리</th></tr></thead>
         <tbody className="divide-y divide-finance-track">
           {localRows.map((row) => editingId === row.id ? (
             <EditableRow accounts={accounts} categories={categories} filters={filters} key={row.id} onCancel={() => setEditingId(null)} onSaved={applySavedRow} row={row} />
@@ -151,15 +151,15 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
               <td className="max-w-64 truncate px-2 py-[11px] font-medium text-finance-ink">{row.memo || row.rawMerchant || '-'}</td>
               <td className="px-2 py-[11px] text-finance-muted"><span>{row.major ?? '미분류'}</span>{row.sub && <span className="text-finance-faint"> › {row.sub}</span>}</td>
               <td className="whitespace-nowrap px-2 py-[11px] text-finance-muted">{row.account ?? '-'}</td>
-              <td className="px-2 py-[11px] text-center"><span className={`inline-flex px-2 py-0.5 text-[10px] font-semibold ${flowStyle[row.flow]}`}>{row.flow === 'expense' && row.fixed ? '고정지출' : flowLabel[row.flow]}</span></td>
+              <td className="px-2 py-[11px] text-center"><span className={`inline-flex px-2 py-0.5 t-badge ${flowStyle[row.flow]}`}>{row.flow === 'expense' && row.fixed ? '고정지출' : flowLabel[row.flow]}</span></td>
               <td className={`whitespace-nowrap px-2 py-[11px] text-right font-semibold ${row.flow === 'income' ? 'text-finance-blue' : row.flow === 'saving' ? 'text-finance-green' : 'text-finance-ink'}`}>{row.flow === 'income' ? '+' : ''}{formatWon(row.amount)}원</td>
               <td className="py-[11px] pl-2" onClick={(event) => event.stopPropagation()}>
                 <div className={`flex justify-end gap-2 transition ${savedId === row.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                  {savedId === row.id && <span className="text-xs font-medium text-finance-green">저장됨</span>}
-                  <button className="text-xs text-finance-muted hover:text-finance-ink" onClick={() => setEditingId(row.id)} type="button">수정</button>
+                  {savedId === row.id && <span className="t-caption font-medium text-finance-green">저장됨</span>}
+                  <button className="t-caption text-finance-muted hover:text-finance-ink" onClick={() => setEditingId(row.id)} type="button">수정</button>
                   <form action={deleteTransaction} onSubmit={(event) => { if (!window.confirm('이 거래를 삭제할까요?')) event.preventDefault(); else rememberScroll() }}>
                     <input name="transactionId" type="hidden" value={row.id} /><input name="month" type="hidden" value={month} /><input name="returnAccount" type="hidden" value={filters.account} /><input name="returnFlow" type="hidden" value={filters.flow} /><input name="returnMajor" type="hidden" value={filters.major} /><input name="returnQ" type="hidden" value={filters.q} />
-                    <button className="text-xs text-finance-faint hover:text-finance-red" type="submit">삭제</button>
+                    <button className="t-caption text-finance-faint hover:text-finance-red" type="submit">삭제</button>
                   </form>
                 </div>
               </td>

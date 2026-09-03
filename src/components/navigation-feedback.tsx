@@ -55,7 +55,7 @@ export function NavigationFeedback() {
         <div className="route-progress-bar h-full w-2/5 bg-finance-blue" />
       </div>
       {showLabel && (
-        <div className="route-loading-label absolute left-1/2 top-[70px] flex -translate-x-1/2 items-center gap-2 border border-finance-ink bg-white/95 px-3 py-2 text-xs font-semibold text-finance-ink shadow-lg backdrop-blur">
+        <div className="route-loading-label absolute left-1/2 top-[70px] flex -translate-x-1/2 items-center gap-2 border border-finance-ink bg-white/95 px-3 py-2 t-caption font-semibold text-finance-ink shadow-lg backdrop-blur">
           <span aria-hidden className="route-loading-spinner h-3.5 w-3.5 rounded-full border-2 border-finance-hairline border-t-finance-blue" />
           불러오는 중
         </div>

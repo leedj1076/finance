@@ -42,7 +42,7 @@ function SaveButton({ dirty }: { dirty: boolean }) {
   const { pending } = useFormStatus()
   return (
     <button
-      className={`h-[34px] px-4 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed ${dirty
+      className={`h-[34px] px-4 t-body-strong transition-colors disabled:cursor-not-allowed ${dirty
         ? 'bg-finance-ink text-white hover:opacity-80 disabled:opacity-60'
         : 'border border-finance-hairline bg-finance-panel text-finance-muted'}`}
       disabled={pending || !dirty}
@@ -100,10 +100,10 @@ export function BudgetForm({
       <section className="border-y border-finance-ink py-5">
         <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-finance-blue">지출 상한 배분</p>
-            <h2 className="mt-1 text-base font-bold text-finance-ink">저축 목표 안에서 카테고리 예산을 나눕니다</h2>
+            <p className="t-label uppercase text-finance-blue">지출 상한 배분</p>
+            <h2 className="mt-1 t-section text-finance-ink">저축 목표 안에서 카테고리 예산을 나눕니다</h2>
           </div>
-          <p className={`text-sm font-semibold tabular-nums ${allocationGap < 0 ? 'text-finance-red' : 'text-finance-green'}`} aria-live="polite">
+          <p className={`t-body-strong tabular-nums ${allocationGap < 0 ? 'text-finance-red' : 'text-finance-green'}`} aria-live="polite">
             {allocationGap < 0
               ? `상한보다 ${formatWon(Math.abs(allocationGap))}원 초과`
               : `상한 안에서 ${formatWon(allocationGap)}원 여유`}
@@ -111,7 +111,7 @@ export function BudgetForm({
         </div>
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
           <div className="min-w-64">
-            <label className="text-sm font-medium text-zinc-700" htmlFor="savings-target">
+            <label className="t-body font-medium text-finance-ink" htmlFor="savings-target">
               목표 저축률
             </label>
             <div className="mt-3 flex items-center gap-4">
@@ -126,34 +126,34 @@ export function BudgetForm({
                 type="range"
                 value={target}
               />
-              <output className="w-14 text-right text-xl font-semibold text-emerald-700">
+              <output className="w-14 text-right t-kpi-sm text-finance-green">
                 {target}%
               </output>
             </div>
           </div>
           <div className="grid flex-1 border-y border-finance-hairline sm:grid-cols-4 sm:divide-x sm:divide-finance-hairline">
             <div className="p-4">
-              <p className="text-xs text-zinc-500">월평균 수입</p>
-              <p className="mt-1 font-semibold text-zinc-950">{formatWon(averageIncome)}원</p>
+              <p className="t-caption text-finance-muted">월평균 수입</p>
+              <p className="mt-1 t-kpi-sm text-finance-ink">{formatWon(averageIncome)}원</p>
             </div>
             <div className="p-4">
-              <p className="text-xs text-zinc-500">카테고리 합계</p>
-              <p className="mt-1 font-semibold text-zinc-950">{formatWon(totalBudget)}원</p>
+              <p className="t-caption text-finance-muted">카테고리 합계</p>
+              <p className="mt-1 t-kpi-sm text-finance-ink">{formatWon(totalBudget)}원</p>
             </div>
             <div className="p-4">
-              <p className="text-xs text-emerald-700">목표 지출 상한</p>
-              <p className="mt-1 font-semibold text-emerald-800">{formatWon(targetSpendCeiling)}원</p>
+              <p className="t-caption text-finance-green">목표 지출 상한</p>
+              <p className="mt-1 t-kpi-sm text-finance-green">{formatWon(targetSpendCeiling)}원</p>
             </div>
             <div className="p-4">
-              <p className="text-xs text-zinc-500">예상 순저축률</p>
-              <p className={`mt-1 font-semibold ${expectedSavingsRate >= target ? 'text-finance-green' : 'text-finance-red'}`}>
+              <p className="t-caption text-finance-muted">예상 순저축률</p>
+              <p className={`mt-1 t-kpi-sm ${expectedSavingsRate >= target ? 'text-finance-green' : 'text-finance-red'}`}>
                 {formatRate(expectedSavingsRate)}%
               </p>
-              <p className="mt-1 text-[11px] text-finance-muted">현재 실적 {formatRate(currentSavingsRate)}%</p>
+              <p className="mt-1 t-caption text-finance-muted">현재 실적 {formatRate(currentSavingsRate)}%</p>
             </div>
           </div>
         </div>
-        <p className={`mt-4 text-sm ${targetGap > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+        <p className={`mt-4 t-body ${targetGap > 0 ? 'text-finance-red' : 'text-finance-green'}`}>
           {targetGap > 0
             ? `목표 달성을 위해 월평균 지출에서 ${formatWon(targetGap)}원을 줄여야 합니다.`
             : '현재 월평균 지출이 목표 상한 이내입니다.'}
@@ -166,19 +166,19 @@ export function BudgetForm({
       >
         <div className="flex flex-col justify-between gap-4 border-b border-finance-hairline py-4 sm:flex-row sm:items-center">
           <div>
-            <h2 className="text-sm font-bold text-finance-ink">분류별 월 예산</h2>
-            <p className="mt-1 text-xs text-zinc-500">입력 합계 {formatWon(totalBudget)}원</p>
+            <h2 className="t-section text-finance-ink">분류별 월 예산</h2>
+            <p className="mt-1 t-caption text-finance-muted">입력 합계 {formatWon(totalBudget)}원</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              className="h-[30px] border border-finance-hairline px-3 text-xs font-semibold text-finance-ink hover:bg-finance-panel"
+              className="h-[30px] border border-finance-hairline px-3 t-body-strong text-finance-ink hover:bg-finance-panel"
               onClick={() => fillFrom('previousBudget')}
               type="button"
             >
               지난달 예산 채우기
             </button>
             <button
-              className="h-[30px] border border-finance-hairline px-3 text-xs font-semibold text-finance-ink hover:bg-finance-panel"
+              className="h-[30px] border border-finance-hairline px-3 t-body-strong text-finance-ink hover:bg-finance-panel"
               onClick={() => fillFrom('average')}
               type="button"
             >
@@ -195,8 +195,8 @@ export function BudgetForm({
             return (
               <section className="p-5" key={group.key}>
                 <div className="mb-4 flex items-baseline gap-2">
-                  <h3 className="font-semibold text-zinc-900">{group.label}</h3>
-                  <span className="text-xs text-zinc-400">{group.note}</span>
+                  <h3 className="t-section text-finance-ink">{group.label}</h3>
+                  <span className="t-caption text-finance-faint">{group.note}</span>
                 </div>
                 <div className="space-y-3">
                   {groupRows.map((row) => {
@@ -208,14 +208,14 @@ export function BudgetForm({
                         key={row.major}
                       >
                         <div>
-                          <p className="text-sm font-medium text-zinc-800">{row.major}</p>
-                          <p className="mt-1 text-xs text-zinc-400">평균 {formatWon(row.average)}원</p>
+                          <p className="t-body font-medium text-finance-ink">{row.major}</p>
+                          <p className="mt-1 t-caption text-finance-faint">평균 {formatWon(row.average)}원</p>
                         </div>
-                        <label className="text-xs text-zinc-500">
+                        <label className="t-caption text-finance-muted">
                           <span className="sr-only">{row.major} 예산</span>
                           <input
                             aria-label={`${row.major} 예산`}
-                            className="h-[34px] w-full border border-finance-hairline bg-white px-3 text-right text-[13px] tabular-nums text-finance-ink outline-none focus:border-finance-blue"
+                            className="h-[34px] w-full border border-finance-hairline bg-white px-3 text-right t-body tabular-nums text-finance-ink outline-none focus:border-finance-blue"
                             min={0}
                             name={`budget:${row.major}`}
                             onChange={(event) =>
@@ -230,9 +230,9 @@ export function BudgetForm({
                             value={amounts[row.major]}
                           />
                         </label>
-                        <div className="text-right text-sm">
-                          <p className="font-medium text-zinc-800">{formatWon(row.actual)}원 사용</p>
-                          <p className={currentBudget - row.actual < 0 ? 'text-rose-600' : 'text-zinc-400'}>
+                        <div className="text-right t-body">
+                          <p className="font-medium text-finance-ink">{formatWon(row.actual)}원 사용</p>
+                          <p className={currentBudget - row.actual < 0 ? 'text-finance-red' : 'text-finance-faint'}>
                             {currentBudget > 0
                               ? `${formatWon(Math.abs(currentBudget - row.actual))}원 ${currentBudget - row.actual < 0 ? '초과' : '남음'}`
                               : '미설정'}
@@ -245,7 +245,7 @@ export function BudgetForm({
                               style={{ width: `${Math.min(percent ?? 0, 100)}%` }}
                             />
                           </div>
-                          <p className="mt-1 text-right text-xs text-zinc-400">
+                          <p className="mt-1 text-right t-caption text-finance-faint">
                             {percent === null ? '-' : `${formatRate(percent)}%`}
                           </p>
                         </div>
@@ -260,7 +260,7 @@ export function BudgetForm({
       </section>
 
       <details className="group border-t border-finance-ink">
-        <summary className="flex cursor-pointer list-none items-center justify-between py-4 text-sm font-bold text-finance-ink">
+        <summary className="flex cursor-pointer list-none items-center justify-between py-4 t-section text-finance-ink">
           <span>절약 시뮬레이션 <span className="ml-2 font-normal text-finance-muted">변동비를 줄였을 때 목표 달성 여부를 미리 봅니다</span></span>
           <span className="text-finance-muted group-open:rotate-180" aria-hidden="true">⌄</span>
         </summary>
@@ -276,7 +276,7 @@ export function BudgetForm({
         />
       </details>
 
-      {state.error && <p className="text-sm text-red-700">{state.error}</p>}
+      {state.error && <p className="t-body text-finance-red">{state.error}</p>}
     </form>
   )
 }

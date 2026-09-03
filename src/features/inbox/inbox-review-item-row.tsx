@@ -54,27 +54,27 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
           type="checkbox"
         />
       </td>
-      <td className="whitespace-nowrap px-2 py-3 text-xs text-finance-muted">{item.date}</td>
+      <td className="whitespace-nowrap px-2 py-3 t-caption text-finance-muted">{item.date}</td>
       <td className="max-w-0 px-2 py-3 text-finance-ink">
         <div className="min-w-0">
           <span className="block truncate" title={item.merchant || undefined}>{item.merchant || '-'}</span>
           <div className="mt-1 flex flex-wrap items-center gap-1">
           {item.confidence === 'high' && (
             <span
-              className="bg-finance-green-tint px-2 py-0.5 text-[10px] font-semibold text-finance-green"
+              className="bg-finance-green-tint px-2 py-0.5 t-badge text-finance-green"
               title="추천 신뢰도가 높은 거래입니다. 필요하면 직접 수정할 수 있습니다."
             >
               자동 분류
             </span>
           )}
           {item.kind === 'transfer' && (
-            <span className="bg-finance-green-tint px-2 py-0.5 text-[10px] font-semibold text-finance-green">
+            <span className="bg-finance-green-tint px-2 py-0.5 t-badge text-finance-green">
               이체 후보
             </span>
           )}
           {item.dupNote && (
             <span
-              className="bg-finance-red-tint px-2 py-0.5 text-[10px] font-semibold text-finance-red"
+              className="bg-finance-red-tint px-2 py-0.5 t-badge text-finance-red"
               title={item.dupNote}
             >
               중복 의심
@@ -82,10 +82,10 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
           )}
           </div>
         </div>
-        <p className="mt-1 truncate text-[11px] text-finance-faint 2xl:hidden" title={visibleSourceCategories(item)}>
+        <p className="mt-1 truncate t-caption text-finance-faint 2xl:hidden" title={visibleSourceCategories(item)}>
           {visibleSourceCategories(item)}
         </p>
-        {item.dupNote && <p className="mt-1 truncate text-[11px] text-finance-red" title={item.dupNote}>{item.dupNote}</p>}
+        {item.dupNote && <p className="mt-1 truncate t-caption text-finance-red" title={item.dupNote}>{item.dupNote}</p>}
       </td>
       <td
         className={`whitespace-nowrap px-2 py-3 text-right font-medium ${
@@ -98,14 +98,14 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
       >
         {flow === 'expense' ? '−' : '+'}{item.amount.toLocaleString('ko-KR')}원
       </td>
-      <td className="hidden max-w-0 px-2 py-3 text-xs text-finance-muted 2xl:table-cell">
+      <td className="hidden max-w-0 px-2 py-3 t-caption text-finance-muted 2xl:table-cell">
         <span className="block truncate" title={visibleSourceCategories(item)}>{visibleSourceCategories(item)}</span>
       </td>
       <td className="px-2 py-3">
         <div className="flex min-w-0 flex-col gap-1.5 xl:flex-row xl:items-center">
           <select
             aria-label={`${item.merchant || '거래'} 거래 유형`}
-            className="h-[30px] w-[68px] shrink-0 border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
+            className="h-[30px] w-[68px] shrink-0 border border-finance-border bg-white px-2 t-body text-finance-ink outline-none focus:border-finance-blue"
             onChange={(event) => {
               const nextFlow = event.target.value as TransactionFlow
               setFlows((current) => ({
@@ -129,7 +129,7 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
           </select>
           <select
             aria-label={`${item.merchant || '거래'} 카테고리`}
-            className="h-[30px] min-w-0 flex-1 border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
+            className="h-[30px] min-w-0 flex-1 border border-finance-border bg-white px-2 t-body text-finance-ink outline-none focus:border-finance-blue"
             onChange={(event) =>
               setCategoryIds((current) => ({ ...current, [item.id]: event.target.value }))
             }
@@ -148,7 +148,7 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
       <td className="min-w-0 px-2 py-3">
         <select
           aria-label={`${item.merchant || '거래'} 결제수단`}
-          className="h-[30px] w-full border border-finance-border bg-white px-2 text-xs text-finance-ink outline-none focus:border-finance-blue"
+          className="h-[30px] w-full border border-finance-border bg-white px-2 t-body text-finance-ink outline-none focus:border-finance-blue"
           onChange={(event) => setAccountIds((current) => ({
             ...current,
             [item.id]: event.target.value,
@@ -162,12 +162,12 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
             </option>
           ))}
         </select>
-        {item.pay && <p className="mt-1 truncate text-[11px] text-finance-faint" title={item.pay}>{item.pay}</p>}
+        {item.pay && <p className="mt-1 truncate t-caption text-finance-faint" title={item.pay}>{item.pay}</p>}
       </td>
       <td className="px-2 py-3 text-right">
         <button
           aria-label={`${item.merchant || '거래'} 바로 반영`}
-          className="inline-flex h-[30px] w-full items-center justify-center gap-1 bg-finance-green px-2 text-xs font-semibold text-white hover:bg-finance-ink disabled:cursor-wait disabled:opacity-50"
+          className="inline-flex h-[30px] w-full items-center justify-center gap-1 bg-finance-green px-2 t-body-strong text-white hover:bg-finance-ink disabled:cursor-wait disabled:opacity-50"
           disabled={applyingIds.has(item.id)}
           onClick={() => void applySingleItem(item)}
           title="현재 분류와 결제수단으로 바로 반영"

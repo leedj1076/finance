@@ -36,7 +36,7 @@ function FlowButtons<T extends CategoryFlow>({
       {flows.map((option) => (
         <button
           aria-pressed={flow === option}
-          className={`h-[30px] border-l border-finance-border px-3.5 text-xs font-medium first:border-l-0 ${flow === option ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track hover:text-finance-ink'}`}
+          className={`h-[30px] border-l border-finance-border px-3.5 t-caption font-medium first:border-l-0 ${flow === option ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track hover:text-finance-ink'}`}
           key={option}
           onClick={() => onChange(option)}
           type="button"
@@ -61,8 +61,8 @@ export function AccountMonthlyPanel({
     <section className="mt-6 border-b border-finance-border pb-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-finance-ink pt-4">
         <div>
-          <h2 className="text-sm font-bold text-finance-ink">결제수단별 월별</h2>
-          <p className="mt-1 text-xs text-finance-muted">월별 {FLOW_LABELS[flow]} · 누적 막대와 합계표</p>
+          <h2 className="t-section text-finance-ink">결제수단별 월별</h2>
+          <p className="mt-1 t-caption text-finance-muted">월별 {FLOW_LABELS[flow]} · 누적 막대와 합계표</p>
         </div>
         <FlowButtons flow={flow} flows={['expense', 'income']} onChange={setFlow} />
       </div>
@@ -142,8 +142,8 @@ export function CategoryMonthlyPanel({
     <section className="mt-6 border-b border-finance-border pb-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-finance-ink pt-4">
         <div>
-          <h2 className="text-sm font-bold text-finance-ink">분류별 월별 추이</h2>
-          <p className="mt-1 text-xs text-finance-muted">범례를 클릭해 선을 숨기고, 마우스를 올려 한 분류를 강조합니다.</p>
+          <h2 className="t-section text-finance-ink">분류별 월별 추이</h2>
+          <p className="mt-1 t-caption text-finance-muted">범례를 클릭해 선을 숨기고, 마우스를 올려 한 분류를 강조합니다.</p>
         </div>
         <FlowButtons flow={flow} flows={['expense', 'income', 'saving']} onChange={setFlow} />
       </div>

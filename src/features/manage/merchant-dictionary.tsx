@@ -38,8 +38,8 @@ type MerchantDictionaryProps = {
   entries: DictionaryEntry[]
 }
 
-const inputClass = 'h-[34px] border border-finance-hairline bg-white px-3 text-[13px] text-finance-ink outline-none focus:border-finance-blue'
-const saveButton = 'h-[34px] bg-finance-ink px-3 text-xs font-semibold text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60'
+const inputClass = 'h-[34px] border border-finance-hairline bg-white px-3 t-body text-finance-ink outline-none focus:border-finance-blue'
+const saveButton = 'h-[34px] bg-finance-ink px-3 t-body-strong text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60'
 
 const flowLabels: Record<BulkClassificationFlow, string> = {
   expense: '지출',
@@ -66,28 +66,28 @@ function DictionaryRow({
     <article className="grid gap-4 border-b border-finance-hairline py-4 xl:grid-cols-[minmax(220px,1.1fr)_minmax(360px,1.6fr)_auto] xl:items-end">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="truncate font-medium text-zinc-950" title={merchantName}>{merchantName}</h3>
-          <span className={`px-2 py-0.5 text-[11px] font-semibold ${
+          <h3 className="truncate t-body font-medium text-finance-ink" title={merchantName}>{merchantName}</h3>
+          <span className={`px-2 py-0.5 t-badge ${
             entry.source === 'user'
-              ? 'bg-emerald-50 text-emerald-700'
+              ? 'bg-finance-green-tint text-finance-green'
               : 'bg-violet-50 text-violet-700'
           }`}>
             {entry.source === 'user' ? '사용자 확정' : 'AI'}
           </span>
           {entry.alwaysConfirm && (
-            <span className="bg-finance-amber-tint px-2 py-0.5 text-[11px] font-semibold text-finance-amber">
+            <span className="bg-finance-amber-tint px-2 py-0.5 t-badge text-finance-amber">
               항상 확인
             </span>
           )}
         </div>
-        <p className="mt-1 truncate text-xs text-zinc-400" title={entry.normMerchant}>
+        <p className="mt-1 truncate t-caption text-finance-faint" title={entry.normMerchant}>
           정규화: {entry.normMerchant}
         </p>
-        <p className="mt-2 text-xs text-zinc-500">
+        <p className="mt-2 t-caption text-finance-muted">
           {entry.businessType || '업종 미확인'} · {entry.hitCount.toLocaleString('ko-KR')}회 사용 · {lastUsed}
         </p>
         {entry.aiNote && (
-          <p className="mt-1 line-clamp-2 text-xs text-violet-600" title={entry.aiNote}>
+          <p className="mt-1 line-clamp-2 t-caption text-violet-600" title={entry.aiNote}>
             AI 근거: {entry.aiNote}{entry.confidence === 'low' ? ' · 낮은 확신' : ''}
           </p>
         )}
@@ -95,7 +95,7 @@ function DictionaryRow({
 
       <form action={updateMerchantLookupCategory} className="grid gap-3 sm:grid-cols-[140px_minmax(220px,1fr)_auto] sm:items-end">
         <input name="id" type="hidden" value={entry.id} />
-        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+        <label className="grid gap-1 t-caption font-medium text-finance-muted">
           유형
           <select
             className={inputClass}
@@ -111,7 +111,7 @@ function DictionaryRow({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-xs font-medium text-zinc-600">
+        <label className="grid gap-1 t-caption font-medium text-finance-muted">
           카테고리
           <select
             className={inputClass}
@@ -137,7 +137,7 @@ function DictionaryRow({
         <form action={toggleAlwaysConfirm}>
           <input name="id" type="hidden" value={entry.id} />
           <SubmitButton
-            className="h-[34px] border border-finance-amber bg-white px-3 text-xs font-semibold text-finance-amber hover:bg-finance-amber-tint"
+            className="h-[34px] border border-finance-amber bg-white px-3 t-body-strong text-finance-amber hover:bg-finance-amber-tint"
             pendingLabel="변경 중…"
             type="submit"
           >
@@ -147,7 +147,7 @@ function DictionaryRow({
         <form action={deleteMerchantLookup}>
           <input name="id" type="hidden" value={entry.id} />
           <SubmitButton
-            className="h-[34px] px-3 text-xs font-semibold text-finance-red hover:bg-finance-red-tint"
+            className="h-[34px] px-3 t-body-strong text-finance-red hover:bg-finance-red-tint"
             pendingLabel="삭제 중…"
             type="submit"
           >
@@ -166,7 +166,7 @@ export function MerchantDictionary({ categories, entries }: MerchantDictionaryPr
         <DictionaryRow categories={categories} entry={entry} key={entry.id} />
       ))}
       {entries.length === 0 && (
-        <p className="border-y border-dashed border-finance-hairline px-5 py-10 text-center text-[13px] text-finance-muted">
+        <p className="border-y border-dashed border-finance-hairline px-5 py-10 text-center t-body text-finance-muted">
           검색 조건에 맞는 가맹점 사전 항목이 없습니다.
         </p>
       )}

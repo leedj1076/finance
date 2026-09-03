@@ -54,14 +54,14 @@ export function InboxMonthGroup({
                 onClick={() => toggleMonth(monthGroup.month)}
                 type="button"
               >
-                <span aria-hidden="true" className="w-4 shrink-0 text-center text-sm text-zinc-400">
+                <span aria-hidden="true" className="w-4 shrink-0 text-center t-body text-finance-faint">
                   {monthExpanded ? '▾' : '▸'}
                 </span>
                 <span className="font-bold">{formatInboxMonth(monthGroup.month)}</span>
-                <span className="bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-zinc-100">
+                <span className="bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-finance-faint">
                   {monthGroup.items.length}건
                 </span>
-                <span className="ml-auto text-xs font-normal text-zinc-400">
+                <span className="ml-auto t-caption font-normal text-finance-faint">
                   사람 {monthGroup.owners.length}명 · 결제수단 {monthGroup.owners.reduce((total, owner) => total + owner.sources.length, 0)}개
                 </span>
               </button>
