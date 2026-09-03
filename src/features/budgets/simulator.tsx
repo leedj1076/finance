@@ -51,13 +51,8 @@ export function VariableSpendSimulator({
   }
 
   return (
-    <section className="overflow-hidden border-t border-finance-ink">
-      <div className="flex flex-col justify-between gap-1 border-b border-finance-hairline py-4 sm:flex-row sm:items-center">
-        <h2 className="text-sm font-bold text-finance-ink">어디서 줄일까</h2>
-        <p className="text-xs text-finance-muted">변동비 감축 시뮬레이터</p>
-      </div>
-
-      <div className="py-5">
+    <section className="overflow-hidden border-t border-finance-hairline py-5">
+      <div>
         <div className="mb-5 border-y border-finance-hairline py-4" aria-live="polite">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
             <span className="text-zinc-500">예상 저축률</span>

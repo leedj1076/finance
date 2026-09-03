@@ -5,7 +5,7 @@ import { AppHeader } from '@/components/app-header'
 import { SubmitButton } from '@/components/submit-button'
 import { BudgetForm } from '@/features/budgets/budget-form'
 import { getBudgetData } from '@/features/budgets/queries'
-import { formatRate, formatWon } from '@/lib/finance'
+import { currentMonthInKorea, formatRate, formatWon } from '@/lib/finance'
 import { getAuthContext, requireHousehold } from '@/lib/household'
 
 type BudgetsPageProps = {
@@ -52,7 +52,13 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
   const reviewSaved = params.reviewSaved === '1'
   const data = await getBudgetData(household.householdId, requestedMonth)
-  const remainingTone = data.totalBudget > 0 && data.remaining < 0 ? 'warning' : 'good'
+  const safeToSpend = data.spendCeiling - data.totalActual
+  const remainingTone = safeToSpend < 0 ? 'warning' : 'good'
+  const currentMonth = currentMonthInKorea()
+  const isMonthEnd = data.month === currentMonth && Number(
+    new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(8, 10),
+  ) >= 25
+  const reviewNeedsAttention = isMonthEnd || !data.nextBudgetExists
 
   return (
     <div className="min-h-screen bg-white">
@@ -67,10 +73,12 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
           </div>
           <div className="flex items-center gap-2">
             <Link
-              className="h-[34px] whitespace-nowrap border border-finance-green bg-finance-green-tint px-3 py-2 text-xs font-semibold text-finance-green hover:bg-white"
+              className={`h-[34px] whitespace-nowrap border px-3 py-2 text-xs font-semibold ${reviewNeedsAttention
+                ? 'border-finance-green bg-finance-green text-white hover:opacity-80'
+                : 'border-finance-hairline bg-white text-finance-muted hover:border-finance-green hover:text-finance-green'}`}
               href={`/budgets/review?month=${data.nextMonth}`}
             >
-              월말 리뷰 →
+              {reviewNeedsAttention ? '다음 달 예산 만들기 →' : '월말 리뷰 →'}
             </Link>
             <Link
               aria-label="이전 달"
@@ -108,16 +116,16 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
         {reviewSaved && <p className="mt-5 border-l-2 border-finance-green bg-finance-green-tint px-4 py-3 text-[13px] text-finance-green">월말 리뷰에서 {data.month} 예산을 저장했습니다.</p>}
 
         <section className="mt-6 grid border-y border-finance-ink sm:grid-cols-3 sm:divide-x sm:divide-finance-hairline">
-          <SummaryCard label="총 예산" value={`${formatWon(data.totalBudget)}원`} />
+          <SummaryCard label="목표 지출 상한" value={`${formatWon(data.spendCeiling)}원`} />
           <SummaryCard
             label="이번 달 사용"
-            tone={data.totalBudget > 0 && data.totalActual > data.totalBudget ? 'warning' : 'default'}
+            tone={data.totalActual > data.spendCeiling ? 'warning' : 'default'}
             value={`${formatWon(data.totalActual)}원`}
           />
           <SummaryCard
-            label={data.remaining < 0 ? '예산 초과' : '남은 예산'}
+            label={safeToSpend < 0 ? '목표 상한 초과' : '더 쓸 수 있는 돈'}
             tone={remainingTone}
-            value={`${formatWon(Math.abs(data.remaining))}원`}
+            value={`${formatWon(Math.abs(safeToSpend))}원`}
           />
         </section>
 

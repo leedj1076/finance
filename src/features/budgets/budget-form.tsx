@@ -3,7 +3,7 @@
 import { useActionState, useMemo, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
-import { formatRate, formatWon } from '@/lib/finance'
+import { formatRate, formatWon, savingsRate } from '@/lib/finance'
 
 import { saveBudgetPlan, type BudgetActionState } from './actions'
 import { spendingCeilingForTarget } from './simulator-calculations'
@@ -38,15 +38,17 @@ const groups = [
 
 const initialState: BudgetActionState = {}
 
-function SaveButton() {
+function SaveButton({ dirty }: { dirty: boolean }) {
   const { pending } = useFormStatus()
   return (
     <button
-      className="h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
-      disabled={pending}
+      className={`h-[34px] px-4 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed ${dirty
+        ? 'bg-finance-ink text-white hover:opacity-80 disabled:opacity-60'
+        : 'border border-finance-hairline bg-finance-panel text-finance-muted'}`}
+      disabled={pending || !dirty}
       type="submit"
     >
-      {pending ? '저장 중…' : '이달 예산 저장'}
+      {pending ? '저장 중…' : dirty ? '변경사항 저장' : '저장됨'}
     </button>
   )
 }
@@ -76,6 +78,11 @@ export function BudgetForm({
     serverSpendCeiling: spendCeiling,
   })
   const targetGap = Math.max(averageExpense - targetSpendCeiling, 0)
+  const allocationGap = targetSpendCeiling - totalBudget
+  const expectedSavingsRate = savingsRate(averageIncome, totalBudget)
+  const isDirty = target !== savingsTarget || rows.some(
+    (row) => amounts[row.major] !== String(row.budget || ''),
+  )
 
   function fillFrom(key: 'average' | 'previousBudget') {
     setAmounts(Object.fromEntries(rows.map((row) => [row.major, String(row[key] || '')])))
@@ -90,7 +97,18 @@ export function BudgetForm({
     <form action={action} className="mt-6 space-y-6">
       <input name="month" type="hidden" value={month} />
 
-      <section className="border-t border-finance-ink py-5">
+      <section className="border-y border-finance-ink py-5">
+        <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-finance-blue">지출 상한 배분</p>
+            <h2 className="mt-1 text-base font-bold text-finance-ink">저축 목표 안에서 카테고리 예산을 나눕니다</h2>
+          </div>
+          <p className={`text-sm font-semibold tabular-nums ${allocationGap < 0 ? 'text-finance-red' : 'text-finance-green'}`} aria-live="polite">
+            {allocationGap < 0
+              ? `상한보다 ${formatWon(Math.abs(allocationGap))}원 초과`
+              : `상한 안에서 ${formatWon(allocationGap)}원 여유`}
+          </p>
+        </div>
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
           <div className="min-w-64">
             <label className="text-sm font-medium text-zinc-700" htmlFor="savings-target">
@@ -113,18 +131,25 @@ export function BudgetForm({
               </output>
             </div>
           </div>
-          <div className="grid flex-1 border-y border-finance-hairline sm:grid-cols-3 sm:divide-x sm:divide-finance-hairline">
+          <div className="grid flex-1 border-y border-finance-hairline sm:grid-cols-4 sm:divide-x sm:divide-finance-hairline">
             <div className="p-4">
               <p className="text-xs text-zinc-500">월평균 수입</p>
               <p className="mt-1 font-semibold text-zinc-950">{formatWon(averageIncome)}원</p>
             </div>
             <div className="p-4">
-              <p className="text-xs text-zinc-500">현재 순저축률</p>
-              <p className="mt-1 font-semibold text-zinc-950">{formatRate(currentSavingsRate)}%</p>
+              <p className="text-xs text-zinc-500">카테고리 합계</p>
+              <p className="mt-1 font-semibold text-zinc-950">{formatWon(totalBudget)}원</p>
             </div>
             <div className="p-4">
               <p className="text-xs text-emerald-700">목표 지출 상한</p>
               <p className="mt-1 font-semibold text-emerald-800">{formatWon(targetSpendCeiling)}원</p>
+            </div>
+            <div className="p-4">
+              <p className="text-xs text-zinc-500">예상 순저축률</p>
+              <p className={`mt-1 font-semibold ${expectedSavingsRate >= target ? 'text-finance-green' : 'text-finance-red'}`}>
+                {formatRate(expectedSavingsRate)}%
+              </p>
+              <p className="mt-1 text-[11px] text-finance-muted">현재 실적 {formatRate(currentSavingsRate)}%</p>
             </div>
           </div>
         </div>
@@ -134,17 +159,6 @@ export function BudgetForm({
             : '현재 월평균 지출이 목표 상한 이내입니다.'}
         </p>
       </section>
-
-      <VariableSpendSimulator
-        averageExpense={averageExpense}
-        averageIncome={averageIncome}
-        onApply={applySimulator}
-        rows={rows
-          .filter((row) => row.group === 'variable' && row.average > 0)
-          .sort((left, right) => right.average - left.average)
-          .map((row) => ({ major: row.major, average: row.average }))}
-        savingsTarget={target}
-      />
 
       <section
         className="overflow-hidden border-t border-finance-ink"
@@ -170,7 +184,7 @@ export function BudgetForm({
             >
               월평균으로 채우기
             </button>
-            <SaveButton />
+            <SaveButton dirty={isDirty} />
           </div>
         </div>
 
@@ -244,6 +258,23 @@ export function BudgetForm({
           })}
         </div>
       </section>
+
+      <details className="group border-t border-finance-ink">
+        <summary className="flex cursor-pointer list-none items-center justify-between py-4 text-sm font-bold text-finance-ink">
+          <span>절약 시뮬레이션 <span className="ml-2 font-normal text-finance-muted">변동비를 줄였을 때 목표 달성 여부를 미리 봅니다</span></span>
+          <span className="text-finance-muted group-open:rotate-180" aria-hidden="true">⌄</span>
+        </summary>
+        <VariableSpendSimulator
+          averageExpense={averageExpense}
+          averageIncome={averageIncome}
+          onApply={applySimulator}
+          rows={rows
+            .filter((row) => row.group === 'variable' && row.average > 0)
+            .sort((left, right) => right.average - left.average)
+            .map((row) => ({ major: row.major, average: row.average }))}
+          savingsTarget={target}
+        />
+      </details>
 
       {state.error && <p className="text-sm text-red-700">{state.error}</p>}
     </form>

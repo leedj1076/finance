@@ -57,6 +57,7 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
     elapsedRows,
     irregularRows,
     targetRows,
+    nextBudgetRows,
   ] = await Promise.all([
     getExpenseMajorNames(householdId),
     db
@@ -152,6 +153,10 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
       .from(settings)
       .where(and(eq(settings.householdId, householdId), eq(settings.key, 'savings_target')))
       .limit(1),
+    db
+      .select({ count: sql<string>`count(*)` })
+      .from(budgets)
+      .where(and(eq(budgets.householdId, householdId), eq(budgets.month, nextMonth))),
   ])
 
   const effectiveMap = new Map<string, number>()
@@ -225,5 +230,6 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
     currentSavingsRate: savingsRate(totalIncome, totalExpense),
     spendCeiling: roundLikePython(averageIncome * (1 - savingsTarget / 100)),
     paceWarnings,
+    nextBudgetExists: Number(nextBudgetRows[0]?.count ?? 0) > 0,
   }
 }

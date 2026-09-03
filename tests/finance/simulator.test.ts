@@ -153,6 +153,10 @@ describe('variable-spend averages household scope', () => {
       insert into settings (household_id, key, value)
       values (${householdA.id}, 'savings_target', '50')
     `
+    await raw`
+      insert into budgets (household_id, major, month, amount)
+      values (${householdB.id}, '식비', '2026-10', 1000000)
+    `
 
     const data = await getBudgetData(householdA.id, '2026-09')
 
@@ -160,6 +164,7 @@ describe('variable-spend averages household scope', () => {
     expect(data.averageExpense).toBe(800_000)
     expect(data.averageSaving).toBe(100_000)
     expect(data.spendCeiling).toBe(1_500_000)
+    expect(data.nextBudgetExists).toBe(false)
     expect(data.rows).toEqual(expect.arrayContaining([
       expect.objectContaining({ major: '식비', group: 'variable', average: 300_000 }),
       expect.objectContaining({ major: '주거', group: 'fixed', average: 500_000 }),
