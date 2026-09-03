@@ -5,7 +5,9 @@ import type { CategoryDetails } from '@/features/analytics/category-detail'
 import { CHART_OTHER } from '@/features/analytics/chart-theme'
 import {
   buildStatsMonthlyModel,
+  parseStatsViewState,
   statsCellKey,
+  statsViewSearch,
 } from '@/features/analytics/stats-monthly'
 
 const details: CategoryDetails = {
@@ -53,6 +55,24 @@ const accountMonthly: Record<'expense' | 'income', AccountMonthlyData> = {
 }
 
 describe('stats monthly shared model', () => {
+  test('parses shareable view state and locks non-expense flows to category', () => {
+    expect(parseStatsViewState({ chart: 'line', flow: 'expense', axis: 'account' })).toEqual({
+      chart: 'line', flow: 'expense', axis: 'account',
+    })
+    expect(parseStatsViewState({ chart: 'area', flow: 'income', axis: 'account' })).toEqual({
+      chart: 'area', flow: 'income', axis: 'category',
+    })
+    expect(parseStatsViewState({ chart: 'pie', flow: 'other', axis: 'merchant' })).toEqual({
+      chart: 'stacked', flow: 'expense', axis: 'category',
+    })
+  })
+
+  test('writes view state while preserving year and drill-down params', () => {
+    expect(statsViewSearch('?year=2025&major=%EC%8B%9D%EB%B9%84', {
+      chart: 'area', flow: 'saving', axis: 'account',
+    })).toBe('year=2025&major=%EC%8B%9D%EB%B9%84&chart=area&flow=saving&axis=category')
+  })
+
   test('uses the same values, order, and colors for category rows and chart series', () => {
     const model = buildStatsMonthlyModel({
       flow: 'expense', axis: 'category', details, categoryMonthly, accountMonthly, excluded: new Set(),

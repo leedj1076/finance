@@ -9,10 +9,45 @@ import type {
   CategoryMonthlyData,
 } from './account-monthly'
 import { OTHER_SERIES_NAME, seriesColor } from './chart-theme'
-import type { SeriesChartSeries } from './series-chart-geometry'
+import type { SeriesChartKind, SeriesChartSeries } from './series-chart-geometry'
 
 export type StatsMonthlyAxis = 'category' | 'account'
 export type StatsMonthlyFlow = CategoryDetailFlow
+
+export type StatsViewState = {
+  chart: SeriesChartKind
+  flow: StatsMonthlyFlow
+  axis: StatsMonthlyAxis
+}
+
+export const STATS_VIEW_EVENT = 'finance:stats-view-change'
+
+function firstSearchValue(value: unknown) {
+  if (Array.isArray(value)) return typeof value[0] === 'string' ? value[0] : undefined
+  return typeof value === 'string' ? value : undefined
+}
+
+export function parseStatsViewState(params: {
+  chart?: unknown
+  flow?: unknown
+  axis?: unknown
+}): StatsViewState {
+  const rawChart = firstSearchValue(params.chart)
+  const rawFlow = firstSearchValue(params.flow)
+  const rawAxis = firstSearchValue(params.axis)
+  const chart: SeriesChartKind = rawChart === 'line' || rawChart === 'area' ? rawChart : 'stacked'
+  const flow: StatsMonthlyFlow = rawFlow === 'income' || rawFlow === 'saving' ? rawFlow : 'expense'
+  const axis: StatsMonthlyAxis = flow === 'expense' && rawAxis === 'account' ? 'account' : 'category'
+  return { chart, flow, axis }
+}
+
+export function statsViewSearch(search: string, state: StatsViewState) {
+  const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+  params.set('chart', state.chart)
+  params.set('flow', state.flow)
+  params.set('axis', state.flow === 'expense' ? state.axis : 'category')
+  return params.toString()
+}
 
 export type StatsMonthlySubRow = {
   id: string

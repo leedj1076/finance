@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import {
   useId,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -23,8 +24,10 @@ import { buildSeriesChartGeometry } from './series-chart-geometry'
 import { SeriesChart, type SeriesChartKind } from './series-chart'
 import {
   buildStatsMonthlyModel,
+  STATS_VIEW_EVENT,
   statsCellKey,
   statsSparkline,
+  statsViewSearch,
   type StatsMonthlyAxis,
   type StatsMonthlyFlow,
   type StatsMonthlyRow,
@@ -133,6 +136,15 @@ export function StatsMonthlySection({
     ? hoveredSeries.values[hoverMonth - 1] ?? 0
     : null
   const hoveredDelta = hoveredPrevious === null ? null : hoveredValue - hoveredPrevious
+
+  useEffect(() => {
+    const view = { chart, flow, axis: effectiveAxis }
+    const search = statsViewSearch(window.location.search, view)
+    const nextUrl = `${window.location.pathname}?${search}${window.location.hash}`
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+    if (nextUrl !== currentUrl) window.history.replaceState(window.history.state, '', nextUrl)
+    window.dispatchEvent(new CustomEvent(STATS_VIEW_EVENT, { detail: view }))
+  }, [chart, effectiveAxis, flow])
 
   useLayoutEffect(() => {
     const element = tooltipRef.current
@@ -282,9 +294,12 @@ export function StatsMonthlySection({
       </div>
 
       {model.series.length === 0 ? (
-        <p className="py-16 text-center t-body text-finance-muted">이 조건에 표시할 월별 데이터가 없습니다.</p>
+        <div className="mt-4 border-y border-finance-hairline py-14 text-center">
+          <p className="t-body-strong text-finance-ink">이 조건에 표시할 월별 데이터가 없습니다.</p>
+          <p className="mt-1 t-caption text-finance-muted">다른 거래 유형이나 분류 기준을 선택해 보세요.</p>
+        </div>
       ) : (
-        <div className="mt-4 overflow-x-auto">
+        <div aria-label="월별 그래프와 항목별 표" className="mt-4 overflow-x-auto overscroll-x-contain">
           <div className="min-w-[1200px]">
             <div className="grid items-stretch gap-x-1.5" style={{ gridTemplateColumns: GRID_COLUMNS }}>
               <div className="relative t-axis text-finance-faint">
@@ -436,6 +451,8 @@ export function StatsMonthlySection({
           </div>
         </div>
       )}
+
+      {model.series.length > 0 && <p className="mt-2 t-caption text-finance-faint sm:hidden">그래프와 표를 함께 좌우로 밀어 12개월을 확인하세요.</p>}
 
       <p className="mt-2.5 t-caption text-finance-faint">
         {excluded.size > 0 && <>제외된 셀 {excluded.size}개 · 표와 그래프 모두에서 빠집니다. 취소선 셀을 다시 클릭하면 복원. </>}

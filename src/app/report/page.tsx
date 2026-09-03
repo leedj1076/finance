@@ -7,12 +7,16 @@ import { SavingsProgressRing } from '@/features/analytics/home-dashboard-charts'
 import { getDashboardData } from '@/features/analytics/queries'
 import { getReportData } from '@/features/analytics/report'
 import { StatsMonthlySection } from '@/features/analytics/stats-monthly-section'
+import { parseStatsViewState, statsViewSearch } from '@/features/analytics/stats-monthly'
+import { StatsYearSelector } from '@/features/analytics/stats-year-selector'
 import { currentMonthInKorea, formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 
 type ReportPageProps = {
   searchParams: Promise<{
     flow?: string | string[]
+    axis?: string | string[]
+    chart?: string | string[]
     major?: string | string[]
     year?: string | string[]
   }>
@@ -145,8 +149,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
   const params = await searchParams
   const rawYear = Array.isArray(params.year) ? params.year[0] : params.year
   const highlightedMajor = Array.isArray(params.major) ? params.major[0] : params.major
-  const rawFlow = Array.isArray(params.flow) ? params.flow[0] : params.flow
-  const initialFlow = rawFlow === 'income' || rawFlow === 'saving' ? rawFlow : 'expense'
+  const statsView = parseStatsViewState(params)
   const data = await getReportData(household.householdId, rawYear ? Number(rawYear) : undefined)
   const [dashboard, categoryDetails] = await Promise.all([
     getDashboardData(household.householdId, data.year),
@@ -158,6 +161,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
     : null
   const completedMonths = dashboard.monthly.filter((item, index) => item.active && index !== currentMonthIndex).length
   const currentActive = currentMonthIndex !== null && dashboard.monthly[currentMonthIndex]?.active
+  const hasAnnualData = data.annual.income + data.annual.expense + data.annual.saving > 0
   const topExpenseMax = data.topExpenses[0]?.amount ?? 1
   const yoyRows = [
     { label: '수입', current: data.annual.income, previous: data.previous.income, delta: data.yoy.income.delta, pct: data.yoy.income.pct, goodWhenPositive: true },
@@ -165,6 +169,11 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
     { label: '순저축', current: data.annual.netSaving, previous: data.previous.netSaving, delta: data.yoy.netSaving.delta, pct: data.yoy.netSaving.pct, goodWhenPositive: true },
     { label: '저축 납입', current: data.annual.saving, previous: data.previous.saving, delta: data.yoy.saving.delta, pct: data.yoy.saving.pct, goodWhenPositive: true },
   ]
+  function reportYearHref(year: number) {
+    const search = new URLSearchParams({ year: String(year) })
+    if (highlightedMajor) search.set('major', highlightedMajor)
+    return `/report?${statsViewSearch(search.toString(), statsView)}`
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -178,14 +187,24 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
               {data.year}년 · 완료월 {completedMonths}개{currentActive ? ` · ${currentMonthIndex! + 1}월 진행 중` : ''} · 월평균은 완료월 기준
             </p>
           </div>
-          <div className="flex items-center border border-finance-ink">
-            <Link aria-label="이전 해" className="grid h-8 w-[34px] place-items-center border-r border-finance-ink text-finance-ink hover:bg-finance-panel" href={`/report?year=${data.previousYear}`}>←</Link>
-            <span className="grid h-8 w-[88px] place-items-center t-body-strong text-finance-ink">{data.year}년</span>
-            <Link aria-label="다음 해" className="grid h-8 w-[34px] place-items-center border-l border-finance-ink text-finance-ink hover:bg-finance-panel" href={`/report?year=${data.nextYear}`}>→</Link>
-          </div>
+          <StatsYearSelector highlightedMajor={highlightedMajor} initialView={statsView} nextYear={data.nextYear} previousYear={data.previousYear} year={data.year} />
         </div>
 
-        <section className="mt-6 grid border-y border-finance-ink lg:grid-cols-[400px_repeat(3,minmax(0,1fr))] lg:divide-x lg:divide-finance-hairline">
+        {!hasAnnualData ? (
+          <section className="mt-8 border-y border-finance-ink py-14 text-center">
+            <p className="t-label uppercase text-finance-blue">{data.year}년</p>
+            <h2 className="mt-3 t-section text-finance-ink">이 연도에는 집계할 거래가 없습니다.</h2>
+            <p className="mx-auto mt-2 max-w-md t-body leading-relaxed text-finance-muted">
+              다른 연도의 통계를 보거나 거래 파일을 가져오면 연간 성적과 월별 흐름을 확인할 수 있습니다.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <Link className="border border-finance-ink px-4 py-2 t-caption font-semibold text-finance-ink hover:bg-finance-panel" href={reportYearHref(data.previousYear)}>← {data.previousYear}년 보기</Link>
+              <Link className="bg-finance-ink px-4 py-2 t-caption font-semibold text-white hover:bg-finance-blue" href="/inbox">거래 가져오기</Link>
+            </div>
+          </section>
+        ) : (
+          <>
+        <section className="mt-6 grid divide-y divide-finance-hairline border-y border-finance-ink lg:grid-cols-[400px_repeat(3,minmax(0,1fr))] lg:divide-x lg:divide-y-0">
           <article className="flex items-center gap-5 py-5 pr-6">
             <SavingsProgressRing target={dashboard.savingsTarget} value={data.annual.savingsRate} />
             <div className="min-w-0">
@@ -206,7 +225,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
             { label: '연 지출', value: data.annual.expense, comparison: data.yoy.expense, tone: 'text-finance-red', good: false },
             { label: '연 순저축', value: data.annual.netSaving, comparison: data.yoy.netSaving, tone: 'text-finance-green', good: true },
           ] as const).map((item) => (
-            <article className="px-5 py-6 first:border-t first:border-finance-hairline lg:first:border-t-0" key={item.label}>
+            <article className="px-0 py-6 lg:px-5" key={item.label}>
               <p className="t-label text-finance-muted">{item.label}</p>
               <p className={`mt-2 t-kpi tabular-nums ${item.tone}`}>{formatWon(item.value)}<span className="ml-1 t-body font-medium text-finance-muted">원</span></p>
               <p className={`mt-2 t-caption ${data.hasPrevious ? deltaTone(item.comparison.delta, item.good) : 'text-finance-faint'}`}>
@@ -224,31 +243,35 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
           categoryMonthly={dashboard.categoryMonthly}
           details={categoryDetails}
           highlightedMajor={highlightedMajor}
-          initialFlow={initialFlow}
-          key={`${data.year}:${initialFlow}:${highlightedMajor ?? ''}`}
+          initialAxis={statsView.axis}
+          initialChart={statsView.chart}
+          initialFlow={statsView.flow}
+          key={`${data.year}:${statsView.chart}:${statsView.flow}:${statsView.axis}:${highlightedMajor ?? ''}`}
           year={data.year}
         />
 
         <section className="grid gap-8 border-b border-finance-hairline py-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-12">
-          <div>
+          <div className="min-w-0">
             <h2 className="t-section text-finance-ink">어디에 썼나 <span className="ml-1 font-normal text-finance-muted">올해 지출 대분류 · 비중 · 전년 대비</span></h2>
             {data.topExpenses.length > 0 ? (
-              <ol className="mt-4 space-y-2.5">
-                {data.topExpenses.map((item) => {
-                  const deltaPct = expenseDeltaPercent(item.delta, item.previous)
-                  return (
-                    <li className="grid grid-cols-[90px_minmax(0,1fr)_100px_56px_90px] items-center gap-x-3 t-caption" key={item.major}>
-                      <span className="truncate font-semibold text-finance-ink">{item.major}</span>
-                      <span className="h-1.5 bg-finance-track"><span className="block h-full bg-finance-ink" style={{ width: `${(item.amount / topExpenseMax) * 100}%` }} /></span>
-                      <span className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(item.amount)}</span>
-                      <span className="text-right tabular-nums text-finance-muted">{formatRate(item.percent)}%</span>
-                      <span className={`text-right tabular-nums ${deltaPct === null ? 'text-finance-faint' : deltaTone(item.delta, false)}`}>
-                        {deltaPct === null ? '–' : `${item.delta > 0 ? '▲' : '▼'} ${formatRate(Math.abs(deltaPct))}%`}
-                      </span>
-                    </li>
-                  )
-                })}
-              </ol>
+              <div className="mt-4 overflow-x-auto">
+                <ol className="min-w-[520px] space-y-2.5">
+                  {data.topExpenses.map((item) => {
+                    const deltaPct = expenseDeltaPercent(item.delta, item.previous)
+                    return (
+                      <li className="grid grid-cols-[90px_minmax(0,1fr)_100px_56px_90px] items-center gap-x-3 t-caption" key={item.major}>
+                        <span className="truncate font-semibold text-finance-ink">{item.major}</span>
+                        <span className="h-1.5 bg-finance-track"><span className="block h-full bg-finance-ink" style={{ width: `${(item.amount / topExpenseMax) * 100}%` }} /></span>
+                        <span className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(item.amount)}</span>
+                        <span className="text-right tabular-nums text-finance-muted">{formatRate(item.percent)}%</span>
+                        <span className={`text-right tabular-nums ${deltaPct === null ? 'text-finance-faint' : deltaTone(item.delta, false)}`}>
+                          {deltaPct === null ? '–' : `${item.delta > 0 ? '▲' : '▼'} ${formatRate(Math.abs(deltaPct))}%`}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ol>
+              </div>
             ) : <p className="py-10 text-center t-body text-finance-muted">이 연도에는 지출 기록이 없습니다.</p>}
             {data.largestExpense && (
               <p className="mt-4 border-t border-finance-track pt-3 t-caption text-finance-faint">
@@ -256,9 +279,10 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
               </p>
             )}
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="t-section text-finance-ink">가맹점 TOP <span className="ml-1 font-normal text-finance-muted">같은 가맹점 이름을 정규화해 집계</span></h2>
-            <div className="mt-4 border-t border-finance-ink">
+            <div className="mt-4 overflow-x-auto">
+              <div className="min-w-[520px] border-t border-finance-ink">
               <div className="grid grid-cols-[30px_minmax(0,1fr)_70px_120px_90px] border-b border-finance-hairline py-2 t-label text-finance-muted">
                 <span>#</span><span>가맹점</span><span className="text-right">건수</span><span className="text-right">올해</span><span className="text-right">전년 대비</span>
               </div>
@@ -274,14 +298,16 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
                 </div>
               ))}
               {data.topMerchants.length === 0 && <p className="py-10 text-center t-body text-finance-muted">가맹점 정보가 없습니다.</p>}
+              </div>
             </div>
           </div>
         </section>
 
         <section className="grid gap-8 py-6 lg:grid-cols-2 lg:gap-12">
-          <div>
+          <div className="min-w-0">
             <h2 className="t-section text-finance-ink">전년 같은 기간과 비교 <span className="ml-1 font-normal text-finance-muted">{data.year} vs {data.previousYear}</span></h2>
-            <div className="mt-4 border-t border-finance-ink">
+            <div className="mt-4 overflow-x-auto">
+              <div className="min-w-[520px] border-t border-finance-ink">
               <div className="grid grid-cols-[minmax(0,1fr)_130px_130px_130px] border-b border-finance-hairline py-2 t-label text-finance-muted">
                 <span /><span className="text-right">{data.year}</span><span className="text-right">{data.previousYear}</span><span className="text-right">변화</span>
               </div>
@@ -299,9 +325,10 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
                 <span className="text-right tabular-nums text-finance-muted">{data.hasPrevious ? `${formatRate(data.previous.savingsRate)}%` : '–'}</span>
                 <span className={`text-right tabular-nums ${data.hasPrevious ? deltaTone(data.savingsRateDelta, true) : 'text-finance-faint'}`}>{data.hasPrevious ? `${data.savingsRateDelta > 0 ? '▲' : data.savingsRateDelta < 0 ? '▼' : '–'} ${formatRate(Math.abs(data.savingsRateDelta))}%p` : '–'}</span>
               </div>
+              </div>
             </div>
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="t-section text-finance-ink">앞으로 6개월 <span className="ml-1 font-normal text-finance-muted">완료월 평균 순흐름 누적 · 추정치</span></h2>
             {data.cashflow.startCash === 0 ? (
               <div className="mt-4 border-y border-finance-hairline py-10 text-center">
@@ -326,6 +353,8 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
             )}
           </div>
         </section>
+          </>
+        )}
       </main>
     </div>
   )
