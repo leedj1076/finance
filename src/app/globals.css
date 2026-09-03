@@ -72,6 +72,12 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -84,8 +90,11 @@ button,
 input,
 select,
 textarea {
+  max-width: 100%;
   font: inherit;
 }
+
+summary::-webkit-details-marker { display: none; }
 
 a,
 button {

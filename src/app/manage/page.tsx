@@ -90,7 +90,7 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
               <p className="mt-1 text-xs text-finance-muted">업로드 파일의 결제수단 이름을 우리 가계부 계정에 연결합니다. 새 별칭은 인박스 반영 과정에서 자동 학습됩니다.</p>
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
                 {data.aliases.map((alias) => (
-                  <form action={saveAlias} className="grid grid-cols-[.5fr_1fr_1.2fr_auto_auto] items-end gap-2 border-b border-finance-hairline py-4" key={`${alias.owner}:${alias.alias}`}>
+                  <form action={saveAlias} className="grid items-end gap-2 border-b border-finance-hairline py-4 sm:grid-cols-[.5fr_1fr_1.2fr_auto_auto]" key={`${alias.owner}:${alias.alias}`}>
                     <input name="owner" type="hidden" value={alias.owner} /><input name="alias" type="hidden" value={alias.alias} />
                     <div><p className="text-xs text-zinc-500">소유자</p><p className="mt-2 text-sm font-medium text-zinc-800">{alias.owner}</p></div>
                     <div className="min-w-0"><p className="text-xs text-zinc-500">파일 표기</p><p className="mt-2 truncate text-sm font-medium text-zinc-800" title={alias.alias}>{alias.alias}</p></div>

@@ -28,7 +28,8 @@ const settingsLinks: Array<{ href: string; label: string; description: string }>
   { href: '/manage?tab=categories', label: '카테고리', description: '대분류와 소분류 편집' },
   { href: '/manage?tab=rules', label: '가져오기 규칙', description: '가맹점 사전과 결제수단 별칭' },
   { href: '/recurring', label: '정기거래 규칙', description: '정기 수입·지출·저축' },
-  { href: '/settings', label: '계정 및 보안', description: '비밀번호와 로그인 계정' },
+  { href: '/settings?section=assets', label: '자산 계정', description: '자산 그룹과 계정 이름' },
+  { href: '/settings?section=security', label: '계정 및 보안', description: '비밀번호와 로그인 계정' },
 ]
 
 function isMoreSection(active: HeaderSection) {

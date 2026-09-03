@@ -24,7 +24,7 @@ export default async function BudgetReviewPage({ searchParams }: BudgetReviewPag
   return (
     <div className="min-h-screen bg-white">
       <AppHeader active="budgets" email={household.email} />
-      <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
+      <main className="mx-auto w-full max-w-[1440px] px-5 pb-14 pt-10 sm:px-12">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">월말 계획</p><h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">월말 리뷰</h1><p className="mt-2 text-xs text-finance-muted">{data.reviewMonth} 결산 → {data.targetMonth} 예산 만들기</p></div>
           <Link className="inline-flex h-[34px] items-center border border-finance-hairline bg-white px-4 text-xs font-semibold text-finance-ink hover:bg-finance-panel" href={`/budgets?month=${data.targetMonth}`}>예산으로 돌아가기</Link>

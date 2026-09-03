@@ -63,7 +63,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
   return (
     <div className="min-h-screen bg-white">
       <AppHeader active="budgets" email={auth.email} />
-      <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
+      <main className="mx-auto w-full max-w-[1440px] px-5 pb-14 pt-10 sm:px-12">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">월별 계획</p>
@@ -71,7 +71,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
               {data.month.replace('-', '년 ')}월 예산
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               className={`h-[34px] whitespace-nowrap border px-3 py-2 text-xs font-semibold ${reviewNeedsAttention
                 ? 'border-finance-green bg-finance-green text-white hover:opacity-80'

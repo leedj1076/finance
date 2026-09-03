@@ -55,14 +55,14 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   return (
     <div className="min-h-screen bg-white">
       <AppHeader active="assets" email={household.email} />
-      <main className="mx-auto max-w-none px-5 pb-12 pt-10 sm:px-12">
+      <main className="mx-auto w-full max-w-[1440px] px-5 pb-14 pt-10 sm:px-12">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-finance-blue">재무 상태</p>
             <h1 className="mt-2 text-[30px] font-bold leading-none tracking-[-0.03em] text-finance-ink">자산</h1>
             <p className="mt-2 text-xs text-finance-muted">{data.month} · 순자산 = 총자산 − 부채</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link className="h-[34px] border border-finance-hairline px-3 py-2 text-xs font-semibold text-finance-muted hover:text-finance-blue" href="/settings?section=assets">자산 계정 설정</Link>
             <Link aria-label="이전 달" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/assets?month=${data.previousMonth}`}>←</Link>
             <form action="/assets" className="flex items-center gap-2">
