@@ -13,9 +13,9 @@ export const RIGHT = 18
 export const TOP = 18
 export const BOTTOM = 38
 export const PALETTE = [
-  '#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#B07AA1',
-  '#EDC948', '#FF9DA7', '#9C755F', '#499894', '#79706E', '#A0CBE8',
-  '#BAB0AC', '#8CD17D', '#B6992D', '#86BCB6', '#D37295',
+  '#2563eb', '#d97706', '#dc2626', '#0f766e', '#16a34a', '#7c3aed',
+  '#ca8a04', '#db2777', '#92400e', '#0891b2', '#52525b', '#60a5fa',
+  '#a1a1aa', '#4ade80', '#a16207', '#14b8a6', '#c026d3',
 ]
 
 const subscribe = () => () => undefined
@@ -25,7 +25,7 @@ export function useHydrated() {
 }
 
 export function ChartPlaceholder() {
-  return <div aria-hidden className="h-[250px] min-w-[620px] animate-pulse rounded-xl bg-zinc-50" />
+  return <div aria-hidden className="h-[250px] min-w-[620px] animate-pulse border-y border-finance-hairline bg-finance-panel" />
 }
 
 export function compactWon(value: number) {
@@ -90,8 +90,8 @@ export function Grid({ maxValue }: { maxValue: number }) {
         const value = Math.round(maxValue * (1 - ratio))
         return (
           <g key={ratio}>
-            <line stroke="#e4e4e7" strokeDasharray="3 4" x1={LEFT} x2={WIDTH - RIGHT} y1={y} y2={y} />
-            <text fill="#a1a1aa" fontSize="10" textAnchor="end" x={LEFT - 8} y={y + 3}>
+            <line stroke="var(--finance-border)" x1={LEFT} x2={WIDTH - RIGHT} y1={y} y2={y} />
+            <text fill="var(--finance-faint)" fontSize="10" textAnchor="end" x={LEFT - 8} y={y + 3}>
               {compactWon(value)}
             </text>
           </g>
@@ -100,7 +100,7 @@ export function Grid({ maxValue }: { maxValue: number }) {
       {Array.from({ length: 12 }, (_, index) => {
         const x = LEFT + ((WIDTH - LEFT - RIGHT) * index) / 11
         return (
-          <text fill="#71717a" fontSize="10" key={index} textAnchor="middle" x={x} y={HEIGHT - 12}>
+          <text fill="var(--finance-muted)" fontSize="10" key={index} textAnchor="middle" x={x} y={HEIGHT - 12}>
             {index + 1}월
           </text>
         )

@@ -42,9 +42,9 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-600" />수입</span>
-        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-rose-600" />지출</span>
+      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-finance-muted">
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 bg-finance-blue" />수입</span>
+        <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 bg-finance-ink" />지출</span>
       </div>
       <div className="relative min-w-[620px]" onPointerLeave={() => setTooltip(null)}>
         <svg
@@ -60,7 +60,7 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
             const displayMonth = monthLabel(item.month, index)
             return ([
               { color: '#2563eb', label: '수입', value: item.income, x: center - barWidth - barGap / 2 },
-              { color: '#e11d48', label: '지출', value: item.expense, x: center + barGap / 2 },
+              { color: '#18181b', label: '지출', value: item.expense, x: center + barGap / 2 },
             ]).map((bar) => {
               const height = (bar.value / maxValue) * plotHeight
               return (
@@ -72,7 +72,7 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
                   key={`${bar.label}-${index}`}
                   onPointerEnter={(event) => setTooltip(tooltipAt(event, displayMonth, [{ color: bar.color, label: bar.label, value: bar.value }]))}
                   onPointerMove={(event) => setTooltip(tooltipAt(event, displayMonth, [{ color: bar.color, label: bar.label, value: bar.value }]))}
-                  rx="3"
+                  rx="0"
                   width={barWidth}
                   x={bar.x}
                   y={TOP + plotHeight - height}
@@ -87,4 +87,3 @@ export function MonthlyCashflowChart({ data }: { data: MonthlyCashflow[] }) {
     </div>
   )
 }
-

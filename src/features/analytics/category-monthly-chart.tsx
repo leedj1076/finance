@@ -105,7 +105,7 @@ export function CategoryMonthlyChart({
             <span className="inline-flex items-center gap-1" key={category}>
               <button
                 aria-pressed={visible}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-opacity ${visible ? 'border-zinc-200 bg-white text-zinc-700' : 'border-zinc-200 bg-zinc-100 text-zinc-400 line-through'}`}
+                className={`inline-flex h-[30px] items-center gap-1.5 border px-2.5 text-xs transition-opacity ${visible ? 'border-finance-hairline bg-white text-finance-ink' : 'border-finance-hairline bg-finance-track text-finance-faint line-through'}`}
                 onBlur={() => setHovered(null)}
                 onClick={() => toggle(category)}
                 onFocus={() => visible && setHovered(category)}
@@ -113,13 +113,13 @@ export function CategoryMonthlyChart({
                 onMouseLeave={() => setHovered(null)}
                 type="button"
               >
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PALETTE[index % PALETTE.length] }} />
+                <span className="h-2.5 w-2.5" style={{ backgroundColor: PALETTE[index % PALETTE.length] }} />
                 {category}
               </button>
               {detailHref && (
                 <Link
                   aria-label={`${category} 상세 보기`}
-                  className="rounded-full px-1.5 py-1 text-[10px] font-medium text-zinc-400 hover:bg-emerald-50 hover:text-emerald-700"
+                  className="px-1.5 py-1 text-[10px] font-semibold text-finance-faint hover:bg-finance-blue-tint hover:text-finance-blue"
                   href={detailHref(category)}
                 >
                   상세

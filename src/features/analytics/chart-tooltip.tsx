@@ -36,7 +36,7 @@ export function ChartTooltip({
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none absolute z-20 min-w-36 rounded-xl bg-zinc-900/90 px-3 py-2.5 text-white shadow-xl backdrop-blur-sm"
+      className="pointer-events-none absolute z-20 min-w-36 border border-finance-ink bg-finance-ink px-3 py-2.5 text-white shadow-xl"
       role="tooltip"
       style={{
         left: `${(tooltip.x / chartWidth) * 100}%`,
@@ -48,7 +48,7 @@ export function ChartTooltip({
     >
       <span
         aria-hidden
-        className={`absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rotate-45 bg-zinc-900/90 ${placeOnLeft ? '-right-1' : '-left-1'}`}
+        className={`absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rotate-45 bg-finance-ink ${placeOnLeft ? '-right-1' : '-left-1'}`}
       />
       <p className="mb-1.5 whitespace-nowrap text-sm font-semibold">{tooltip.title}</p>
       <div className="space-y-1">

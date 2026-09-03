@@ -69,13 +69,13 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
   }
 
   if (!hydrated) {
-    return <div aria-hidden className="h-[260px] min-w-[620px] animate-pulse rounded-xl bg-zinc-50" />
+    return <div aria-hidden className="h-[260px] min-w-[620px] animate-pulse border-y border-finance-hairline bg-finance-panel" />
   }
 
   const series = [
-    { key: 'netWorth' as const, label: '순자산', color: '#047857', width: 3 },
+    { key: 'netWorth' as const, label: '순자산', color: '#16a34a', width: 3 },
     { key: 'assets' as const, label: '총자산', color: '#2563eb', width: 2 },
-    { key: 'debt' as const, label: '부채', color: '#e11d48', width: 2 },
+    { key: 'debt' as const, label: '부채', color: '#dc2626', width: 2 },
   ]
   const hitWidth = plotWidth / 12
 
@@ -97,10 +97,10 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-finance-muted">
         {series.map((item) => (
           <span className="flex items-center gap-1.5" key={item.key}>
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+            <span className="h-2.5 w-2.5" style={{ backgroundColor: item.color }} />
             {item.label}
           </span>
         ))}
@@ -117,8 +117,8 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
           const value = maxValue - range * ratio
           return (
             <g key={ratio}>
-              <line stroke="#e4e4e7" strokeDasharray="3 4" x1={LEFT} x2={WIDTH - RIGHT} y1={y} y2={y} />
-              <text fill="#a1a1aa" fontSize="10" textAnchor="end" x={LEFT - 8} y={y + 3}>
+              <line stroke="var(--finance-border)" x1={LEFT} x2={WIDTH - RIGHT} y1={y} y2={y} />
+              <text fill="var(--finance-faint)" fontSize="10" textAnchor="end" x={LEFT - 8} y={y + 3}>
                 {compactWon(value)}
               </text>
             </g>
@@ -126,7 +126,7 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
         })}
         {data.map((point, index) => (
           <text
-            fill="#71717a"
+            fill="var(--finance-muted)"
             fontSize="10"
             key={point.month}
             textAnchor="middle"

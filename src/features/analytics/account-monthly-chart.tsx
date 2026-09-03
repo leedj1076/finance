@@ -48,16 +48,16 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap gap-3 text-xs text-zinc-600">
+      <div className="mb-3 flex flex-wrap gap-3 text-xs text-finance-muted">
         {data.accounts.map((account, index) => (
           <button
             aria-pressed={!hidden.has(account)}
-            className={`flex items-center gap-1.5 rounded-full border px-2 py-1 transition-opacity ${hidden.has(account) ? 'border-zinc-200 bg-zinc-100 text-zinc-400 line-through' : 'border-transparent'}`}
+            className={`flex h-[30px] items-center gap-1.5 border px-2 text-xs transition-opacity ${hidden.has(account) ? 'border-finance-hairline bg-finance-track text-finance-faint line-through' : 'border-finance-hairline bg-white text-finance-ink'}`}
             key={account}
             onClick={() => toggle(account)}
             type="button"
           >
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PALETTE[index % PALETTE.length] }} />
+            <span className="h-2.5 w-2.5" style={{ backgroundColor: PALETTE[index % PALETTE.length] }} />
             {account}
           </button>
         ))}
@@ -91,7 +91,7 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
                   key={`${account}-${monthIndex}`}
                   onPointerEnter={(event) => setTooltip(tooltipAt(event, `${monthIndex + 1}월`, [{ color, label: account, value }]))}
                   onPointerMove={(event) => setTooltip(tooltipAt(event, `${monthIndex + 1}월`, [{ color, label: account, value }]))}
-                  rx="2"
+                  rx="0"
                   width={barWidth}
                   x={x}
                   y={y}

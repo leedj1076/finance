@@ -208,17 +208,17 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
       {actionMessage && (
         <div
           aria-live="polite"
-          className={`fixed bottom-6 right-6 z-50 flex max-w-sm items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg ${
+          className={`fixed bottom-6 right-6 z-50 flex max-w-sm items-start gap-3 border-l-2 px-4 py-3 text-[13px] shadow-lg ${
           actionMessage.kind === 'success'
-            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-            : 'border-rose-200 bg-rose-50 text-rose-800'
+            ? 'border-finance-green bg-finance-green-tint text-finance-green'
+            : 'border-finance-red bg-finance-red-tint text-finance-red'
           }`}
           role="status"
         >
           <span>{actionMessage.text}</span>
           <button
             aria-label="알림 닫기"
-            className="-mr-1 shrink-0 rounded px-1 text-current opacity-60 hover:opacity-100"
+            className="-mr-1 shrink-0 px-1 text-current opacity-60 hover:opacity-100"
             onClick={() => setActionMessage(null)}
             type="button"
           >

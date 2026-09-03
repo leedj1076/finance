@@ -20,6 +20,7 @@ export function ActionNotice({ notice, error }: { notice?: string; error?: strin
 
   useEffect(() => {
     if (!message) return
+    setVisible(true)
     const params = new URLSearchParams(searchParams.toString())
     if (params.has('notice') || params.has('error') || params.has('saved')) {
       params.delete('notice')
@@ -37,17 +38,17 @@ export function ActionNotice({ notice, error }: { notice?: string; error?: strin
 
   return (
     <div
-      className={`fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit max-w-[90vw] items-center gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg ${
+      className={`fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit max-w-[90vw] items-center gap-3 border-l-2 px-4 py-3 text-[13px] shadow-lg ${
         isError
-          ? 'border-red-200 bg-red-50 text-red-800'
-          : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+          ? 'border-finance-red bg-finance-red-tint text-finance-red'
+          : 'border-finance-green bg-finance-green-tint text-finance-green'
       }`}
       role={isError ? 'alert' : 'status'}
     >
       <span>{message}</span>
       <button
         aria-label="알림 닫기"
-        className="shrink-0 rounded p-1 leading-none opacity-60 hover:opacity-100"
+        className="shrink-0 p-1 leading-none opacity-60 hover:opacity-100"
         onClick={() => setVisible(false)}
         type="button"
       >
