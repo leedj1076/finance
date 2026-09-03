@@ -28,7 +28,7 @@ finance-web의 UI를 `docs/design/swiss-ledger/`의 확정 디자인으로 전�
 
 `globals.css`의 토큰을 Swiss Ledger 팔레트로 재정의하고, 아래 화면을 목업 기준으로 교체한다:
 
-- `src/app/dashboard/page.tsx` — 목업 있음
+- `src/app/dashboard/page.tsx` — 목업 있음. **단, 대시보드는 구성 자체를 바꾸는 별도 요청서(`docs/handoff-dashboard-v2.md`)가 있다.** 두 작업을 같이 한다면 v2 구성으로 바로 가고, UI만 먼저 한다면 `dashboard.html`(현행 구조)을 따른 뒤 나중에 v2를 얹는다
 - `src/app/ledger/page.tsx` — 목업 있음
 - `src/app/inbox/page.tsx` + `src/features/inbox/inbox-review-*.tsx` — 목업 있음
 - `src/app/analysis`, `budgets`, `report`, `category`, `assets`, `recurring`, `manage`, `settings` — **목업 없음**. foundation.html의 규칙으로 같은 언어에 맞춰 정리한다. 새 레이아웃을 발명하지 말고 기존 정보 구조를 유지한 채 토큰·간격·색만 교체.

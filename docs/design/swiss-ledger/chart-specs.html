@@ -1,0 +1,197 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+</head>
+<body>
+
+
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'IBM Plex Sans KR', 'Apple SD Gothic Neo', sans-serif; font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+    a { color: #18181b; text-decoration: none; }
+  </style>
+
+<div style="width: 1440px; min-height: 1560px; background: #ffffff; color: #18181b; padding: 44px 48px; box-sizing: border-box;">
+
+  <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.14em; color: #2563eb;">대시보드 개편 · 데이터 명세</div>
+  <div style="margin-top: 8px; font-size: 24px; font-weight: 700; letter-spacing: -0.03em;">무엇을 왜 이렇게 보여주는가</div>
+
+  <!-- 편집 원칙 -->
+  <div style="margin-top: 26px; border-top: 1px solid #18181b; padding-top: 16px;">
+    <div style="font-size: 13px; font-weight: 700;">편집 원칙 — 조사 근거</div>
+    <div style="margin-top: 14px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px;">
+      <div style="border-left: 2px solid #2563eb; padding-left: 14px;">
+        <div style="font-size: 12px; font-weight: 700;">첫 화면은 세 가지 질문만</div>
+        <div style="margin-top: 7px; font-size: 11px; color: #71717a; line-height: 1.65;">① 목표대로 가고 있나 ② 이번 달 더 써도 되나 ③ 자산이 늘고 있나. 상단 지표가 5~9개를 넘으면 사용자 참여가 급락한다(작업기억 한계). 지금 대시보드는 스크롤 전에 타일이 11개다.</div>
+      </div>
+      <div style="border-left: 2px solid #16a34a; padding-left: 14px;">
+        <div style="font-size: 12px; font-weight: 700;">"남았다"로 쓴다</div>
+        <div style="margin-top: 7px; font-size: 11px; color: #71717a; line-height: 1.65;">손실 회피 때문에 "4,213,000원 썼다"보다 "1,397,000원 남았다"가 절약 행동을 더 끌어낸다. 큰 숫자 자리는 항상 잔액이 차지한다.</div>
+      </div>
+      <div style="border-left: 2px solid #16a34a; padding-left: 14px;">
+        <div style="font-size: 12px; font-weight: 700;">목표는 링으로</div>
+        <div style="margin-top: 7px; font-size: 11px; color: #71717a; line-height: 1.65;">목표-기울기 효과: 진행률을 도형으로 보여주면 같은 숫자를 글자로만 볼 때보다 동기가 크게 올라간다. 저축률 30% 목표는 눈금으로 링 위에 새긴다.</div>
+      </div>
+      <div style="border-left: 2px solid #d97706; padding-left: 14px;">
+        <div style="font-size: 12px; font-weight: 700;">맨숫자 금지</div>
+        <div style="margin-top: 7px; font-size: 11px; color: #71717a; line-height: 1.65;">"지출 4,213,000"만으로는 판단이 안 된다. 모든 수치에 기준점을 붙인다 — 예산 대비 %, 전월 대비 증감, 6개월 평균, 목표선 중 최소 하나.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 차트 타입 결정표 -->
+  <div style="margin-top: 26px; border-top: 1px solid #18181b; padding-top: 16px;">
+    <div style="font-size: 13px; font-weight: 700;">차트 타입 — 데이터의 역할이 형태를 정한다</div>
+    <div style="margin-top: 14px; border-top: 1px solid #e4e4e7;">
+      <div style="display: grid; grid-template-columns: 170px 150px minmax(0, 1fr) 260px; gap: 20px; padding: 9px 0; border-bottom: 1px solid #e4e4e7; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #71717a;">
+        <div>보여줄 것</div><div>형태</div><div>이유</div><div>데이터 출처 (이미 있음)</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 170px 150px minmax(0, 1fr) 260px; gap: 20px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 12px; align-items: center;">
+        <div style="font-weight: 600;">저축률 목표 달성</div><div>진행 링 + 목표 눈금</div><div style="color: #52525b;">하나의 헤드라인 수치 + 목표까지의 거리. 막대보다 도형이 목표감을 만든다</div><div style="color: #71717a;">current.savingsRate · savingsTarget</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 170px 150px minmax(0, 1fr) 260px; gap: 20px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 12px; align-items: center;">
+        <div style="font-weight: 600;">순자산 변화</div><div>라인 + 부채 영역</div><div style="color: #52525b;">시계열의 방향·기울기가 목적. 저축이 쌓이는 장기 효과를 유일하게 보여주는 화면</div><div style="color: #71717a; font-weight: 600;">balanceSnapshots (월별·미사용)</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 170px 150px minmax(0, 1fr) 260px; gap: 20px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 12px; align-items: center;">
+        <div style="font-weight: 600;">이번 달 돈의 행방</div><div>워터폴</div><div style="color: #52525b;">수입에서 항목이 차례로 빠지는 누적 감소. 파이로는 "얼마가 남았나"가 안 보인다</div><div style="color: #71717a;">current + transactions.fixed</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 170px 150px minmax(0, 1fr) 260px; gap: 20px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 12px; align-items: center;">
+        <div style="font-weight: 600;">예산 대비 지출</div><div>불릿 차트</div><div style="color: #52525b;">실제·예산·적정 페이스를 한 줄에 겹쳐 읽는다. 막대만으로는 "빠른가"를 알 수 없다</div><div style="color: #71717a; font-weight: 600;">budget.categories (전체·미사용)</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 170px 150px minmax(0, 1fr) 260px; gap: 20px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 12px; align-items: center;">
+        <div style="font-weight: 600;">카테고리별 흐름</div><div>표 + 스파크라인</div><div style="color: #52525b;">12개 대분류를 12개 차트로 만들 수 없다. 한 행에 축 없는 미니 라인이 정답</div><div style="color: #71717a;">categoryMonthly · categoryRanks</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 170px 150px minmax(0, 1fr) 260px; gap: 20px; padding: 11px 0; border-bottom: 1px solid #f4f4f5; font-size: 12px; align-items: center;">
+        <div style="font-weight: 600;">이례적 지출</div><div>알림 한 줄</div><div style="color: #52525b;">차트가 아니라 문장이 맞다. 이미 z-score로 탐지되는데 화면에 안 나온다</div><div style="color: #71717a; font-weight: 600;">anomalyAlerts() (미사용)</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 170px 150px minmax(0, 1fr) 260px; gap: 20px; padding: 11px 0; border-bottom: 1px solid #e4e4e7; font-size: 12px; align-items: center;">
+        <div style="font-weight: 600; color: #dc2626;">파이 차트</div><div style="color: #dc2626;">쓰지 않는다</div><div style="color: #52525b;">각도 비교가 부정확하고 롱테일 카테고리에서 무너진다. 구성비는 가로 막대나 표로</div><div style="color: #a1a1aa;">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 컴포넌트 스펙 -->
+  <div style="margin-top: 26px; border-top: 1px solid #18181b; padding-top: 16px;">
+    <div style="font-size: 13px; font-weight: 700;">새 컴포넌트 스펙</div>
+    <div style="margin-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px;">
+
+      <div>
+        <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #71717a;">불릿 차트</div>
+        <div style="margin-top: 14px; display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; align-items: center; font-size: 12px;">
+          <div>여유</div>
+          <div style="position: relative; height: 22px; background: #fafafa;">
+            <div style="position: absolute; left: 0; top: 0; height: 22px; width: 65%; background: #f4f4f5;"></div>
+            <div style="position: absolute; left: 0; top: 5px; height: 12px; width: 52%; background: #18181b;"></div>
+            <div style="position: absolute; left: 94%; top: -3px; width: 2px; height: 28px; background: #18181b;"></div>
+          </div>
+          <div>빠름</div>
+          <div style="position: relative; height: 22px; background: #fafafa;">
+            <div style="position: absolute; left: 0; top: 0; height: 22px; width: 65%; background: #f4f4f5;"></div>
+            <div style="position: absolute; left: 0; top: 5px; height: 12px; width: 88%; background: #18181b;"></div>
+            <div style="position: absolute; left: 94%; top: -3px; width: 2px; height: 28px; background: #18181b;"></div>
+          </div>
+          <div>초과</div>
+          <div style="position: relative; height: 22px; background: #fafafa;">
+            <div style="position: absolute; left: 0; top: 0; height: 22px; width: 65%; background: #f4f4f5;"></div>
+            <div style="position: absolute; left: 0; top: 5px; height: 12px; width: 100%; background: #dc2626;"></div>
+            <div style="position: absolute; left: 82%; top: -3px; width: 2px; height: 28px; background: #18181b;"></div>
+          </div>
+        </div>
+        <div style="margin-top: 12px; font-size: 11px; color: #71717a; line-height: 1.7;">막대 12px ink · 예산선 2px ink(막대보다 위아래 3px 김) · 페이스 구간 <code style="background: #f4f4f5; padding: 1px 4px;">#f4f4f5</code> · 트랙 <code style="background: #f4f4f5; padding: 1px 4px;">#fafafa</code>. 예산 초과 시에만 막대를 red로. 100% 넘으면 막대를 잘라 붙이고 수치로 초과율을 적는다.</div>
+      </div>
+
+      <div>
+        <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #71717a;">스파크라인</div>
+        <div style="margin-top: 14px; display: flex; gap: 22px; align-items: center;">
+          <svg height="26" viewBox="0 0 110 26" width="110"><polyline fill="none" points="2,15 24,12 46,16 68,10 90,13 108,4" stroke="#dc2626" stroke-width="2"></polyline><circle cx="108" cy="4" fill="#dc2626" r="3"></circle></svg>
+          <svg height="26" viewBox="0 0 110 26" width="110"><polyline fill="none" points="2,12 24,13 46,11 68,14 90,12 108,10" stroke="#71717a" stroke-width="2"></polyline><circle cx="108" cy="10" fill="#71717a" r="3"></circle></svg>
+          <svg height="26" viewBox="0 0 110 26" width="110"><polyline fill="none" points="2,8 24,10 46,9 68,13 90,14 108,18" stroke="#16a34a" stroke-width="2"></polyline><circle cx="108" cy="18" fill="#16a34a" r="3"></circle></svg>
+        </div>
+        <div style="margin-top: 12px; font-size: 11px; color: #71717a; line-height: 1.7;">6점(6개월) · 110×26px · 선 2px · 축·격자·라벨 없음 · 마지막 점만 3px 원. 색은 추세 판정: 증가 red · 보합 muted · 감소 green. 수입·저축 행에서는 방향의 좋고 나쁨이 반대이므로 색 규칙을 뒤집는다.</div>
+      </div>
+
+      <div>
+        <div style="font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: #71717a;">진행 링</div>
+        <div style="margin-top: 10px; display: flex; align-items: center; gap: 18px;">
+          <svg height="96" viewBox="0 0 96 96" width="96">
+            <circle cx="48" cy="48" fill="none" r="39" stroke="#f4f4f5" stroke-width="11"></circle>
+            <circle cx="48" cy="48" fill="none" r="39" stroke="#16a34a" stroke-dasharray="95.3 245" stroke-width="11" transform="rotate(-90 48 48)"></circle>
+            <line stroke="#18181b" stroke-width="2" x1="48" x2="48" y1="4" y2="21" transform="rotate(108 48 48)"></line>
+            <text dominant-baseline="middle" fill="#18181b" font-size="19" font-weight="700" text-anchor="middle" x="48" y="46">38.9%</text>
+          </svg>
+          <div style="font-size: 11px; color: #71717a; line-height: 1.7;">링 두께 14px(작은 형 11px) · 트랙 <code style="background: #f4f4f5; padding: 1px 4px;">#f4f4f5</code> · 12시 시작, 시계 방향 · 목표 눈금은 2px ink 짧은 선. 달성 green, 미달 ink(경고색 아님 — 아직 진행 중인 달을 실패로 칠하지 않는다).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 팔레트 -->
+  <div style="margin-top: 26px; border-top: 1px solid #18181b; padding-top: 16px;">
+    <div style="display: flex; align-items: baseline; gap: 14px;">
+      <div style="font-size: 13px; font-weight: 700;">차트 팔레트</div>
+      <div style="font-size: 11px; color: #16a34a; font-weight: 600;">색각 이상 검증 통과 (라이트·다크 전 항목)</div>
+    </div>
+    <div style="margin-top: 14px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px;">
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #71717a;">의미 고정색 — 카테고리가 아니다</div>
+        <div style="margin-top: 10px; display: flex; gap: 10px;">
+          <div style="flex: 1;"><div style="height: 34px; background: #2563eb;"></div><div style="margin-top: 5px; font-size: 10px; color: #71717a;">수입 #2563eb</div></div>
+          <div style="flex: 1;"><div style="height: 34px; background: #18181b;"></div><div style="margin-top: 5px; font-size: 10px; color: #71717a;">지출 #18181b</div></div>
+          <div style="flex: 1;"><div style="height: 34px; background: #16a34a;"></div><div style="margin-top: 5px; font-size: 10px; color: #71717a;">저축 #16a34a</div></div>
+          <div style="flex: 1;"><div style="height: 34px; background: #dc2626;"></div><div style="margin-top: 5px; font-size: 10px; color: #71717a;">초과 #dc2626</div></div>
+          <div style="flex: 1;"><div style="height: 34px; background: #d97706;"></div><div style="margin-top: 5px; font-size: 10px; color: #71717a;">주의 #d97706</div></div>
+        </div>
+        <div style="margin-top: 10px; font-size: 11px; color: #71717a; line-height: 1.7;">이 5색은 역할이 고정이라 절대 시리즈 색으로 재사용하지 않는다. 상태색은 항상 라벨과 함께 — 색만으로 의미를 전달하지 않는다.</div>
+      </div>
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: #71717a;">카테고리 시리즈 — 고정 순서, 순환 금지</div>
+        <div style="margin-top: 10px; display: flex; gap: 10px;">
+          <div style="flex: 1;"><div style="height: 34px; background: #2563eb;"></div><div style="margin-top: 5px; font-size: 10px; color: #71717a;">1 #2563eb</div></div>
+          <div style="flex: 1;"><div style="height: 34px; background: #d97706;"></div><div style="margin-top: 5px; font-size: 10px; color: #71717a;">2 #d97706</div></div>
+          <div style="flex: 1;"><div style="height: 34px; background: #0d9488;"></div><div style="margin-top: 5px; font-size: 10px; color: #71717a;">3 #0d9488</div></div>
+          <div style="flex: 1;"><div style="height: 34px; background: #be123c;"></div><div style="margin-top: 5px; font-size: 10px; color: #71717a;">4 #be123c</div></div>
+          <div style="flex: 1;"><div style="height: 34px; background: #7c3aed;"></div><div style="margin-top: 5px; font-size: 10px; color: #71717a;">5 #7c3aed</div></div>
+          <div style="flex: 1;"><div style="height: 34px; background: #4d7c0f;"></div><div style="margin-top: 5px; font-size: 10px; color: #71717a;">6 #4d7c0f</div></div>
+        </div>
+        <div style="margin-top: 10px; font-size: 11px; color: #71717a; line-height: 1.7;">7번째 시리즈는 새 색을 만들지 말고 "그 외"로 묶는다. 색은 항목에 붙는다 — 필터로 개수가 바뀌어도 살아남은 항목의 색은 그대로. 다크 모드 대응: <code style="background: #f4f4f5; padding: 1px 4px;">#3b82f6 #d97706 #0d9488 #f43f5e #8b5cf6 #65a30d</code></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 지표 기준선 -->
+  <div style="margin-top: 26px; border-top: 1px solid #18181b; padding-top: 16px;">
+    <div style="font-size: 13px; font-weight: 700;">재무건강 기준선 — 통용 기준과 대조</div>
+    <div style="margin-top: 14px; border-top: 1px solid #e4e4e7;">
+      <div style="display: grid; grid-template-columns: 150px 200px 200px minmax(0, 1fr); gap: 20px; padding: 9px 0; border-bottom: 1px solid #e4e4e7; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #71717a;">
+        <div>지표</div><div>현재 앱 임계값</div><div>통용 기준</div><div>판정</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 150px 200px 200px minmax(0, 1fr); gap: 20px; padding: 10px 0; border-bottom: 1px solid #f4f4f5; font-size: 12px;">
+        <div style="font-weight: 600;">저축률</div><div style="color: #52525b;">양호 30% / 주의 10%</div><div style="color: #52525b;">일반 권장 15~20%</div><div style="color: #16a34a;">유지 — 사용자 목표가 더 공격적이다. 다만 "일반 권장 15~20%"를 툴팁에 함께 적으면 30%가 얼마나 높은지 읽힌다</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 150px 200px 200px minmax(0, 1fr); gap: 20px; padding: 10px 0; border-bottom: 1px solid #f4f4f5; font-size: 12px;">
+        <div style="font-weight: 600;">비상금</div><div style="color: #52525b;">양호 6개월 / 주의 3개월</div><div style="color: #52525b;">생활비 3~6개월분</div><div style="color: #16a34a;">그대로 — 표준과 일치</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 150px 200px 200px minmax(0, 1fr); gap: 20px; padding: 10px 0; border-bottom: 1px solid #f4f4f5; font-size: 12px;">
+        <div style="font-weight: 600;">고정비 비율</div><div style="color: #52525b;">양호 50% / 주의 65%</div><div style="color: #52525b;">50-30-20 규칙의 필수 50%</div><div style="color: #16a34a;">그대로 — 규칙과 정합</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 150px 200px 200px minmax(0, 1fr); gap: 20px; padding: 10px 0; border-bottom: 1px solid #e4e4e7; font-size: 12px;">
+        <div style="font-weight: 600;">부채비율</div><div style="color: #52525b;">부채 ÷ <strong>총자산</strong> · 양호 30%</div><div style="color: #52525b;">표준 DTI = 상환액 ÷ <strong>소득</strong> · 36% 이하</div><div style="color: #d97706;">지표가 다르다. 현재 것(부채/자산)은 자산 건전성이고 대출 감당 능력은 못 본다. 상환액 데이터가 생기면 DTI를 별도로 추가할 것</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 걷어낼 것 -->
+  <div style="margin-top: 26px; border-top: 1px solid #18181b; padding-top: 16px;">
+    <div style="font-size: 13px; font-weight: 700;">걷어낸 것</div>
+    <div style="margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; font-size: 12px; color: #52525b; line-height: 1.7;">
+      <div><strong style="color: #18181b;">KPI 4장 + 월 카드 3장 → 히어로 3칸.</strong> 연 누적 수입·지출은 상단에서 내려 월별 차트 옆 캡션으로. 첫 화면 지표를 11개에서 5개로 줄였다.</div>
+      <div><strong style="color: #18181b;">재무건강 4타일 → 접힌 줄.</strong> 매달 바뀌는 값이 아니다. 상시 노출 대신 자산 섹션 안으로 옮기고, 신호가 warn일 때만 상단 알림으로 올라온다.</div>
+      <div><strong style="color: #18181b;">인사이트 8줄 → 최대 3줄.</strong> 이례치·페이스 초과·인박스 순으로 우선순위를 매기고 나머지는 접는다. 8줄이면 아무도 읽지 않는다.</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
