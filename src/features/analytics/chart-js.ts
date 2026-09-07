@@ -15,6 +15,10 @@ import {
 } from 'chart.js'
 import { useEffect, useState } from 'react'
 
+import { formatWon } from '@/lib/finance'
+
+import { compactWon } from './chart-theme'
+
 ChartJS.register(
   BarController,
   BarElement,
@@ -35,6 +39,7 @@ export const CHART_LINE_WIDTH = 1.75
 export const CHART_LINE_WIDTH_ACTIVE = 2.25
 export const CHART_POINT_RADIUS = 2.5
 export const CHART_POINT_RADIUS_ACTIVE = 4
+export const CHART_ANIMATION = { duration: 400 }
 
 export type FinanceChartPalette = {
   background: string
@@ -133,4 +138,82 @@ export function resolveChartColor(color: string, palette: FinanceChartPalette) {
     'var(--finance-amber)': palette.amber,
   }
   return roles[color] ?? color
+}
+
+type AxisConfig = {
+  stacked?: boolean
+  /** Charts that track a balance or a rate read better scaled to their range. */
+  beginAtZero?: boolean
+  max?: number
+  ticks?: number
+  format?: (value: number) => string
+  /** Hidden when a chart above or beside it already labels the months. */
+  showMonths?: boolean
+}
+
+/**
+ * The house axis: no axis lines, hairline horizontal grid, four compact ticks.
+ * Charts differ in what they plot, not in how the frame looks, so the frame
+ * lives here — eight copies of it drifted to three tick counts and three
+ * animation durations.
+ */
+export function financeScales(palette: FinanceChartPalette, config: AxisConfig = {}) {
+  const {
+    stacked = false,
+    beginAtZero = true,
+    max,
+    ticks = 4,
+    format = compactWon,
+    showMonths = true,
+  } = config
+
+  return {
+    x: {
+      stacked,
+      border: { display: false },
+      grid: { display: false },
+      ticks: showMonths
+        ? { color: palette.muted, font: CHART_TICK_FONT, maxRotation: 0 }
+        : { display: false },
+    },
+    y: {
+      stacked,
+      beginAtZero,
+      max,
+      border: { display: false },
+      grid: { color: palette.track, drawTicks: false },
+      ticks: {
+        color: palette.faint,
+        font: CHART_TICK_FONT,
+        maxTicksLimit: ticks,
+        padding: 8,
+        callback: (value: string | number) => format(Number(value)),
+      },
+    },
+  }
+}
+
+/** Ink panel, page-coloured text, one padding. Spread it, then add callbacks. */
+export function financeTooltip(palette: FinanceChartPalette) {
+  return {
+    backgroundColor: palette.ink,
+    bodyColor: palette.background,
+    titleColor: palette.background,
+    titleFont: CHART_TOOLTIP_FONT,
+    bodyFont: { ...CHART_TICK_FONT, size: 11 },
+    padding: 11,
+  }
+}
+
+/**
+ * Typed by the shape it reads rather than by chart type, so one callback
+ * serves bar and line charts alike.
+ */
+export function wonTooltipLabel(context: { dataset: { label?: string }; raw: unknown }) {
+  const prefix = context.dataset.label ? `${context.dataset.label}: ` : ''
+  return `${prefix}${formatWon(Number(context.raw ?? 0))}원`
+}
+
+export function percentAxis(value: number) {
+  return `${value}%`
 }

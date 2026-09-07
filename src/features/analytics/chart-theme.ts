@@ -1,35 +1,20 @@
 import { formatWon } from '@/lib/finance'
 
-// Shared chart geometry and marks. Pure module so server components (home
-// charts) and client components (interactive charts) read the same values.
+// Shared chart vocabulary: series colors, role colors, and the value and
+// month formatters. Chart.js owns plot geometry now; the two stroke sizes
+// below are for the hand-drawn SVG sparkline and savings ring on 홈.
 // Visual rules: docs/design/swiss-ledger/chart-specs.html
 
-export const WIDTH = 760
-export const HEIGHT = 250
-export const LEFT = 54
-export const RIGHT = 18
-export const TOP = 18
-export const BOTTOM = 38
-// Inner horizontal padding of the plot so the first and last marks (a 32px
-// stacked bar is 16px either side of its center) stay clear of the axis
-// labels and the right edge. Every chart's x positions go through xAt().
-export const PLOT_INSET = 20
-
 export const LINE_WIDTH = 2
-export const LINE_WIDTH_ACTIVE = 2.5
-export const LINE_WIDTH_SECONDARY = 1.5
-export const REFERENCE_LINE_WIDTH = 1.5
 export const POINT_RADIUS = 3
-export const POINT_RADIUS_ACTIVE = 4
-export const BAR_PAIR_WIDTH = 17
-export const BAR_PAIR_GAP = 3
-export const BAR_STACK_WIDTH = 32
 export const DIMMED_OPACITY = 0.16
 
-// Categorical series: fixed order, never cycled. The extended palette keeps
-// the full household taxonomy distinguishable when annual stats show every
-// major category; "그 외" remains a dedicated neutral color for folded axes.
-export const CHART_SERIES = [
+// Categorical series: fixed order, never cycled. 1-6 are the pairs validated
+// against color-vision deficiency; 7-18 extend the ramp so an annual stats
+// table can label every major category, and are weaker at telling adjacent
+// series apart. Fold to a top-N plus "그 외" when the chart itself has to
+// carry the distinction.
+const CHART_SERIES = [
   'var(--chart-1)',
   'var(--chart-2)',
   'var(--chart-3)',
@@ -71,12 +56,6 @@ export const ROLE = {
   grid: 'var(--finance-border)',
   track: 'var(--finance-track)',
 } as const
-
-// x of the index-th of `count` evenly spaced marks inside the inset plot.
-export function xAt(index: number, count: number, width: number) {
-  const inner = width - LEFT - RIGHT - PLOT_INSET * 2
-  return LEFT + PLOT_INSET + (inner * index) / Math.max(count - 1, 1)
-}
 
 export function compactWon(value: number) {
   const absolute = Math.abs(value)

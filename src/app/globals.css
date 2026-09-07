@@ -19,7 +19,9 @@
   --finance-green-tint: #f0fdf4;
   --finance-amber-tint: #fffbeb;
   --finance-violet-tint: #f5f3ff;
-  /* categorical series, fixed order, validated for color-vision deficiency (docs/design/swiss-ledger/chart-specs.html) */
+  /* categorical series, fixed order. 1-6 validated for color-vision deficiency
+     (docs/design/swiss-ledger/chart-specs.html); 7-18 extend the ramp for
+     labelled tables and are weaker at separating adjacent series */
   --chart-1: #2563eb;
   --chart-2: #d97706;
   --chart-3: #0d9488;

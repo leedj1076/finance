@@ -1,21 +1,22 @@
 'use client'
 
-import type { ChartData, ChartOptions, TooltipItem } from 'chart.js'
+import type { ChartData, ChartOptions } from 'chart.js'
 import { useMemo } from 'react'
 import { Line } from 'react-chartjs-2'
 
 import { formatWon } from '@/lib/finance'
 
 import {
+  CHART_ANIMATION,
   CHART_HEIGHT,
   CHART_LINE_WIDTH,
   CHART_POINT_RADIUS,
   CHART_POINT_RADIUS_ACTIVE,
-  CHART_TICK_FONT,
-  CHART_TOOLTIP_FONT,
+  financeScales,
+  financeTooltip,
   useFinanceChartPalette,
 } from './chart-js'
-import { compactWon, monthLabel } from './chart-theme'
+import { monthLabel } from './chart-theme'
 
 type TrendPoint = {
   month: string
@@ -42,24 +43,16 @@ export function FlowTrendChart({ data, label, tone }: { data: TrendPoint[]; labe
   const options = useMemo<ChartOptions<'line'>>(() => ({
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 450 },
+    animation: CHART_ANIMATION,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: palette.ink,
-        bodyColor: palette.background,
-        titleColor: palette.background,
-        titleFont: CHART_TOOLTIP_FONT,
-        bodyFont: { ...CHART_TICK_FONT, size: 11 },
-        padding: 11,
-        callbacks: { label: (context: TooltipItem<'line'>) => `${label}: ${formatWon(Number(context.raw ?? 0))}원` },
+        ...financeTooltip(palette),
+        callbacks: { label: (context) => `${label}: ${formatWon(Number(context.raw ?? 0))}원` },
       },
     },
-    scales: {
-      x: { border: { display: false }, grid: { display: false }, ticks: { color: palette.muted, font: CHART_TICK_FONT, maxRotation: 0 } },
-      y: { beginAtZero: true, border: { display: false }, grid: { color: palette.track, drawTicks: false }, ticks: { color: palette.faint, font: CHART_TICK_FONT, maxTicksLimit: 4, padding: 8, callback: (value) => compactWon(Number(value)) } },
-    },
+    scales: financeScales(palette),
   }), [label, palette])
 
   return (

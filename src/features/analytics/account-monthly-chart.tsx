@@ -1,21 +1,21 @@
 'use client'
 
-import type { ChartData, ChartOptions, TooltipItem } from 'chart.js'
+import type { ChartData, ChartOptions } from 'chart.js'
 import { useMemo, useState } from 'react'
 import { Bar } from 'react-chartjs-2'
 
-import { formatWon } from '@/lib/finance'
-
 import type { AccountMonthlyData } from './account-monthly'
 import {
+  CHART_ANIMATION,
   CHART_HEIGHT,
-  CHART_TICK_FONT,
-  CHART_TOOLTIP_FONT,
+  financeScales,
+  financeTooltip,
   resolveChartColor,
   useFinanceChartPalette,
+  wonTooltipLabel,
 } from './chart-js'
-import { ChartLegendToggles } from './chart-primitives'
-import { OTHER_SERIES_NAME, compactWon, seriesColor } from './chart-theme'
+import { ChartLegendToggles } from './chart-legend'
+import { OTHER_SERIES_NAME, seriesColor } from './chart-theme'
 
 export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
   const [hidden, setHidden] = useState<Set<string>>(() => new Set())
@@ -45,24 +45,13 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
   const options = useMemo<ChartOptions<'bar'>>(() => ({
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 450 },
+    animation: CHART_ANIMATION,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
-      tooltip: {
-        backgroundColor: palette.ink,
-        bodyColor: palette.background,
-        titleColor: palette.background,
-        titleFont: CHART_TOOLTIP_FONT,
-        bodyFont: { ...CHART_TICK_FONT, size: 11 },
-        padding: 11,
-        callbacks: { label: (context: TooltipItem<'bar'>) => `${context.dataset.label}: ${formatWon(Number(context.raw ?? 0))}원` },
-      },
+      tooltip: { ...financeTooltip(palette), callbacks: { label: wonTooltipLabel } },
     },
-    scales: {
-      x: { stacked: true, border: { display: false }, grid: { display: false }, ticks: { color: palette.muted, font: CHART_TICK_FONT, maxRotation: 0 } },
-      y: { stacked: true, beginAtZero: true, border: { display: false }, grid: { color: palette.track, drawTicks: false }, ticks: { color: palette.faint, font: CHART_TICK_FONT, maxTicksLimit: 4, padding: 8, callback: (value) => compactWon(Number(value)) } },
-    },
+    scales: financeScales(palette, { stacked: true }),
   }), [palette])
 
   return (

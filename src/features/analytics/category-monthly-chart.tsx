@@ -1,27 +1,27 @@
 'use client'
 
-import type { ChartData, ChartOptions, TooltipItem } from 'chart.js'
+import type { ChartData, ChartOptions } from 'chart.js'
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { Line } from 'react-chartjs-2'
 
-import { formatWon } from '@/lib/finance'
-
 import type { CategoryMonthlyData } from './account-monthly'
 import {
+  CHART_ANIMATION,
   CHART_HEIGHT,
   CHART_LINE_WIDTH,
   CHART_LINE_WIDTH_ACTIVE,
   CHART_POINT_RADIUS,
   CHART_POINT_RADIUS_ACTIVE,
-  CHART_TICK_FONT,
-  CHART_TOOLTIP_FONT,
   alpha,
+  financeScales,
+  financeTooltip,
   resolveChartColor,
   useFinanceChartPalette,
+  wonTooltipLabel,
 } from './chart-js'
-import { ChartLegendToggles } from './chart-primitives'
-import { DIMMED_OPACITY, OTHER_SERIES_NAME, compactWon, seriesColor } from './chart-theme'
+import { ChartLegendToggles } from './chart-legend'
+import { DIMMED_OPACITY, OTHER_SERIES_NAME, seriesColor } from './chart-theme'
 
 export function CategoryMonthlyChart({
   data,
@@ -66,25 +66,14 @@ export function CategoryMonthlyChart({
   const options = useMemo<ChartOptions<'line'>>(() => ({
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 400 },
+    animation: CHART_ANIMATION,
     interaction: { mode: 'nearest', intersect: false },
     onHover: (_event, elements) => setHovered(elements[0] ? data.categories.filter((name) => !hidden.has(name))[elements[0].datasetIndex] ?? null : null),
     plugins: {
       legend: { display: false },
-      tooltip: {
-        backgroundColor: palette.ink,
-        bodyColor: palette.background,
-        titleColor: palette.background,
-        titleFont: CHART_TOOLTIP_FONT,
-        bodyFont: { ...CHART_TICK_FONT, size: 11 },
-        padding: 11,
-        callbacks: { label: (context: TooltipItem<'line'>) => `${context.dataset.label}: ${formatWon(Number(context.raw ?? 0))}원` },
-      },
+      tooltip: { ...financeTooltip(palette), callbacks: { label: wonTooltipLabel } },
     },
-    scales: {
-      x: { border: { display: false }, grid: { display: false }, ticks: { color: palette.muted, font: CHART_TICK_FONT, maxRotation: 0 } },
-      y: { beginAtZero: true, border: { display: false }, grid: { color: palette.track, drawTicks: false }, ticks: { color: palette.faint, font: CHART_TICK_FONT, maxTicksLimit: 4, padding: 8, callback: (value) => compactWon(Number(value)) } },
-    },
+    scales: financeScales(palette),
   }), [data.categories, hidden, palette])
 
   return (

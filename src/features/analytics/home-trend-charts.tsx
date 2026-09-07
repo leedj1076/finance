@@ -1,22 +1,23 @@
 'use client'
 
-import type { ChartData, ChartOptions, TooltipItem } from 'chart.js'
+import type { ChartData, ChartOptions } from 'chart.js'
 import { useMemo } from 'react'
 import { Bar, Line } from 'react-chartjs-2'
 
 import { formatRate, formatWon } from '@/lib/finance'
 
 import {
+  CHART_ANIMATION,
   CHART_HEIGHT,
   CHART_LINE_WIDTH,
   CHART_POINT_RADIUS,
   CHART_POINT_RADIUS_ACTIVE,
-  CHART_TICK_FONT,
-  CHART_TOOLTIP_FONT,
   alpha,
+  financeScales,
+  financeTooltip,
+  percentAxis,
   useFinanceChartPalette,
 } from './chart-js'
-import { compactWon } from './chart-theme'
 
 export function SavingsRateChart({ data, target }: {
   data: Array<{ month: string; savingsRate: number; active: boolean }>
@@ -57,25 +58,17 @@ export function SavingsRateChart({ data, target }: {
   const options = useMemo<ChartOptions<'line'>>(() => ({
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 450 },
+    animation: CHART_ANIMATION,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: palette.ink,
-        bodyColor: palette.background,
-        titleColor: palette.background,
-        titleFont: CHART_TOOLTIP_FONT,
-        bodyFont: { ...CHART_TICK_FONT, size: 11 },
-        padding: 11,
+        ...financeTooltip(palette),
         filter: (item) => item.datasetIndex === 0,
-        callbacks: { label: (context: TooltipItem<'line'>) => `순저축률: ${formatRate(Number(context.raw ?? 0))}%` },
+        callbacks: { label: (context) => `순저축률: ${formatRate(Number(context.raw ?? 0))}%` },
       },
     },
-    scales: {
-      x: { border: { display: false }, grid: { display: false }, ticks: { color: palette.muted, font: CHART_TICK_FONT, maxRotation: 0 } },
-      y: { border: { display: false }, grid: { color: palette.track, drawTicks: false }, ticks: { color: palette.faint, font: CHART_TICK_FONT, maxTicksLimit: 4, padding: 8, callback: (value) => `${value}%` } },
-    },
+    scales: financeScales(palette, { beginAtZero: false, format: percentAxis }),
   }), [palette])
 
   if (activeCount === 0) return <p className="py-14 text-center t-caption text-finance-muted">올해 수입·지출 기록이 없습니다.</p>
@@ -126,19 +119,14 @@ export function CashflowWaterfall({
   const options = useMemo<ChartOptions<'bar'>>(() => ({
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 450 },
+    animation: CHART_ANIMATION,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: palette.ink,
-        bodyColor: palette.background,
-        titleColor: palette.background,
-        titleFont: CHART_TOOLTIP_FONT,
-        bodyFont: { ...CHART_TICK_FONT, size: 11 },
-        padding: 11,
+        ...financeTooltip(palette),
         callbacks: {
-          label: (context: TooltipItem<'bar'>) => {
+          label: (context) => {
             const value = amounts[context.dataIndex] ?? 0
             const prefix = context.dataIndex > 0 && context.dataIndex < 4 ? '−' : value < 0 ? '−' : ''
             return `${prefix}${formatWon(Math.abs(value))}원`
@@ -146,10 +134,7 @@ export function CashflowWaterfall({
         },
       },
     },
-    scales: {
-      x: { border: { display: false }, grid: { display: false }, ticks: { color: palette.muted, font: CHART_TICK_FONT, maxRotation: 0 } },
-      y: { border: { display: false }, grid: { color: palette.track, drawTicks: false }, ticks: { color: palette.faint, font: CHART_TICK_FONT, maxTicksLimit: 4, padding: 8, callback: (value) => compactWon(Number(value)) } },
-    },
+    scales: financeScales(palette, { beginAtZero: false }),
   }), [amounts, palette])
 
   return (
