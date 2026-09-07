@@ -188,6 +188,20 @@ function toInteger(value: unknown): number {
   return Number.isFinite(parsed) ? Math.trunc(parsed) : 0
 }
 
+/**
+ * Reads a money cell, separating "the sheet says zero" from "the sheet says
+ * nothing". A drained account reports 0 and that has to be recorded; a blank
+ * cell carries no balance and must not overwrite one.
+ */
+function numericCell(value: unknown): number | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'number') return Number.isFinite(value) ? Math.trunc(value) : null
+  const text = cellText(value).replaceAll(',', '')
+  if (!text) return null
+  const parsed = Number(text)
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : null
+}
+
 function optionalText(value: unknown): string | null {
   const text = cellText(value)
   return text ? text : null
@@ -224,6 +238,10 @@ export function parseBanksaladStatus(worksheet: ExcelJS.Worksheet): BanksaladSta
   let currentAssetGroup: string | null = null
   let depositTotal = 0
   let investTotal = 0
+  // Whether the file describes the group at all. Presence, not the total,
+  // decides if a snapshot is written, so an emptied group can report zero.
+  let depositSeen = false
+  let investSeen = false
   let inFinancialSection = false
   const savingsItems = new Map<string, number>()
 
@@ -245,20 +263,22 @@ export function parseBanksaladStatus(worksheet: ExcelJS.Worksheet): BanksaladSta
 
     if (label && depositGroups.has(label)) {
       currentAssetGroup = label
-      if (amount !== null) depositTotal += toInteger(amount)
+      depositSeen = true
+      depositTotal += numericCell(amount) ?? 0
       continue
     }
     if (label && savingsGroups.has(label)) {
       currentAssetGroup = label
-      if (product && amount !== null) {
-        const value = toInteger(amount)
-        if (value !== 0) savingsItems.set(product, (savingsItems.get(product) ?? 0) + value)
+      const value = numericCell(amount)
+      if (product && value !== null) {
+        savingsItems.set(product, (savingsItems.get(product) ?? 0) + value)
       }
       continue
     }
     if (label && investGroups.has(label)) {
       currentAssetGroup = label
-      if (amount !== null) investTotal += toInteger(amount)
+      investSeen = true
+      investTotal += numericCell(amount) ?? 0
       continue
     }
     if (label && insuranceGroups.has(label)) {
@@ -268,32 +288,41 @@ export function parseBanksaladStatus(worksheet: ExcelJS.Worksheet): BanksaladSta
     if (label !== null && currentAssetGroup !== null) currentAssetGroup = null
 
     if (currentAssetGroup && depositGroups.has(currentAssetGroup) && label === null && product) {
-      depositTotal += toInteger(amount)
+      depositSeen = true
+      depositTotal += numericCell(amount) ?? 0
     } else if (currentAssetGroup && savingsGroups.has(currentAssetGroup) && label === null && product) {
-      const value = toInteger(amount)
-      if (value !== 0) savingsItems.set(product, (savingsItems.get(product) ?? 0) + value)
+      const value = numericCell(amount)
+      if (value !== null) savingsItems.set(product, (savingsItems.get(product) ?? 0) + value)
     } else if (currentAssetGroup && investGroups.has(currentAssetGroup) && label === null && product) {
-      investTotal += toInteger(amount)
+      investSeen = true
+      investTotal += numericCell(amount) ?? 0
     }
   }
 
   const assets: BanksaladAsset[] = []
-  if (depositTotal !== 0) {
+  if (depositSeen) {
     assets.push({ group: '현금', label: owner ? `${owner} 예금(뱅샐)` : '예금(뱅샐)', amount: depositTotal })
   }
   let housingSubscription = 0
   let otherSavings = 0
+  let housingSeen = false
+  let otherSavingsSeen = false
   for (const [product, amount] of savingsItems) {
-    if (product.includes('주택청약')) housingSubscription += amount
-    else otherSavings += amount
+    if (product.includes('주택청약')) {
+      housingSeen = true
+      housingSubscription += amount
+    } else {
+      otherSavingsSeen = true
+      otherSavings += amount
+    }
   }
-  if (housingSubscription !== 0) {
+  if (housingSeen) {
     assets.push({ group: '저축·투자', label: owner ? `${owner} 청약` : '청약', amount: housingSubscription })
   }
-  if (otherSavings !== 0) {
+  if (otherSavingsSeen) {
     assets.push({ group: '저축·투자', label: owner ? `${owner} 적금(뱅샐)` : '적금(뱅샐)', amount: otherSavings })
   }
-  if (investTotal !== 0) {
+  if (investSeen) {
     assets.push({ group: '저축·투자', label: owner ? `${owner} 주식(키움)` : '주식(키움)', amount: investTotal })
   }
 
@@ -310,8 +339,10 @@ export function parseBanksaladStatus(worksheet: ExcelJS.Worksheet): BanksaladSta
     if (label === null && row[2] === null) continue
 
     const loanLabel = optionalText(row[3])
-    const balance = row[6] === null ? 0 : toInteger(row[6])
-    if (!loanLabel || balance <= 0) continue
+    const balance = numericCell(row[6])
+    // A repaid loan reports 0 and must snapshot as 0; a blank balance cell
+    // says nothing and is skipped so it cannot erase a real debt.
+    if (!loanLabel || balance === null || balance < 0) continue
     const rawRate = optionalText(row[7])
     const rate = rawRate === null || !Number.isFinite(Number(rawRate)) ? null : Number(rawRate)
     const due = formatDate(row[9]) ?? optionalText(row[9])?.slice(0, 10) ?? null
