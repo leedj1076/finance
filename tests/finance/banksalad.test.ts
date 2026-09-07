@@ -6,9 +6,11 @@ import {
   buildHistorySuggester,
   classifyBanksaladRow,
   duplicateMerchantSimilar,
+  ledgerAmount,
   parseBanksaladWorkbook,
   type BanksaladRow,
 } from '@/features/inbox/banksalad'
+import { occurrenceCounter } from '@/features/inbox/occurrence'
 
 const baseRow: BanksaladRow = {
   date: '2026-06-11',
@@ -42,6 +44,33 @@ describe('Banksalad classification', () => {
 
   test('keeps the legacy SHA-1 fingerprint format including Python None', () => {
     expect(banksaladFingerprint('DJ', baseRow)).toBe('3706922b59990c8531c5ad677a28e52668ec65cc')
+  })
+
+  test('keeps a reversal negative so a refund reduces the category total', () => {
+    // 지출 rows arrive negative; a cancelled one arrives positive.
+    expect(ledgerAmount('expense', -12000)).toBe(12000)
+    expect(ledgerAmount('expense', 12000)).toBe(-12000)
+    expect(ledgerAmount('saving', -300000)).toBe(300000)
+    expect(ledgerAmount('income', 2500000)).toBe(2500000)
+    expect(ledgerAmount('income', -2500000)).toBe(-2500000)
+  })
+
+  test('separates identical rows by occurrence instead of collapsing them', () => {
+    const first = banksaladFingerprint('DJ', baseRow, 0)
+    const second = banksaladFingerprint('DJ', baseRow, 1)
+    expect(first).toBe('3706922b59990c8531c5ad677a28e52668ec65cc')
+    expect(second).not.toBe(first)
+    expect(banksaladFingerprint('DJ', baseRow, 2)).not.toBe(second)
+  })
+
+  test('gives two same-day same-amount charges distinct uids', () => {
+    const nextOccurrence = occurrenceCounter()
+    const uids = [baseRow, baseRow].map((row) => {
+      const base = banksaladFingerprint('DJ', row)
+      const occurrence = nextOccurrence(base)
+      return occurrence === 0 ? base : banksaladFingerprint('DJ', row, occurrence)
+    })
+    expect(new Set(uids).size).toBe(2)
   })
 })
 

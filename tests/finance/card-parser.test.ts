@@ -10,6 +10,21 @@ function workbookBuffer(rows: unknown[][]) {
 }
 
 describe('card statement parsers', () => {
+  it('keeps a cancellation row as a negative charge and drops zero rows', () => {
+    const buffer = workbookBuffer([
+      ['KB국민카드 이용내역'],
+      ['이용일자', '이용카드', '구분', '이용가맹점', '이용금액', '이번달 결제금액'],
+      ['26.07.03', '국민카드', '일시불', '테스트 마트', 12_300, 12_300],
+      ['26.07.05', '국민카드', '취소', '테스트 마트', -12_300, -12_300],
+      ['26.07.06', '국민카드', '일시불', '무효 행', 0, 0],
+    ])
+
+    expect(parseCardStatement(buffer, 'kookmin')).toEqual([
+      { date: '2026-07-03', merchant: '테스트 마트', amount: 12_300, pay: '국민카드' },
+      { date: '2026-07-05', merchant: '테스트 마트', amount: -12_300, pay: '국민카드' },
+    ])
+  })
+
   it('reads the current KB header names and Excel date cells', () => {
     const buffer = workbookBuffer([
       ['KB국민카드 이용내역'],

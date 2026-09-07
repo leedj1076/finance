@@ -374,12 +374,32 @@ function pythonString(value: string | number | null | undefined) {
   return value === null || value === undefined ? 'None' : String(value)
 }
 
-/** Keep byte-for-byte parity with the legacy Flask importer. */
-export function banksaladFingerprint(owner: BanksaladOwner, row: BanksaladRow) {
-  const raw = [owner, row.date, row.time, row.amount, row.merchant, row.pay]
+/**
+ * Identity of one imported row. The first occurrence keeps byte-for-byte
+ * parity with the legacy Flask importer so uids already in the database stay
+ * valid; identical repeats of the same row get a suffix instead of collapsing
+ * into the first one and being skipped as "already imported".
+ */
+export function banksaladFingerprint(
+  owner: BanksaladOwner,
+  row: BanksaladRow,
+  occurrenceIdx = 0,
+) {
+  const base = [owner, row.date, row.time, row.amount, row.merchant, row.pay]
     .map(pythonString)
     .join('|')
+  const raw = occurrenceIdx === 0 ? base : `${base}|#${occurrenceIdx}`
   return createHash('sha1').update(raw, 'utf8').digest('hex')
+}
+
+/**
+ * Banksalad signs amounts from the account owner's side: money out is negative.
+ * The ledger keeps direction in `flow`, so the sign only carries information
+ * when a row reverses its own type — a cancelled expense arrives as a positive
+ * 지출 row and has to stay negative here, or the refund lands as extra spending.
+ */
+export function ledgerAmount(baseFlow: TransactionFlow, signedAmount: number) {
+  return baseFlow === 'income' ? signedAmount : -signedAmount
 }
 
 export function classifyBanksaladRow(row: BanksaladRow): Classification {

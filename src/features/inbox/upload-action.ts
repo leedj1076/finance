@@ -12,11 +12,13 @@ import { suggestCardAccountId } from './account-match'
 import {
   banksaladFingerprint,
   classifyBanksaladRow,
+  ledgerAmount,
   parseBanksaladWorkbook,
   type BanksaladOwner,
   type TransactionFlow,
 } from './banksalad'
 import { assessConfidence } from './confidence'
+import { occurrenceCounter } from './occurrence'
 import {
   CARD_ISSUERS,
   cardFingerprint,
@@ -113,11 +115,16 @@ export async function uploadBanksaladFiles(
   let alreadyProcessed = 0
   let oldPeriod = 0
   let skippedForeignCurrency = 0
+  const nextOccurrence = occurrenceCounter()
 
   for (const parsed of parsedFiles) {
     skippedForeignCurrency += parsed.skippedForeignCurrency
     for (const row of parsed.rows) {
-      const uid = banksaladFingerprint(parsed.owner, row)
+      const baseUid = banksaladFingerprint(parsed.owner, row)
+      const occurrence = nextOccurrence(baseUid)
+      const uid = occurrence === 0
+        ? baseUid
+        : banksaladFingerprint(parsed.owner, row, occurrence)
       if (row.date < HISTORY_END) continue
       if (row.date < COMMIT_CUTOFF) {
         if (doneUids.has(uid)) alreadyProcessed += 1
@@ -181,7 +188,7 @@ export async function uploadBanksaladFiles(
       date: candidate.row.date,
       time: candidate.row.time,
       merchant: candidate.row.merchant,
-      amount: Math.abs(candidate.row.amount),
+      amount: ledgerAmount(candidate.baseFlow, candidate.row.amount),
       flow,
       kind: candidate.kind,
       bsCat1: candidate.row.cat1,
@@ -298,13 +305,16 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
     return { error: '거래 행을 찾지 못했습니다. 카드사 선택이 맞는지 확인해 주세요.' }
   }
 
-  const occurrences = new Map<string, number>()
-  const staged = rows.map((row) => {
-    const key = `${row.date}|${row.amount}|${row.merchant}`
-    const occurrence = occurrences.get(key) ?? 0
-    occurrences.set(key, occurrence + 1)
-    return { row, uid: cardFingerprint(issuer, owner, row, occurrence) }
-  })
+  const nextOccurrence = occurrenceCounter()
+  const staged = rows.map((row) => ({
+    row,
+    uid: cardFingerprint(
+      issuer,
+      owner,
+      row,
+      nextOccurrence(`${row.date}|${row.amount}|${row.merchant}`),
+    ),
+  }))
 
   const householdId = household.householdId
   const stagingContext = await loadStagingContext(householdId)
@@ -349,7 +359,7 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
       date: row.date,
       time: null,
       merchant: row.merchant,
-      amount: Math.abs(row.amount),
+      amount: row.amount,
       flow: 'expense',
       kind: 'normal',
       bsCat1: cardSourceMarker(issuer),

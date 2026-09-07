@@ -172,7 +172,9 @@ export function parseCardStatement(buffer: Buffer, issuer: CardIssuer): CardRow[
     if (!date) continue
     let amount = toInt(amountColumn === null ? null : row[amountColumn])
     if ((amount === null || amount === 0) && fallbackColumn !== null) amount = toInt(row[fallbackColumn])
-    if (amount === null || amount <= 0) continue
+    // A cancellation shows up as a negative charge and has to survive the
+    // parse; only an unreadable or genuinely zero row is noise.
+    if (amount === null || amount === 0) continue
     const pay = payColumn === null ? null : row[payColumn]?.trim() || null
     parsed.push({ date, merchant, amount, pay })
   }
