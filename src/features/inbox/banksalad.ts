@@ -238,12 +238,15 @@ export function parseBanksaladStatus(worksheet: ExcelJS.Worksheet): BanksaladSta
   let currentAssetGroup: string | null = null
   let depositTotal = 0
   let investTotal = 0
-  // Whether the file describes the group at all. Presence, not the total,
-  // decides if a snapshot is written, so an emptied group can report zero.
+  // A numeric balance (including zero), not a group heading or blank cell,
+  // is evidence that can replace a previous snapshot.
   let depositSeen = false
   let investSeen = false
+  let depositIncomplete = false
+  let investIncomplete = false
   let inFinancialSection = false
   const savingsItems = new Map<string, number>()
+  const unknownSavingsProducts = new Set<string>()
 
   for (const row of rows) {
     const label = optionalText(row[1])
@@ -263,8 +266,13 @@ export function parseBanksaladStatus(worksheet: ExcelJS.Worksheet): BanksaladSta
 
     if (label && depositGroups.has(label)) {
       currentAssetGroup = label
-      depositSeen = true
-      depositTotal += numericCell(amount) ?? 0
+      const value = numericCell(amount)
+      if (value !== null) {
+        depositSeen = true
+        depositTotal += value
+      } else if (product || optionalText(amount)) {
+        depositIncomplete = true
+      }
       continue
     }
     if (label && savingsGroups.has(label)) {
@@ -272,13 +280,20 @@ export function parseBanksaladStatus(worksheet: ExcelJS.Worksheet): BanksaladSta
       const value = numericCell(amount)
       if (product && value !== null) {
         savingsItems.set(product, (savingsItems.get(product) ?? 0) + value)
+      } else if (product) {
+        unknownSavingsProducts.add(product)
       }
       continue
     }
     if (label && investGroups.has(label)) {
       currentAssetGroup = label
-      investSeen = true
-      investTotal += numericCell(amount) ?? 0
+      const value = numericCell(amount)
+      if (value !== null) {
+        investSeen = true
+        investTotal += value
+      } else if (product || optionalText(amount)) {
+        investIncomplete = true
+      }
       continue
     }
     if (label && insuranceGroups.has(label)) {
@@ -288,19 +303,31 @@ export function parseBanksaladStatus(worksheet: ExcelJS.Worksheet): BanksaladSta
     if (label !== null && currentAssetGroup !== null) currentAssetGroup = null
 
     if (currentAssetGroup && depositGroups.has(currentAssetGroup) && label === null && product) {
-      depositSeen = true
-      depositTotal += numericCell(amount) ?? 0
+      const value = numericCell(amount)
+      if (value !== null) {
+        depositSeen = true
+        depositTotal += value
+      } else {
+        depositIncomplete = true
+      }
     } else if (currentAssetGroup && savingsGroups.has(currentAssetGroup) && label === null && product) {
       const value = numericCell(amount)
       if (value !== null) savingsItems.set(product, (savingsItems.get(product) ?? 0) + value)
+      else unknownSavingsProducts.add(product)
     } else if (currentAssetGroup && investGroups.has(currentAssetGroup) && label === null && product) {
-      investSeen = true
-      investTotal += numericCell(amount) ?? 0
+      const value = numericCell(amount)
+      if (value !== null) {
+        investSeen = true
+        investTotal += value
+      } else {
+        investIncomplete = true
+      }
     }
   }
 
   const assets: BanksaladAsset[] = []
-  if (depositSeen) {
+  // An unknown product makes its entire aggregate unknown, not a partial sum.
+  if (depositSeen && !depositIncomplete) {
     assets.push({ group: '현금', label: owner ? `${owner} 예금(뱅샐)` : '예금(뱅샐)', amount: depositTotal })
   }
   let housingSubscription = 0
@@ -316,13 +343,15 @@ export function parseBanksaladStatus(worksheet: ExcelJS.Worksheet): BanksaladSta
       otherSavings += amount
     }
   }
-  if (housingSeen) {
+  const housingIncomplete = [...unknownSavingsProducts].some((product) => product.includes('주택청약'))
+  const otherSavingsIncomplete = [...unknownSavingsProducts].some((product) => !product.includes('주택청약'))
+  if (housingSeen && !housingIncomplete) {
     assets.push({ group: '저축·투자', label: owner ? `${owner} 청약` : '청약', amount: housingSubscription })
   }
-  if (otherSavingsSeen) {
+  if (otherSavingsSeen && !otherSavingsIncomplete) {
     assets.push({ group: '저축·투자', label: owner ? `${owner} 적금(뱅샐)` : '적금(뱅샐)', amount: otherSavings })
   }
-  if (investSeen) {
+  if (investSeen && !investIncomplete) {
     assets.push({ group: '저축·투자', label: owner ? `${owner} 주식(키움)` : '주식(키움)', amount: investTotal })
   }
 

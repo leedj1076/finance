@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
 import { accounts, categories, transactions } from '@/db/schema'
+import { isPostingIdentityConflict, preservedPostingUid } from '@/features/recurring/posting-identity'
 import { isMonthKey } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 import { revalidateFinance } from '@/lib/revalidate'
@@ -83,15 +84,22 @@ export async function saveTransaction(
       ...values,
     })
   } else {
-    await db
-      .update(transactions)
-      .set(values)
-      .where(
-        and(
-          eq(transactions.id, input.id),
-          eq(transactions.householdId, household.householdId),
-        ),
-      )
+    try {
+      await db
+        .update(transactions)
+        .set({ ...values, importUid: preservedPostingUid() })
+        .where(
+          and(
+            eq(transactions.id, input.id),
+            eq(transactions.householdId, household.householdId),
+          ),
+        )
+    } catch (error) {
+      if (isPostingIdentityConflict(error)) {
+        return { error: '같은 달의 정기거래가 여러 건 있습니다. 중복 내역을 확인한 뒤 다시 저장해 주세요.' }
+      }
+      throw error
+    }
   }
 
   revalidateFinance('transactions')

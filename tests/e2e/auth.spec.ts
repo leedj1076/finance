@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 
+test.use({ actionTimeout: 10_000 })
+
 function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -153,7 +155,7 @@ test('family user can manage a transaction and change their password', async ({ 
     await page.getByRole('button', { name: '로그인', exact: true }).click()
 
     await expect(page).toHaveURL('/dashboard')
-    await page.getByRole('link', { name: '내역', exact: true }).click()
+    await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '내역', exact: true }).click()
     await expect(page).toHaveURL('/ledger')
     const transactionForm = page.locator('form').filter({
       has: page.getByRole('button', { name: '거래 추가' }),
@@ -184,15 +186,17 @@ test('family user can manage a transaction and change their password', async ({ 
     await page.getByRole('row', { name: /E2E 장보기/ }).getByRole('button', { name: '삭제' }).click()
     await expect(page.getByText('E2E 장보기')).toHaveCount(0)
 
-    await page.getByRole('link', { name: '예산', exact: true }).click()
+    await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '예산', exact: true }).click()
     await expect(page).toHaveURL('/budgets')
+    await page.getByLabel('예산 월').fill('2026-03')
+    await page.getByRole('button', { name: '보기', exact: true }).click()
     await page.getByLabel('식비 예산').fill('500000')
     await page.getByLabel('목표 저축률').fill('35')
     await page.getByRole('button', { name: '변경사항 저장' }).click()
     await expect(page.getByLabel('식비 예산')).toHaveValue('500000')
     await expect(page.getByText('입력 합계 500,000원')).toBeVisible()
 
-    await page.getByRole('link', { name: '월말 리뷰 →' }).click()
+    await page.getByRole('link', { name: /^(월말 리뷰|다음 달 예산 만들기) →$/ }).click()
     await expect(page).toHaveURL('/budgets/review?month=2026-04')
     await expect(page.getByRole('heading', { name: '월말 리뷰' })).toBeVisible()
     await expect(page.getByText('2026-03 결산 → 2026-04 예산 만들기')).toBeVisible()
@@ -202,15 +206,14 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page.getByText('월말 리뷰에서 2026-04 예산을 저장했습니다.')).toBeVisible()
     await expect(page.getByLabel('식비 예산')).toHaveValue('450000')
 
-    await page.getByRole('link', { name: '홈', exact: true }).click()
+    await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '홈', exact: true }).click()
     await expect(page).toHaveURL('/dashboard')
     await expect(page.getByRole('heading', { name: '홈' })).toBeVisible()
     expect(browserErrors).toEqual([])
 
-    // 통계 replaced /analysis; charts are Chart.js canvases, so the assertion
-    // is that the labelled canvas renders, not that a DOM tooltip appears.
-    await page.getByRole('link', { name: '통계', exact: true }).click()
-    await expect(page).toHaveURL('/report')
+    // Report smoke check here; parity.spec covers chart hover and selection.
+    await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '통계', exact: true }).click()
+    await expect(page).toHaveURL((url) => url.pathname === '/report')
     await expect(page.getByRole('heading', { name: '연간 통계' })).toBeVisible()
     await expect(page.getByRole('img', { name: '월별 수입 지출 저축 막대 차트' })).toBeVisible()
 
@@ -232,11 +235,12 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page.getByText('활성 1건 중 1건 반영')).toBeVisible()
     await expect(page.getByRole('button', { name: /미반영/ })).toHaveCount(0)
 
-    await page.getByRole('link', { name: '자산', exact: true }).click()
+    await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '자산', exact: true }).click()
     await expect(page).toHaveURL('/assets')
     await expect(page.getByRole('heading', { name: '자산', exact: true })).toBeVisible()
     await expect(page.locator('article').filter({ hasText: '순자산' }).first()).toContainText('850,000원')
     await expect(page.getByRole('img', { name: '월별 순자산 추이' })).toBeVisible()
+    await page.locator('#balance-adjustment > summary').click()
     await page.getByLabel('E2E 예금 잔액').fill('1400000')
     await page.getByRole('button', { name: '이달 자산 저장' }).click()
     await expect(page).toHaveURL('/assets?month=2026-02&saved=1')

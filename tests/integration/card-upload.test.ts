@@ -345,3 +345,49 @@ test('BankSalad-like pay label does not collide with the internal card source ma
     )
   expect(applied.source).toBe('banksalad:dj')
 })
+
+test('Shinhan partial cancellation survives staging and apply, and reupload stays idempotent', async () => {
+  const html = `<html><body>
+    <table>
+      <tr><th>이용일</th><th>이용가맹점</th><th>이용금액</th></tr>
+      <tr><td>2026.08.25</td><td>부분취소 테스트</td><td>8,000</td></tr>
+      <tr><td>합계</td><td></td><td>8,000</td></tr>
+    </table>
+    <table>
+      <tr><th>이용일</th><th>이용가맹점</th><th>원거래금액</th><th>취소금액</th></tr>
+      <tr><td>2026.08.25</td><td>부분취소 테스트</td><td>8,000</td><td>5,000</td></tr>
+    </table>
+  </body></html>`
+  const form = new FormData()
+  form.set('file', new File([html], 'shinhan.xls'))
+  form.set('issuer', 'shinhan')
+  form.set('owner', 'DJ')
+  const first = await uploadCardStatement(form)
+  expect(first.error).toBeUndefined()
+  expect(first.message).toContain('인박스에 2건 추가')
+  const staged = await db.select().from(importInbox).where(and(
+    eq(importInbox.householdId, context.householdId), eq(importInbox.merchant, '부분취소 테스트'),
+  )).orderBy(importInbox.id)
+  expect(staged.map((row) => row.amount)).toEqual([8000, -5000])
+  expect(new Set(staged.map((row) => row.importUid)).size).toBe(2)
+
+  const apply = new FormData()
+  apply.set('intent', 'apply')
+  for (const row of staged) {
+    apply.append('ids', String(row.id))
+    apply.set(`flow_${row.id}`, 'expense')
+    apply.set(`category_${row.id}`, String(categoryId))
+  }
+  await expect(processInbox(apply)).rejects.toThrow('REDIRECT:/inbox?notice=')
+  const posted = await db.select().from(transactions).where(and(
+    eq(transactions.householdId, context.householdId), eq(transactions.source, 'card:shinhan'),
+  )).orderBy(transactions.id)
+  expect(posted.map((row) => ({ amount: row.amount, flow: row.flow }))).toEqual([
+    { amount: 8000, flow: 'expense' }, { amount: -5000, flow: 'expense' },
+  ])
+  expect(posted.reduce((total, row) => total + row.amount, 0)).toBe(3000)
+  const repeated = await uploadCardStatement(form)
+  expect(repeated.error).toBeUndefined()
+  expect(repeated.message).toContain('인박스에 0건 추가')
+  expect(repeated.message).toContain('이미 처리 2건')
+})

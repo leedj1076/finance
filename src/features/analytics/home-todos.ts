@@ -10,6 +10,7 @@ import {
   transactions,
 } from '@/db/schema'
 import { calculateBudgetPace, type BudgetPaceWarning } from '@/features/budgets/pace'
+import { recurringPostingInMonth } from '@/features/recurring/posting-identity'
 import { currentMonthInKorea, monthBounds, shiftMonth } from '@/lib/finance'
 
 import { anomalyAlerts, type AnalyticsRow } from './calculations'
@@ -164,9 +165,7 @@ export async function getHomeTodos(householdId: string) {
       .where(
         and(
           eq(transactions.householdId, householdId),
-          gte(transactions.date, `${month}-01`),
-          lt(transactions.date, end),
-          sql`${transactions.recurringId} is not null`,
+          recurringPostingInMonth(month),
         ),
       ),
   ])

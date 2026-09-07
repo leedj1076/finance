@@ -3,6 +3,8 @@ import { writeFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 
+test.use({ actionTimeout: 10_000 })
+
 function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -171,6 +173,20 @@ async function loginAs(
   await expect(page).toHaveURL('/dashboard')
 }
 
+async function openCardReview(page: Page, date: string) {
+  await page.getByRole('navigation', { name: '가져오기 작업' }).getByRole('link', { name: /검토 대기/ }).click()
+  const [year, month] = date.split('-')
+  const monthGroup = page.getByRole('button', { name: new RegExp(`${year}년 ${Number(month)}월`) })
+  await expect(monthGroup).toHaveAttribute('aria-expanded', 'false')
+  await monthGroup.click()
+  const ownerGroup = page.getByRole('button', { name: /^DJ 1건 결제수단 1개$/ })
+  await expect(ownerGroup).toHaveAttribute('aria-expanded', 'false')
+  await ownerGroup.click()
+  const cardGroup = page.getByRole('button', { name: /^DJ 삼성카드 1건/ })
+  await expect(cardGroup).toHaveAttribute('aria-expanded', 'false')
+  await cardGroup.click()
+}
+
 test('card statement upload reaches inbox, applies to ledger, and keeps card source', async ({ page }, testInfo) => {
   test.slow()
   const email = `finance-parity-card-${Date.now()}-${crypto.randomUUID()}@example.com`
@@ -207,6 +223,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await page.getByRole('button', { name: '인박스로 불러오기' }).click({ noWaitAfter: true })
 
     await expect(page.getByText(/인박스에 1건 추가/)).toBeVisible()
+    await openCardReview(page, transactionDate)
     const inboxRow = page.getByRole('row').filter({ hasText: merchant })
     await expect(inboxRow).toHaveCount(1)
     await expect(inboxRow.getByRole('checkbox', { name: `${merchant} 선택` })).not.toBeChecked()
@@ -218,7 +235,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
 
     await expect(page).toHaveURL(/\/inbox\?notice=/)
     await expect(page.getByText(/1건을 가계부에 반영했습니다/)).toBeVisible()
-    await page.getByRole('link', { name: '내역', exact: true }).click()
+    await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '내역', exact: true }).click()
     const ledgerRow = page.getByRole('row').filter({ hasText: merchant })
     await expect(ledgerRow).toHaveCount(1)
     await expect(ledgerRow).toContainText('5,000원')
@@ -252,19 +269,20 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await page.getByRole('button', { name: '인박스로 불러오기' }).click({ noWaitAfter: true })
 
     await expect(page.getByText(/자동 분류 1건/).first()).toBeVisible()
+    await openCardReview(page, transactionDate)
     const repeatRow = page.getByRole('row').filter({ hasText: merchant })
     await expect(repeatRow.getByText('자동 분류')).toBeVisible()
     await repeatRow.getByRole('button', { name: `${merchant} 바로 반영` }).click()
-    await expect(page.getByText('확인할 거래가 없습니다.')).toBeVisible()
+    await expect(page.getByText(/^(확인|검토)할 거래가 없습니다\.$/)).toBeVisible()
 
-    await page.getByRole('link', { name: '내역', exact: true }).click()
+    await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '내역', exact: true }).click()
     await expect(page.getByRole('row').filter({ hasText: merchant })).toHaveCount(2)
   } finally {
     await deleteTestState(email, householdId)
   }
 })
 
-test('home charts render and the annual matrix excludes a cell', async ({ page }) => {
+test('annual chart hover and selection show values, and cell exclusion updates the chart', async ({ page }) => {
   const email = `finance-parity-dashboard-${Date.now()}-${crypto.randomUUID()}@example.com`
   const password = 'passw0rd!'
   let householdId: string | undefined
@@ -274,27 +292,51 @@ test('home charts render and the annual matrix excludes a cell', async ({ page }
     householdId = setup.householdId
     await loginAs(page, email, password)
 
-    // Charts are Chart.js canvases: there are no per-point elements to hover
-    // and no DOM tooltip, so the assertion is that the labelled canvas renders.
     await expect(page.getByRole('img', { name: '월별 수입과 지출 막대 차트' })).toBeVisible()
 
-    await page.getByRole('link', { name: '통계', exact: true }).click()
-    await expect(page).toHaveURL('/report')
+    await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '통계', exact: true }).click()
+    await expect(page).toHaveURL((url) => url.pathname === '/report')
     await expect(page.getByRole('heading', { name: '연간 통계' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: '6개월 현금흐름 예측' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /앞으로 6개월/ })).toBeVisible()
 
-    // The monthly matrix carries the interaction now: a cell drops out of the
-    // totals and the chart when clicked.
     const detailSection = page.locator('section').filter({
       has: page.getByRole('heading', { name: '달마다 어떻게 달랐나', exact: true }),
     })
     await expect(detailSection).toBeVisible()
-    await expect(detailSection.getByRole('columnheader', { name: '1월', exact: true })).toBeVisible()
+    await expect(detailSection.getByText('그래프에서 확인할 항목을 선택하세요.', { exact: true })).toBeVisible()
+    const chart = detailSection.getByRole('img', { name: '누적 막대 월별 차트' }).locator('canvas')
+    const bounds = await chart.boundingBox()
+    if (!bounds) throw new Error('Monthly chart did not render')
+    // Hidden axes and 12 equal columns: January is at the first column's center.
+    const january = { x: bounds.width / 24, y: bounds.height / 2 }
+    await chart.hover({ position: january })
+    await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
+    await chart.click({ position: january })
+    await expect(detailSection.getByText('식비 · 1월 선택', { exact: true })).toBeVisible()
+    const subCell = detailSection.getByRole('button', { name: '식비 카페 1월 500,000원, 합계에서 제외', exact: true })
+    await subCell.hover()
+    await expect(page.getByRole('tooltip')).toContainText('Parity E2E 대시보드 마트')
+    await expect(page.getByRole('tooltip')).toContainText('500,000')
     const januaryCell = detailSection.locator('button[aria-label^="식비 1월 "]').first()
     await expect(januaryCell).toHaveAccessibleName(/합계에서 제외/)
     await januaryCell.click()
     await expect(januaryCell).toHaveAttribute('aria-pressed', 'true')
     await expect(januaryCell).toHaveAccessibleName(/합계에 다시 포함/)
+    await chart.hover({ position: january })
+    await expect(detailSection.getByText('월 합계 0원의', { exact: false })).toContainText('0.0%')
+    await januaryCell.click()
+    await expect(januaryCell).toHaveAttribute('aria-pressed', 'false')
+    await chart.hover({ position: january })
+    await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
+    await detailSection.getByRole('button', { name: '선', exact: true }).click()
+    const line = detailSection.getByRole('img', { name: '선 월별 차트' }).locator('canvas')
+    await line.hover({ position: january })
+    await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
+    await detailSection.getByRole('button', { name: '100% 누적 영역', exact: true }).click()
+    await detailSection.getByRole('img', { name: '100% 누적 영역 월별 차트' }).locator('canvas').hover({ position: january })
+    await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
+    await detailSection.getByRole('button', { name: '선택 해제', exact: true }).click()
+    await expect(detailSection.getByText('그래프에서 확인할 항목을 선택하세요.', { exact: true })).toBeVisible()
   } finally {
     await deleteTestState(email, householdId)
   }

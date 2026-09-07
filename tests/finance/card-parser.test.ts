@@ -40,7 +40,7 @@ describe('card statement parsers', () => {
     ])
   })
 
-  it('reads only the Shinhan card-use table before later benefit and cancellation sections', () => {
+  it('includes the separate Shinhan cancellation table without importing benefits', () => {
     const buffer = Buffer.from(`
       <html><body>
         <table>
@@ -63,6 +63,34 @@ describe('card statement parsers', () => {
     expect(parseCardStatement(buffer, 'shinhan')).toEqual([
       { date: '2026-07-03', merchant: '테스트 병원', amount: 11_500, pay: '본인200' },
       { date: '2026-07-09', merchant: '테스트 약국', amount: 4_900, pay: '본인200' },
+      { date: '2026-07-10', merchant: '취소된 거래', amount: -8_000, pay: '본인200' },
+    ])
+  })
+
+  it('uses the actual cancellation amount for partial refunds, including cancellation-only exports', () => {
+    const buffer = workbookBuffer([
+      ['이용일', '이용카드', '상품구분', '이용가맹점', '원거래금액', '취소금액'],
+      ['2026.07.10', '본인200', '일시불', '부분 취소', 80_000, 8_000],
+      ['2026.07.11', '본인200', '일시불', '이미 음수', 10_000, -2_000],
+      ['2026.07.12', '본인200', '일시불', '취소 없음', 10_000, 0],
+      ['2026.07.13', '본인200', '일시불', '취소금액 없음', 10_000, ''],
+    ])
+
+    expect(parseCardStatement(buffer, 'shinhan')).toEqual([
+      { date: '2026-07-10', merchant: '부분 취소', amount: -8_000, pay: '본인200' },
+      { date: '2026-07-11', merchant: '이미 음수', amount: -2_000, pay: '본인200' },
+    ])
+  })
+
+  it('does not treat a benefit table as charges when there are no card-use rows', () => {
+    const buffer = workbookBuffer([
+      ['이용일', '이용가맹점', '적용구분', '이용금액', '할인금액'],
+      ['2026.07.03', '테스트 병원', '이용금액할인', 11_500, 575],
+      ['이용일', '이용카드', '상품구분', '이용가맹점', '원거래금액', '취소금액'],
+      ['2026.07.10', '본인200', '일시불', '취소된 거래', 8_000, 8_000],
+    ])
+    expect(parseCardStatement(buffer, 'shinhan')).toEqual([
+      { date: '2026-07-10', merchant: '취소된 거래', amount: -8_000, pay: '본인200' },
     ])
   })
 })

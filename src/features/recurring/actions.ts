@@ -1,16 +1,17 @@
 'use server'
 
-import { and, eq, gte, lt, max, sql } from 'drizzle-orm'
+import { and, eq, max, sql } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
 import { accounts, categories, recurring, transactions } from '@/db/schema'
-import { isMonthKey, monthBounds } from '@/lib/finance'
+import { isMonthKey } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 import { revalidateFinance } from '@/lib/revalidate'
 
 import { recurringImportUid, recurringPostingDate } from './calculations'
 import { parseRecurringPayload } from './recurring-input'
+import { recurringPostingInMonth } from './posting-identity'
 
 export type RecurringActionState = { error?: string }
 
@@ -100,8 +101,6 @@ export async function applyRecurringMonth(formData: FormData) {
   if (typeof monthValue !== 'string' || !isMonthKey(monthValue)) {
     redirect('/recurring?error=month')
   }
-  const { start, end } = monthBounds(monthValue)
-
   const result = await db.transaction(async (transaction) => {
     await transaction.execute(
       sql`select pg_advisory_xact_lock(hashtext(${`recurring:${household.householdId}:${monthValue}`}))`,
@@ -135,17 +134,13 @@ export async function applyRecurringMonth(formData: FormData) {
         .where(
           and(
             eq(transactions.householdId, household.householdId),
-            gte(transactions.date, start),
-            lt(transactions.date, end),
-            sql`${transactions.recurringId} is not null`,
+            recurringPostingInMonth(monthValue),
           ),
         ),
     ])
     const generated = new Set(generatedRows.flatMap((row) => row.recurringId === null ? [] : [row.recurringId]))
     const pending = rules.filter((rule) => !generated.has(rule.id))
-    // The date-range scan above only sees postings still dated inside the
-    // month; the unique index on import_uid is what makes a second run a
-    // no-op even when someone moved a posting to another month.
+    // The unique index also guards concurrent writes to the same identity.
     const created = pending.length === 0 ? [] : await transaction
       .insert(transactions)
       .values(pending.map((rule) => ({

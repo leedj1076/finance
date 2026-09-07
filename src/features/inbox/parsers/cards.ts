@@ -130,9 +130,62 @@ function toGrid(buffer: Buffer): string[][] {
 
 const normalizeHeader = (value: string) => value.replace(/\s+/g, '')
 
+/** Shinhan exports charges, benefits and cancellations as separate tables.
+ * Each header owns its column indexes; a subtotal ends only that section.
+ */
+function parseShinhanGrid(grid: string[][]): CardRow[] {
+  let section: {
+    date: number
+    merchant: number
+    pay: number
+    amount: number
+    refund: boolean
+  } | null = null
+  const parsed: CardRow[] = []
+
+  for (const row of grid) {
+    const header = row.map(normalizeHeader)
+    const date = header.findIndex((cell) => cell === '이용일' || cell === '이용일자')
+    const merchant = header.findIndex((cell) => cell === '이용가맹점' || cell === '이용가맹점명')
+    if (date !== -1 && merchant !== -1) {
+      const refund = header.includes('원거래금액') && header.includes('취소금액')
+      const benefit = header.some((cell) => /할인금액|적립포인트|포인트적립|적용구분/.test(cell))
+      const amount = header.indexOf(refund ? '취소금액' : '이용금액')
+      section = benefit || amount === -1 ? null : {
+        date,
+        merchant,
+        pay: header.findIndex((cell) => cell === '이용카드' || cell === '카드명'),
+        amount,
+        refund,
+      }
+      continue
+    }
+    if (STOP_MARKS.some((mark) => row.filter(Boolean).join(' ').includes(mark))) {
+      section = null
+      continue
+    }
+    if (!section) continue
+
+    const transactionDate = toIso(row[section.date])
+    const transactionMerchant = row[section.merchant]?.trim()
+    const amount = toInt(row[section.amount])
+    if (!transactionDate || !transactionMerchant || amount === null || amount === 0) continue
+    parsed.push({
+      date: transactionDate,
+      merchant: transactionMerchant,
+      // A positive cancellation amount is the amount returned, not a charge.
+      // Never fall back to the original amount for partial/blank cancellations.
+      amount: section.refund ? -Math.abs(amount) : amount,
+      pay: section.pay === -1 ? null : row[section.pay]?.trim() || null,
+    })
+  }
+  return parsed
+}
+
 export function parseCardStatement(buffer: Buffer, issuer: CardIssuer): CardRow[] {
   const spec = SPECS[issuer]
   const grid = toGrid(buffer)
+  if (issuer === 'shinhan') return parseShinhanGrid(grid)
   let headerIndex = -1
   const columns: Record<string, number> = {}
 

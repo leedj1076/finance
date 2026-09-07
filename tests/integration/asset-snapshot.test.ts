@@ -20,7 +20,7 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 const householdIds: string[] = []
 
-async function banksaladBuffer() {
+async function banksaladBuffer(balance?: number | null) {
   const workbook = new ExcelJS.Workbook()
   const status = workbook.addWorksheet('뱅샐현황')
   status.getCell('B2').value = '이동재'
@@ -44,6 +44,9 @@ async function banksaladBuffer() {
   status.getCell('G12').value = 500000
   status.getCell('H12').value = 3.5
   status.getCell('J12').value = new Date(Date.UTC(2030, 0, 31))
+  if (balance !== undefined) {
+    for (const cell of ['E5', 'E6', 'E7', 'E8', 'E9', 'G12']) status.getCell(cell).value = balance
+  }
 
   const ledger = workbook.addWorksheet('가계부 내역')
   ledger.addRow(['날짜', '시간', '타입', '대분류', '소분류', '내용', '금액', '통화', '결제수단', '메모'])
@@ -145,4 +148,55 @@ test('default-on upload upserts monthly snapshots without crossing household bou
     .from(balanceSnapshots)
     .where(eq(balanceSnapshots.householdId, householdIds[1]))
   expect(foreignSnapshots).toHaveLength(0)
+})
+
+test.each([null, 0])('upload preserves unknown balances but stores explicit zero (%s)', async (balance) => {
+  async function upload(buffer: Buffer) {
+    const form = new FormData()
+    form.set('files', new File([new Uint8Array(buffer)], 'banksalad.xlsx'))
+    form.set('asset_include', 'on')
+    expect((await uploadBanksaladFiles({}, form)).error).toBeUndefined()
+  }
+  await upload(await banksaladBuffer())
+  const stored = () => db.select({ accountId: balanceSnapshots.accountId, amount: balanceSnapshots.amount })
+    .from(balanceSnapshots).where(and(
+      eq(balanceSnapshots.householdId, context.householdId), eq(balanceSnapshots.month, '2026-08'),
+    )).orderBy(balanceSnapshots.accountId)
+  const before = await stored()
+  expect(before).toHaveLength(5)
+  await upload(await banksaladBuffer(balance))
+  expect(await stored()).toEqual(balance === null ? before : before.map((row) => ({ ...row, amount: 0 })))
+})
+
+test('mixed zero and unknown products do not erase complete stored aggregates', async () => {
+  async function upload(buffer: Buffer) {
+    const form = new FormData()
+    form.set('files', new File([new Uint8Array(buffer)], 'banksalad.xlsx'))
+    form.set('asset_include', 'on')
+    expect((await uploadBanksaladFiles({}, form)).error).toBeUndefined()
+  }
+  await upload(await banksaladBuffer())
+  const stored = () => db.select({ accountId: balanceSnapshots.accountId, amount: balanceSnapshots.amount })
+    .from(balanceSnapshots).where(and(
+      eq(balanceSnapshots.householdId, context.householdId), eq(balanceSnapshots.month, '2026-08'),
+    )).orderBy(balanceSnapshots.accountId)
+  const before = await stored()
+  expect(before).toHaveLength(5)
+
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(Uint8Array.from(await banksaladBuffer()).buffer)
+  const status = workbook.getWorksheet('뱅샐현황')!
+  status.spliceRows(4, status.rowCount - 3,
+    [null, '3.재무현황'],
+    [null, '자유입출금 자산', null, null, 0],
+    [null, null, '미연동 통장', null, null],
+    [null, '저축성 자산', '주택청약종합저축', null, 0],
+    [null, null, '미연동 주택청약', null, null],
+    [null, null, '정기적금', null, 0],
+    [null, null, '미연동 적금', null, null],
+    [null, '투자성 자산', null, null, 0],
+    [null, null, '미연동 증권', null, '조회 불가'],
+  )
+  await upload(Buffer.from(await workbook.xlsx.writeBuffer()))
+  expect(await stored()).toEqual(before)
 })

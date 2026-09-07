@@ -142,7 +142,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
             {recurringAdded && <span className="ml-2 text-finance-green">방금 {recurringAdded}건 추가{recurringSkipped ? ` · ${recurringSkipped}건 건너뜀` : ''}</span>}
           </p>
           <div className="ml-auto flex items-center gap-3">
-            <Link className="t-caption font-semibold text-finance-muted hover:text-finance-blue" href="/settings?section=recurring">규칙 설정</Link>
+            <Link className="t-caption font-semibold text-finance-muted hover:text-finance-blue" href="/recurring">규칙 설정</Link>
             {recurringPending > 0 && (
               <form action={applyRecurringMonth}>
                 <input name="month" type="hidden" value={shell.month} />

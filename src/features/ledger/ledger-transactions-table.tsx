@@ -109,6 +109,10 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
   const [localRows, setLocalRows] = useState(rows)
   const [savedId, setSavedId] = useState<number | null>(null)
 
+  // Inline edits update immediately; subsequent server refreshes can also
+  // insert, remove or re-filter rows without remounting this table.
+  useEffect(() => setLocalRows(rows), [rows])
+
   useEffect(() => {
     const stored = sessionStorage.getItem('ledgerScrollY')
     if (!stored) return

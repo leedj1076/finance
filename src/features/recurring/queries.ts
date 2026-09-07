@@ -6,10 +6,11 @@ import { currentMonthInKorea, isMonthKey, monthBounds, shiftMonth } from '@/lib/
 
 import { detectRecurringCandidates } from './calculations'
 import { flowToToken } from './recurring-input'
+import { recurringPostingInMonth } from './posting-identity'
 
 export async function getRecurringData(householdId: string, requestedMonth?: string) {
   const month = isMonthKey(requestedMonth) ? requestedMonth : currentMonthInKorea()
-  const { start, end } = monthBounds(month)
+  const { end } = monthBounds(month)
   const historyStart = `${shiftMonth(month, -17)}-01`
 
   const [ruleRows, accountRows, categoryRows, generatedRows, historyRows] = await Promise.all([
@@ -56,9 +57,7 @@ export async function getRecurringData(householdId: string, requestedMonth?: str
       .where(
         and(
           eq(transactions.householdId, householdId),
-          gte(transactions.date, start),
-          lt(transactions.date, end),
-          sql`${transactions.recurringId} is not null`,
+          recurringPostingInMonth(month),
         ),
       ),
     db
