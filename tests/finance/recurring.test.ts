@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest'
 
-import { detectRecurringCandidates, recurringPostingDate } from '@/features/recurring/calculations'
+import {
+  detectRecurringCandidates,
+  recurringImportUid,
+  recurringPostingDate,
+} from '@/features/recurring/calculations'
 import { flowToToken, parseRecurringPayload, tokenToFlow } from '@/features/recurring/recurring-input'
 
 describe('recurring calculations', () => {
@@ -27,6 +31,12 @@ describe('recurring calculations', () => {
     expect(recurringPostingDate('2026-02', 31)).toBe('2026-02-28')
     expect(recurringPostingDate('2028-02', 31)).toBe('2028-02-29')
     expect(recurringPostingDate('2026-04', 15)).toBe('2026-04-15')
+  })
+
+  test('identifies a posting by rule and month, not by its date', () => {
+    expect(recurringImportUid(7, '2026-09')).toBe('recurring:7:2026-09')
+    expect(recurringImportUid(7, '2026-10')).not.toBe(recurringImportUid(7, '2026-09'))
+    expect(recurringImportUid(8, '2026-09')).not.toBe(recurringImportUid(7, '2026-09'))
   })
 })
 

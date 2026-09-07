@@ -7,7 +7,7 @@ import {
   parseLedgerAccountId,
   parseLedgerFilters,
 } from '@/features/ledger/filters'
-import { getLedgerData, getLedgerShellData } from '@/features/ledger/queries'
+import { getLedgerShellData, getLedgerTransactions } from '@/features/ledger/queries'
 
 describe('ledger filters', () => {
   test('accepts the four supported filters and trims the query', () => {
@@ -97,26 +97,26 @@ describe('ledger filter database behavior', () => {
       where household_id = ${household.id} and memo = '카드 사용'
     `
 
-    const byQuery = await getLedgerData(household.id, '2026-06', {
+    const byQuery = await getLedgerTransactions(household.id, '2026-06', {
       account: '', flow: '', major: '', q: 'coffee abc',
     })
-    const byAccount = await getLedgerData(household.id, '2026-06', {
+    const byAccount = await getLedgerTransactions(household.id, '2026-06', {
       account: String(accountA.id), flow: '', major: '', q: '',
     })
-    const unsafeAccount = await getLedgerData(household.id, '2026-06', {
+    const unsafeAccount = await getLedgerTransactions(household.id, '2026-06', {
       account: '9007199254740992', flow: '', major: '', q: '',
     })
-    const byMerchant = await getLedgerData(household.id, '2026-06', {
+    const byMerchant = await getLedgerTransactions(household.id, '2026-06', {
       account: '', flow: '', major: '', q: 'store xyz',
     })
     const shell = await getLedgerShellData(household.id, '2026-06', {
       account: '', flow: '', major: '', q: '',
     })
 
-    expect(byQuery.transactions.map((row) => row.memo)).toEqual(['Coffee ABC'])
-    expect(byAccount.transactions.map((row) => row.memo)).toEqual(['카드 사용', 'Coffee ABC'])
-    expect(unsafeAccount.transactions).toEqual([])
-    expect(byMerchant.transactions.map((row) => row.rawMerchant)).toEqual(['Store XYZ'])
+    expect(byQuery.rows.map((row) => row.memo)).toEqual(['Coffee ABC'])
+    expect(byAccount.rows.map((row) => row.memo)).toEqual(['카드 사용', 'Coffee ABC'])
+    expect(unsafeAccount.rows).toEqual([])
+    expect(byMerchant.rows.map((row) => row.rawMerchant)).toEqual(['Store XYZ'])
     expect(shell.filteredTotals).toMatchObject({ count: 3, expense: 102000 })
     expect(shell.availableMonths).toContainEqual({ month: '2026-06', count: 3 })
   })

@@ -9,7 +9,7 @@ import { accounts, categories, recurring, transactions } from '@/db/schema'
 import { isMonthKey, monthBounds } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 
-import { recurringPostingDate } from './calculations'
+import { recurringImportUid, recurringPostingDate } from './calculations'
 import { parseRecurringPayload } from './recurring-input'
 
 export type RecurringActionState = { error?: string }
@@ -144,8 +144,12 @@ export async function applyRecurringMonth(formData: FormData) {
     ])
     const generated = new Set(generatedRows.flatMap((row) => row.recurringId === null ? [] : [row.recurringId]))
     const pending = rules.filter((rule) => !generated.has(rule.id))
-    if (pending.length > 0) {
-      await transaction.insert(transactions).values(pending.map((rule) => ({
+    // The date-range scan above only sees postings still dated inside the
+    // month; the unique index on import_uid is what makes a second run a
+    // no-op even when someone moved a posting to another month.
+    const created = pending.length === 0 ? [] : await transaction
+      .insert(transactions)
+      .values(pending.map((rule) => ({
         householdId: household.householdId,
         date: recurringPostingDate(monthValue, rule.day),
         flow: rule.flow,
@@ -156,9 +160,13 @@ export async function applyRecurringMonth(formData: FormData) {
         accountId: rule.accountId,
         source: 'recurring',
         recurringId: rule.id,
+        importUid: recurringImportUid(rule.id, monthValue),
       })))
-    }
-    return { added: pending.length, skipped: rules.length - pending.length }
+      .onConflictDoNothing({
+        target: [transactions.householdId, transactions.importUid],
+      })
+      .returning({ id: transactions.id })
+    return { added: created.length, skipped: rules.length - created.length }
   })
 
   revalidatePath('/recurring')

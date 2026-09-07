@@ -13,7 +13,12 @@ import {
 } from '@/features/ledger/ledger-analysis-panels'
 import { LedgerFilterForm } from '@/features/ledger/ledger-filter-form'
 import { LedgerTransactionsTable } from '@/features/ledger/ledger-transactions-table'
-import { getLedgerData, getLedgerFormOptions, getLedgerShellData } from '@/features/ledger/queries'
+import {
+  LEDGER_ROW_LIMIT,
+  getLedgerFormOptions,
+  getLedgerShellData,
+  getLedgerTransactions,
+} from '@/features/ledger/queries'
 import { TransactionForm } from '@/features/ledger/transaction-form'
 import { applyRecurringMonth } from '@/features/recurring/actions'
 import { getRecurringData } from '@/features/recurring/queries'
@@ -59,33 +64,35 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
     getLedgerShellData(household.householdId, requestedMonth, filters),
     getLedgerFormOptions(household.householdId),
   ])
-  const recurring = await getRecurringData(household.householdId, shell.month)
-  const recurringPending = Math.max(recurring.activeCount - recurring.generatedCount, 0)
   const majorOptions = [...new Set(formOptions.categories.map((category) => category.major))]
   const selectedFlow = filters.flow || 'expense'
 
-  const analysis = tab === 'list'
-    ? null
-    : await getAnalysisData(household.householdId, {
-      period: 'month',
-      month: shell.month,
-      flow: selectedFlow,
-      accountId: parseLedgerAccountId(filters.account) ?? undefined,
-      major: filters.major,
-      q: filters.q,
-    })
-  const categoryDetail = tab === 'categories' && filters.major
-    ? await getCategoryPageData(household.householdId, parseCategoryPageParams({
-      period: 'month',
-      month: shell.month,
-      flow: selectedFlow,
-      major: filters.major,
-      account: filters.account,
-    }))
-    : null
-  const listData = tab === 'list'
-    ? await getLedgerData(household.householdId, shell.month, filters)
-    : null
+  // Only the active tab's loader runs, and it runs alongside the recurring
+  // banner instead of behind it.
+  const [recurring, analysis, categoryDetail, listData] = await Promise.all([
+    getRecurringData(household.householdId, shell.month),
+    tab === 'list'
+      ? null
+      : getAnalysisData(household.householdId, {
+        period: 'month',
+        month: shell.month,
+        flow: selectedFlow,
+        accountId: parseLedgerAccountId(filters.account) ?? undefined,
+        major: filters.major,
+        q: filters.q,
+      }),
+    tab === 'categories' && filters.major
+      ? getCategoryPageData(household.householdId, parseCategoryPageParams({
+        period: 'month',
+        month: shell.month,
+        flow: selectedFlow,
+        major: filters.major,
+        account: filters.account,
+      }))
+      : null,
+    tab === 'list' ? getLedgerTransactions(household.householdId, shell.month, filters) : null,
+  ])
+  const recurringPending = Math.max(recurring.activeCount - recurring.generatedCount, 0)
 
   const currentMonth = currentMonthInKorea()
   const defaultDate = shell.month === currentMonth
@@ -167,7 +174,12 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
             <div id="transaction-form"><TransactionForm accounts={formOptions.accounts} categories={formOptions.categories} defaultDate={defaultDate} editing={null} filters={filters} month={shell.month} /></div>
             <section className="mt-6">
               <div className="flex items-baseline justify-between border-t border-finance-ink pt-4"><h2 className="t-section text-finance-ink">거래 내역</h2><span className="t-caption text-finance-faint">최근순</span></div>
-              <LedgerTransactionsTable accounts={formOptions.accounts} categories={formOptions.categories} filters={filters} key={`${shell.month}:${filters.account}:${filters.flow}:${filters.major}:${filters.q}`} month={shell.month} rows={listData.transactions} />
+              {listData.truncated && (
+                <p className="mt-3 border border-finance-amber px-3 py-2 t-caption text-finance-ink">
+                  최근 {LEDGER_ROW_LIMIT.toLocaleString('ko-KR')}건만 표시했습니다 · 위 합계는 필터에 걸린 {shell.filteredTotals.count}건 전체 기준입니다
+                </p>
+              )}
+              <LedgerTransactionsTable accounts={formOptions.accounts} categories={formOptions.categories} filters={filters} key={`${shell.month}:${filters.account}:${filters.flow}:${filters.major}:${filters.q}`} month={shell.month} rows={listData.rows} />
             </section>
           </>
         )}

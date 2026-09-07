@@ -65,3 +65,13 @@ export function recurringPostingDate(month: string, day: number) {
   const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate()
   return `${month}-${String(Math.min(Math.max(day, 1), lastDay)).padStart(2, '0')}`
 }
+
+/**
+ * Identity of the transaction a rule posts in a given month. Stored in
+ * `import_uid`, whose unique index is what actually stops a second posting:
+ * matching on the transaction's date instead lets an edited date slip past
+ * and produce a duplicate.
+ */
+export function recurringImportUid(ruleId: number, month: string) {
+  return `recurring:${ruleId}:${month}`
+}
