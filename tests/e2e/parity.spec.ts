@@ -171,17 +171,6 @@ async function loginAs(
   await expect(page).toHaveURL('/dashboard')
 }
 
-async function navigateFromHeader(page: Page, menu: '분석·예산' | '설정', link: string) {
-  await page.waitForLoadState('networkidle')
-  const item = page.getByRole('menuitem', { name: new RegExp(`^${link}`) })
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await page.getByRole('button', { name: menu, exact: true }).click()
-    await page.waitForTimeout(100)
-    if (await item.isVisible()) { await item.click(); return }
-  }
-  throw new Error(`${menu} 메뉴에서 ${link} 링크를 열지 못했습니다.`)
-}
-
 test('card statement upload reaches inbox, applies to ledger, and keeps card source', async ({ page }, testInfo) => {
   test.slow()
   const email = `finance-parity-card-${Date.now()}-${crypto.randomUUID()}@example.com`
@@ -203,7 +192,9 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
       </table>
     </body></html>`, 'utf8')
 
-    await page.getByRole('link', { name: '인박스', exact: true }).click()
+    // 가져오기 opens on 검토 대기 once anything is pending, so the upload tab
+    // is addressed directly.
+    await page.goto('/inbox?tab=upload')
     await page.getByRole('tab', { name: '카드사 명세서' }).click()
     await page.locator('select[name="issuer"]').selectOption('samsung')
     await page.locator('select[name="owner"]').selectOption('DJ')
@@ -227,7 +218,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
 
     await expect(page).toHaveURL(/\/inbox\?notice=/)
     await expect(page.getByText(/1건을 가계부에 반영했습니다/)).toBeVisible()
-    await page.getByRole('link', { name: '가계부', exact: true }).click()
+    await page.getByRole('link', { name: '내역', exact: true }).click()
     const ledgerRow = page.getByRole('row').filter({ hasText: merchant })
     await expect(ledgerRow).toHaveCount(1)
     await expect(ledgerRow).toContainText('5,000원')
@@ -252,7 +243,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
       </table>
     </body></html>`, 'utf8')
 
-    await page.getByRole('link', { name: '인박스', exact: true }).click()
+    await page.goto('/inbox?tab=upload')
     await page.getByRole('tab', { name: '카드사 명세서' }).click()
     await page.locator('select[name="issuer"]').selectOption('samsung')
     await page.locator('select[name="owner"]').selectOption('DJ')
@@ -266,14 +257,14 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await repeatRow.getByRole('button', { name: `${merchant} 바로 반영` }).click()
     await expect(page.getByText('확인할 거래가 없습니다.')).toBeVisible()
 
-    await page.getByRole('link', { name: '가계부', exact: true }).click()
+    await page.getByRole('link', { name: '내역', exact: true }).click()
     await expect(page.getByRole('row').filter({ hasText: merchant })).toHaveCount(2)
   } finally {
     await deleteTestState(email, householdId)
   }
 })
 
-test('dashboard category detail interaction and annual report navigation render', async ({ page }) => {
+test('home charts render and the annual matrix excludes a cell', async ({ page }) => {
   const email = `finance-parity-dashboard-${Date.now()}-${crypto.randomUUID()}@example.com`
   const password = 'passw0rd!'
   let householdId: string | undefined
@@ -283,40 +274,27 @@ test('dashboard category detail interaction and annual report navigation render'
     householdId = setup.householdId
     await loginAs(page, email, password)
 
-    const cashflowChart = page.getByRole('img', { name: '월별 수입과 지출 막대 차트' })
-    await cashflowChart.locator('[aria-label="1월 수입 2,000,000원"]').hover()
-    await expect(page.getByRole('tooltip')).toContainText('1월')
-    await expect(page.getByRole('tooltip')).toContainText('수입: 2,000,000원')
+    // Charts are Chart.js canvases: there are no per-point elements to hover
+    // and no DOM tooltip, so the assertion is that the labelled canvas renders.
+    await expect(page.getByRole('img', { name: '월별 수입과 지출 막대 차트' })).toBeVisible()
 
-    const accountChart = page.getByRole('img', { name: '결제수단별 월간 금액 누적 막대 차트' })
-    await accountChart.locator('[aria-label="1월 DJ 삼성카드 500,000원"]').hover()
-    await expect(page.getByRole('tooltip')).toContainText('DJ 삼성카드: 500,000원')
+    await page.getByRole('link', { name: '통계', exact: true }).click()
+    await expect(page).toHaveURL('/report')
+    await expect(page.getByRole('heading', { name: '연간 통계' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '6개월 현금흐름 예측' })).toBeVisible()
 
-    const categoryChart = page.getByRole('img', { name: '분류별 월간 추이' })
-    await categoryChart.locator('[aria-label="분류별 차트 hover 영역"]').hover()
-    await expect(page.getByRole('tooltip')).toContainText('식비')
-    await expect(page.getByRole('tooltip')).toContainText(/1월\s+500,000원/)
-    await expect(page.getByRole('tooltip')).toContainText(/2월\s+300,000원/)
-
+    // The monthly matrix carries the interaction now: a cell drops out of the
+    // totals and the chart when clicked.
     const detailSection = page.locator('section').filter({
-      has: page.getByRole('heading', { name: '항목별 월별', exact: true }),
+      has: page.getByRole('heading', { name: '달마다 어떻게 달랐나', exact: true }),
     })
     await expect(detailSection).toBeVisible()
-    await expect(detailSection.getByRole('link', { name: '식비', exact: true })).toBeVisible()
     await expect(detailSection.getByRole('columnheader', { name: '1월', exact: true })).toBeVisible()
-
-    const januaryCell = detailSection.locator('button[aria-label^="식비 카페 1월 500,000원,"]')
+    const januaryCell = detailSection.locator('button[aria-label^="식비 1월 "]').first()
     await expect(januaryCell).toHaveAccessibleName(/합계에서 제외/)
-    await januaryCell.hover()
-    await expect(page.getByRole('tooltip')).toContainText('Parity E2E 대시보드 마트')
     await januaryCell.click()
     await expect(januaryCell).toHaveAttribute('aria-pressed', 'true')
     await expect(januaryCell).toHaveAccessibleName(/합계에 다시 포함/)
-
-    await navigateFromHeader(page, '분석·예산', '연간결산')
-    await expect(page).toHaveURL('/report')
-    await expect(page.getByRole('heading', { name: '연간결산', exact: true })).toBeVisible()
-    await expect(page.getByRole('heading', { name: '6개월 현금흐름 예측' })).toBeVisible()
   } finally {
     await deleteTestState(email, householdId)
   }
