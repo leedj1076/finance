@@ -1,13 +1,13 @@
 'use server'
 
 import { and, eq } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
 import { accounts, categories, transactions } from '@/db/schema'
 import { isMonthKey } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
+import { revalidateFinance } from '@/lib/revalidate'
 
 import { parseTransactionInput } from './transaction-input'
 import { ledgerFiltersFromFormData, ledgerUrl } from './filters'
@@ -94,7 +94,7 @@ export async function saveTransaction(
       )
   }
 
-  revalidatePath('/ledger')
+  revalidateFinance('transactions')
   if (formData.get('inline') === '1' && input.id !== null) {
     return {
       saved: {
@@ -126,7 +126,7 @@ export async function deleteTransaction(formData: FormData) {
   const month = typeof requestedMonth === 'string' && isMonthKey(requestedMonth)
     ? requestedMonth
     : undefined
-  revalidatePath('/ledger')
+  revalidateFinance('transactions')
   redirect(month
     ? ledgerUrl(month, ledgerFiltersFromFormData(formData))
     : '/ledger')

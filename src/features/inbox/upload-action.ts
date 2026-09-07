@@ -1,11 +1,11 @@
 'use server'
 
 import { and, eq } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 
 import { db } from '@/db/client'
 import { accounts, importInbox } from '@/db/schema'
 import { requireHousehold } from '@/lib/household'
+import { revalidateFinance } from '@/lib/revalidate'
 
 import { upsertBanksaladAssetSnapshots } from './asset-snapshots'
 import { suggestCardAccountId } from './account-match'
@@ -235,12 +235,8 @@ export async function uploadBanksaladFiles(
       snapshotMonth,
     )
     : 0
-  revalidatePath('/inbox')
-  revalidatePath('/ledger')
-  if (assetUpdated) {
-    revalidatePath('/assets')
-    revalidatePath('/dashboard')
-  }
+  revalidateFinance('inbox')
+  if (assetUpdated) revalidateFinance('assets')
 
   const excludedCount = [...excluded.values()].reduce((sum, count) => sum + count, 0)
   const details = [
@@ -388,8 +384,7 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
     householdId,
     inserted.map((row) => row.id),
   )
-  revalidatePath('/inbox')
-  revalidatePath('/ledger')
+  revalidateFinance('inbox')
 
   const details = [
     `인박스에 ${inserted.length}건 추가`,

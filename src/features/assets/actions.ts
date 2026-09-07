@@ -1,13 +1,13 @@
 'use server'
 
 import { and, eq, max, sql } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
 import { assetAccounts, balanceSnapshots } from '@/db/schema'
 import { isMonthKey } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
+import { revalidateFinance } from '@/lib/revalidate'
 
 import { parseAssetAmount, parseAssetName, parseNewAssets } from './asset-input'
 
@@ -102,8 +102,7 @@ export async function saveAssetAccounts(
     }
   })
 
-  revalidatePath('/assets')
-  revalidatePath('/settings')
+  revalidateFinance('assets')
   redirect('/settings?section=assets&saved=1')
 }
 
@@ -258,7 +257,6 @@ export async function saveAssets(
     }
   })
 
-  revalidatePath('/assets')
-  revalidatePath('/dashboard')
+  revalidateFinance('assets')
   redirect(`/assets?month=${monthValue}&saved=1`)
 }

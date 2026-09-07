@@ -1,7 +1,6 @@
 'use server'
 
 import { and, count, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
@@ -9,6 +8,7 @@ import { accountAliases, accounts, categories, categoryRules, importInbox, merch
 import { isAggregatorNorm } from '@/features/inbox/merchant-lookup'
 import { normalizeMerchant } from '@/features/inbox/normalize'
 import { requireHousehold } from '@/lib/household'
+import { revalidateFinance } from '@/lib/revalidate'
 
 import { classificationFromToken } from './bulk-classification'
 import { manageFlow, optionalText, parseBulkAccounts, parseBulkCategories, positiveId, requiredText } from './manage-input'
@@ -20,12 +20,6 @@ function finish(tab: ManageTab, key: 'error' | 'saved', message: string): never 
     redirect(`/inbox?tab=unclassified&${key === 'saved' ? 'notice' : 'error'}=${encodeURIComponent(message)}`)
   }
   redirect(`/manage?tab=${tab}&${key}=${encodeURIComponent(message)}`)
-}
-
-function refreshDataPaths() {
-  for (const path of ['/manage', '/ledger', '/budgets', '/inbox', '/recurring', '/dashboard', '/report']) {
-    revalidatePath(path)
-  }
 }
 
 function sameIds(left: number[], right: number[]) {
@@ -102,7 +96,7 @@ export async function bulkSaveAccounts(formData: FormData) {
       }
     }
   })
-  refreshDataPaths()
+  revalidateFinance('taxonomy', 'transactions')
   finish('accounts', 'saved', '결제수단과 표시 순서를 저장했습니다.')
 }
 
@@ -170,7 +164,7 @@ export async function bulkSaveCategories(formData: FormData) {
       }
     }
   })
-  refreshDataPaths()
+  revalidateFinance('taxonomy', 'transactions')
   finish('categories', 'saved', '카테고리 구조와 표시 순서를 저장했습니다.')
 }
 
@@ -220,7 +214,7 @@ export async function saveAccount(formData: FormData) {
       sortOrder: Number(sortRow?.value ?? 0) + 1,
     })
   }
-  refreshDataPaths()
+  revalidateFinance('taxonomy', 'transactions')
   finish('accounts', 'saved', id ? '결제수단을 저장했습니다.' : '결제수단을 추가했습니다.')
 }
 
@@ -276,7 +270,7 @@ export async function saveCategory(formData: FormData) {
       sortOrder: Number(sortRow?.value ?? 0) + 1,
     })
   }
-  refreshDataPaths()
+  revalidateFinance('taxonomy', 'transactions')
   finish('categories', 'saved', id ? '카테고리를 저장했습니다.' : '카테고리를 추가했습니다.')
 }
 
@@ -314,8 +308,7 @@ export async function updateMerchantLookupCategory(formData: FormData) {
     )
     .returning({ id: merchantLookup.id })
   if (updated.length === 0) finish('rules', 'error', '가맹점 사전 항목을 찾을 수 없습니다.')
-  revalidatePath('/manage')
-  revalidatePath('/inbox')
+  revalidateFinance('taxonomy')
   finish('rules', 'saved', '가맹점 분류를 저장했습니다.')
 }
 
@@ -336,8 +329,7 @@ export async function toggleAlwaysConfirm(formData: FormData) {
     )
     .returning({ alwaysConfirm: merchantLookup.alwaysConfirm })
   if (updated.length === 0) finish('rules', 'error', '가맹점 사전 항목을 찾을 수 없습니다.')
-  revalidatePath('/manage')
-  revalidatePath('/inbox')
+  revalidateFinance('taxonomy')
   finish(
     'rules',
     'saved',
@@ -363,8 +355,7 @@ export async function deleteMerchantLookup(formData: FormData) {
     )
     .returning({ id: merchantLookup.id })
   if (deleted.length === 0) finish('rules', 'error', '가맹점 사전 항목을 찾을 수 없습니다.')
-  revalidatePath('/manage')
-  revalidatePath('/inbox')
+  revalidateFinance('taxonomy')
   finish('rules', 'saved', '가맹점 사전 항목을 삭제했습니다.')
 }
 
@@ -382,8 +373,7 @@ export async function saveAlias(formData: FormData) {
       eq(accountAliases.owner, owner.value),
       eq(accountAliases.alias, alias.value),
     ))
-    revalidatePath('/manage')
-    revalidatePath('/inbox')
+    revalidateFinance('taxonomy')
     finish('rules', 'saved', '결제수단 별칭을 삭제했습니다.')
   }
   const accountId = positiveId(formData.get('accountId'))
@@ -402,8 +392,7 @@ export async function saveAlias(formData: FormData) {
       eq(accountAliases.owner, owner.value),
       eq(accountAliases.alias, alias.value),
     ))
-  revalidatePath('/manage')
-  revalidatePath('/inbox')
+  revalidateFinance('taxonomy')
   finish('rules', 'saved', '결제수단 별칭을 저장했습니다.')
 }
 
@@ -446,7 +435,7 @@ export async function classifyTransaction(formData: FormData) {
       }))
     }
   })
-  refreshDataPaths()
+  revalidateFinance('taxonomy', 'transactions')
   finish('unclassified', 'saved', '거래를 분류하고 다음 추천에 반영했습니다.')
 }
 
@@ -554,7 +543,7 @@ export async function bulkClassifyTransactions(formData: FormData) {
   if (updatedCount === 0) {
     finish('unclassified', 'error', '선택한 거래가 이미 다른 화면에서 분류되었습니다.')
   }
-  refreshDataPaths()
+  revalidateFinance('taxonomy', 'transactions')
   const skipped = transactionRows.length - updatedCount
   const suffix = skipped > 0 ? ` · 이미 분류된 ${skipped}건 제외` : ''
   finish('unclassified', 'saved', `${updatedCount}건을 분류하고 다음 추천에 반영했습니다${suffix}.`)

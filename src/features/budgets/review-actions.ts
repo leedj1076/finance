@@ -1,12 +1,12 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
 import { budgets } from '@/db/schema'
 import { isMonthKey } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
+import { revalidateFinance } from '@/lib/revalidate'
 
 import { parseBudgetAmount } from './budget-input'
 import { getExpenseMajorNames } from './queries'
@@ -42,8 +42,6 @@ export async function saveBudgetReview(
         })
     }
   })
-  revalidatePath('/budgets')
-  revalidatePath('/budgets/review')
-  revalidatePath('/ledger')
+  revalidateFinance('budgets')
   redirect(`/budgets?month=${targetMonth}&reviewSaved=1`)
 }

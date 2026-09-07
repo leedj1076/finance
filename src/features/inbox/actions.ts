@@ -1,7 +1,6 @@
 'use server'
 
 import { and, eq, inArray, sql } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
@@ -14,6 +13,7 @@ import {
   transactions,
 } from '@/db/schema'
 import { requireHousehold } from '@/lib/household'
+import { revalidateFinance } from '@/lib/revalidate'
 
 import type { TransactionFlow } from './banksalad'
 import { merchantLookupUpsertStatement } from './merchant-lookup'
@@ -196,8 +196,7 @@ async function applyPreparedInboxRows(
   })
 
   await refreshDuplicateFlags(householdId)
-  revalidatePath('/inbox')
-  revalidatePath('/ledger')
+  revalidateFinance('inbox', 'transactions')
 
   return {
     processed: prepared.length,
@@ -238,7 +237,7 @@ export async function processInbox(formData: FormData) {
       )
       .returning({ id: importInbox.id })
     await refreshDuplicateFlags(householdId)
-    revalidatePath('/inbox')
+    revalidateFinance('inbox')
     inboxRedirect('notice', `${dismissed.length}건을 인박스에서 제외했습니다.`)
   }
 
@@ -461,6 +460,6 @@ export async function demoteToReview(
     .returning({ id: importInbox.id })
   if (updated.length === 0) return { error: '수정할 대기 거래를 찾지 못했습니다.' }
 
-  revalidatePath('/inbox')
+  revalidateFinance('inbox')
   return { demoted: true }
 }

@@ -1,13 +1,13 @@
 'use server'
 
 import { and, eq, gte, lt, max, sql } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
 import { accounts, categories, recurring, transactions } from '@/db/schema'
 import { isMonthKey, monthBounds } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
+import { revalidateFinance } from '@/lib/revalidate'
 
 import { recurringImportUid, recurringPostingDate } from './calculations'
 import { parseRecurringPayload } from './recurring-input'
@@ -89,8 +89,7 @@ export async function saveRecurringRules(
     }
   })
 
-  revalidatePath('/recurring')
-  revalidatePath('/budgets')
+  revalidateFinance('recurring')
   redirect(`/recurring${month ? `?month=${month}&saved=1` : '?saved=1'}`)
 }
 
@@ -169,9 +168,6 @@ export async function applyRecurringMonth(formData: FormData) {
     return { added: created.length, skipped: rules.length - created.length }
   })
 
-  revalidatePath('/recurring')
-  revalidatePath('/ledger')
-  revalidatePath('/dashboard')
-  revalidatePath('/report')
+  revalidateFinance('recurring', 'transactions')
   redirect(`/ledger?month=${monthValue}&recurringAdded=${result.added}&recurringSkipped=${result.skipped}`)
 }

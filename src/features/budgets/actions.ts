@@ -1,13 +1,13 @@
 'use server'
 
 import { sql } from 'drizzle-orm'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
 import { budgets, settings } from '@/db/schema'
 import { isMonthKey } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
+import { revalidateFinance } from '@/lib/revalidate'
 
 import { parseBudgetAmount, parseSavingsTarget } from './budget-input'
 import { getExpenseMajorNames } from './queries'
@@ -68,7 +68,6 @@ export async function saveBudgetPlan(
       })
   })
 
-  revalidatePath('/budgets')
-  revalidatePath('/ledger')
+  revalidateFinance('budgets')
   redirect(`/budgets?month=${monthValue}`)
 }
