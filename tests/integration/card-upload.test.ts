@@ -2,7 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, expect, test, vi } from 'vitest'
 
 import { db } from '@/db/client'
-import { accountAliases, accounts, categories, households, importBatches, importInbox, transactions } from '@/db/schema'
+import { accounts, categories, households, importBatches, importInbox, transactions } from '@/db/schema'
 import { processInbox } from '@/features/inbox/actions'
 import { upsertMerchantLookup } from '@/features/inbox/merchant-lookup'
 import { normalizeMerchant } from '@/features/inbox/normalize'
@@ -40,7 +40,11 @@ const CARD_HTML = Buffer.from(`
 const householdIds: string[] = []
 let categoryId: number
 let accountId: number
-let otherIssuerAccountId: number
+let sameIssuerAccountId: number
+let wrongOwnerAccountId: number
+let inactiveAccountId: number
+let nonCardAccountId: number
+let foreignAccountId: number
 
 function makeFormData() {
   const formData = new FormData()
@@ -88,7 +92,17 @@ beforeAll(async () => {
     })
     .returning({ id: accounts.id })
   accountId = account.id
-  const [otherIssuerAccount] = await db
+  const [sameIssuerAccount] = await db
+    .insert(accounts)
+    .values({
+      householdId: context.householdId,
+      name: 'DJ 현대 두번째카드',
+      owner: 'DJ',
+      type: 'card',
+    })
+    .returning({ id: accounts.id })
+  sameIssuerAccountId = sameIssuerAccount.id
+  await db
     .insert(accounts)
     .values({
       householdId: context.householdId,
@@ -96,8 +110,40 @@ beforeAll(async () => {
       owner: 'DJ',
       type: 'card',
     })
-    .returning({ id: accounts.id })
-  otherIssuerAccountId = otherIssuerAccount.id
+  const invalidAccounts = await db
+    .insert(accounts)
+    .values([
+      {
+        householdId: context.householdId,
+        name: 'YJ 신한 테스트카드',
+        owner: 'YJ',
+        type: 'card',
+      },
+      {
+        householdId: context.householdId,
+        name: 'DJ 신한 비활성카드',
+        owner: 'DJ',
+        type: 'card',
+        active: false,
+      },
+      {
+        householdId: context.householdId,
+        name: 'DJ 신한 테스트계좌',
+        owner: 'DJ',
+        type: 'cash',
+      },
+      {
+        householdId: householdIds[1],
+        name: 'DJ 신한 다른가구카드',
+        owner: 'DJ',
+        type: 'card',
+      },
+    ])
+    .returning({ id: accounts.id, name: accounts.name })
+  wrongOwnerAccountId = invalidAccounts.find((row) => row.name === 'YJ 신한 테스트카드')!.id
+  inactiveAccountId = invalidAccounts.find((row) => row.name === 'DJ 신한 비활성카드')!.id
+  nonCardAccountId = invalidAccounts.find((row) => row.name === 'DJ 신한 테스트계좌')!.id
+  foreignAccountId = invalidAccounts.find((row) => row.name === 'DJ 신한 다른가구카드')!.id
   await db.insert(transactions).values({
     householdId: context.householdId,
     date: '2026-01-01',
@@ -283,30 +329,56 @@ test('card uploads stay expense when cache suggests another flow', async () => {
   })
 })
 
-test('card upload ignores a submitted card id and uses the owner plus issuer match', async () => {
-  const formData = makeSingleRowFormData('자동매칭 검증 가맹점', '2026-08-24', 18_000)
-  formData.set('accountId', String(otherIssuerAccountId))
-  await db.insert(accountAliases).values({
-    householdId: context.householdId,
-    owner: 'DJ',
-    alias: '현대카드',
-    accountId: otherIssuerAccountId,
-  })
+test('uses the selected eligible card for every inserted statement row', async () => {
+  const formData = makeSingleRowFormData('선택카드 검증 가맹점', '2026-08-24', 18_000)
+  formData.set('accountId', String(sameIssuerAccountId))
 
   const result = await uploadCardStatement(formData)
   expect(result.error).toBeUndefined()
 
-  const [row] = await db
+  const rows = await db
     .select({ accountId: importInbox.accountId })
     .from(importInbox)
-    .where(
-      and(
-        eq(importInbox.householdId, context.householdId),
-        eq(importInbox.merchant, '자동매칭 검증 가맹점'),
-      ),
-    )
+    .where(and(
+      eq(importInbox.householdId, context.householdId),
+      eq(importInbox.merchant, '선택카드 검증 가맹점'),
+    ))
+  expect(rows).toEqual([{ accountId: sameIssuerAccountId }])
+})
 
-  expect(row.accountId).toBe(accountId)
+test('rejects foreign, inactive, wrong-owner, wrong-issuer, non-card, and invalid ids before insert', async () => {
+  const invalidSelections: Array<[string, FormDataEntryValue]> = [
+    ['wrong-issuer', String(accountId)],
+    ['wrong-owner', String(wrongOwnerAccountId)],
+    ['inactive', String(inactiveAccountId)],
+    ['foreign', String(foreignAccountId)],
+    ['non-card', String(nonCardAccountId)],
+    ['zero', '0'],
+    ['decimal', '1.5'],
+    ['missing', '999999999'],
+    ['blank', ''],
+    ['non-string', new File(['not-an-id'], 'account.txt')],
+  ]
+  const merchants: string[] = []
+
+  for (const [label, selectedId] of invalidSelections) {
+    const merchant = `선택거부 ${label}`
+    merchants.push(merchant)
+    const formData = makeSingleRowFormData(merchant, '2026-08-25', 19_000)
+    formData.set('issuer', 'shinhan')
+    formData.set('accountId', selectedId)
+
+    expect((await uploadCardStatement(formData)).error).toBeDefined()
+  }
+
+  const rows = await db
+    .select({ merchant: importInbox.merchant })
+    .from(importInbox)
+    .where(and(
+      eq(importInbox.householdId, context.householdId),
+      inArray(importInbox.merchant, merchants),
+    ))
+  expect(rows).toHaveLength(0)
 })
 
 test('BankSalad-like pay label does not collide with the internal card source marker', async () => {
@@ -398,6 +470,7 @@ test('Hyundai secure HTML validates passwords before staging, keeps refunds and 
   form.set('file', new File([secureHyundaiFixture()], 'hyundai.html', { type: 'text/html' }))
   form.set('issuer', 'hyundai')
   form.set('owner', 'DJ')
+  form.set('accountId', String(accountId))
   const readFixtureRows = () => db.select().from(importInbox).where(and(
     eq(importInbox.householdId, context.householdId), inArray(importInbox.merchant, ['테스트 상점', '테스트 환불']),
   )).orderBy(importInbox.date)

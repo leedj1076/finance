@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
+import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import {
@@ -9,7 +10,7 @@ import {
   type UploadBanksaladState,
   type UploadCardState,
 } from './upload-action'
-import { suggestCardAccountId } from './account-match'
+import { cardAccountCandidates } from './account-match'
 
 const initialBanksaladState: UploadBanksaladState = {}
 const initialCardState: UploadCardState = {}
@@ -17,15 +18,14 @@ const initialCardState: UploadCardState = {}
 type CardIssuerOption = { key: string; label: string }
 type AccountOption = { id: number; name: string; owner: string | null; type: string | null }
 
-function suggestedCardAccount(
+function eligibleCardAccounts(
   issuers: CardIssuerOption[],
   accounts: AccountOption[],
   issuerKey: string,
   owner: string,
 ) {
   const issuerLabel = issuers.find((issuer) => issuer.key === issuerKey)?.label
-  if (!issuerLabel) return ''
-  return String(suggestCardAccountId(accounts, issuerLabel, owner) ?? '')
+  return issuerLabel ? cardAccountCandidates(accounts, issuerLabel, owner) : []
 }
 
 function UploadButton({ disabled = false, uploading }: { disabled?: boolean; uploading?: boolean }) {
@@ -192,8 +192,17 @@ function CardStatementForm({
   const initialIssuer = issuers[0]?.key ?? ''
   const [issuer, setIssuer] = useState(initialIssuer)
   const [owner, setOwner] = useState('DJ')
-  const accountId = suggestedCardAccount(issuers, accounts, issuer, owner)
-  const matchedAccount = accounts.find((account) => String(account.id) === accountId)
+  const candidates = useMemo(
+    () => eligibleCardAccounts(issuers, accounts, issuer, owner),
+    [accounts, issuer, issuers, owner],
+  )
+  const [selectedAccountId, setSelectedAccountId] = useState('')
+  const accountId = candidates.length === 1
+    ? String(candidates[0].id)
+    : candidates.some((account) => String(account.id) === selectedAccountId)
+      ? selectedAccountId
+      : ''
+  const matchedAccount = candidates.find((account) => String(account.id) === accountId)
 
   return (
     <form
@@ -234,6 +243,7 @@ function CardStatementForm({
           onChange={(event) => {
             const nextIssuer = event.target.value
             setIssuer(nextIssuer)
+            setSelectedAccountId('')
             if (passwordInput.current) passwordInput.current.value = ''
             setState({})
           }}
@@ -252,6 +262,7 @@ function CardStatementForm({
           onChange={(event) => {
             const nextOwner = event.target.value
             setOwner(nextOwner)
+            setSelectedAccountId('')
           }}
           required
           value={owner}
@@ -262,19 +273,49 @@ function CardStatementForm({
       </label>
       <div className="grid gap-1.5 t-label uppercase text-finance-muted">
         <span>기본 카드</span>
-        <div
-          aria-label="자동 선택된 기본 카드"
-          aria-live="polite"
-          data-account-id={matchedAccount?.id}
-          className={`flex h-[34px] items-center justify-between gap-2 border px-3 t-body font-normal normal-case tracking-normal ${matchedAccount ? 'border-finance-border bg-finance-panel text-finance-ink' : 'border-finance-red text-finance-red'}`}
-        >
-          <span>{matchedAccount?.name ?? '일치하는 카드 없음'}</span>
-          <span className="shrink-0 t-badge text-finance-faint">자동 고정</span>
-        </div>
-        <span className={`font-normal normal-case tracking-normal ${matchedAccount ? 'text-finance-faint' : 'text-finance-red'}`}>
-          {matchedAccount
-            ? '카드사와 소유자로 자동 선택됩니다.'
-            : '결제수단 관리에서 카드사와 소유자가 맞는 카드를 확인해 주세요.'}
+        {candidates.length === 0 ? (
+          <div
+            aria-live="polite"
+            className="flex min-h-[34px] items-center justify-between gap-2 border border-finance-red px-3 t-body font-normal normal-case tracking-normal text-finance-red"
+          >
+            <span>일치하는 카드 없음</span>
+            <Link className="shrink-0 font-semibold underline underline-offset-2" href="/manage?tab=accounts">
+              결제수단 관리
+            </Link>
+          </div>
+        ) : candidates.length === 1 ? (
+          <>
+            <input name="accountId" type="hidden" value={accountId} />
+            <div
+              aria-label="자동 선택된 기본 카드"
+              aria-live="polite"
+              data-account-id={matchedAccount?.id}
+              className="flex h-[34px] items-center justify-between gap-2 border border-finance-border bg-finance-panel px-3 t-body font-normal normal-case tracking-normal text-finance-ink"
+            >
+              <span>{matchedAccount?.name}</span>
+              <span className="shrink-0 t-badge text-finance-faint">자동 고정</span>
+            </div>
+          </>
+        ) : (
+          <select
+            aria-label="기본 카드"
+            className="h-[34px] border border-finance-border bg-white px-3 t-body font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
+            disabled={uploading}
+            name="accountId"
+            onChange={(event) => setSelectedAccountId(event.target.value)}
+            required
+            value={accountId}
+          >
+            <option value="">기본 카드를 선택해 주세요</option>
+            {candidates.map((account) => (
+              <option key={account.id} value={account.id}>{account.name}</option>
+            ))}
+          </select>
+        )}
+        <span className={`font-normal normal-case tracking-normal ${candidates.length === 0 ? 'text-finance-red' : 'text-finance-faint'}`}>
+          {candidates.length === 0
+            ? '카드사와 소유자가 맞는 활성 카드를 등록해 주세요.'
+            : '이번 파일의 모든 거래에 적용되며, 가져온 뒤 인박스에서 건별로 바꿀 수 있습니다.'}
         </span>
       </div>
       <label className="grid gap-1.5 t-label uppercase text-finance-muted">

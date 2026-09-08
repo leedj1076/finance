@@ -174,7 +174,7 @@ async function loginAs(
   await expect(page).toHaveURL('/dashboard')
 }
 
-async function openCardReview(page: Page, date: string) {
+async function openCardReview(page: Page, date: string, cardName = 'DJ 삼성카드') {
   await page.getByRole('navigation', { name: '가져오기 작업' }).getByRole('link', { name: /검토 대기/ }).click()
   const [year, month] = date.split('-')
   const monthGroup = page.getByRole('button', { name: new RegExp(`${year}년 ${Number(month)}월`) })
@@ -183,7 +183,7 @@ async function openCardReview(page: Page, date: string) {
   const ownerGroup = page.getByRole('button', { name: /^DJ 1건 결제수단 1개$/ })
   await expect(ownerGroup).toHaveAttribute('aria-expanded', 'false')
   await ownerGroup.click()
-  const cardGroup = page.getByRole('button', { name: /^DJ 삼성카드 1건/ })
+  const cardGroup = page.getByRole('button', { name: new RegExp(`^${cardName} 1건`) })
   await expect(cardGroup).toHaveAttribute('aria-expanded', 'false')
   await cardGroup.click()
 }
@@ -354,6 +354,19 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
   try {
     const setup = await createTestUser(email, password)
     householdId = setup.householdId
+    const admin = createAdminClient()
+    const { data: secondCard, error: secondCardError } = await admin
+      .from('accounts')
+      .insert({
+        household_id: householdId,
+        name: 'DJ 삼성 제휴카드',
+        owner: 'DJ',
+        type: 'card',
+        active: true,
+      })
+      .select('id')
+      .single()
+    if (secondCardError) throw secondCardError
     await loginAs(page, email, password)
 
     const statementPath = testInfo.outputPath('samsung-card-statement.xls')
@@ -370,8 +383,16 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await page.getByRole('tab', { name: '카드사 명세서' }).click()
     await page.locator('select[name="issuer"]').selectOption('samsung')
     await page.locator('select[name="owner"]').selectOption('DJ')
-    await expect(page.getByLabel('자동 선택된 기본 카드')).toContainText('DJ 삼성카드')
-    await expect(page.getByLabel('자동 선택된 기본 카드')).toHaveAttribute('data-account-id', String(setup.accountId))
+    const defaultCard = page.getByRole('combobox', { name: '기본 카드', exact: true })
+    await expect(defaultCard).toHaveValue('')
+    await defaultCard.selectOption(String(secondCard.id))
+    await page.locator('select[name="owner"]').selectOption('YJ')
+    await expect(page.getByRole('link', { name: '결제수단 관리', exact: true }))
+      .toHaveAttribute('href', '/manage?tab=accounts')
+    await expect(page.getByRole('button', { name: '인박스로 불러오기' })).toBeDisabled()
+    await page.locator('select[name="owner"]').selectOption('DJ')
+    await expect(defaultCard).toHaveValue('')
+    await defaultCard.selectOption(String(secondCard.id))
     const fileInput = page.locator('input[name="file"]')
     await fileInput.setInputFiles(statementPath)
     expect(await fileInput.evaluate((input) => (input as HTMLInputElement).files?.[0]?.name))
@@ -379,14 +400,15 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await page.getByRole('button', { name: '인박스로 불러오기' }).click({ noWaitAfter: true })
 
     await expect(page.getByText(/인박스에 1건 추가/)).toBeVisible()
-    await openCardReview(page, transactionDate)
+    await openCardReview(page, transactionDate, 'DJ 삼성 제휴카드')
     const inboxRow = page.getByRole('row').filter({ hasText: merchant })
     await expect(inboxRow).toHaveCount(1)
     await expect(inboxRow.getByRole('checkbox', { name: `${merchant} 선택` })).not.toBeChecked()
-    await page.getByRole('checkbox', { name: 'DJ 삼성카드 그룹 선택' }).check()
+    await expect(inboxRow.getByRole('combobox', { name: `${merchant} 결제수단` }))
+      .toHaveValue(String(secondCard.id))
+    await page.getByRole('checkbox', { name: 'DJ 삼성 제휴카드 그룹 선택' }).check()
     await expect(inboxRow.getByRole('checkbox', { name: `${merchant} 선택` })).toBeChecked()
     await inboxRow.getByRole('combobox', { name: `${merchant} 카테고리` }).selectOption(String(setup.categoryId))
-    await inboxRow.getByRole('combobox', { name: `${merchant} 결제수단` }).selectOption(String(setup.accountId))
     await page.getByRole('button', { name: '선택 반영' }).first().click()
 
     await expect(page).toHaveURL('/inbox?tab=review')
@@ -396,9 +418,8 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await expect(ledgerRow).toHaveCount(1)
     await expect(ledgerRow).toContainText('5,000원')
     await expect(ledgerRow).toContainText('식비')
-    await expect(ledgerRow).toContainText('DJ 삼성카드')
+    await expect(ledgerRow).toContainText('DJ 삼성 제휴카드')
 
-    const admin = createAdminClient()
     const { data: sourceRow, error: sourceError } = await admin
       .from('transactions')
       .select('source, raw_merchant')
@@ -420,12 +441,13 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await page.getByRole('tab', { name: '카드사 명세서' }).click()
     await page.locator('select[name="issuer"]').selectOption('samsung')
     await page.locator('select[name="owner"]').selectOption('DJ')
-    await expect(page.getByLabel('자동 선택된 기본 카드')).toContainText('DJ 삼성카드')
+    await page.getByRole('combobox', { name: '기본 카드', exact: true })
+      .selectOption(String(secondCard.id))
     await page.locator('input[name="file"]').setInputFiles(repeatStatementPath)
     await page.getByRole('button', { name: '인박스로 불러오기' }).click({ noWaitAfter: true })
 
     await expect(page.getByText(/자동 분류 1건/).first()).toBeVisible()
-    await openCardReview(page, transactionDate)
+    await openCardReview(page, transactionDate, 'DJ 삼성 제휴카드')
     const repeatRow = page.getByRole('row').filter({ hasText: merchant })
     await expect(repeatRow.getByText('자동 분류')).toBeVisible()
     await repeatRow.getByRole('button', { name: `${merchant} 바로 반영` }).click()

@@ -8,7 +8,7 @@ import { requireHousehold } from '@/lib/household'
 import { revalidateFinance } from '@/lib/revalidate'
 
 import { upsertBanksaladAssetSnapshots } from './asset-snapshots'
-import { suggestCardAccountId } from './account-match'
+import { cardAccountCandidates, resolveCardAccountId } from './account-match'
 import {
   banksaladFingerprint,
   classifyBanksaladRow,
@@ -282,15 +282,26 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
         eq(accounts.active, true),
       ),
     )
-  const resolvedAccountId = suggestCardAccountId(accountRows, issuerLabel, owner)
-  const selectedAccount = accountRows.find((account) => account.id === resolvedAccountId)
-  if (!selectedAccount || selectedAccount.type !== 'card') {
-    return { error: `${owner} ${issuerLabel}와 정확히 일치하는 활성 카드가 없습니다. 결제수단 관리를 확인해 주세요.` }
+  const submittedAccountId = formData.get('accountId')
+  if (submittedAccountId !== null && typeof submittedAccountId !== 'string') {
+    return { error: '선택한 기본 카드를 사용할 수 없습니다. 다시 선택해 주세요.' }
   }
-  if (selectedAccount.owner && selectedAccount.owner !== owner) {
-    return { error: '소유자와 카드의 소유자가 일치하지 않습니다.' }
+  const eligibleAccounts = cardAccountCandidates(accountRows, issuerLabel, owner)
+  const resolvedAccountId = resolveCardAccountId(
+    accountRows,
+    issuerLabel,
+    owner,
+    submittedAccountId,
+  )
+  if (resolvedAccountId === null) {
+    if (submittedAccountId === null && eligibleAccounts.length > 1) {
+      return { error: `${owner} ${issuerLabel} 기본 카드를 선택해 주세요.` }
+    }
+    if (eligibleAccounts.length === 0) {
+      return { error: `${owner} ${issuerLabel}와 정확히 일치하는 활성 카드가 없습니다. 결제수단 관리를 확인해 주세요.` }
+    }
+    return { error: '선택한 기본 카드를 사용할 수 없습니다. 카드사와 소유자를 확인해 다시 선택해 주세요.' }
   }
-
   const buffer = Buffer.from(await file.arrayBuffer())
   if (!isHtmlStatement(buffer) && looksLikeBanksalad(buffer)) {
     return { error: '뱅크샐러드 파일입니다. 뱅크샐러드 업로드를 사용해 주세요.' }
@@ -367,7 +378,7 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
       bsCat1: cardSourceMarker(issuer),
       bsCat2: null,
       pay,
-      accountId: selectedAccount.id,
+      accountId: resolvedAccountId,
       categoryId,
       memo: '',
       sugSource,
