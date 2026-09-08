@@ -289,6 +289,60 @@ test('inbox bulk mutations retain groups and edits, update counts, and keep revi
   }
 })
 
+test('processing history shows its own rows and restores excluded items inline without ledger navigation', async ({ page }, testInfo) => {
+  const email = `finance-history-${crypto.randomUUID()}@example.com`
+  let householdId: string | undefined
+  try {
+    const setup = await createTestUser(email, 'passw0rd!')
+    householdId = setup.householdId
+    const { error } = await createAdminClient().from('import_inbox').insert([
+      { merchant: '반영 완료 기록', status: 'done' },
+      { merchant: '제외 기록 하나', status: 'dismissed' },
+      { merchant: '제외 기록 둘', status: 'dismissed' },
+      { merchant: '대기 기록', status: 'pending' },
+    ].map((row) => ({ ...row, household_id: householdId, import_uid: crypto.randomUUID(), owner: 'DJ',
+      date: '2026-08-12', amount: 5000, flow: 'expense', account_id: setup.accountId,
+      bs_cat1: '__source:card:samsung', created_at: '2026-09-02T15:00:00Z',
+    })))
+    if (error) throw error
+    await loginAs(page, email, 'passw0rd!')
+    await page.goto('/inbox?tab=history')
+    await page.getByRole('button', { name: '거래 보기', exact: true }).click()
+    const details = page.getByRole('region', { name: '가져온 항목' })
+    await expect(details.getByText('반영 완료 기록', { exact: true })).toBeVisible()
+    await expect(details.getByText('대기 기록', { exact: true })).toBeVisible()
+    await details.getByRole('button', { name: '전체', exact: true }).click()
+    await expect(details.getByText('대기 기록', { exact: true })).toBeVisible()
+    await expect(details.getByRole('checkbox', { checked: true })).toHaveCount(0)
+    await details.getByRole('button', { name: '선택 제외', exact: true }).click()
+    await expect(details.getByText('반영 완료 기록', { exact: true })).toHaveCount(0)
+    await expect(details.getByText('제외 기록 하나', { exact: true })).toBeVisible()
+    await watchMutationFeedback(page)
+    await details.getByRole('button', { name: '제외 기록 하나 검토 대기로 보내기', exact: true }).click()
+    await expect(details.getByRole('status')).toContainText('1건을 검토 대기로')
+    await expect(details.getByText('제외 기록 하나', { exact: true })).toHaveCount(0)
+    await details.getByRole('checkbox', { name: '제외 기록 둘 복원 선택', exact: true }).check()
+    await details.getByRole('button', { name: '선택 항목 검토 대기로 보내기', exact: true }).click()
+    await expect(details.getByText('이 상태의 항목이 없습니다.')).toBeVisible()
+    await details.getByRole('button', { name: '검토 대기', exact: true }).click()
+    await expect(details.getByText('제외 기록 하나', { exact: true })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: '가져오기 작업' })).toContainText('검토 대기3')
+    await expect(page).toHaveURL('/inbox?tab=history')
+    await expectNoPageFlash(page)
+    await page.screenshot({ path: testInfo.outputPath('history-desktop.png'), fullPage: true })
+    for (const width of [640, 390]) {
+      await page.setViewportSize({ width, height: 844 })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    }
+    await page.screenshot({ path: testInfo.outputPath('history-mobile.png'), fullPage: true })
+    await page.reload()
+    await page.getByRole('button', { name: '거래 보기', exact: true }).click()
+    await expect(page.getByRole('region', { name: '가져온 항목' }).getByText('제외 기록 둘', { exact: true })).toBeVisible()
+  } finally {
+    await deleteTestState(email, householdId)
+  }
+})
+
 test('card statement upload reaches inbox, applies to ledger, and keeps card source', async ({ page }, testInfo) => {
   test.slow()
   const email = `finance-parity-card-${Date.now()}-${crypto.randomUUID()}@example.com`

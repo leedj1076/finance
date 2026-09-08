@@ -22,4 +22,12 @@ describe('inbox processing history', () => {
     }))
     expect(history).toContainEqual(expect.objectContaining({ source: 'banksalad:yj', done: 1 }))
   })
+
+  test('keeps a record visible after every excluded row returns to pending', () => {
+    expect(buildInboxProcessingHistory([
+      { owner: 'DJ', bsCat1: '__source:card:hyundai', status: 'pending', date: '2026-07-01', createdAt: new Date('2026-09-02T15:00:00Z') },
+    ])).toEqual([expect.objectContaining({
+      source: 'card:hyundai', processedOn: '2026-09-03', pending: 1, done: 0, dismissed: 0,
+    })])
+  })
 })

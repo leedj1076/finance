@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 
 import { db } from '@/db/client'
 import { accounts, categories, importInbox, merchantLookup, transactions } from '@/db/schema'
@@ -31,11 +31,11 @@ export function buildInboxProcessingHistory(rows: Array<{
     processedOn: string
     done: number
     dismissed: number
+    pending: number
     earliestMonth: string
     latestMonth: string
   }>()
   for (const row of rows) {
-    if (row.status === 'pending') continue
     const source = inboxSource(row)
     const processedOn = row.createdAt.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
     const key = `${source}|${processedOn}`
@@ -46,11 +46,13 @@ export function buildInboxProcessingHistory(rows: Array<{
       processedOn,
       done: 0,
       dismissed: 0,
+      pending: 0,
       earliestMonth: month,
       latestMonth: month,
     }
     if (row.status === 'done') entry.done += 1
-    else entry.dismissed += 1
+    else if (row.status === 'dismissed') entry.dismissed += 1
+    else entry.pending += 1
     if (month < entry.earliestMonth) entry.earliestMonth = month
     if (month > entry.latestMonth) entry.latestMonth = month
     historyMap.set(key, entry)
@@ -61,7 +63,7 @@ export function buildInboxProcessingHistory(rows: Array<{
 }
 
 export async function getInboxData(householdId: string) {
-  const [items, categoryOptions, accountOptions, statusRows, unclassifiedRows, historyRows] = await Promise.all([
+  const [items, categoryOptions, accountOptions, statusRows, unclassifiedRows] = await Promise.all([
     db
       .select({
         id: importInbox.id,
@@ -123,24 +125,6 @@ export async function getInboxData(householdId: string) {
       .select({ count: sql<string>`count(*)` })
       .from(transactions)
       .where(and(eq(transactions.householdId, householdId), isNull(transactions.categoryId))),
-    db
-      .select({
-        id: importInbox.id,
-        owner: importInbox.owner,
-        bsCat1: importInbox.bsCat1,
-        status: importInbox.status,
-        date: importInbox.date,
-        createdAt: importInbox.createdAt,
-      })
-      .from(importInbox)
-      .where(
-        and(
-          eq(importInbox.householdId, householdId),
-          ne(importInbox.status, 'pending'),
-        ),
-      )
-      .orderBy(desc(importInbox.createdAt), desc(importInbox.id))
-      .limit(2_000),
   ])
 
   const counts = { pending: 0, done: 0, dismissed: 0 }
@@ -189,7 +173,6 @@ export async function getInboxData(householdId: string) {
     categories: categoryOptions,
     accounts: accountOptions,
     counts: { ...counts, unclassified: Number(unclassifiedRows[0]?.count ?? 0) },
-    history: buildInboxProcessingHistory(historyRows),
     truncated: counts.pending > items.length,
   }
 }

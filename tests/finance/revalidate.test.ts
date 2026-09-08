@@ -7,6 +7,7 @@ test('a transaction change refreshes every page that reports on transactions', (
     '/budgets',
     '/budgets/review',
     '/dashboard',
+    '/inbox',
     '/ledger',
     '/recurring',
     '/report',

@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { ActionNotice } from '@/components/action-notice'
 import { AppHeader } from '@/components/app-header'
 import { InboxReviewForm } from '@/features/inbox/inbox-review-form'
+import { InboxHistoryList } from '@/features/inbox/history-list'
+import { getInboxHistory } from '@/features/inbox/history-queries'
 import { InboxTabs, InboxTabPanel, type ImportTab } from '@/features/inbox/inbox-tabs'
 import { CARD_ISSUERS } from '@/features/inbox/parsers/cards'
 import { getInboxData } from '@/features/inbox/queries'
@@ -38,6 +40,7 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
     : undefined
   const notice = firstParam(params.notice)
   const error = firstParam(params.error)
+  const history = tab === 'history' ? await getInboxHistory(household.householdId) : []
   const unclassifiedData = tab === 'unclassified'
     ? await getManageData(household.householdId, { tab: 'unclassified' })
     : null
@@ -78,20 +81,10 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
           <section className="mt-6 border-t border-finance-ink">
             <div className="border-b border-finance-border py-4">
               <h2 className="t-section text-finance-ink">처리 기록</h2>
-              <p className="mt-1 t-caption text-finance-muted">같은 날 같은 소스로 처리한 행은 하나의 기록으로 묶입니다. 같은 소스를 하루에 여러 번 올리면 합쳐 보이는 1차 기록입니다.</p>
+              <p className="mt-1 t-caption text-finance-muted">업로드 날짜·소스별로 가져온 항목과 현재 처리 상태를 확인합니다. 같은 소스를 하루에 여러 번 올리면 합쳐 보이며, 선택 제외한 항목은 검토 대기로 다시 보낼 수 있습니다.</p>
             </div>
-            {data.history.length > 0 ? (
-              <div className="divide-y divide-finance-track">
-                {data.history.map((entry) => (
-                  <article className="grid gap-3 py-4 t-body sm:grid-cols-[140px_minmax(180px,1fr)_auto_auto_auto] sm:items-center" key={`${entry.source}:${entry.processedOn}`}>
-                    <time className="text-finance-muted">{entry.processedOn}</time>
-                    <div><strong className="text-finance-ink">{entry.label}</strong><p className="mt-1 t-caption text-finance-faint">거래 기간 {entry.earliestMonth}~{entry.latestMonth}</p></div>
-                    <span>반영 <strong className="text-finance-green">{entry.done}건</strong></span>
-                    <span>제외 <strong className="text-finance-muted">{entry.dismissed}건</strong></span>
-                    <Link className="t-caption font-semibold text-finance-blue" href={`/ledger?month=${entry.latestMonth}&tab=list`}>거래 보기 →</Link>
-                  </article>
-                ))}
-              </div>
+            {history.length > 0 ? (
+              <InboxHistoryList history={history} />
             ) : (
               <div className="border-b border-dashed border-finance-border py-14 text-center"><p className="font-medium text-finance-ink">아직 처리 기록이 없습니다.</p><Link className="mt-3 inline-flex t-caption font-semibold text-finance-blue" href="/inbox?tab=upload">첫 파일 업로드 →</Link></div>
             )}

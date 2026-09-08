@@ -32,7 +32,8 @@ export type FinanceDomain =
   | 'settings'
 
 const READERS: Record<FinanceDomain, readonly Route[]> = {
-  transactions: ['home', 'ledger', 'stats', 'budgets', 'budgetReview', 'recurring'],
+  // History also reads ledger matches and their confirmed categories/accounts.
+  transactions: ['home', 'ledger', 'stats', 'budgets', 'budgetReview', 'recurring', 'inbox'],
   budgets: ['home', 'ledger', 'budgets', 'budgetReview'],
   assets: ['home', 'assets', 'stats', 'settings'],
   // 홈's todo list counts pending rows; the header badge on other pages is

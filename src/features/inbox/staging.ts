@@ -46,9 +46,12 @@ function duplicateKey(row: { date: string; amount: number; flow: TransactionFlow
   return `${row.date}|${row.amount}|${row.flow}`
 }
 
-export async function refreshDuplicateFlags(householdId: string) {
+export async function refreshDuplicateFlags(
+  householdId: string,
+  database: Pick<typeof db, 'select' | 'transaction'> = db,
+) {
   const [pending, transactionRows] = await Promise.all([
-    db
+    database
       .select({
         id: importInbox.id,
         date: importInbox.date,
@@ -64,7 +67,7 @@ export async function refreshDuplicateFlags(householdId: string) {
         ),
       )
       .orderBy(importInbox.date, importInbox.amount, importInbox.id),
-    db
+    database
       .select({
         id: transactions.id,
         date: transactions.date,
@@ -99,7 +102,9 @@ export async function refreshDuplicateFlags(householdId: string) {
     )
   }
 
-  await db.transaction(async (tx) => {
+  const pendingIds = pending.map((row) => row.id)
+  if (pendingIds.length === 0) return 0
+  await database.transaction(async (tx) => {
     await tx
       .update(importInbox)
       .set({ dupNote: null })
@@ -107,13 +112,14 @@ export async function refreshDuplicateFlags(householdId: string) {
         and(
           eq(importInbox.householdId, householdId),
           eq(importInbox.status, 'pending'),
+          inArray(importInbox.id, pendingIds),
         ),
       )
     for (const [id, dupNote] of notes) {
       await tx
         .update(importInbox)
         .set({ dupNote, confidence: 'review' })
-        .where(and(eq(importInbox.householdId, householdId), eq(importInbox.id, id)))
+        .where(and(eq(importInbox.householdId, householdId), eq(importInbox.status, 'pending'), eq(importInbox.id, id)))
     }
   })
 
