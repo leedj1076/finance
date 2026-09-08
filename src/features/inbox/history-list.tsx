@@ -27,6 +27,7 @@ function HistoryDetails({ entry }: { entry: InboxHistoryEntry }) {
   const inFlight = useRef(false)
 
   useEffect(() => {
+    if (restoring) return
     let active = true
     setLoading(true)
     setLoadError('')
@@ -43,7 +44,7 @@ function HistoryDetails({ entry }: { entry: InboxHistoryEntry }) {
       .catch(() => { if (active) setLoadError('항목을 불러오지 못했습니다. 다시 시도해 주세요.') })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [entry.source, entry.processedOn, entry.pending, entry.done, entry.dismissed, filter, page, refresh])
+  }, [entry.source, entry.processedOn, entry.pending, entry.done, entry.dismissed, filter, page, refresh, restoring])
 
   const restore = (ids: number[]) => {
     if (inFlight.current || ids.length === 0) return
@@ -52,16 +53,22 @@ function HistoryDetails({ entry }: { entry: InboxHistoryEntry }) {
     startRestoring(async () => {
       try {
         const result = await restoreInboxItems(ids)
-        if (result.error !== undefined) setMessage({ text: result.error, error: true })
-        else {
-          setMessage({ text: result.message })
-          setSelected(new Set())
-        }
+        startRestoring(() => {
+          if (result.error !== undefined) setMessage({ text: result.error, error: true })
+          else {
+            setMessage({ text: result.message })
+            setSelected(new Set())
+          }
+        })
       } catch {
-        setMessage({ text: '복원 결과를 확인하지 못했습니다. 목록을 확인한 뒤 다시 시도해 주세요.', error: true })
+        startRestoring(() => {
+          setMessage({ text: '복원 결과를 확인하지 못했습니다. 목록을 확인한 뒤 다시 시도해 주세요.', error: true })
+        })
       } finally {
         inFlight.current = false
-        setRefresh((current) => current + 1)
+        startRestoring(() => {
+          setRefresh((current) => current + 1)
+        })
       }
     })
   }
