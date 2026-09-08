@@ -97,3 +97,23 @@ test('rejects a malformed zero-principal row before the first valid row even whe
   input.items.push(item('잘못된 날짜 상점', 36, 780), item('0', 403, 780, 407), item('0', 442, 780, 446))
   expect(() => parseNhPdfPages([input])).toThrowError(expect.objectContaining({ code: 'unsupported_layout' }))
 })
+test.each([
+  ['before the first transaction', 780, 'O'],
+  ['after the final total', 700, '0'],
+] as const)('rejects malformed transaction-like geometry %s even when reconciliation matches', (_position, y, principal) => {
+  const input = page()
+  input.items.push(item('날짜오류 테스트 상점', 36, y), item(principal, 403, y, 407), item('0', 442, y, 446))
+  expect(() => parseNhPdfPages([input])).toThrowError(expect.objectContaining({ code: 'unsupported_layout' }))
+})
+test('allows known headers, summary columns and plain notices around the transaction table', () => {
+  const input = page()
+  for (const y of [790, 680]) {
+    input.items.push(item('이용일자 가맹점명', 36, y), item('원금', 390, y, 407), item('수수료', 430, y, 446))
+    input.items.push(item('명세서 안내', 36, y - 5))
+  }
+  input.items.push(item('소계', 36, 800), item('10,000', 370, 800, 407), item('100', 430, 800, 446))
+  expect(parseNhPdfPages([input])).toEqual([
+    { date: '2025-12-24', merchant: '테스트 가맹점', amount: 12500, pay: null },
+    { date: '2026-01-02', merchant: '테스트 환불', amount: -2500, pay: null },
+  ])
+})

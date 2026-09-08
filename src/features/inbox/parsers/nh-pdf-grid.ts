@@ -63,6 +63,8 @@ export function parseNhPdfPages(pages: NhPdfPage[]): CardRow[] {
       const label = left.map((item) => item.text).join(' ').trim()
       const principalCells = line.filter((item) => Math.abs(item.right - 407) <= 3)
       const feeCells = line.filter((item) => Math.abs(item.right - 446) <= 3)
+      const isHeader = line.every((item) => /^(?:이용|일자|이용일자|가맹점명|이용금액|원금|수수료|당월|결제하실|금액|혜택|개월|회차|구분|적립|포인트|결제 후 잔액)/.test(item.text))
+      const isSummary = /^(소계|합계)/.test(label)
       const datePrefix = label.match(/^(\d{1,2})\/(\d{1,2})(?:\s+|$)(.*)$/)
       if (datePrefix) {
         if (totalSeen || !left.length || Math.abs(left[0].x - 36) > 4 || principalCells.length !== 1 || feeCells.length !== 1) unsupported()
@@ -82,11 +84,12 @@ export function parseNhPdfPages(pages: NhPdfPage[]): CardRow[] {
         previousY = line[0].y
         continue
       }
-      if (!active) {
-        if (left.length && Math.abs(left[0].x - 36) <= 4 && principalCells.some((item) => /^-?[\d,]+$/.test(item.text)) && feeCells.some((item) => /^-?[\d,]+$/.test(item.text))) unsupported()
-        continue
-      }
-      if (/^(소계|합계)/.test(label)) {
+      // Check table-shaped rows before either state boundary can skip them.
+      // Numeric validation cannot be the prerequisite: the unreadable cell is
+      // itself why the entire statement must be rejected, even for net zero.
+      if (!isHeader && !isSummary && left.length && Math.abs(left[0].x - 36) <= 4 && principalCells.length && feeCells.length) unsupported()
+      if (!active) continue
+      if (isSummary) {
         if (principalCells.length !== 1 || totalSeen) unsupported()
         const amount = money(principalCells[0].text)
         if (label.startsWith('합계')) {
@@ -101,7 +104,7 @@ export function parseNhPdfPages(pages: NhPdfPage[]): CardRow[] {
       }
       if (totalSeen) continue
       // Known repeated headers cannot turn into a continuation or transaction.
-      if (line.every((item) => /^(?:이용|일자|이용일자|가맹점명|이용금액|원금|수수료|당월|결제하실|금액|혜택|개월|회차|구분|적립|포인트|결제 후 잔액)/.test(item.text))) {
+      if (isHeader) {
         previousY = undefined
         continue
       }
