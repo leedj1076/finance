@@ -47,6 +47,7 @@ export async function resolveSuggestions(args: {
   examples: { merchant: string; major: string; sub: string }[]
   findCategoryId: (flow: string, major: string, sub: string) => number | null
   aiSetting: string | null
+  onClassifying?: () => void
 }): Promise<ResolvedSuggestion[]> {
   const norms = args.items.map((item) => normalizeMerchant(item.merchant))
   const cache = await lookupMerchants(args.householdId, norms)
@@ -126,6 +127,8 @@ export async function resolveSuggestions(args: {
     const merchants = [
       ...new Set(unknownIndexes.map((index) => args.items[index].merchant)),
     ]
+    // Match the classifier's no-op guards before reporting real AI work.
+    if (merchants.some((merchant) => merchant.trim().length > 0) && args.taxonomy.length > 0) args.onClassifying?.()
     const aiResults = await classifyUnknownMerchants({
       merchants,
       taxonomy: args.taxonomy,

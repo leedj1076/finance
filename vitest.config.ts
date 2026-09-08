@@ -4,7 +4,11 @@ import { fileURLToPath } from 'node:url'
 
 config({ path: '.env.local' })
 
-const alias = { '@': fileURLToPath(new URL('./src', import.meta.url)) }
+const alias = {
+  '@': fileURLToPath(new URL('./src', import.meta.url)),
+  // Next enforces the client-import guard at build time; Node tests use its empty server entry.
+  'server-only': fileURLToPath(new URL('./node_modules/next/dist/compiled/server-only/empty.js', import.meta.url)),
+}
 
 // Two lanes. `unit` is pure logic and runs anywhere; `integration` needs the
 // local Supabase stack, so a missing Docker daemon can't be mistaken for a

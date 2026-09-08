@@ -18,6 +18,7 @@ import {
   type TransactionFlow,
 } from './banksalad'
 import { resolveSuggestions } from './resolve-suggestion'
+import type { ImportObserver } from './import-progress'
 
 export const MAX_FILE_BYTES = 2 * 1024 * 1024
 
@@ -273,6 +274,7 @@ export async function resolveStagingSuggestions(
   context: StagingContext,
   items: SuggestionCandidate[],
   taxonomy = context.taxonomy,
+  observe?: ImportObserver,
 ) {
   return resolveSuggestions({
     householdId,
@@ -283,14 +285,17 @@ export async function resolveStagingSuggestions(
     examples: context.examples,
     findCategoryId: context.findCategoryId,
     aiSetting: context.aiSetting,
+    onClassifying: observe ? () => observe({ type: 'stage', phase: 'classifying' }) : undefined,
   })
 }
 
 export async function insertInboxRows(
   householdId: string,
   values: Array<typeof importInbox.$inferInsert>,
+  observe?: ImportObserver,
 ) {
   const inserted: Array<{ id: number; owner: string }> = []
+  if (values.length > 0) observe?.({ type: 'stage', phase: 'saving', completed: 0, total: values.length })
   for (let index = 0; index < values.length; index += 500) {
     const rows = await db
       .insert(importInbox)
@@ -298,6 +303,7 @@ export async function insertInboxRows(
       .onConflictDoNothing({ target: [importInbox.householdId, importInbox.importUid] })
       .returning({ id: importInbox.id, owner: importInbox.owner })
     inserted.push(...rows)
+    observe?.({ type: 'stage', phase: 'saving', completed: Math.min(index + 500, values.length), total: values.length })
   }
   return inserted
 }

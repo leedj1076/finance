@@ -456,9 +456,14 @@ test('Shinhan partial cancellation survives staging and apply, and reupload stay
   const posted = await db.select().from(transactions).where(and(
     eq(transactions.householdId, context.householdId), eq(transactions.source, 'card:shinhan'),
   )).orderBy(transactions.id)
-  expect(posted.map((row) => ({ amount: row.amount, flow: row.flow }))).toEqual([
-    { amount: 8000, flow: 'expense' }, { amount: -5000, flow: 'expense' },
-  ])
+  // Applying selected rows does not promise transaction-ID order. Preserve each
+  // staged fingerprint's exact principal/flow instead of assuming SQL scan order.
+  const postedTuples = posted.map((row) => ({ importUid: row.importUid, amount: row.amount, flow: row.flow }))
+    .sort((left, right) => left.importUid!.localeCompare(right.importUid!))
+  expect(postedTuples).toEqual([
+    { importUid: staged[0].importUid, amount: 8000, flow: 'expense' },
+    { importUid: staged[1].importUid, amount: -5000, flow: 'expense' },
+  ].sort((left, right) => left.importUid.localeCompare(right.importUid)))
   expect(posted.reduce((total, row) => total + row.amount, 0)).toBe(3000)
   const repeated = await uploadCardStatement(form)
   expect(repeated.error).toBeUndefined()
