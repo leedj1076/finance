@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react'
 import { formatWon } from '@/lib/finance'
 
 import { compactWon } from './chart-theme'
+import { THEME_CHANGE_EVENT } from '../theme/theme'
 
 ChartJS.register(
   BarController,
@@ -108,11 +109,22 @@ export function useFinanceChartPalette() {
       setPalette(readPalette())
     }
     update()
-    media.addEventListener('change', update)
-    return () => media.removeEventListener('change', update)
+    return subscribeToChartThemeChanges(update, { events: window, media })
   }, [])
 
   return palette
+}
+
+export function subscribeToChartThemeChanges(
+  update: EventListener,
+  { events, media }: { events: EventTarget; media: MediaQueryList },
+) {
+  events.addEventListener(THEME_CHANGE_EVENT, update)
+  media.addEventListener('change', update)
+  return () => {
+    events.removeEventListener(THEME_CHANGE_EVENT, update)
+    media.removeEventListener('change', update)
+  }
 }
 
 export function alpha(color: string, opacity: number) {

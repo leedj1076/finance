@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import {
@@ -28,8 +28,9 @@ function suggestedCardAccount(
   return String(suggestCardAccountId(accounts, issuerLabel, owner) ?? '')
 }
 
-function UploadButton({ disabled = false }: { disabled?: boolean }) {
-  const { pending } = useFormStatus()
+function UploadButton({ disabled = false, uploading }: { disabled?: boolean; uploading?: boolean }) {
+  const { pending: formPending } = useFormStatus()
+  const pending = uploading ?? formPending
   return (
     <button
       className="h-[34px] bg-finance-ink px-4 t-body-strong text-white hover:bg-finance-blue disabled:cursor-not-allowed disabled:opacity-50"
@@ -52,7 +53,7 @@ const uploadSteps = {
   ],
   card: [
     '파일 업로드',
-    '카드 명세서 거래 읽기',
+    '보안 명세서 해제 · 카드 거래 읽기',
     '기존 거래와 중복 확인',
     '카드·카테고리 추천',
     '필요한 거래 AI 보조 분류',
@@ -184,10 +185,10 @@ function CardStatementForm({
   issuers: CardIssuerOption[]
   accounts: AccountOption[]
 }) {
-  const [state, action] = useActionState(
-    async (_previousState: UploadCardState, formData: FormData) => uploadCardStatement(formData),
-    initialCardState,
-  )
+  const [state, setState] = useState<UploadCardState>(initialCardState)
+  const [uploading, setUploading] = useState(false)
+  const inFlight = useRef(false)
+  const passwordInput = useRef<HTMLInputElement>(null)
   const initialIssuer = issuers[0]?.key ?? ''
   const [issuer, setIssuer] = useState(initialIssuer)
   const [owner, setOwner] = useState('DJ')
@@ -195,15 +196,46 @@ function CardStatementForm({
   const matchedAccount = accounts.find((account) => String(account.id) === accountId)
 
   return (
-    <form action={action} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[160px_120px_220px_minmax(0,1fr)_auto] lg:items-start">
+    <form
+      className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[160px_120px_220px_minmax(0,1fr)_auto] lg:items-start"
+      onSubmit={async (event) => {
+        event.preventDefault()
+        if (inFlight.current) return
+        const form = event.currentTarget
+        const formData = new FormData(form)
+        inFlight.current = true
+        setUploading(true)
+        setState({})
+        try {
+          const result = await uploadCardStatement(formData)
+          setState(result)
+          // A failed password must not reset the selected file. On success only
+          // clear the file; the controlled issuer/owner stay where the user left them.
+          if (!result.error) {
+            const file = form.elements.namedItem('file') as HTMLInputElement | null
+            if (file) file.value = ''
+          }
+        } catch {
+          setState({ error: '파일을 처리하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.' })
+        } finally {
+          if (passwordInput.current) passwordInput.current.value = ''
+          formData.delete('password')
+          inFlight.current = false
+          setUploading(false)
+        }
+      }}
+    >
       <label className="grid gap-1.5 t-label uppercase text-finance-muted">
         카드사
         <select
           className="h-[34px] border border-finance-border bg-white px-3 t-body font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
           name="issuer"
+          disabled={uploading}
           onChange={(event) => {
             const nextIssuer = event.target.value
             setIssuer(nextIssuer)
+            if (passwordInput.current) passwordInput.current.value = ''
+            setState({})
           }}
           required
           value={issuer}
@@ -216,6 +248,7 @@ function CardStatementForm({
         <select
           className="h-[34px] border border-finance-border bg-white px-3 t-body font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
           name="owner"
+          disabled={uploading}
           onChange={(event) => {
             const nextOwner = event.target.value
             setOwner(nextOwner)
@@ -247,17 +280,43 @@ function CardStatementForm({
       <label className="grid gap-1.5 t-label uppercase text-finance-muted">
         카드사 명세서
         <input
-          accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          accept={`${issuer === 'hyundai' ? '.html,.htm,text/html,' : ''}.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`}
           className="h-[34px] border border-dashed border-finance-border bg-white px-2 py-1 t-body font-normal normal-case tracking-normal text-finance-muted file:mr-3 file:border-0 file:bg-finance-track file:px-3 file:py-1 file:font-semibold file:text-finance-ink hover:file:text-finance-blue"
           name="file"
+          disabled={uploading}
+          onChange={() => {
+            if (passwordInput.current) passwordInput.current.value = ''
+            setState({})
+          }}
           required
           type="file"
         />
-        <span className="font-normal normal-case tracking-normal text-finance-faint">.xls 또는 .xlsx · 2MB 이하</span>
+        <span className="font-normal normal-case tracking-normal text-finance-faint">
+          {issuer === 'hyundai' ? '.xls · .xlsx · .html (보안 명세서 포함)' : '.xls 또는 .xlsx'} · 2MB 이하
+        </span>
       </label>
-      <div className="sm:pt-[23px]"><UploadButton disabled={!matchedAccount} /></div>
+      <div className="sm:pt-[23px]"><UploadButton disabled={!matchedAccount} uploading={uploading} /></div>
+      {issuer === 'hyundai' && (
+        <label className="grid gap-1.5 t-label text-finance-muted sm:col-span-full">
+          <span>보안 명세서 비밀번호</span>
+          <input
+            aria-label="보안 명세서 비밀번호"
+            autoComplete="off"
+            className="h-[34px] w-full max-w-sm border border-finance-border bg-white px-3 t-body text-finance-ink outline-none focus:border-finance-blue"
+            disabled={uploading}
+            maxLength={128}
+            name="password"
+            placeholder="보안 HTML인 경우만 입력"
+            ref={passwordInput}
+            type="password"
+          />
+          <span className="font-normal text-finance-faint">
+            비밀번호는 이번 파일을 여는 데만 사용하며 저장하지 않습니다. 일반 HTML·엑셀은 비워 두세요.
+          </span>
+        </label>
+      )}
       <ActionMessage state={state} />
-      <UploadProgress mode="card" />
+      {uploading && <ActiveUploadProgress mode="card" />}
     </form>
   )
 }

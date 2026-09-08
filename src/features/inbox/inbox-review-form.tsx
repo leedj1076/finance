@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 
 import { applyInboxItem, processInbox } from './actions'
 import type { TransactionFlow } from './banksalad'
@@ -58,6 +58,8 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
     () => Object.fromEntries(items.map((item) => [item.id, item.accountId ? String(item.accountId) : ''])),
   )
   const [applyingIds, setApplyingIds] = useState<Set<number>>(() => new Set())
+  const processing = useRef(false)
+  const [, startApplying] = useTransition()
   const [actionMessage, setActionMessage] = useState<{
     kind: 'success' | 'error'
     text: string
@@ -147,38 +149,64 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
     })
   }
 
-  const applySingleItem = async (item: InboxItem) => {
+  const applySingleItem = (item: InboxItem) => {
+    if (processing.current) return
+    processing.current = true
     setApplyingIds((current) => new Set(current).add(item.id))
     setActionMessage(null)
 
+    // Revalidated server content stays in the existing screen while it loads.
+    startApplying(async () => {
+      try {
+        const result = await applyInboxItem({
+          id: item.id,
+          flow: flows[item.id] ?? item.flow,
+          categoryId: categoryIds[item.id] ? Number(categoryIds[item.id]) : null,
+          accountId: accountIds[item.id] ? Number(accountIds[item.id]) : null,
+        })
+        if (result.error) {
+          setActionMessage({ kind: 'error', text: result.error })
+          return
+        }
+
+        setAppliedIds((current) => new Set(current).add(item.id))
+        setActionMessage({
+          kind: 'success',
+          text: result.message ?? `${item.merchant || '거래'}을(를) 가계부에 반영했습니다.`,
+        })
+      } catch {
+        setActionMessage({
+          kind: 'error',
+          text: '거래를 반영하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+        })
+      } finally {
+        processing.current = false
+        setApplyingIds((current) => {
+          const next = new Set(current)
+          next.delete(item.id)
+          return next
+        })
+      }
+    })
+  }
+
+  const processSelection = async (formData: FormData) => {
+    if (processing.current) return
+    processing.current = true
+    setActionMessage(null)
+    formData.set('inline', '1')
     try {
-      const result = await applyInboxItem({
-        id: item.id,
-        flow: flows[item.id] ?? item.flow,
-        categoryId: categoryIds[item.id] ? Number(categoryIds[item.id]) : null,
-        accountId: accountIds[item.id] ? Number(accountIds[item.id]) : null,
-      })
-      if (result.error) {
+      const result = await processInbox(formData)
+      if (result.error !== undefined) {
         setActionMessage({ kind: 'error', text: result.error })
         return
       }
-
-      setAppliedIds((current) => new Set(current).add(item.id))
-      setActionMessage({
-        kind: 'success',
-        text: result.message ?? `${item.merchant || '거래'}을(를) 가계부에 반영했습니다.`,
-      })
+      setAppliedIds((current) => new Set([...current, ...result.processedIds]))
+      setActionMessage({ kind: 'success', text: result.message })
     } catch {
-      setActionMessage({
-        kind: 'error',
-        text: '거래를 반영하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-      })
+      setActionMessage({ kind: 'error', text: '처리하지 못했습니다. 선택과 수정 내용은 유지됩니다. 잠시 후 다시 시도해 주세요.' })
     } finally {
-      setApplyingIds((current) => {
-        const next = new Set(current)
-        next.delete(item.id)
-        return next
-      })
+      processing.current = false
     }
   }
 
@@ -202,8 +230,8 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
   }
 
   return (
-    items.length > 0 ? (
-      <section>
+    <section>
+      {items.length > 0 && <>
         <div className="mb-3">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="t-section text-finance-ink">확인 대기 <span className="text-finance-red">{items.length}건</span></h3>
@@ -215,6 +243,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
           </div>
           <p className="mt-1 t-caption text-finance-muted">모든 거래를 바로 수정할 수 있습니다. 한 건씩 오른쪽에서 즉시 반영하거나, 체크박스로 여러 건을 선택해 한 번에 처리하세요.</p>
         </div>
+      </>}
       {actionMessage && (
         <div
           aria-live="polite"
@@ -236,7 +265,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
           </button>
         </div>
       )}
-      <form action={processInbox}>
+      {items.length > 0 ? <form action={processSelection}>
       {items.filter((item) => selected.has(item.id)).map((item) => (
         <Fragment key={`selected-${item.id}`}>
           <input name="ids" type="hidden" value={item.id} />
@@ -304,7 +333,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
             {Math.abs(selectedTotal).toLocaleString('ko-KR')}원
           </span>
         </div>
-        <ActionButtons selectedCount={selected.size} />
+        <ActionButtons busy={applyingIds.size > 0} selectedCount={selected.size} />
       </div>
 
       <div className="border-b border-finance-border">
@@ -344,15 +373,15 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
       </div>
 
       <div className="mt-3">
-        <ActionButtons selectedCount={selected.size} />
+        <ActionButtons busy={applyingIds.size > 0} selectedCount={selected.size} />
       </div>
       </form>
-      </section>
-      ) : (
+      : (
         <div className="border-b border-finance-green border-t border-finance-green px-6 py-8 text-center">
           <p className="font-medium text-finance-ink">모든 대기 거래를 처리했습니다.</p>
           <p className="mt-2 text-[13px] text-finance-muted">새 거래 파일을 올리면 이곳에서 다시 확인할 수 있습니다.</p>
         </div>
-      )
+      )}
+    </section>
   )
 }

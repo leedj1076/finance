@@ -213,13 +213,25 @@ async function applyPreparedInboxRows(
   }
 }
 
-export async function processInbox(formData: FormData) {
+export type ProcessInboxResult =
+  | { error: string; processedIds?: never; message?: never }
+  | { error?: never; processedIds: number[]; message: string }
+
+/** Keep the redirect contract for non-inline callers (including plain forms). */
+export async function processInbox(formData: FormData): Promise<ProcessInboxResult> {
+  const result = await processInboxSelection(formData)
+  if (formData.get('inline') === '1') return result
+  if (result.error !== undefined) inboxRedirect('error', result.error)
+  inboxRedirect('notice', result.message)
+}
+
+async function processInboxSelection(formData: FormData): Promise<ProcessInboxResult> {
   const household = await requireHousehold()
-  if (!household) inboxRedirect('error', '가족 가계부에 연결된 계정이 아닙니다.')
+  if (!household) return { error: '가족 가계부에 연결된 계정이 아닙니다.' }
 
   const ids = selectedIds(formData)
-  if (ids.length === 0) inboxRedirect('error', '선택된 항목이 없습니다.')
-  if (ids.length > 500) inboxRedirect('error', '한 번에 최대 500건까지 처리할 수 있습니다.')
+  if (ids.length === 0) return { error: '선택된 항목이 없습니다.' }
+  if (ids.length > 500) return { error: '한 번에 최대 500건까지 처리할 수 있습니다.' }
 
   const householdId = household.householdId
   const intent = formData.get('intent') === 'dismiss' ? 'dismiss' : 'apply'
@@ -238,7 +250,10 @@ export async function processInbox(formData: FormData) {
       .returning({ id: importInbox.id })
     await refreshDuplicateFlags(householdId)
     revalidateFinance('inbox')
-    inboxRedirect('notice', `${dismissed.length}건을 인박스에서 제외했습니다.`)
+    return {
+      processedIds: dismissed.map((row) => row.id),
+      message: `${dismissed.length}건을 인박스에서 제외했습니다.`,
+    }
   }
 
   const [rows, categoryRows, accountRows] = await Promise.all([
@@ -261,33 +276,34 @@ export async function processInbox(formData: FormData) {
       .from(accounts)
       .where(eq(accounts.householdId, householdId)),
   ])
-  if (rows.length === 0) inboxRedirect('error', '처리할 대기 거래를 찾지 못했습니다.')
+  if (rows.length === 0) return { error: '처리할 대기 거래를 찾지 못했습니다.' }
 
   const categoriesById = new Map(categoryRows.map((category) => [category.id, category]))
   const accountIds = new Set(accountRows.map((account) => account.id))
-  const prepared = rows.map((row) => {
+  const prepared: PreparedInboxRow[] = []
+  for (const row of rows) {
     const flow = parseFlow(formData.get(`flow_${row.id}`))
-    if (!flow) inboxRedirect('error', `${row.id}번 거래의 유형이 올바르지 않습니다.`)
+    if (!flow) return { error: `${row.id}번 거래의 유형이 올바르지 않습니다.` }
 
     const requestedCategoryId = parseOptionalId(formData.get(`category_${row.id}`))
     const category = requestedCategoryId === null ? null : categoriesById.get(requestedCategoryId)
     if (requestedCategoryId !== null && (!category || category.kind !== flow)) {
-      inboxRedirect('error', `${row.id}번 거래의 분류가 거래 유형과 맞지 않습니다.`)
+      return { error: `${row.id}번 거래의 분류가 거래 유형과 맞지 않습니다.` }
     }
 
     const requestedAccountId = parseOptionalId(formData.get(`account_${row.id}`))
     if (requestedAccountId !== null && !accountIds.has(requestedAccountId)) {
-      inboxRedirect('error', `${row.id}번 거래의 결제수단을 확인해 주세요.`)
+      return { error: `${row.id}번 거래의 결제수단을 확인해 주세요.` }
     }
 
-    return {
+    prepared.push({
       row,
       flow,
       categoryId: requestedCategoryId,
       accountId: requestedAccountId,
       source: inboxTransactionSource(row),
-    }
-  })
+    })
+  }
 
   const result = await applyPreparedInboxRows(householdId, prepared)
   const amounts = [
@@ -299,7 +315,10 @@ export async function processInbox(formData: FormData) {
   const suffix = [amounts.join(' / '), skipped ? `이미 반영된 ${skipped}건` : '']
     .filter(Boolean)
     .join(' · ')
-  inboxRedirect('notice', `${result.inserted}건을 가계부에 반영했습니다${suffix ? ` (${suffix})` : ''}.`)
+  return {
+    processedIds: rows.map((row) => row.id),
+    message: `${result.inserted}건을 가계부에 반영했습니다${suffix ? ` (${suffix})` : ''}.`,
+  }
 }
 
 /** Applies one row with the values currently shown in the inbox, without a page redirect. */

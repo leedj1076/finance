@@ -1,7 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { useActionState, useEffect, useState, useTransition } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import { formatWon } from '@/lib/finance'
@@ -49,10 +48,19 @@ function EditableRow({ accounts, categories, filters, onCancel, onSaved, row }: 
     previousState: TransactionActionState,
     formData: FormData,
   ) => {
-    const result = await saveTransaction(previousState, formData)
-    if (result.saved) onSaved(result.saved)
-    return result
+    try {
+      const result = await saveTransaction(previousState, formData)
+      if (result.saved) onSaved(result.saved)
+      return result
+    } catch {
+      return { error: '저장하지 못했습니다. 수정 내용은 유지됩니다. 잠시 후 다시 시도해 주세요.' }
+    }
   }, initialState)
+  const [date, setDate] = useState(row.date)
+  const [memo, setMemo] = useState(row.memo ?? row.rawMerchant ?? '')
+  const [amount, setAmount] = useState(String(row.amount))
+  const [categoryId, setCategoryId] = useState(String(row.categoryId ?? ''))
+  const [accountId, setAccountId] = useState(String(row.accountId ?? ''))
   const [flowToken, setFlowToken] = useState(row.flow === 'expense' ? (row.fixed ? 'expense_fixed' : 'expense_variable') : row.flow)
   const flow: TransactionFlow = flowToken.startsWith('expense') ? 'expense' : flowToken as TransactionFlow
   const visibleCategories = categories.filter((category) => category.kind === flow)
@@ -61,16 +69,16 @@ function EditableRow({ accounts, categories, filters, onCancel, onSaved, row }: 
   return (
     <>
       <tr className="bg-finance-panel align-top">
-        <td className="py-2 pr-2"><input aria-label="날짜" className={editInput} defaultValue={row.date} form={formId} name="date" required type="date" /></td>
-        <td className="px-2 py-2"><input aria-label="사용내역" className={editInput} defaultValue={row.memo ?? row.rawMerchant ?? ''} form={formId} maxLength={200} name="memo" /></td>
+        <td className="py-2 pr-2"><input aria-label="날짜" className={editInput} value={date} onChange={(event) => setDate(event.target.value)} form={formId} name="date" required type="date" /></td>
+        <td className="px-2 py-2"><input aria-label="사용내역" className={editInput} value={memo} onChange={(event) => setMemo(event.target.value)} form={formId} maxLength={200} name="memo" /></td>
         <td className="px-2 py-2">
-          <select aria-label="분류" className={editInput} defaultValue={visibleCategories.some((category) => category.id === row.categoryId) ? row.categoryId ?? '' : ''} form={formId} name="categoryId">
+          <select aria-label="분류" className={editInput} value={visibleCategories.some((category) => String(category.id) === categoryId) ? categoryId : ''} onChange={(event) => setCategoryId(event.target.value)} form={formId} name="categoryId">
             <option value="">미분류</option>
             {visibleCategories.map((category) => <option key={category.id} value={category.id}>{category.major} · {category.sub}</option>)}
           </select>
         </td>
         <td className="px-2 py-2">
-          <select aria-label="결제수단" className={editInput} defaultValue={row.accountId ?? ''} form={formId} name="accountId">
+          <select aria-label="결제수단" className={editInput} value={accountId} onChange={(event) => setAccountId(event.target.value)} form={formId} name="accountId">
             <option value="">선택 안 함</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
           </select>
         </td>
@@ -81,7 +89,7 @@ function EditableRow({ accounts, categories, filters, onCancel, onSaved, row }: 
           <input form={formId} name="flow" type="hidden" value={flow} />
           {flowToken === 'expense_fixed' && <input form={formId} name="fixed" type="hidden" value="on" />}
         </td>
-        <td className="px-2 py-2"><input aria-label="금액" className={`${editInput} text-right`} defaultValue={row.amount} form={formId} inputMode="numeric" name="amount" required /></td>
+        <td className="px-2 py-2"><input aria-label="금액" className={`${editInput} text-right`} value={amount} onChange={(event) => setAmount(event.target.value)} form={formId} inputMode="numeric" name="amount" required /></td>
         <td className="py-2 pl-2">
           <form action={action} className="flex justify-end gap-1" id={formId}>
             <input name="inline" type="hidden" value="1" />
@@ -103,8 +111,6 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
   month: string
   rows: LedgerRow[]
 }) {
-  const router = useRouter()
-  const [, startRefresh] = useTransition()
   const [editingId, setEditingId] = useState<number | null>(null)
   const [localRows, setLocalRows] = useState(rows)
   const [savedId, setSavedId] = useState<number | null>(null)
@@ -139,7 +145,8 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
     setEditingId(null)
     setSavedId(saved.id)
     window.setTimeout(() => setSavedId((current) => current === saved.id ? null : current), 1_500)
-    startRefresh(() => router.refresh())
+    // saveTransaction already revalidates the ledger in this action response,
+    // including totals and rows that stop matching the current filters.
   }
 
   return (

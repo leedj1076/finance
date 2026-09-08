@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto'
 import * as XLSX from 'xlsx'
 
+import { decodeStatementHtml, hyundaiDateParser, isHtmlStatement, readHyundaiHtml, statementHtmlTokens } from './hyundai-html'
+
 export type CardIssuer = 'samsung' | 'hyundai' | 'kookmin' | 'shinhan' | 'nonghyup'
 
 export const CARD_ISSUERS: { key: CardIssuer; label: string }[] = [
@@ -75,7 +77,7 @@ function decodeHtml(value: string) {
     const radix = code[1]?.toLowerCase() === 'x' ? 16 : 10
     const digits = radix === 16 ? code.slice(2) : code.slice(1)
     const point = Number.parseInt(digits, radix)
-    return Number.isFinite(point) ? String.fromCodePoint(point) : entity
+    return Number.isFinite(point) && point >= 0 && point <= 0x10ffff ? String.fromCodePoint(point) : entity
   })
 }
 
@@ -85,8 +87,7 @@ function htmlToGrid(source: string): string[][] {
   const rowStack: string[][] = []
   let cell: string[] | null = null
 
-  for (const token of source.match(/<!--[^]*?-->|<[^>]*>|[^<]+/g) ?? []) {
-    if (token.startsWith('<!--')) continue
+  for (const token of statementHtmlTokens(source)) {
     if (!token.startsWith('<')) {
       if (cell) cell.push(decodeHtml(token))
       continue
@@ -108,13 +109,9 @@ function htmlToGrid(source: string): string[][] {
   return rows
 }
 
-function isHtmlTable(buffer: Buffer) {
-  return buffer.subarray(0, 8192).toString('utf8').toLowerCase().includes('<table')
-}
-
 /** Convert XLSX, legacy BIFF, or HTML-as-XLS into one flat row grid. */
 function toGrid(buffer: Buffer): string[][] {
-  if (isHtmlTable(buffer)) return htmlToGrid(buffer.toString('utf8'))
+  if (isHtmlStatement(buffer)) return htmlToGrid(decodeStatementHtml(buffer))
 
   const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true, raw: true })
   const grid: string[][] = []
@@ -129,6 +126,45 @@ function toGrid(buffer: Buffer): string[][] {
 }
 
 const normalizeHeader = (value: string) => value.replace(/\s+/g, '')
+
+/** A Hyundai bill has per-card subtotals within one table, or repeated tables.
+ * A subtotal is not the end of the statement. Each new header owns its indexes.
+ */
+function parseHyundaiGrid(grid: string[][], shortDate: ReturnType<typeof hyundaiDateParser> | null): CardRow[] {
+  let section: { date: number; merchant: number; amount: number; fallback: number; pay: number; installment: number } | null = null
+  const parsed: CardRow[] = []
+  const spec = SPECS.hyundai
+  for (const row of grid) {
+    const header = row.map(normalizeHeader)
+    const pick = (keys: string[]) => {
+      for (const key of keys) {
+        const exact = header.indexOf(key)
+        const found = exact === -1 ? header.findIndex((cell) => cell.includes(key)) : exact
+        if (found !== -1) return found
+      }
+      return -1
+    }
+    const dateColumn = pick(spec.dateKeys)
+    const merchantColumn = pick(spec.merchantKeys)
+    if (dateColumn !== -1 && merchantColumn !== -1) {
+      section = { date: dateColumn, merchant: merchantColumn, amount: pick(spec.amountKeys), fallback: pick(spec.fallbackKeys), pay: pick(spec.payKeys), installment: pick(['할부']) }
+      continue
+    }
+    if (!section) continue
+    const dateValue = row[section.date] ?? ''
+    const date = toIso(dateValue) ?? shortDate?.(dateValue, row[section.installment] ?? '')
+    if (!date) {
+      if (row.some((cell) => /합계|없습니다/.test(cell))) section = null
+      continue
+    }
+    const merchant = row[section.merchant]?.trim()
+    let amount = toInt(row[section.amount])
+    if (amount === null || amount === 0) amount = toInt(row[section.fallback])
+    if (!merchant || amount === null || amount === 0) continue
+    parsed.push({ date, merchant, amount, pay: row[section.pay]?.trim() || null })
+  }
+  return parsed
+}
 
 /** Shinhan exports charges, benefits and cancellations as separate tables.
  * Each header owns its column indexes; a subtotal ends only that section.
@@ -182,9 +218,12 @@ function parseShinhanGrid(grid: string[][]): CardRow[] {
   return parsed
 }
 
-export function parseCardStatement(buffer: Buffer, issuer: CardIssuer): CardRow[] {
+export function parseCardStatement(buffer: Buffer, issuer: CardIssuer, options: { password?: string } = {}): CardRow[] {
   const spec = SPECS[issuer]
-  const grid = toGrid(buffer)
+  const html = issuer === 'hyundai' ? readHyundaiHtml(buffer, options.password) : null
+  const shortDate = html === null ? null : hyundaiDateParser(html)
+  const grid = html === null ? toGrid(buffer) : htmlToGrid(html)
+  if (issuer === 'hyundai') return parseHyundaiGrid(grid, shortDate)
   if (issuer === 'shinhan') return parseShinhanGrid(grid)
   let headerIndex = -1
   const columns: Record<string, number> = {}

@@ -9,6 +9,7 @@ import { normalizeMerchant } from '@/features/inbox/normalize'
 import { refreshDuplicateFlags } from '@/features/inbox/staging'
 import { uploadCardStatement } from '@/features/inbox/upload-action'
 import { cardFingerprint } from '@/features/inbox/parsers/cards'
+import { HYUNDAI_TEST_PASSWORD, secureHyundaiFixture } from '../fixtures/hyundai-secure'
 
 const context = vi.hoisted(() => ({ householdId: '' }))
 
@@ -390,4 +391,37 @@ test('Shinhan partial cancellation survives staging and apply, and reupload stay
   expect(repeated.error).toBeUndefined()
   expect(repeated.message).toContain('인박스에 0건 추가')
   expect(repeated.message).toContain('이미 처리 2건')
+})
+
+test('Hyundai secure HTML validates passwords before staging, keeps refunds and reuploads safely', async () => {
+  const form = new FormData()
+  form.set('file', new File([secureHyundaiFixture()], 'hyundai.html', { type: 'text/html' }))
+  form.set('issuer', 'hyundai')
+  form.set('owner', 'DJ')
+  const readFixtureRows = () => db.select().from(importInbox).where(and(
+    eq(importInbox.householdId, context.householdId), inArray(importInbox.merchant, ['테스트 상점', '테스트 환불']),
+  )).orderBy(importInbox.date)
+
+  expect((await uploadCardStatement(form)).error).toContain('비밀번호를 입력')
+  form.set('password', 'wrong-password')
+  const wrong = await uploadCardStatement(form)
+  expect(wrong.error).toContain('비밀번호가 맞지 않거나')
+  expect(JSON.stringify(wrong)).not.toContain('wrong-password')
+  expect(await readFixtureRows()).toHaveLength(0)
+
+  form.set('password', HYUNDAI_TEST_PASSWORD)
+  const first = await uploadCardStatement(form)
+  expect(first.error).toBeUndefined()
+  expect(first.message).toContain('인박스에 2건 추가')
+  const staged = await readFixtureRows()
+  expect(staged.map((row) => [row.date, row.amount])).toEqual([['2025-12-24', 12000], ['2026-01-02', -3000]])
+  expect(staged.every((row) => row.accountId === accountId && row.status === 'pending')).toBe(true)
+  expect(JSON.stringify(staged)).not.toContain(HYUNDAI_TEST_PASSWORD)
+  const repeated = await uploadCardStatement(form)
+  expect(repeated.message).toContain('인박스에 0건 추가')
+  expect(repeated.message).toContain('이미 처리 2건')
+  expect(await readFixtureRows()).toHaveLength(2)
+
+  form.set('issuer', 'shinhan')
+  expect((await uploadCardStatement(form)).error).toContain('현대카드')
 })

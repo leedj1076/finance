@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #18181b;
   --finance-ink: #18181b;
@@ -43,8 +44,49 @@
   --chart-other: #a1a1aa;
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #09090b;
+  --foreground: #f4f4f5;
+  --finance-ink: #f4f4f5;
+  --finance-muted: #a1a1aa;
+  --finance-faint: #71717a;
+  --finance-border: #3f3f46;
+  --finance-track: #27272a;
+  --finance-panel: #18181b;
+  --finance-blue: #60a5fa;
+  --finance-red: #f87171;
+  --finance-green: #4ade80;
+  --finance-amber: #fbbf24;
+  --finance-violet: #c4b5fd;
+  --finance-blue-tint: #172554;
+  --finance-red-tint: #450a0a;
+  --finance-green-tint: #052e16;
+  --finance-amber-tint: #451a03;
+  --finance-violet-tint: #2e1065;
+  --chart-1: #3b82f6;
+  --chart-2: #d97706;
+  --chart-3: #0d9488;
+  --chart-4: #f43f5e;
+  --chart-5: #8b5cf6;
+  --chart-6: #65a30d;
+  --chart-7: #22d3ee;
+  --chart-8: #fb923c;
+  --chart-9: #818cf8;
+  --chart-10: #34d399;
+  --chart-11: #e879f9;
+  --chart-12: #d6a46b;
+  --chart-13: #38bdf8;
+  --chart-14: #f472b6;
+  --chart-15: #c084fc;
+  --chart-16: #a3e635;
+  --chart-17: #94a3b8;
+  --chart-18: #facc15;
+  --chart-other: #71717a;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
     color-scheme: dark;
     --background: #09090b;
     --foreground: #f4f4f5;
@@ -166,7 +208,7 @@ main.max-w-7xl { max-width: 1120px; }
   top: 0;
   height: 56px;
   border-bottom: 1px solid var(--finance-ink);
-  background: rgb(255 255 255 / 0.98);
+  background: color-mix(in srgb, var(--background) 98%, transparent);
 }
 
 .finance-header-inner {
@@ -255,7 +297,7 @@ button.finance-nav-link { cursor: pointer; }
   width: 225px;
   overflow: hidden;
   border: 1px solid var(--finance-ink);
-  background: #fff;
+  background: var(--background);
   padding: 4px;
 }
 .finance-popover.is-right { right: 0; left: auto; }
@@ -263,7 +305,27 @@ button.finance-nav-link { cursor: pointer; }
 .finance-popover-item:hover { background: var(--finance-track); color: var(--finance-blue); }
 .finance-popover-item small { color: var(--finance-faint); font-size: 11px; font-weight: 400; }
 
-.finance-user-actions { display: flex; min-width: 0; align-items: center; margin-left: auto; gap: 14px; }
+.finance-user-actions { display: flex; min-width: 0; align-items: center; margin-left: auto; gap: 10px; }
+.finance-theme-selector {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--finance-border);
+  padding: 2px;
+}
+.finance-theme-selector button {
+  min-height: 24px;
+  cursor: pointer;
+  padding: 0 7px;
+  color: var(--finance-faint);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.finance-theme-selector button:hover { color: var(--finance-blue); }
+.finance-theme-selector button.is-active {
+  background: var(--finance-ink);
+  color: var(--background);
+}
 .finance-settings-button {
   display: grid;
   width: 28px;
@@ -302,57 +364,103 @@ button.finance-nav-link { cursor: pointer; }
 .finance-mobile-bottom-nav, .finance-mobile-more { display: none; }
 
 @media (prefers-color-scheme: dark) {
-  body > div > .min-h-screen.bg-zinc-50,
-  [class~="bg-white"],
-  [class~="bg-white/70"],
-  [class~="bg-white/80"],
-  [class~="bg-white/95"] { background-color: var(--background); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) body > div > .min-h-screen.bg-zinc-50,
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-white"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-white/70"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-white/80"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-white/95"] { background-color: var(--background); }
 
-  [class~="bg-zinc-50"],
-  [class~="bg-zinc-50/70"] { background-color: var(--finance-panel); }
-  [class~="bg-zinc-100"],
-  [class~="bg-zinc-200"] { background-color: var(--finance-track); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-zinc-50"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-zinc-50/70"] { background-color: var(--finance-panel); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-zinc-100"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-zinc-200"] { background-color: var(--finance-track); }
 
-  [class~="text-zinc-950"],
-  [class~="text-zinc-900"],
-  [class~="text-zinc-800"],
-  [class~="text-zinc-700"] { color: var(--finance-ink); }
-  [class~="text-zinc-600"],
-  [class~="text-zinc-500"] { color: var(--finance-muted); }
-  [class~="text-zinc-400"],
-  [class~="text-zinc-300"] { color: var(--finance-faint); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-zinc-950"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-zinc-900"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-zinc-800"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-zinc-700"] { color: var(--finance-ink); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-zinc-600"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-zinc-500"] { color: var(--finance-muted); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-zinc-400"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-zinc-300"] { color: var(--finance-faint); }
 
-  [class~="border-zinc-100"],
-  [class~="border-zinc-200"],
-  [class~="border-zinc-300"] { border-color: var(--finance-border); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-zinc-100"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-zinc-200"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-zinc-300"] { border-color: var(--finance-border); }
 
-  [class~="text-blue-500"], [class~="text-blue-600"], [class~="text-blue-700"], [class~="text-blue-800"], [class~="text-blue-900"] { color: var(--finance-blue); }
-  [class~="text-rose-500"], [class~="text-rose-600"], [class~="text-rose-700"], [class~="text-rose-800"], [class~="text-rose-900"],
-  [class~="text-red-500"], [class~="text-red-600"], [class~="text-red-700"], [class~="text-red-800"], [class~="text-red-900"] { color: var(--finance-red); }
-  [class~="text-emerald-500"], [class~="text-emerald-600"], [class~="text-emerald-700"], [class~="text-emerald-800"], [class~="text-emerald-900"] { color: var(--finance-green); }
-  [class~="text-amber-500"], [class~="text-amber-600"], [class~="text-amber-700"], [class~="text-amber-800"], [class~="text-amber-900"], [class~="text-amber-950"] { color: var(--finance-amber); }
-  [class~="text-violet-500"], [class~="text-violet-600"], [class~="text-violet-700"], [class~="text-violet-800"], [class~="text-violet-900"] { color: var(--finance-violet); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-blue-500"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-blue-600"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-blue-700"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-blue-800"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-blue-900"] { color: var(--finance-blue); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-rose-500"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-rose-600"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-rose-700"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-rose-800"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-rose-900"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-red-500"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-red-600"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-red-700"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-red-800"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-red-900"] { color: var(--finance-red); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-emerald-500"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-emerald-600"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-emerald-700"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-emerald-800"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-emerald-900"] { color: var(--finance-green); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-amber-500"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-amber-600"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-amber-700"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-amber-800"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-amber-900"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-amber-950"] { color: var(--finance-amber); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-violet-500"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-violet-600"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-violet-700"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-violet-800"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="text-violet-900"] { color: var(--finance-violet); }
 
-  [class~="bg-blue-50"] { background-color: var(--finance-blue-tint); }
-  [class~="bg-rose-50"], [class~="bg-red-50"] { background-color: var(--finance-red-tint); }
-  [class~="bg-emerald-50"] { background-color: var(--finance-green-tint); }
-  [class~="bg-amber-50"] { background-color: var(--finance-amber-tint); }
-  [class~="bg-violet-50"] { background-color: var(--finance-violet-tint); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-blue-50"] { background-color: var(--finance-blue-tint); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-rose-50"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-red-50"] { background-color: var(--finance-red-tint); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-emerald-50"] { background-color: var(--finance-green-tint); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-amber-50"] { background-color: var(--finance-amber-tint); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-violet-50"] { background-color: var(--finance-violet-tint); }
 
-  [class~="border-blue-200"], [class~="border-blue-300"], [class~="border-blue-500"] { border-color: var(--finance-blue); }
-  [class~="border-rose-200"], [class~="border-rose-300"], [class~="border-rose-500"],
-  [class~="border-red-200"], [class~="border-red-300"], [class~="border-red-500"] { border-color: var(--finance-red); }
-  [class~="border-emerald-200"], [class~="border-emerald-300"], [class~="border-emerald-500"] { border-color: var(--finance-green); }
-  [class~="border-amber-200"], [class~="border-amber-300"], [class~="border-amber-500"] { border-color: var(--finance-amber); }
-  [class~="border-violet-200"], [class~="border-violet-300"], [class~="border-violet-500"] { border-color: var(--finance-violet); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-blue-200"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-blue-300"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-blue-500"] { border-color: var(--finance-blue); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-rose-200"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-rose-300"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-rose-500"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-red-200"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-red-300"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-red-500"] { border-color: var(--finance-red); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-emerald-200"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-emerald-300"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-emerald-500"] { border-color: var(--finance-green); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-amber-200"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-amber-300"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-amber-500"] { border-color: var(--finance-amber); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-violet-200"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-violet-300"], :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="border-violet-500"] { border-color: var(--finance-violet); }
 
-  [class~="bg-finance-ink"][class~="text-white"],
-  .finance-brand-mark,
-  .finance-popover [class~="bg-finance-ink"] { color: var(--background); }
+  :root:not([data-theme="light"]):not([data-theme="dark"]) [class~="bg-finance-ink"][class~="text-white"],
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .finance-brand-mark,
+  :root:not([data-theme="light"]):not([data-theme="dark"]) .finance-popover [class~="bg-finance-ink"] { color: var(--background); }
+}
 
-  .finance-header { background: rgb(9 9 11 / 0.98); }
-  .finance-popover,
-  .finance-mobile-more { background: var(--background); }
+:root[data-theme="dark"] {
+  & body > div > .min-h-screen.bg-zinc-50,
+  & [class~="bg-white"],
+  & [class~="bg-white/70"],
+  & [class~="bg-white/80"],
+  & [class~="bg-white/95"] { background-color: var(--background); }
+
+  & [class~="bg-zinc-50"],
+  & [class~="bg-zinc-50/70"] { background-color: var(--finance-panel); }
+  & [class~="bg-zinc-100"],
+  & [class~="bg-zinc-200"] { background-color: var(--finance-track); }
+
+  & [class~="text-zinc-950"],
+  & [class~="text-zinc-900"],
+  & [class~="text-zinc-800"],
+  & [class~="text-zinc-700"] { color: var(--finance-ink); }
+  & [class~="text-zinc-600"],
+  & [class~="text-zinc-500"] { color: var(--finance-muted); }
+  & [class~="text-zinc-400"],
+  & [class~="text-zinc-300"] { color: var(--finance-faint); }
+
+  & [class~="border-zinc-100"],
+  & [class~="border-zinc-200"],
+  & [class~="border-zinc-300"] { border-color: var(--finance-border); }
+
+  & [class~="text-blue-500"], & [class~="text-blue-600"], & [class~="text-blue-700"], & [class~="text-blue-800"], & [class~="text-blue-900"] { color: var(--finance-blue); }
+  & [class~="text-rose-500"], & [class~="text-rose-600"], & [class~="text-rose-700"], & [class~="text-rose-800"], & [class~="text-rose-900"],
+  & [class~="text-red-500"], & [class~="text-red-600"], & [class~="text-red-700"], & [class~="text-red-800"], & [class~="text-red-900"] { color: var(--finance-red); }
+  & [class~="text-emerald-500"], & [class~="text-emerald-600"], & [class~="text-emerald-700"], & [class~="text-emerald-800"], & [class~="text-emerald-900"] { color: var(--finance-green); }
+  & [class~="text-amber-500"], & [class~="text-amber-600"], & [class~="text-amber-700"], & [class~="text-amber-800"], & [class~="text-amber-900"], & [class~="text-amber-950"] { color: var(--finance-amber); }
+  & [class~="text-violet-500"], & [class~="text-violet-600"], & [class~="text-violet-700"], & [class~="text-violet-800"], & [class~="text-violet-900"] { color: var(--finance-violet); }
+
+  & [class~="bg-blue-50"] { background-color: var(--finance-blue-tint); }
+  & [class~="bg-rose-50"], & [class~="bg-red-50"] { background-color: var(--finance-red-tint); }
+  & [class~="bg-emerald-50"] { background-color: var(--finance-green-tint); }
+  & [class~="bg-amber-50"] { background-color: var(--finance-amber-tint); }
+  & [class~="bg-violet-50"] { background-color: var(--finance-violet-tint); }
+
+  & [class~="border-blue-200"], & [class~="border-blue-300"], & [class~="border-blue-500"] { border-color: var(--finance-blue); }
+  & [class~="border-rose-200"], & [class~="border-rose-300"], & [class~="border-rose-500"],
+  & [class~="border-red-200"], & [class~="border-red-300"], & [class~="border-red-500"] { border-color: var(--finance-red); }
+  & [class~="border-emerald-200"], & [class~="border-emerald-300"], & [class~="border-emerald-500"] { border-color: var(--finance-green); }
+  & [class~="border-amber-200"], & [class~="border-amber-300"], & [class~="border-amber-500"] { border-color: var(--finance-amber); }
+  & [class~="border-violet-200"], & [class~="border-violet-300"], & [class~="border-violet-500"] { border-color: var(--finance-violet); }
+
+  & [class~="bg-finance-ink"][class~="text-white"],
+  & .finance-brand-mark,
+  & .finance-popover [class~="bg-finance-ink"] { color: var(--background); }
 }
 
 @media (max-width: 860px) {
@@ -411,6 +519,13 @@ button.finance-nav-link { cursor: pointer; }
   .finance-mobile-more .finance-nav-link { min-height: 38px; border-bottom: 0; padding: 8px 10px; }
   .finance-mobile-more .finance-nav-link:hover { background: var(--finance-track); }
   .finance-mobile-more .finance-nav-link.is-active { border-left: 2px solid var(--finance-blue); }
+  .finance-theme-selector.is-mobile {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 2px 8px 8px;
+  }
+  .finance-theme-selector.is-mobile button { min-height: 34px; }
   .finance-mobile-account { display: flex; grid-column: 1 / -1; justify-content: space-between; border-top: 1px solid var(--finance-border); margin-top: 4px; padding: 10px 8px 4px; color: #9b9a97; font-size: 11px; }
   .finance-mobile-account span { max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .finance-mobile-account button { color: var(--finance-muted); font-weight: 600; }

@@ -3,6 +3,8 @@ import { Geist_Mono, IBM_Plex_Sans_KR } from "next/font/google";
 import { Suspense } from "react";
 
 import { NavigationFeedback } from "@/components/navigation-feedback";
+import { ThemeController } from "@/components/theme-selector";
+import { THEME_INIT_SCRIPT } from "@/features/theme/theme";
 
 import "./globals.css";
 
@@ -29,10 +31,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body
         className={`${ibmPlexSansKR.variable} ${geistMono.variable} antialiased`}
       >
+        <ThemeController />
         <Suspense fallback={null}>
           <NavigationFeedback />
         </Suspense>

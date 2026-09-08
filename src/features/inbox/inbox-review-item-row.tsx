@@ -1,6 +1,7 @@
 'use client'
 
 import type { Dispatch, SetStateAction } from 'react'
+import { useFormStatus } from 'react-dom'
 
 import type { TransactionFlow } from './banksalad'
 import { flowLabel, SuggestionBadges, visibleSourceCategories } from './inbox-review-shared'
@@ -23,6 +24,7 @@ export type InboxRowState = {
 }
 
 export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: InboxRowState }) {
+  const { pending } = useFormStatus()
   const {
     categories,
     accounts,
@@ -168,7 +170,7 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
         <button
           aria-label={`${item.merchant || '거래'} 바로 반영`}
           className="inline-flex h-[30px] w-full items-center justify-center gap-1 bg-finance-green px-2 t-body-strong text-white hover:bg-finance-ink disabled:cursor-wait disabled:opacity-50"
-          disabled={applyingIds.has(item.id)}
+          disabled={pending || applyingIds.size > 0}
           onClick={() => void applySingleItem(item)}
           title="현재 분류와 결제수단으로 바로 반영"
           type="button"

@@ -19,6 +19,7 @@ import {
 } from './banksalad'
 import { assessConfidence } from './confidence'
 import { occurrenceCounter } from './occurrence'
+import { HyundaiStatementError, isHtmlStatement } from './parsers/hyundai-html'
 import {
   CARD_ISSUERS,
   cardFingerprint,
@@ -264,7 +265,11 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
   if (!(file instanceof File) || file.size === 0) return { error: '카드사 명세서 파일을 선택해 주세요.' }
   if (!CARD_ISSUERS.some((card) => card.key === issuer)) return { error: '카드사를 선택해 주세요.' }
   if (owner !== 'DJ' && owner !== 'YJ') return { error: '소유자를 선택해 주세요.' }
-  if (!/\.xlsx?$/i.test(file.name)) return { error: '.xls 또는 .xlsx 형식의 명세서만 올릴 수 있습니다.' }
+  const isHtmlFile = /\.html?$/i.test(file.name)
+  if (isHtmlFile && issuer !== 'hyundai') return { error: 'HTML 명세서는 현대카드만 지원합니다.' }
+  if (!/\.xlsx?$/i.test(file.name) && !isHtmlFile) {
+    return { error: '.xls 또는 .xlsx 파일을 올려 주세요. 현대카드는 .html 명세서도 지원합니다.' }
+  }
   if (file.size > MAX_FILE_BYTES) return { error: '파일 크기는 2MB 이하여야 합니다.' }
 
   const issuerLabel = CARD_ISSUERS.find((card) => card.key === issuer)!.label
@@ -287,14 +292,15 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
   }
 
   const buffer = Buffer.from(await file.arrayBuffer())
-  if (looksLikeBanksalad(buffer)) {
+  if (!isHtmlStatement(buffer) && looksLikeBanksalad(buffer)) {
     return { error: '뱅크샐러드 파일입니다. 뱅크샐러드 업로드를 사용해 주세요.' }
   }
 
   let rows: CardRow[]
   try {
-    rows = parseCardStatement(buffer, issuer)
+    rows = parseCardStatement(buffer, issuer, { password: String(formData.get('password') ?? '') })
   } catch (error) {
+    if (error instanceof HyundaiStatementError) return { error: error.message }
     return { error: `파일을 읽지 못했습니다: ${errorMessage(error)}` }
   }
   if (rows.length === 0) {

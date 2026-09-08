@@ -22,6 +22,7 @@
     "chart.js": "4.5.1",
     "drizzle-orm": "^0.45.2",
     "exceljs": "^4.4.0",
+    "kisa-seed": "1.1.0",
     "next": "15.5.25",
     "openai": "^7.9.0",
     "postgres": "^3.4.9",

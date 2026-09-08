@@ -182,6 +182,57 @@ test('applyInboxItem applies one edited row without redirecting', async () => {
   })
 })
 
+test('inline bulk dismissal returns only changed household-owned pending ids', async () => {
+  const [other] = await db.insert(households).values({ name: 'TEST-inline-other' }).returning()
+  householdIds.push(other.id)
+  const [pending, done, foreign] = await db.insert(importInbox).values([
+    { householdId: context.householdId, status: 'pending' as const },
+    { householdId: context.householdId, status: 'done' as const },
+    { householdId: other.id, status: 'pending' as const },
+  ].map((scope) => ({
+    ...scope, importUid: crypto.randomUUID(), owner: 'DJ',
+    date: '2026-09-02', merchant: '일괄 제외', amount: 5000, flow: 'expense' as const,
+  }))).returning({ id: importInbox.id })
+  const form = new FormData()
+  form.set('inline', '1')
+  form.set('intent', 'dismiss')
+  for (const row of [pending, done, foreign]) form.append('ids', String(row.id))
+  await expect(processInbox(form)).resolves.toEqual({
+    processedIds: [pending.id], message: '1건을 인박스에서 제외했습니다.',
+  })
+  const rows = await db.select({ id: importInbox.id, status: importInbox.status }).from(importInbox)
+    .where(inArray(importInbox.id, [pending.id, done.id, foreign.id])).orderBy(importInbox.id)
+  expect(rows).toEqual([
+    { id: pending.id, status: 'dismissed' },
+    { id: done.id, status: 'done' },
+    { id: foreign.id, status: 'pending' },
+  ])
+})
+
+test('inline bulk apply returns its edited rows without redirecting and leaves invalid rows pending', async () => {
+  const [row] = await db.insert(importInbox).values({
+    householdId: context.householdId, importUid: crypto.randomUUID(), owner: 'DJ',
+    date: '2026-09-02', merchant: `일괄 반영-${crypto.randomUUID()}`, amount: 3200, flow: 'expense',
+  }).returning({ id: importInbox.id, importUid: importInbox.importUid })
+  const form = new FormData()
+  form.set('inline', '1')
+  form.set('intent', 'apply')
+  form.set('ids', String(row.id))
+  form.set(`flow_${row.id}`, 'income')
+  form.set(`category_${row.id}`, String(categoryId))
+  await expect(processInbox(form)).resolves.toEqual({ error: `${row.id}번 거래의 분류가 거래 유형과 맞지 않습니다.` })
+  const [pending] = await db.select({ status: importInbox.status }).from(importInbox).where(eq(importInbox.id, row.id))
+  expect(pending.status).toBe('pending')
+
+  form.set(`flow_${row.id}`, 'expense')
+  await expect(processInbox(form)).resolves.toEqual({
+    processedIds: [row.id], message: '1건을 가계부에 반영했습니다 (지출 3,200원).',
+  })
+  const [saved] = await db.select({ categoryId: transactions.categoryId, amount: transactions.amount })
+    .from(transactions).where(and(eq(transactions.householdId, context.householdId), eq(transactions.importUid, row.importUid)))
+  expect(saved).toEqual({ categoryId, amount: 3200 })
+})
+
 test('a conflicting import uid is not inserted or learned a second time', async () => {
   const merchant = `중복학습-${crypto.randomUUID()}`
   const importUid = `inbox-existing-${crypto.randomUUID()}`

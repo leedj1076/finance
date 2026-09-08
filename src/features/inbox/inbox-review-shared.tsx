@@ -60,27 +60,27 @@ export function SuggestionBadges({ item }: { item: InboxItem }) {
   )
 }
 
-export function ActionButtons({ selectedCount }: { selectedCount: number }) {
-  const { pending } = useFormStatus()
+export function ActionButtons({ selectedCount, busy = false }: { selectedCount: number; busy?: boolean }) {
+  const { pending, data } = useFormStatus()
   return (
     <div className="flex flex-wrap justify-end gap-2">
       <button
         className="h-[34px] border border-finance-border bg-white px-4 text-[13px] font-medium text-finance-muted hover:border-finance-ink hover:text-finance-ink disabled:opacity-40"
-        disabled={pending || selectedCount === 0}
+        disabled={pending || busy || selectedCount === 0}
         name="intent"
         type="submit"
         value="dismiss"
       >
-        {pending ? '처리 중…' : '선택 제외'}
+        {pending && data?.get('intent') === 'dismiss' ? '제외 중…' : '선택 제외'}
       </button>
       <button
         className="h-[34px] bg-finance-green px-4 text-[13px] font-semibold text-white hover:bg-finance-ink disabled:opacity-40"
-        disabled={pending || selectedCount === 0}
+        disabled={pending || busy || selectedCount === 0}
         name="intent"
         type="submit"
         value="apply"
       >
-        {pending ? '처리 중…' : '선택 반영'}
+        {pending && data?.get('intent') === 'apply' ? '반영 중…' : '선택 반영'}
       </button>
     </div>
   )

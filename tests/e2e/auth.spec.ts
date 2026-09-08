@@ -172,14 +172,18 @@ test('family user can manage a transaction and change their password', async ({ 
     const editingRow = page.getByRole('row', { name: /E2E 장보기/ })
     await editingRow.getByLabel('금액').fill('15,000')
     let fullPageNavigations = 0
-    const navigationCounter = (frame: import('@playwright/test').Frame) => {
-      if (frame === page.mainFrame()) fullPageNavigations += 1
+    const navigationCounter = (request: import('@playwright/test').Request) => {
+      // framenavigated also fires for same-document history updates, which
+      // are not reloads. Observe actual main-document requests instead.
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) fullPageNavigations += 1
     }
-    page.on('framenavigated', navigationCounter)
+    const documentBeforeSave = await page.evaluate(() => performance.timeOrigin)
+    page.on('request', navigationCounter)
     await editingRow.getByRole('button', { name: '거래 수정 저장' }).click()
     await expect(page.getByRole('row', { name: /E2E 장보기/ })).toContainText('15,000원')
     await expect(page.getByText('저장됨')).toBeVisible()
-    page.off('framenavigated', navigationCounter)
+    page.off('request', navigationCounter)
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentBeforeSave)
     expect(fullPageNavigations).toBe(0)
 
     page.once('dialog', (dialog) => dialog.accept())
@@ -190,7 +194,10 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page).toHaveURL('/budgets')
     await page.getByLabel('예산 월').fill('2026-03')
     await page.getByRole('button', { name: '보기', exact: true }).click()
+    await expect(page).toHaveURL('/budgets?month=2026-03')
+    await expect(page.getByRole('heading', { name: '2026년 03월 예산', exact: true })).toBeVisible()
     await page.getByLabel('식비 예산').fill('500000')
+    await expect(page.getByText('입력 합계 500,000원')).toBeVisible()
     await page.getByLabel('목표 저축률').fill('35')
     await page.getByRole('button', { name: '변경사항 저장' }).click()
     await expect(page.getByLabel('식비 예산')).toHaveValue('500000')

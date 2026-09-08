@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises'
 
 import { expect, test, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
+import { HYUNDAI_TEST_PASSWORD, secureHyundaiFixture } from '../fixtures/hyundai-secure'
 
 test.use({ actionTimeout: 10_000 })
 
@@ -187,6 +188,107 @@ async function openCardReview(page: Page, date: string) {
   await cardGroup.click()
 }
 
+async function watchMutationFeedback(page: Page) {
+  await page.evaluate(() => {
+    const observed = window as typeof window & { mutationAnimations: string[] }
+    observed.mutationAnimations = []
+    document.addEventListener('animationstart', (event) => {
+      if (event.animationName === 'page-enter') observed.mutationAnimations.push(event.animationName)
+    })
+  })
+}
+
+async function expectNoPageFlash(page: Page) {
+  expect(await page.evaluate(() => (
+    window as typeof window & { mutationAnimations: string[] }
+  ).mutationAnimations)).toEqual([])
+}
+
+test('ledger inline save keeps the page, draft and scroll while refreshing filtered totals', async ({ page }) => {
+  const email = `finance-inline-ledger-${crypto.randomUUID()}@example.com`
+  const password = 'passw0rd!'
+  let householdId: string | undefined
+  try {
+    const setup = await createTestUser(email, password)
+    householdId = setup.householdId
+    const { error } = await createAdminClient().from('transactions').insert({
+      household_id: householdId, date: '2026-08-12', flow: 'expense',
+      amount: 5000, memo: '수정할 거래', category_id: setup.categoryId,
+      account_id: setup.accountId, source: 'e2e',
+    })
+    if (error) throw error
+    await loginAs(page, email, password)
+    const url = '/ledger?month=2026-08&tab=list&flow=expense'
+    await page.goto(url)
+    const draft = page.locator('#transaction-form input[name="memo"]')
+    await draft.fill('저장하지 않은 새 거래')
+    await page.getByRole('row').filter({ hasText: '수정할 거래' }).click()
+    const edit = page.getByRole('row').filter({ has: page.getByRole('button', { name: '거래 수정 저장' }) })
+    await edit.getByRole('textbox', { name: '사용내역', exact: true }).fill('수정할 거래 변경')
+    await edit.getByRole('textbox', { name: '금액', exact: true }).fill('0')
+    await edit.getByRole('button', { name: '거래 수정 저장' }).click()
+    await expect(page.getByText('금액은 0이 아닌 정수로 입력해 주세요.')).toBeVisible()
+    await expect(edit.getByRole('textbox', { name: '사용내역', exact: true })).toHaveValue('수정할 거래 변경')
+    await expect(edit.getByRole('textbox', { name: '금액', exact: true })).toHaveValue('0')
+    await edit.getByRole('textbox', { name: '금액', exact: true }).fill('7000')
+    await watchMutationFeedback(page)
+    const scroll = await page.evaluate(() => window.scrollY)
+    await edit.getByRole('button', { name: '거래 수정 저장' }).click()
+    await expect(page.getByRole('row').filter({ hasText: '수정할 거래' })).toContainText('7,000원')
+    await expect(page.getByText('지출', { exact: false }).filter({ has: page.locator('strong', { hasText: '7,000원' }) }).first()).toBeVisible()
+    await expect(draft).toHaveValue('저장하지 않은 새 거래')
+    await expect(page).toHaveURL(url)
+    expect(await page.evaluate(() => window.scrollY)).toBe(scroll)
+    await expectNoPageFlash(page)
+  } finally {
+    await deleteTestState(email, householdId)
+  }
+})
+
+test('inbox bulk mutations retain groups and edits, update counts, and keep review open when empty', async ({ page }) => {
+  const email = `finance-inline-inbox-${crypto.randomUUID()}@example.com`
+  const password = 'passw0rd!'
+  let householdId: string | undefined
+  try {
+    const setup = await createTestUser(email, password)
+    householdId = setup.householdId
+    const { error } = await createAdminClient().from('import_inbox').insert(
+      ['제외할 거래', '반영할 거래', '수정 중인 거래'].map((merchant) => ({
+        household_id: householdId, import_uid: crypto.randomUUID(), owner: 'DJ',
+        date: '2026-08-12', merchant, amount: 5000, flow: 'expense',
+        account_id: setup.accountId,
+      })),
+    )
+    if (error) throw error
+    await loginAs(page, email, password)
+    // No explicit tab: processing the last item must not switch to upload.
+    await page.goto('/inbox')
+    await page.getByRole('button', { name: '모든 그룹 펼치기' }).click()
+    await page.getByRole('combobox', { name: '수정 중인 거래 카테고리' }).selectOption(String(setup.categoryId))
+    await watchMutationFeedback(page)
+    await page.getByRole('checkbox', { name: '제외할 거래 선택', exact: true }).check()
+    await page.getByRole('button', { name: '선택 제외', exact: true }).first().click()
+    await expect(page.getByRole('row').filter({ hasText: '제외할 거래' })).toHaveCount(0)
+    await expect(page.getByRole('status').filter({ hasText: '1건을 인박스에서 제외' })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: '수정 중인 거래 카테고리' })).toHaveValue(String(setup.categoryId))
+    await expect(page.getByRole('navigation', { name: '가져오기 작업' })).toContainText('검토 대기2')
+    await expect(page).toHaveURL('/inbox')
+    await expectNoPageFlash(page)
+    await page.getByRole('checkbox', { name: '반영할 거래 선택', exact: true }).check()
+    await page.getByRole('button', { name: '선택 반영', exact: true }).first().click()
+    await expect(page.getByRole('row').filter({ hasText: '반영할 거래' })).toHaveCount(0)
+    await expect(page.getByRole('combobox', { name: '수정 중인 거래 카테고리' })).toHaveValue(String(setup.categoryId))
+    await page.getByRole('button', { name: '수정 중인 거래 바로 반영' }).click()
+    await expect(page.getByText('모든 대기 거래를 처리했습니다.')).toBeVisible()
+    await expect(page.getByRole('status').filter({ hasText: '가계부에 반영했습니다.' })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: '가져오기 작업' })).toContainText('검토 대기0')
+    await expect(page).toHaveURL('/inbox')
+    await expectNoPageFlash(page)
+  } finally {
+    await deleteTestState(email, householdId)
+  }
+})
+
 test('card statement upload reaches inbox, applies to ledger, and keeps card source', async ({ page }, testInfo) => {
   test.slow()
   const email = `finance-parity-card-${Date.now()}-${crypto.randomUUID()}@example.com`
@@ -233,7 +335,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await inboxRow.getByRole('combobox', { name: `${merchant} 결제수단` }).selectOption(String(setup.accountId))
     await page.getByRole('button', { name: '선택 반영' }).first().click()
 
-    await expect(page).toHaveURL(/\/inbox\?notice=/)
+    await expect(page).toHaveURL('/inbox?tab=review')
     await expect(page.getByText(/1건을 가계부에 반영했습니다/)).toBeVisible()
     await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '내역', exact: true }).click()
     const ledgerRow = page.getByRole('row').filter({ hasText: merchant })
@@ -273,10 +375,49 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     const repeatRow = page.getByRole('row').filter({ hasText: merchant })
     await expect(repeatRow.getByText('자동 분류')).toBeVisible()
     await repeatRow.getByRole('button', { name: `${merchant} 바로 반영` }).click()
-    await expect(page.getByText(/^(확인|검토)할 거래가 없습니다\.$/)).toBeVisible()
+    await expect(page.getByText('모든 대기 거래를 처리했습니다.')).toBeVisible()
 
     await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '내역', exact: true }).click()
     await expect(page.getByRole('row').filter({ hasText: merchant })).toHaveCount(2)
+  } finally {
+    await deleteTestState(email, householdId)
+  }
+})
+
+test('Hyundai HTML upload retries a password without losing its file and never stores the password', async ({ page }) => {
+  test.slow()
+  const email = `finance-hyundai-${crypto.randomUUID()}@example.com`
+  let householdId: string | undefined
+  try {
+    const setup = await createTestUser(email, 'passw0rd!')
+    householdId = setup.householdId
+    const admin = createAdminClient()
+    const { error } = await admin.from('accounts').update({ name: 'DJ 현대카드' }).eq('household_id', householdId).eq('id', setup.accountId)
+    if (error) throw error
+    await loginAs(page, email, 'passw0rd!')
+    await page.goto('/inbox?tab=upload')
+    await page.getByRole('tab', { name: '카드사 명세서' }).click()
+    await page.locator('select[name="issuer"]').selectOption('hyundai')
+    const fileInput = page.locator('input[name="file"]')
+    await expect(fileInput).toHaveAttribute('accept', /\.html/)
+    await fileInput.setInputFiles({ name: 'hyundai.html', mimeType: 'text/html', buffer: Buffer.from(secureHyundaiFixture()) })
+    const password = page.getByLabel('보안 명세서 비밀번호', { exact: true })
+    await password.fill('wrong-password')
+    await page.getByRole('button', { name: '인박스로 불러오기' }).click()
+    await expect(page.getByText(/비밀번호가 맞지 않거나/)).toBeVisible()
+    await expect(password).toHaveValue('')
+    expect(await fileInput.evaluate((input) => (input as HTMLInputElement).files?.[0]?.name)).toBe('hyundai.html')
+
+    await password.fill(HYUNDAI_TEST_PASSWORD)
+    await page.getByRole('button', { name: '인박스로 불러오기' }).click()
+    await expect(page.getByText(/인박스에 2건 추가/)).toBeVisible()
+    await expect(password).toHaveValue('')
+    const { data: rows, error: queryError } = await admin.from('import_inbox').select('*').eq('household_id', householdId)
+    if (queryError) throw queryError
+    expect(rows).toHaveLength(2)
+    expect(rows?.every((row) => row.status === 'pending' && row.account_id === setup.accountId)).toBe(true)
+    expect(JSON.stringify(rows)).not.toContain(HYUNDAI_TEST_PASSWORD)
+    expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain(HYUNDAI_TEST_PASSWORD)
   } finally {
     await deleteTestState(email, householdId)
   }

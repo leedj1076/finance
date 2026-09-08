@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
+import { ThemeSelector } from './theme-selector'
+
 export type HeaderSection = 'assets' | 'budgets' | 'dashboard' | 'inbox' | 'ledger' | 'report' | 'settings'
 
 type AppHeaderMenuProps = {
@@ -90,6 +92,7 @@ export function AppHeaderMenu({ active, email, pendingInboxCount }: AppHeaderMen
         </nav>
 
         <div className="finance-user-actions">
+          <ThemeSelector />
           <div className="finance-popover-wrap">
             <button
               aria-expanded={openMenu === 'settings'}
@@ -139,6 +142,8 @@ export function AppHeaderMenu({ active, email, pendingInboxCount }: AppHeaderMen
                 {link.label}
               </Link>
             ))}
+            <p>테마</p>
+            <ThemeSelector mobile />
             <div className="finance-mobile-account">
               <span title={email}>{email}</span>
               <form action="/auth/signout" method="post"><button type="submit">로그아웃</button></form>
