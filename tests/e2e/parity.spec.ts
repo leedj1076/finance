@@ -353,6 +353,62 @@ test('inbox title edits survive review operations and save through single and bu
   }
 })
 
+for (const applyPath of ['single', 'bulk'] as const) {
+  test(`untouched legacy title over 200 characters applies through ${applyPath}`, async ({ page }) => {
+    const email = `finance-long-title-${applyPath}-${crypto.randomUUID()}@example.com`
+    const password = 'passw0rd!'
+    const merchant = `${applyPath === 'single' ? '개별' : '일괄'} 긴 원문 ${'가'.repeat(201)}`
+    let householdId: string | undefined
+    try {
+      const setup = await createTestUser(email, password)
+      householdId = setup.householdId
+      const { error } = await createAdminClient().from('import_inbox').insert({
+        household_id: householdId,
+        import_uid: crypto.randomUUID(),
+        owner: 'DJ',
+        date: '2026-08-12',
+        merchant,
+        amount: 6100,
+        flow: 'expense',
+        account_id: setup.accountId,
+        confidence: applyPath === 'bulk' ? 'high' : 'review',
+      })
+      if (error) throw error
+
+      await loginAs(page, email, password)
+      await page.goto('/inbox')
+      await page.getByRole('button', { name: '모든 그룹 펼치기' }).click()
+      const row = inboxRowBySourceTitle(page, merchant)
+      await expect(row).toHaveCount(1)
+      await expect(row.getByRole('textbox', { name: `${merchant} 거래명` })).toHaveValue(merchant)
+
+      if (applyPath === 'single') {
+        await row.getByRole('button', { name: `${merchant} 바로 반영` }).click()
+      } else {
+        await row.getByRole('checkbox', { name: `${merchant} 선택` }).check()
+        await expect(page.locator('input[name^="title_"]')).toHaveCount(0)
+        await page.getByRole('button', { name: '선택 반영', exact: true }).first().click()
+      }
+
+      await expect(page.getByText('모든 대기 거래를 처리했습니다.')).toBeVisible()
+      await page.getByRole('navigation', { name: '주 메뉴', exact: true })
+        .getByRole('link', { name: '내역', exact: true }).click()
+      await expect(page.getByRole('row').filter({ hasText: merchant })).toHaveCount(1)
+
+      const { data: saved, error: savedError } = await createAdminClient()
+        .from('transactions')
+        .select('memo, raw_merchant')
+        .eq('household_id', householdId)
+        .eq('raw_merchant', merchant)
+        .single()
+      if (savedError) throw savedError
+      expect(saved).toEqual({ memo: merchant, raw_merchant: merchant })
+    } finally {
+      await deleteTestState(email, householdId)
+    }
+  })
+}
+
 test('processing history shows its own rows and restores excluded items inline without ledger navigation', async ({ page }, testInfo) => {
   const email = `finance-history-${crypto.randomUUID()}@example.com`
   let householdId: string | undefined
