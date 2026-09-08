@@ -176,7 +176,7 @@ async function loginAs(
 }
 
 async function openCardReview(page: Page, date: string, cardName = 'DJ 삼성카드') {
-  await page.getByRole('navigation', { name: '가져오기 작업' }).getByRole('link', { name: /검토 대기/ }).click()
+  await page.getByRole('button', { name: '검토 대기 보기', exact: true }).click()
   const [year, month] = date.split('-')
   const monthGroup = page.getByRole('button', { name: new RegExp(`${year}년 ${Number(month)}월`) })
   await expect(monthGroup).toHaveAttribute('aria-expanded', 'false')
@@ -485,6 +485,7 @@ test('Hyundai HTML upload retries a password without losing its file and never s
     await expect(password).toHaveValue('')
     expect(await fileInput.evaluate((input) => (input as HTMLInputElement).files?.[0]?.name)).toBe('hyundai.html')
 
+    await page.getByRole('button', { name: '입력으로 돌아가기', exact: true }).click()
     await password.fill(HYUNDAI_TEST_PASSWORD)
     await page.getByRole('button', { name: '인박스로 불러오기' }).click()
     await expect(page.getByText(/인박스에 2건 추가/)).toBeVisible()
@@ -530,6 +531,7 @@ test('NH PDF upload retries its password, keeps the chosen card and stages signe
     await expect(password).toHaveValue('')
     await expect(card).toHaveValue(String(secondCard.id))
     expect(await fileInput.evaluate((input) => (input as HTMLInputElement).files?.[0]?.name)).toBe('nh.pdf')
+    await page.getByRole('button', { name: '입력으로 돌아가기', exact: true }).click()
     await password.fill(NH_TEST_PASSWORD)
     await page.getByRole('button', { name: '인박스로 불러오기' }).click()
     await expect(page.getByText(/인박스에 2건 추가/)).toBeVisible()
@@ -594,10 +596,14 @@ test('annual chart hover and selection show values, and cell exclusion updates t
     await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
     await detailSection.getByRole('button', { name: '선', exact: true }).click()
     const line = detailSection.getByRole('img', { name: '선 월별 차트' }).locator('canvas')
-    await line.hover({ position: january })
+    const lineBounds = await line.boundingBox()
+    if (!lineBounds) throw new Error('Monthly line chart did not render')
+    // January is the known 500k maximum, so its line point is in the first column near the chart top.
+    const januaryLine = { x: lineBounds.width / 24, y: lineBounds.height / 24 }
+    await line.hover({ position: januaryLine })
     await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
     await detailSection.getByRole('button', { name: '100% 누적 영역', exact: true }).click()
-    await detailSection.getByRole('img', { name: '100% 누적 영역 월별 차트' }).locator('canvas').hover({ position: january })
+    await detailSection.getByRole('img', { name: '100% 누적 영역 월별 차트' }).locator('canvas').hover({ position: januaryLine })
     await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
     await detailSection.getByRole('button', { name: '선택 해제', exact: true }).click()
     await expect(detailSection.getByText('그래프에서 확인할 항목을 선택하세요.', { exact: true })).toBeVisible()
