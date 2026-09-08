@@ -131,7 +131,7 @@ const normalizeHeader = (value: string) => value.replace(/\s+/g, '')
  * A subtotal is not the end of the statement. Each new header owns its indexes.
  */
 function parseHyundaiGrid(grid: string[][], shortDate: ReturnType<typeof hyundaiDateParser> | null): CardRow[] {
-  let section: { date: number; merchant: number; amount: number; fallback: number; pay: number; installment: number } | null = null
+  let section: { date: number; merchant: number; amount: number; fallback: number; fee: number; pay: number; installment: number } | null = null
   const parsed: CardRow[] = []
   const spec = SPECS.hyundai
   for (const row of grid) {
@@ -147,7 +147,15 @@ function parseHyundaiGrid(grid: string[][], shortDate: ReturnType<typeof hyundai
     const dateColumn = pick(spec.dateKeys)
     const merchantColumn = pick(spec.merchantKeys)
     if (dateColumn !== -1 && merchantColumn !== -1) {
-      section = { date: dateColumn, merchant: merchantColumn, amount: pick(spec.amountKeys), fallback: pick(spec.fallbackKeys), pay: pick(spec.payKeys), installment: pick(['할부']) }
+      section = {
+        date: dateColumn,
+        merchant: merchantColumn,
+        amount: pick(spec.amountKeys),
+        fallback: pick(spec.fallbackKeys),
+        fee: header.indexOf('수수료(이자)'),
+        pay: pick(spec.payKeys),
+        installment: pick(['할부']),
+      }
       continue
     }
     if (!section) continue
@@ -160,6 +168,7 @@ function parseHyundaiGrid(grid: string[][], shortDate: ReturnType<typeof hyundai
     const merchant = row[section.merchant]?.trim()
     let amount = toInt(row[section.amount])
     if (amount === null || amount === 0) amount = toInt(row[section.fallback])
+    if (amount === null || amount === 0) amount = toInt(row[section.fee])
     if (!merchant || amount === null || amount === 0) continue
     parsed.push({ date, merchant, amount, pay: row[section.pay]?.trim() || null })
   }
