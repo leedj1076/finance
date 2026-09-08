@@ -1,6 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, expect, test, vi } from 'vitest'
 
+import { GET } from '@/app/api/inbox/history/route'
 import { db } from '@/db/client'
 import { households, importInbox, transactions } from '@/db/schema'
 import * as actions from '@/features/inbox/history-actions'
@@ -54,6 +55,14 @@ test('history details isolate the source, Korea upload day and household, and pa
   const done = await queries.getInboxHistoryItems(auth.householdId, { ...key, status: 'done', page: 1 })
   expect(done.total).toBe(1)
   expect(done.items[0]).toMatchObject({ merchant: '기록-0', status: 'done', canRestore: false })
+  const directRead = await actions.loadInboxHistoryItems({ ...key, status: 'done', page: 1 })
+  expect(directRead.data).toMatchObject({ total: 1, items: [{ merchant: '기록-0', status: 'done' }] })
+  const response = await GET(new Request('http://localhost:3000/api/inbox/history?source=card%3Ahyundai&processedOn=2026-09-03&status=all&page=2'))
+  expect(response.status).toBe(200)
+  const { data } = await response.json()
+  expect(data).toMatchObject({ total: 52, page: 2, pageSize: 50 })
+  expect(data.items).toHaveLength(2)
+  expect(data.items.every((row: { merchant: string }) => row.merchant.startsWith('기록-'))).toBe(true)
 })
 
 test('restore changes only excluded household rows not already in the ledger, preserves data and is idempotent', async () => {

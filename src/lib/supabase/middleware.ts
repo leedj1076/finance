@@ -28,6 +28,13 @@ export async function updateSession(request: NextRequest) {
   const isSignedIn = typeof data?.claims?.sub === 'string'
 
   if (!isSignedIn && !isPublicPath(request.nextUrl.pathname)) {
+    if (request.nextUrl.pathname === '/api/inbox/history') {
+      const unauthorized = NextResponse.json({ error: '가족 가계부에 연결된 계정이 아닙니다.' }, {
+        status: 401, headers: { 'Cache-Control': 'private, no-store' },
+      })
+      for (const cookie of response.cookies.getAll()) unauthorized.cookies.set(cookie)
+      return unauthorized
+    }
     if (request.nextUrl.pathname === '/api/import') {
       const unauthorized = NextResponse.json({
         type: 'error',

@@ -463,6 +463,67 @@ test('processing history shows its own rows and restores excluded items inline w
   }
 })
 
+test('history filter changes abort obsolete reads and ignore late data after filter changes or closing', async ({ page }) => {
+  const email = `finance-history-read-${crypto.randomUUID()}@example.com`
+  let householdId: string | undefined
+  try {
+    const setup = await createTestUser(email, 'passw0rd!')
+    householdId = setup.householdId
+    const { error } = await createAdminClient().from('import_inbox').insert({
+      household_id: householdId, import_uid: crypto.randomUUID(), owner: 'DJ', date: '2026-08-12',
+      merchant: '조회 경계 기록', status: 'pending', amount: 5000, flow: 'expense',
+      account_id: setup.accountId, bs_cat1: '__source:card:samsung', created_at: '2026-09-02T15:00:00Z',
+    })
+    if (error) throw error
+    await loginAs(page, email, 'passw0rd!')
+    await page.goto('/inbox?tab=history')
+    await page.evaluate(() => {
+      const originalFetch = window.fetch.bind(window)
+      const reads: Array<{ status: string; signal: AbortSignal; cache?: RequestCache; release: () => void }> = []
+      Reflect.set(window, 'historyReads', reads)
+      window.fetch = (input, init) => {
+        const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.origin)
+        if (url.pathname !== '/api/inbox/history') return originalFetch(input, init)
+        const status = url.searchParams.get('status')!
+        // Deliberately deliver even aborted requests to exercise the component's stale-result guard.
+        return new Promise<Response>((resolve) => {
+          reads.push({ status, signal: init!.signal as AbortSignal, cache: init?.cache, release: () => resolve(Response.json({
+            data: { items: [{ id: 1, owner: 'DJ', date: '2026-08-12', merchant: `${status} 조회 결과`, amount: 5000,
+              flow: 'expense', status: status === 'all' ? 'dismissed' : status, accountName: null,
+              categoryMajor: null, categorySub: null, dupNote: null, canRestore: status === 'dismissed' }],
+            total: 1, page: 1, pageSize: 50 },
+          })) })
+        })
+      }
+    })
+    await page.getByRole('button', { name: '거래 보기', exact: true }).click()
+    const details = page.getByRole('region', { name: '가져온 항목' })
+    await expect.poll(() => page.evaluate(() => Reflect.get(window, 'historyReads').length)).toBe(1)
+    await details.getByRole('button', { name: '검토 대기', exact: true }).click()
+    await expect.poll(() => page.evaluate(() => Reflect.get(window, 'historyReads').length)).toBe(2)
+    expect(await page.evaluate(() => Reflect.get(window, 'historyReads').map((read: { signal: AbortSignal; cache: RequestCache }) => ({ aborted: read.signal.aborted, cache: read.cache })))).toEqual([
+      { aborted: true, cache: 'no-store' }, { aborted: false, cache: 'no-store' },
+    ])
+    await page.evaluate(() => Reflect.get(window, 'historyReads')[1].release())
+    await expect(details.getByText('pending 조회 결과', { exact: true })).toBeVisible()
+    await page.evaluate(async () => {
+      Reflect.get(window, 'historyReads')[0].release()
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    })
+    await expect(details).toHaveAttribute('aria-busy', 'false')
+    await expect(details.getByText('pending 조회 결과', { exact: true })).toBeVisible()
+    await expect(details.getByText('all 조회 결과', { exact: true })).toHaveCount(0)
+    await details.getByRole('button', { name: '선택 제외', exact: true }).click()
+    await expect.poll(() => page.evaluate(() => Reflect.get(window, 'historyReads').length)).toBe(3)
+    await page.getByRole('button', { name: '거래 접기', exact: true }).click()
+    expect(await page.evaluate(() => Reflect.get(window, 'historyReads')[2].signal.aborted)).toBe(true)
+    await page.evaluate(() => Reflect.get(window, 'historyReads')[2].release())
+    await expect(details).toHaveCount(0)
+  } finally {
+    await deleteTestState(email, householdId)
+  }
+})
+
 test('card statement upload reaches inbox, applies to ledger, and keeps card source', async ({ page }, testInfo) => {
   test.slow()
   const email = `finance-parity-card-${Date.now()}-${crypto.randomUUID()}@example.com`

@@ -8,16 +8,14 @@ import { requireHousehold } from '@/lib/household'
 import { revalidateFinance } from '@/lib/revalidate'
 
 import { getInboxHistoryItems } from './history-queries'
+import { isInboxHistoryRequest } from './history-request'
 import type { InboxHistoryPage, InboxHistoryRequest } from './history-types'
 import { refreshDuplicateFlags } from './staging'
 
 export async function loadInboxHistoryItems(request: InboxHistoryRequest): Promise<{ data: InboxHistoryPage; error?: never } | { data?: never; error: string }> {
   const household = await requireHousehold()
   if (!household) return { error: '가족 가계부에 연결된 계정이 아닙니다.' }
-  if (!request || typeof request.source !== 'string' || request.source.length > 100
-    || typeof request.processedOn !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(request.processedOn)
-    || !['all', 'pending', 'done', 'dismissed'].includes(request.status)
-    || !Number.isSafeInteger(request.page) || request.page < 1) {
+  if (!isInboxHistoryRequest(request)) {
     return { error: '처리 기록 조회 조건이 올바르지 않습니다.' }
   }
   return { data: await getInboxHistoryItems(household.householdId, request) }

@@ -30,8 +30,22 @@ test('authenticated import passes through with refreshed session cookie', async 
   expect(response.cookies.get('test-session')).toMatchObject({ value: 'renewed', maxAge: 3600 })
 })
 
+test('history GET returns private JSON 401 with cleared cookies and signed-in reads pass through', async () => {
+  auth.refresh = true
+  const response = await updateSession(new NextRequest('http://localhost:3000/api/inbox/history?source=card:samsung'))
+  expect(response.status).toBe(401)
+  expect(response.headers.get('Location')).toBeNull()
+  expect(response.headers.get('Cache-Control')).toContain('private, no-store')
+  expect(await response.json()).toHaveProperty('error')
+  expect(response.cookies.get('test-session')).toMatchObject({ value: '', maxAge: 0 })
+  auth.signedIn = true
+  const signedIn = await updateSession(new NextRequest('http://localhost:3000/api/inbox/history'))
+  expect(signedIn.headers.get('x-middleware-next')).toBe('1')
+  expect(signedIn.cookies.get('test-session')).toMatchObject({ value: 'renewed', maxAge: 3600 })
+})
+
 test('protected pages and other API paths retain login redirects; public login still passes', async () => {
-  for (const path of ['/inbox', '/api/import-other']) {
+  for (const path of ['/inbox', '/api/import-other', '/api/inbox/history-other']) {
     const response = await updateSession(new NextRequest(`http://localhost:3000${path}`))
     expect(response.status).toBe(307)
     expect(response.headers.get('Location')).toBe('http://localhost:3000/login')

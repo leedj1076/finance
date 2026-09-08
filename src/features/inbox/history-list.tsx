@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react'
 
-import { loadInboxHistoryItems, restoreInboxItems } from './history-actions'
+import { restoreInboxItems } from './history-actions'
 import type { InboxHistoryEntry, InboxHistoryFilter, InboxHistoryPage } from './history-types'
 
 const statuses = [
@@ -29,9 +29,18 @@ function HistoryDetails({ entry }: { entry: InboxHistoryEntry }) {
   useEffect(() => {
     if (restoring) return
     let active = true
+    const abort = new AbortController()
     setLoading(true)
     setLoadError('')
-    loadInboxHistoryItems({ source: entry.source, processedOn: entry.processedOn, status: filter, page })
+    const query = new URLSearchParams({ source: entry.source, processedOn: entry.processedOn, status: filter, page: String(page) })
+    // Reads must not enter the router's Server Action transition/commit queue.
+    fetch(`/api/inbox/history?${query}`, { cache: 'no-store', signal: abort.signal })
+      .then(async (response): Promise<{ data: InboxHistoryPage; error?: never } | { error: string }> => {
+        if (!response.headers.get('Content-Type')?.includes('application/json')) throw new Error('Invalid history response')
+        const result = await response.json()
+        if (!response.ok && typeof result.error !== 'string') throw new Error('History read failed')
+        return result
+      })
       .then((result) => {
         if (!active) return
         if (result.error !== undefined) setLoadError(result.error)
@@ -43,7 +52,7 @@ function HistoryDetails({ entry }: { entry: InboxHistoryEntry }) {
       })
       .catch(() => { if (active) setLoadError('항목을 불러오지 못했습니다. 다시 시도해 주세요.') })
       .finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
+    return () => { active = false; abort.abort() }
   }, [entry.source, entry.processedOn, entry.pending, entry.done, entry.dismissed, filter, page, refresh, restoring])
 
   const restore = (ids: number[]) => {
