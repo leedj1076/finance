@@ -116,11 +116,22 @@ export async function refreshDuplicateFlags(
           inArray(importInbox.id, pendingIds),
         ),
       )
-    for (const [id, dupNote] of notes) {
+    const noteRows = [...notes]
+    for (let index = 0; index < noteRows.length; index += 500) {
+      const chunk = noteRows.slice(index, index + 500)
+      const cases = chunk.map(([id, dupNote]) => sql`when ${id} then ${dupNote}`)
       await tx
         .update(importInbox)
-        .set({ dupNote, confidence: 'review' })
-        .where(and(eq(importInbox.householdId, householdId), eq(importInbox.status, 'pending'), eq(importInbox.id, id)))
+        .set({
+          dupNote: sql`case ${importInbox.id} ${sql.join(cases, sql` `)} end`,
+          confidence: 'review',
+        })
+        .where(and(
+          eq(importInbox.householdId, householdId),
+          eq(importInbox.status, 'pending'),
+          // Every chunk ID belongs to the captured pending snapshot above.
+          inArray(importInbox.id, chunk.map(([id]) => id)),
+        ))
     }
   })
 

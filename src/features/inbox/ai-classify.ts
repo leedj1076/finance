@@ -25,6 +25,7 @@ type ClassificationInput = {
 // User decision (2026-09-01): OpenAI Responses API with built-in web search.
 // This low-cost model is sufficient for the expected 5-15 unknown merchants per month.
 const MODEL = 'gpt-5-mini'
+const CLASSIFICATION_DEADLINE_MS = 30_000
 
 export function aiFallbackEnabled(settingValue: string | null | undefined): boolean {
   if (settingValue === '0') return false
@@ -98,14 +99,31 @@ export async function classifyUnknownMerchants(
     '확실하지 않으면 confidence를 "low"로. 웹검색으로도 정체를 모르면 low + 가장 그럴듯한 분류.',
   ].join('\n')
 
+  const controller = new AbortController()
+  let deadlineTimer: ReturnType<typeof setTimeout> | undefined
   try {
     const openai = client ?? new OpenAI()
-    const response = await openai.responses.create({
-      model: MODEL,
-      tools: [{ type: 'web_search' }],
-      input: prompt,
-      store: false,
+    // The SDK's fetch timeout ends at response headers. Race the full response
+    // await as well, including a stalled body, and abort the upstream request.
+    const deadline = new Promise<never>((_resolve, reject) => {
+      deadlineTimer = setTimeout(() => {
+        reject(new Error('Optional classification deadline exceeded'))
+        controller.abort()
+      }, CLASSIFICATION_DEADLINE_MS)
     })
+    const response = await Promise.race([
+      openai.responses.create({
+        model: MODEL,
+        tools: [{ type: 'web_search' }],
+        input: prompt,
+        store: false,
+      }, {
+        signal: controller.signal,
+        maxRetries: 0,
+        timeout: CLASSIFICATION_DEADLINE_MS,
+      }),
+      deadline,
+    ])
     const items = extractJsonArray(response.output_text ?? '')
     if (!items) return []
 
@@ -138,5 +156,7 @@ export async function classifyUnknownMerchants(
     return output
   } catch {
     return []
+  } finally {
+    if (deadlineTimer !== undefined) clearTimeout(deadlineTimer)
   }
 }

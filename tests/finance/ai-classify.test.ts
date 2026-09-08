@@ -1,5 +1,5 @@
-import type OpenAI from 'openai'
-import { afterEach, expect, test } from 'vitest'
+import OpenAI from 'openai'
+import { afterEach, expect, test, vi } from 'vitest'
 
 import {
   aiFallbackEnabled,
@@ -14,8 +14,99 @@ const taxonomy = [
 const savedApiKey = process.env.OPENAI_API_KEY
 
 afterEach(() => {
+  vi.useRealTimers()
   if (savedApiKey === undefined) delete process.env.OPENAI_API_KEY
   else process.env.OPENAI_API_KEY = savedApiKey
+})
+
+const classificationInput = { merchants: ['포스톤즈'], taxonomy, examples: [] }
+
+test('fresh classification aborts at 30 seconds without retrying or waiting for late rejection', async () => {
+  vi.useFakeTimers()
+  let requestOptions: { signal?: AbortSignal; maxRetries?: number } | undefined
+  let rejectRequest!: (error: Error) => void
+  let calls = 0
+  const client = { responses: { create: (_request: unknown, options: typeof requestOptions) => {
+    calls += 1
+    requestOptions = options
+    return new Promise<never>((_resolve, reject) => { rejectRequest = reject })
+  } } } as unknown as OpenAI
+  let result: unknown = 'pending'
+  const run = classifyUnknownMerchants(classificationInput, client).then((value) => { result = value })
+  await vi.advanceTimersByTimeAsync(29_999)
+  expect(result).toBe('pending')
+  await vi.advanceTimersByTimeAsync(1)
+  expect(result).toEqual([])
+  expect(requestOptions?.signal?.aborted).toBe(true)
+  expect(requestOptions?.maxRetries).toBe(0)
+  expect(calls).toBe(1)
+  expect(vi.getTimerCount()).toBe(0)
+  rejectRequest(new Error('late upstream failure'))
+  await run
+  await vi.advanceTimersByTimeAsync(60_000)
+  expect(calls).toBe(1)
+})
+
+test('the application deadline also covers a response body stalled after headers', async () => {
+  vi.useFakeTimers()
+  let bodyStarted!: () => void
+  const readingBody = new Promise<void>((resolve) => { bodyStarted = resolve })
+  let rejectBody!: (error: Error) => void
+  let signal: AbortSignal | undefined | null
+  let calls = 0
+  const client = new OpenAI({ apiKey: 'synthetic-test-key', fetch: async (_url, init) => {
+    calls += 1
+    signal = init?.signal
+    const response = new Response('', { headers: { 'content-type': 'application/json' } })
+    response.text = () => {
+      bodyStarted()
+      return new Promise<string>((_resolve, reject) => { rejectBody = reject })
+    }
+    return response
+  } })
+  let result: unknown = 'pending'
+  const run = classifyUnknownMerchants(classificationInput, client).then((value) => { result = value })
+  await readingBody
+  await vi.advanceTimersByTimeAsync(29_999)
+  expect(result).toBe('pending')
+  await vi.advanceTimersByTimeAsync(1)
+  expect(result).toEqual([])
+  expect(signal?.aborted).toBe(true)
+  expect(vi.getTimerCount()).toBe(0)
+  rejectBody(new Error('late body failure'))
+  await run
+  await vi.advanceTimersByTimeAsync(60_000)
+  expect(calls).toBe(1)
+})
+
+test.each(['success', 'error'] as const)('early %s releases the deadline timer', async (path) => {
+  vi.useFakeTimers()
+  let activeTimers = 0
+  const client = { responses: { create: async () => {
+    activeTimers = vi.getTimerCount()
+    if (path === 'error') throw new Error('upstream unavailable')
+    return { output_text: JSON.stringify([{ merchant: '포스톤즈', major: '식비', sub: '카페', confidence: 'high' }]) }
+  } } } as unknown as OpenAI
+  const result = await classifyUnknownMerchants(classificationInput, client)
+  expect(activeTimers).toBe(1)
+  expect(result).toHaveLength(path === 'success' ? 1 : 0)
+  expect(vi.getTimerCount()).toBe(0)
+})
+
+test.each([
+  { merchants: ['', '  '], taxonomy, examples: [] },
+  { merchants: ['포스톤즈'], taxonomy: [], examples: [] },
+])('empty usable input creates neither a deadline nor a request', async (input) => {
+  vi.useFakeTimers()
+  const timer = vi.spyOn(globalThis, 'setTimeout')
+  let called = false
+  try {
+    expect(await classifyUnknownMerchants(input, mockClient('[]', { onCreate: () => { called = true } }))).toEqual([])
+    expect(called).toBe(false)
+    expect(timer).not.toHaveBeenCalled()
+  } finally {
+    timer.mockRestore()
+  }
 })
 
 function mockClient(
