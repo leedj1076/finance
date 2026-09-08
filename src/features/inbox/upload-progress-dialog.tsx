@@ -54,6 +54,7 @@ export function UploadProgressDialog({
     <dialog
       aria-label="거래 파일 처리 진행"
       className="import-upload-dialog"
+      closedby={processing ? 'none' : 'closerequest'}
       onCancel={(event) => {
         if (processing) {
           event.preventDefault()

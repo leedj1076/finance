@@ -171,12 +171,31 @@ test('a delayed import stream stays modal and keeps its real result until dismis
     await page.waitForTimeout(6_000)
     await expect(dialog).toBeVisible()
     await expect(dialog.getByText('거래 내역 읽기', { exact: true })).toBeVisible()
-    await page.evaluate(() => {
-      const emit = Reflect.get(window, 'emitImportProgress') as (event: object) => void
-      emit({ type: 'heartbeat' })
-      emit({ type: 'stage', phase: 'saving', completed: 2, total: 3 })
-    })
-    await expect(dialog.getByText('인박스에 저장', { exact: true })).toBeVisible()
+    for (const [phase, label, completed] of [
+      ['classifying', '결제수단과 카테고리 분류', 1],
+      ['saving', '인박스에 저장', 2],
+    ] as const) {
+      // Each phase is held by the stream until the next explicit stage/result event.
+      await page.evaluate(({ phase, completed }) => {
+        const emit = Reflect.get(window, 'emitImportProgress') as (event: object) => void
+        emit({ type: 'stage', phase, completed, total: 3 })
+      }, { phase, completed })
+      await expect(dialog.getByText(label, { exact: true })).toBeVisible()
+      await expect(dialog.getByText(`${completed}/3`, { exact: true })).toBeVisible()
+      await page.evaluate(() => {
+        const emit = Reflect.get(window, 'emitImportProgress') as (event: object) => void
+        emit({ type: 'heartbeat' })
+      })
+      await page.keyboard.press('Escape')
+      await expect(dialog).toBeVisible()
+      expect(await dialog.evaluate((element) => element.matches(':modal'))).toBe(true)
+      await expect(dialog.getByText(label, { exact: true })).toBeVisible()
+      await expect(dialog.getByText(`${completed}/3`, { exact: true })).toBeVisible()
+      await expect(dialog.getByRole('progressbar')).toHaveAttribute('value', String(completed))
+      await expect(dialog.getByRole('progressbar')).toHaveAttribute('max', '3')
+      await expect(dialog.getByRole('button')).toHaveCount(0)
+      await expect(page.locator('input[name="files"]')).toBeDisabled()
+    }
     await page.evaluate(() => {
       const emit = Reflect.get(window, 'emitImportProgress') as (event: object) => void
       emit({
