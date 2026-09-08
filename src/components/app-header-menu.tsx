@@ -93,7 +93,9 @@ export function AppHeaderMenu({ active, email, pendingInboxCount }: AppHeaderMen
         </nav>
 
         <div className="finance-user-actions">
-          <ThemeSelector />
+          <div onClickCapture={() => setOpenMenu(null)}>
+            <ThemeSelector />
+          </div>
           <div className="finance-popover-wrap">
             <button
               aria-expanded={openMenu === 'settings'}
