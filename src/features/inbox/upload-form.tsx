@@ -191,6 +191,7 @@ function CardStatementForm({
   const passwordInput = useRef<HTMLInputElement>(null)
   const initialIssuer = issuers[0]?.key ?? ''
   const [issuer, setIssuer] = useState(initialIssuer)
+  const [fileName, setFileName] = useState('')
   const [owner, setOwner] = useState('DJ')
   const candidates = useMemo(
     () => eligibleCardAccounts(issuers, accounts, issuer, owner),
@@ -321,11 +322,12 @@ function CardStatementForm({
       <label className="grid gap-1.5 t-label uppercase text-finance-muted">
         카드사 명세서
         <input
-          accept={`${issuer === 'hyundai' ? '.html,.htm,text/html,' : ''}.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`}
+          accept={`${issuer === 'hyundai' ? '.html,.htm,text/html,' : issuer === 'nonghyup' ? '.pdf,application/pdf,' : ''}.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`}
           className="h-[34px] border border-dashed border-finance-border bg-white px-2 py-1 t-body font-normal normal-case tracking-normal text-finance-muted file:mr-3 file:border-0 file:bg-finance-track file:px-3 file:py-1 file:font-semibold file:text-finance-ink hover:file:text-finance-blue"
           name="file"
           disabled={uploading}
-          onChange={() => {
+          onChange={(event) => {
+            setFileName(event.target.files?.[0]?.name ?? '')
             if (passwordInput.current) passwordInput.current.value = ''
             setState({})
           }}
@@ -333,11 +335,11 @@ function CardStatementForm({
           type="file"
         />
         <span className="font-normal normal-case tracking-normal text-finance-faint">
-          {issuer === 'hyundai' ? '.xls · .xlsx · .html (보안 명세서 포함)' : '.xls 또는 .xlsx'} · 2MB 이하
+          {issuer === 'hyundai' ? '.xls · .xlsx · .html (보안 명세서 포함)' : issuer === 'nonghyup' ? '.xls · .xlsx · .pdf (암호화 명세서 포함)' : '.xls 또는 .xlsx'} · 2MB 이하
         </span>
       </label>
       <div className="sm:pt-[23px]"><UploadButton disabled={!matchedAccount} uploading={uploading} /></div>
-      {issuer === 'hyundai' && (
+      {((issuer === 'hyundai' && /\.html?$/i.test(fileName)) || (issuer === 'nonghyup' && /\.pdf$/i.test(fileName))) && (
         <label className="grid gap-1.5 t-label text-finance-muted sm:col-span-full">
           <span>보안 명세서 비밀번호</span>
           <input
@@ -347,12 +349,12 @@ function CardStatementForm({
             disabled={uploading}
             maxLength={128}
             name="password"
-            placeholder="보안 HTML인 경우만 입력"
+            placeholder={issuer === 'nonghyup' ? '암호화 PDF인 경우만 입력' : '보안 HTML인 경우만 입력'}
             ref={passwordInput}
             type="password"
           />
           <span className="font-normal text-finance-faint">
-            비밀번호는 이번 파일을 여는 데만 사용하며 저장하지 않습니다. 일반 HTML·엑셀은 비워 두세요.
+            비밀번호는 이번 파일을 여는 데만 사용하며 저장하지 않습니다. 암호가 없는 파일은 비워 두세요.
           </span>
         </label>
       )}

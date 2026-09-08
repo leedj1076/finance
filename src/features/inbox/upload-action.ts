@@ -20,6 +20,7 @@ import {
 import { assessConfidence } from './confidence'
 import { occurrenceCounter } from './occurrence'
 import { HyundaiStatementError, isHtmlStatement } from './parsers/hyundai-html'
+import { isPdfStatement, NhPdfError, parseNhPdf } from './parsers/nh-pdf'
 import {
   CARD_ISSUERS,
   cardFingerprint,
@@ -266,9 +267,11 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
   if (!CARD_ISSUERS.some((card) => card.key === issuer)) return { error: '카드사를 선택해 주세요.' }
   if (owner !== 'DJ' && owner !== 'YJ') return { error: '소유자를 선택해 주세요.' }
   const isHtmlFile = /\.html?$/i.test(file.name)
+  const isPdfFile = /\.pdf$/i.test(file.name)
   if (isHtmlFile && issuer !== 'hyundai') return { error: 'HTML 명세서는 현대카드만 지원합니다.' }
-  if (!/\.xlsx?$/i.test(file.name) && !isHtmlFile) {
-    return { error: '.xls 또는 .xlsx 파일을 올려 주세요. 현대카드는 .html 명세서도 지원합니다.' }
+  if (isPdfFile && issuer !== 'nonghyup') return { error: 'PDF 명세서는 농협카드만 지원합니다.' }
+  if (!/\.xlsx?$/i.test(file.name) && !isHtmlFile && !isPdfFile) {
+    return { error: '.xls 또는 .xlsx 파일을 올려 주세요. 현대카드는 .html, 농협카드는 .pdf도 지원합니다.' }
   }
   if (file.size > MAX_FILE_BYTES) return { error: '파일 크기는 2MB 이하여야 합니다.' }
 
@@ -303,15 +306,22 @@ export async function uploadCardStatement(formData: FormData): Promise<UploadCar
     return { error: '선택한 기본 카드를 사용할 수 없습니다. 카드사와 소유자를 확인해 다시 선택해 주세요.' }
   }
   const buffer = Buffer.from(await file.arrayBuffer())
-  if (!isHtmlStatement(buffer) && looksLikeBanksalad(buffer)) {
+  if (isPdfFile !== isPdfStatement(buffer)) {
+    return { error: '파일 내용과 확장자가 맞지 않습니다. 농협 PDF 명세서를 .pdf 파일로 선택해 주세요.' }
+  }
+  if (!isPdfFile && !isHtmlStatement(buffer) && looksLikeBanksalad(buffer)) {
     return { error: '뱅크샐러드 파일입니다. 뱅크샐러드 업로드를 사용해 주세요.' }
   }
 
   let rows: CardRow[]
   try {
-    rows = parseCardStatement(buffer, issuer, { password: String(formData.get('password') ?? '') })
+    const password = String(formData.get('password') ?? '')
+    rows = isPdfFile && issuer === 'nonghyup'
+      ? await parseNhPdf(buffer, password)
+      : parseCardStatement(buffer, issuer, { password })
   } catch (error) {
-    if (error instanceof HyundaiStatementError) return { error: error.message }
+    if (error instanceof HyundaiStatementError || error instanceof NhPdfError) return { error: error.message }
+    if (isPdfFile) return { error: '농협 PDF 명세서를 읽지 못했습니다. 파일을 확인하고 다시 시도해 주세요.' }
     return { error: `파일을 읽지 못했습니다: ${errorMessage(error)}` }
   }
   if (rows.length === 0) {

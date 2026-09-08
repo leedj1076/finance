@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises'
 import { expect, test, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { HYUNDAI_TEST_PASSWORD, secureHyundaiFixture } from '../fixtures/hyundai-secure'
+import { NH_TEST_PASSWORD, syntheticNhPdf } from '../fixtures/nh-pdf'
 
 test.use({ actionTimeout: 10_000 })
 
@@ -494,6 +495,52 @@ test('Hyundai HTML upload retries a password without losing its file and never s
     expect(rows?.every((row) => row.status === 'pending' && row.account_id === setup.accountId)).toBe(true)
     expect(JSON.stringify(rows)).not.toContain(HYUNDAI_TEST_PASSWORD)
     expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain(HYUNDAI_TEST_PASSWORD)
+  } finally {
+    await deleteTestState(email, householdId)
+  }
+})
+
+test('NH PDF upload retries its password, keeps the chosen card and stages signed principal', async ({ page }) => {
+  test.slow()
+  const email = `finance-nh-${crypto.randomUUID()}@example.com`
+  let householdId: string | undefined
+  try {
+    const setup = await createTestUser(email, 'passw0rd!')
+    householdId = setup.householdId
+    const admin = createAdminClient()
+    const { error } = await admin.from('accounts').update({ name: 'DJ 농협카드' }).eq('household_id', householdId).eq('id', setup.accountId)
+    if (error) throw error
+    const { data: secondCard, error: secondError } = await admin.from('accounts').insert({ household_id: householdId, name: 'DJ 농협 두번째카드', owner: 'DJ', type: 'card' }).select('id').single()
+    if (secondError) throw secondError
+    await loginAs(page, email, 'passw0rd!')
+    await page.goto('/inbox?tab=upload')
+    await page.getByRole('tab', { name: '카드사 명세서' }).click()
+    await page.locator('select[name="issuer"]').selectOption('nonghyup')
+    const card = page.getByRole('combobox', { name: '기본 카드', exact: true })
+    await card.selectOption(String(secondCard.id))
+    const fileInput = page.locator('input[name="file"]')
+    await expect(fileInput).toHaveAttribute('accept', /\.pdf/)
+    await fileInput.setInputFiles({ name: 'nh.xls', mimeType: 'application/vnd.ms-excel', buffer: Buffer.from('synthetic selection only') })
+    await expect(page.getByLabel('보안 명세서 비밀번호', { exact: true })).toHaveCount(0)
+    await fileInput.setInputFiles({ name: 'nh.pdf', mimeType: 'application/pdf', buffer: syntheticNhPdf({ encrypted: true }) })
+    const password = page.getByLabel('보안 명세서 비밀번호', { exact: true })
+    await password.fill('wrong-password')
+    await page.getByRole('button', { name: '인박스로 불러오기' }).click()
+    await expect(page.getByText(/비밀번호가 맞지 않습니다/)).toBeVisible()
+    await expect(password).toHaveValue('')
+    await expect(card).toHaveValue(String(secondCard.id))
+    expect(await fileInput.evaluate((input) => (input as HTMLInputElement).files?.[0]?.name)).toBe('nh.pdf')
+    await password.fill(NH_TEST_PASSWORD)
+    await page.getByRole('button', { name: '인박스로 불러오기' }).click()
+    await expect(page.getByText(/인박스에 2건 추가/)).toBeVisible()
+    await expect(password).toHaveValue('')
+    const { data: rows, error: queryError } = await admin.from('import_inbox').select('*').eq('household_id', householdId).order('date')
+    if (queryError) throw queryError
+    expect(rows?.map((row) => [row.date, row.amount, row.account_id, row.status])).toEqual([
+      ['2026-07-12', 12500, secondCard.id, 'pending'], ['2026-07-15', -2500, secondCard.id, 'pending'],
+    ])
+    expect(JSON.stringify(rows)).not.toContain(NH_TEST_PASSWORD)
+    expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain(NH_TEST_PASSWORD)
   } finally {
     await deleteTestState(email, householdId)
   }

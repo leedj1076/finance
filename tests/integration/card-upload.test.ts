@@ -10,6 +10,7 @@ import { refreshDuplicateFlags } from '@/features/inbox/staging'
 import { uploadCardStatement } from '@/features/inbox/upload-action'
 import { cardFingerprint } from '@/features/inbox/parsers/cards'
 import { HYUNDAI_TEST_PASSWORD, secureHyundaiFixture } from '../fixtures/hyundai-secure'
+import { NH_TEST_PASSWORD, syntheticNhPdf } from '../fixtures/nh-pdf'
 
 const context = vi.hoisted(() => ({ householdId: '' }))
 
@@ -497,4 +498,42 @@ test('Hyundai secure HTML validates passwords before staging, keeps refunds and 
 
   form.set('issuer', 'shinhan')
   expect((await uploadCardStatement(form)).error).toContain('현대카드')
+})
+
+test('NH encrypted PDF validates format and password before staging signed principal with the selected card', async () => {
+  const [nhCard] = await db.insert(accounts).values({ householdId: context.householdId, name: 'DJ 농협 테스트카드', owner: 'DJ', type: 'card' }).returning({ id: accounts.id })
+  const form = new FormData()
+  form.set('issuer', 'nonghyup')
+  form.set('owner', 'DJ')
+  form.set('accountId', String(nhCard.id))
+  form.set('file', new File([syntheticNhPdf({ encrypted: true })], 'nh.pdf', { type: 'application/pdf' }))
+  const stored = () => db.select().from(importInbox).where(and(eq(importInbox.householdId, context.householdId), eq(importInbox.bsCat1, '__source:card:nonghyup'))).orderBy(importInbox.date)
+  expect((await uploadCardStatement(form)).error).toContain('비밀번호를 입력')
+  form.set('password', 'wrong-password')
+  expect((await uploadCardStatement(form)).error).toContain('비밀번호가 맞지 않습니다')
+  expect(await stored()).toHaveLength(0)
+  form.set('password', NH_TEST_PASSWORD)
+  const first = await uploadCardStatement(form)
+  expect(first.error).toBeUndefined()
+  expect(first.message).toContain('인박스에 2건 추가')
+  const rows = await stored()
+  expect(rows.map((row) => [row.date, row.merchant, row.amount, row.accountId, row.status])).toEqual([
+    ['2026-07-12', '테스트 가맹점', 12500, nhCard.id, 'pending'],
+    ['2026-07-15', '테스트 환불', -2500, nhCard.id, 'pending'],
+  ])
+  expect(rows.every((row) => row.flow === 'expense')).toBe(true)
+  expect(JSON.stringify(rows)).not.toContain(NH_TEST_PASSWORD)
+  const repeated = await uploadCardStatement(form)
+  expect(repeated.message).toContain('인박스에 0건 추가')
+  expect(repeated.message).toContain('이미 처리 2건')
+  expect(await stored()).toHaveLength(2)
+
+  form.set('issuer', 'hyundai')
+  expect((await uploadCardStatement(form)).error).toContain('농협')
+  form.set('issuer', 'nonghyup')
+  for (const [name, content] of [['nh.xls', syntheticNhPdf()], ['nh.pdf', CARD_HTML]] as const) {
+    form.set('file', new File([content], name))
+    expect((await uploadCardStatement(form)).error).toBeDefined()
+  }
+  expect(await stored()).toHaveLength(2)
 })
