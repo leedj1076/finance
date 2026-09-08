@@ -9,6 +9,7 @@ import type { InboxRowState } from './inbox-review-item-row'
 import { InboxMonthGroup } from './inbox-review-month-group'
 import { ActionButtons } from './inbox-review-shared'
 import type { AccountOption, InboxItem } from './inbox-review-types'
+import { inboxSourceTitle } from './inbox-title'
 import { categorySelectionForFlow, type InboxCategoryOption } from './taxonomy'
 
 type InboxReviewFormProps = {
@@ -57,6 +58,9 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
   const [accountIds, setAccountIds] = useState<Record<number, string>>(
     () => Object.fromEntries(items.map((item) => [item.id, item.accountId ? String(item.accountId) : ''])),
   )
+  const [titles, setTitles] = useState<Record<number, string>>(
+    () => Object.fromEntries(items.map((item) => [item.id, inboxSourceTitle(item)])),
+  )
   const [applyingIds, setApplyingIds] = useState<Set<number>>(() => new Set())
   const processing = useRef(false)
   const [, startApplying] = useTransition()
@@ -82,6 +86,9 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
         item.id,
         current[item.id] ?? (item.accountId ? String(item.accountId) : ''),
       ]),
+    ))
+    setTitles((current) => Object.fromEntries(
+      items.map((item) => [item.id, current[item.id] ?? inboxSourceTitle(item)]),
     ))
   }, [categories, items])
 
@@ -158,11 +165,14 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
     // Revalidated server content stays in the existing screen while it loads.
     startApplying(async () => {
       try {
+        const sourceTitle = inboxSourceTitle(item)
+        const title = titles[item.id] ?? sourceTitle
         const result = await applyInboxItem({
           id: item.id,
           flow: flows[item.id] ?? item.flow,
           categoryId: categoryIds[item.id] ? Number(categoryIds[item.id]) : null,
           accountId: accountIds[item.id] ? Number(accountIds[item.id]) : null,
+          ...(title !== sourceTitle ? { title } : {}),
         })
         if (result.error) {
           setActionMessage({ kind: 'error', text: result.error })
@@ -220,9 +230,11 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
     flows,
     categoryIds,
     accountIds,
+    titles,
     setFlows,
     setCategoryIds,
     setAccountIds,
+    setTitles,
     selected,
     toggle,
     applyingIds,
@@ -272,6 +284,9 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
           <input name={`flow_${item.id}`} type="hidden" value={flows[item.id] ?? item.flow} />
           <input name={`category_${item.id}`} type="hidden" value={categoryIds[item.id] ?? ''} />
           <input name={`account_${item.id}`} type="hidden" value={accountIds[item.id] ?? ''} />
+          {(titles[item.id] ?? inboxSourceTitle(item)) !== inboxSourceTitle(item) && (
+            <input name={`title_${item.id}`} type="hidden" value={titles[item.id] ?? ''} />
+          )}
         </Fragment>
       ))}
       <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
@@ -343,7 +358,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
               <tr>
                 <th className="w-10 px-2 py-[9px] font-semibold">선택</th>
                 <th className="w-24 px-2 py-[9px] font-semibold">날짜</th>
-                <th className="w-[18%] px-2 py-[9px] font-semibold">가맹점</th>
+                <th className="w-[18%] px-2 py-[9px] font-semibold">거래명</th>
                 <th className="w-28 px-2 py-[9px] text-right font-semibold">금액</th>
                 <th className="hidden w-[12%] px-2 py-[9px] font-semibold 2xl:table-cell">가져온 분류</th>
                 <th className="w-[32%] px-2 py-[9px] font-semibold 2xl:w-[28%]">반영 분류</th>

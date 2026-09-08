@@ -104,6 +104,7 @@ export function GroupSelectionCheckbox({
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.indeterminate = selectedCount > 0 && !allSelected
+      inputRef.current.defaultChecked = allSelected
     }
   }, [allSelected, selectedCount])
 

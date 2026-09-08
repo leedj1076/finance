@@ -89,12 +89,18 @@ describe('ledger filter database behavior', () => {
         (${household.id}, '2026-06-01', 'expense', 'Coffee ABC', 12000, ${accountA.id}, 'test'),
         (${household.id}, '2026-06-02', 'expense', '다른 내역', 34000, ${accountB.id}, 'test'),
         (${household.id}, '2026-06-03', 'expense', '카드 사용', 56000, ${accountA.id}, 'test'),
-        (${otherHousehold.id}, '2026-06-04', 'expense', '섞이면 안 됨', 9999999, null, 'test')
+        (${household.id}, '2026-06-04', 'expense', '편집한 표시 제목', 78000, ${accountA.id}, 'test'),
+        (${otherHousehold.id}, '2026-06-04', 'expense', '편집한 표시 제목', 9999999, null, 'test')
     `
     await raw`
       update transactions
       set raw_merchant = 'Store XYZ'
       where household_id = ${household.id} and memo = '카드 사용'
+    `
+    await raw`
+      update transactions
+      set raw_merchant = 'Original Merchant'
+      where household_id in (${household.id}, ${otherHousehold.id}) and memo = '편집한 표시 제목'
     `
 
     const byQuery = await getLedgerTransactions(household.id, '2026-06', {
@@ -109,15 +115,33 @@ describe('ledger filter database behavior', () => {
     const byMerchant = await getLedgerTransactions(household.id, '2026-06', {
       account: '', flow: '', major: '', q: 'store xyz',
     })
+    const byEditedTitle = await getLedgerTransactions(household.id, '2026-06', {
+      account: '', flow: '', major: '', q: '편집한 표시 제목',
+    })
+    const byOriginalMerchant = await getLedgerTransactions(household.id, '2026-06', {
+      account: '', flow: '', major: '', q: 'original merchant',
+    })
+    const editedTitleShell = await getLedgerShellData(household.id, '2026-06', {
+      account: '', flow: '', major: '', q: '편집한 표시 제목',
+    })
     const shell = await getLedgerShellData(household.id, '2026-06', {
       account: '', flow: '', major: '', q: '',
     })
 
     expect(byQuery.rows.map((row) => row.memo)).toEqual(['Coffee ABC'])
-    expect(byAccount.rows.map((row) => row.memo)).toEqual(['카드 사용', 'Coffee ABC'])
+    expect(byAccount.rows.map((row) => row.memo)).toEqual([
+      '편집한 표시 제목',
+      '카드 사용',
+      'Coffee ABC',
+    ])
     expect(unsafeAccount.rows).toEqual([])
     expect(byMerchant.rows.map((row) => row.rawMerchant)).toEqual(['Store XYZ'])
-    expect(shell.filteredTotals).toMatchObject({ count: 3, expense: 102000 })
-    expect(shell.availableMonths).toContainEqual({ month: '2026-06', count: 3 })
+    expect(byEditedTitle.rows.map((row) => [row.memo, row.rawMerchant])).toEqual([
+      ['편집한 표시 제목', 'Original Merchant'],
+    ])
+    expect(byOriginalMerchant.rows.map((row) => row.memo)).toEqual(['편집한 표시 제목'])
+    expect(editedTitleShell.filteredTotals).toMatchObject({ count: 1, expense: 78000 })
+    expect(shell.filteredTotals).toMatchObject({ count: 4, expense: 180000 })
+    expect(shell.availableMonths).toContainEqual({ month: '2026-06', count: 4 })
   })
 })

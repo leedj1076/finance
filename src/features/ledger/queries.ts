@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, lt, or, sql } from 'drizzle-orm'
 
 import { db } from '@/db/client'
 import { accounts, categories, transactions } from '@/db/schema'
@@ -16,6 +16,14 @@ type Totals = {
   income: number
   expense: number
   saving: number
+}
+
+function ledgerSearchPredicate(query: string) {
+  const pattern = `%${query}%`
+  return or(
+    sql`coalesce(${transactions.rawMerchant}, '') ilike ${pattern}`,
+    sql`coalesce(${transactions.memo}, '') ilike ${pattern}`,
+  )
 }
 
 async function totalsForMonth(householdId: string, month: string): Promise<Totals> {
@@ -71,9 +79,7 @@ async function filteredTotalsForMonth(
           : undefined,
         filters.flow ? eq(transactions.flow, filters.flow) : undefined,
         filters.major ? eq(categories.major, filters.major) : undefined,
-        filters.q
-          ? sql`coalesce(nullif(${transactions.rawMerchant}, ''), ${transactions.memo}, '') ilike ${`%${filters.q}%`}`
-          : undefined,
+        filters.q ? ledgerSearchPredicate(filters.q) : undefined,
       ),
     )
   return {
@@ -179,9 +185,7 @@ export async function getLedgerTransactions(
           : undefined,
         filters.flow ? eq(transactions.flow, filters.flow) : undefined,
         filters.major ? eq(categories.major, filters.major) : undefined,
-        filters.q
-          ? sql`coalesce(nullif(${transactions.rawMerchant}, ''), ${transactions.memo}, '') ilike ${`%${filters.q}%`}`
-          : undefined,
+        filters.q ? ledgerSearchPredicate(filters.q) : undefined,
       ),
     )
     .orderBy(desc(transactions.date), desc(transactions.id))

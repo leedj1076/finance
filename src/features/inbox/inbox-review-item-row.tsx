@@ -1,10 +1,11 @@
 'use client'
 
-import type { Dispatch, SetStateAction } from 'react'
+import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import type { TransactionFlow } from './banksalad'
 import { flowLabel, SuggestionBadges, visibleSourceCategories } from './inbox-review-shared'
+import { inboxSourceTitle } from './inbox-title'
 import type { AccountOption, InboxItem } from './inbox-review-types'
 import { categoriesForFlow, categorySelectionForFlow, type InboxCategoryOption } from './taxonomy'
 
@@ -14,9 +15,11 @@ export type InboxRowState = {
   flows: Record<number, TransactionFlow>
   categoryIds: Record<number, string>
   accountIds: Record<number, string>
+  titles: Record<number, string>
   setFlows: Dispatch<SetStateAction<Record<number, TransactionFlow>>>
   setCategoryIds: Dispatch<SetStateAction<Record<number, string>>>
   setAccountIds: Dispatch<SetStateAction<Record<number, string>>>
+  setTitles: Dispatch<SetStateAction<Record<number, string>>>
   selected: Set<number>
   toggle: (id: number) => void
   applyingIds: Set<number>
@@ -25,22 +28,31 @@ export type InboxRowState = {
 
 export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: InboxRowState }) {
   const { pending } = useFormStatus()
+  const selectionRef = useRef<HTMLInputElement>(null)
   const {
     categories,
     accounts,
     flows,
     categoryIds,
     accountIds,
+    titles,
     setFlows,
     setCategoryIds,
     setAccountIds,
+    setTitles,
     selected,
     toggle,
     applyingIds,
     applySingleItem,
   } = rowState
   const flow = flows[item.id] ?? item.flow
+  const sourceTitle = inboxSourceTitle(item)
+  const title = titles[item.id] ?? sourceTitle
   const visibleCategories = categoriesForFlow(categories, flow)
+
+  useEffect(() => {
+    if (selectionRef.current) selectionRef.current.defaultChecked = selected.has(item.id)
+  }, [item.id, selected])
 
   return (
     <tr
@@ -53,13 +65,27 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
           checked={selected.has(item.id)}
           className="h-4 w-4 accent-finance-ink"
           onChange={() => toggle(item.id)}
+          ref={selectionRef}
           type="checkbox"
         />
       </td>
       <td className="whitespace-nowrap px-2 py-3 t-caption text-finance-muted">{item.date}</td>
       <td className="max-w-0 px-2 py-3 text-finance-ink">
         <div className="min-w-0">
-          <span className="block truncate" title={item.merchant || undefined}>{item.merchant || '-'}</span>
+          <input
+            aria-label={`${sourceTitle || '거래'} 거래명`}
+            className="h-[30px] w-full min-w-0 border border-finance-border bg-white px-2 t-body text-finance-ink outline-none focus:border-finance-blue"
+            onChange={(event) => setTitles((current) => ({
+              ...current,
+              [item.id]: event.target.value,
+            }))}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.preventDefault()
+            }}
+            title={title || undefined}
+            type="text"
+            value={title}
+          />
           <div className="mt-1 flex flex-wrap items-center gap-1">
           {item.confidence === 'high' && (
             <span

@@ -205,6 +205,12 @@ async function expectNoPageFlash(page: Page) {
   ).mutationAnimations)).toEqual([])
 }
 
+function inboxRowBySourceTitle(page: Page, sourceTitle: string) {
+  return page.getByRole('row').filter({
+    has: page.getByRole('textbox', { name: `${sourceTitle} 거래명`, exact: true }),
+  })
+}
+
 test('ledger inline save keeps the page, draft and scroll while refreshing filtered totals', async ({ page }) => {
   const email = `finance-inline-ledger-${crypto.randomUUID()}@example.com`
   const password = 'passw0rd!'
@@ -246,7 +252,7 @@ test('ledger inline save keeps the page, draft and scroll while refreshing filte
   }
 })
 
-test('inbox bulk mutations retain groups and edits, update counts, and keep review open when empty', async ({ page }) => {
+test('inbox title edits survive review operations and save through single and bulk apply', async ({ page }, testInfo) => {
   const email = `finance-inline-inbox-${crypto.randomUUID()}@example.com`
   const password = 'passw0rd!'
   let householdId: string | undefined
@@ -254,10 +260,11 @@ test('inbox bulk mutations retain groups and edits, update counts, and keep revi
     const setup = await createTestUser(email, password)
     householdId = setup.householdId
     const { error } = await createAdminClient().from('import_inbox').insert(
-      ['제외할 거래', '반영할 거래', '수정 중인 거래'].map((merchant) => ({
+      ['제외할 거래', '반영할 거래', '수정 중인 거래'].map((merchant, index) => ({
         household_id: householdId, import_uid: crypto.randomUUID(), owner: 'DJ',
         date: '2026-08-12', merchant, amount: 5000, flow: 'expense',
         account_id: setup.accountId,
+        confidence: index === 1 ? 'high' : 'review',
       })),
     )
     if (error) throw error
@@ -265,26 +272,82 @@ test('inbox bulk mutations retain groups and edits, update counts, and keep revi
     // No explicit tab: processing the last item must not switch to upload.
     await page.goto('/inbox')
     await page.getByRole('button', { name: '모든 그룹 펼치기' }).click()
+    await page.evaluate(() => {
+      (window as typeof window & { inboxTitleDocument?: Document }).inboxTitleDocument = document
+    })
+    const excludedRow = inboxRowBySourceTitle(page, '제외할 거래')
+    const bulkRow = inboxRowBySourceTitle(page, '반영할 거래')
+    const singleRow = inboxRowBySourceTitle(page, '수정 중인 거래')
+    await expect(excludedRow).toHaveCount(1)
+    await expect(bulkRow).toHaveCount(1)
+    await expect(singleRow).toHaveCount(1)
+    const bulkTitle = bulkRow.getByRole('textbox', { name: '반영할 거래 거래명' })
+    const singleTitle = singleRow.getByRole('textbox', { name: '수정 중인 거래 거래명' })
+    await bulkTitle.fill('일괄 편집 거래명')
+    await singleTitle.fill('개별 편집 초안')
     await page.getByRole('combobox', { name: '수정 중인 거래 카테고리' }).selectOption(String(setup.categoryId))
+    await page.screenshot({ path: testInfo.outputPath('pending-title-desktop.png'), fullPage: true })
+    await page.getByRole('button', { name: '모든 그룹 접기' }).click()
+    await expect(singleTitle).toHaveCount(0)
+    await page.getByRole('button', { name: '모든 그룹 펼치기' }).click()
+    await expect(page.getByRole('textbox', { name: '반영할 거래 거래명' })).toHaveValue('일괄 편집 거래명')
+    await expect(page.getByRole('textbox', { name: '수정 중인 거래 거래명' })).toHaveValue('개별 편집 초안')
+    await page.setViewportSize({ width: 390, height: 844 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ path: testInfo.outputPath('pending-title-390.png'), fullPage: true })
+    await page.setViewportSize({ width: 1280, height: 720 })
     await watchMutationFeedback(page)
     await page.getByRole('checkbox', { name: '제외할 거래 선택', exact: true }).check()
     await page.getByRole('button', { name: '선택 제외', exact: true }).first().click()
-    await expect(page.getByRole('row').filter({ hasText: '제외할 거래' })).toHaveCount(0)
+    await expect(inboxRowBySourceTitle(page, '제외할 거래')).toHaveCount(0)
     await expect(page.getByRole('status').filter({ hasText: '1건을 인박스에서 제외' })).toBeVisible()
     await expect(page.getByRole('combobox', { name: '수정 중인 거래 카테고리' })).toHaveValue(String(setup.categoryId))
+    await expect(page.getByRole('textbox', { name: '수정 중인 거래 거래명' })).toHaveValue('개별 편집 초안')
     await expect(page.getByRole('navigation', { name: '가져오기 작업' })).toContainText('검토 대기2')
     await expect(page).toHaveURL('/inbox')
     await expectNoPageFlash(page)
+    await page.getByRole('textbox', { name: '수정 중인 거래 거래명' }).fill('')
     await page.getByRole('checkbox', { name: '반영할 거래 선택', exact: true }).check()
     await page.getByRole('button', { name: '선택 반영', exact: true }).first().click()
-    await expect(page.getByRole('row').filter({ hasText: '반영할 거래' })).toHaveCount(0)
+    await expect(inboxRowBySourceTitle(page, '반영할 거래')).toHaveCount(0)
     await expect(page.getByRole('combobox', { name: '수정 중인 거래 카테고리' })).toHaveValue(String(setup.categoryId))
+    const retainedTitle = page.getByRole('textbox', { name: '수정 중인 거래 거래명' })
+    await expect(retainedTitle).toHaveValue('')
+    await retainedTitle.fill('개별 편집 초안')
+    await retainedTitle.press('Enter')
+    await expect(inboxRowBySourceTitle(page, '수정 중인 거래')).toHaveCount(1)
+    await retainedTitle.fill('   ')
+    await page.getByRole('checkbox', { name: '수정 중인 거래 선택', exact: true }).check()
+    await page.getByRole('button', { name: '선택 반영', exact: true }).first().click()
+    await expect(page.getByRole('status')).toContainText('거래명')
+    await expect(retainedTitle).toHaveValue('   ')
+    await expect(page.getByRole('checkbox', { name: '수정 중인 거래 선택', exact: true })).toBeChecked()
+    await expect(page.getByRole('button', { name: /^2026년 8월/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(await page.evaluate(() => (
+      window as typeof window & { inboxTitleDocument?: Document }
+    ).inboxTitleDocument === document)).toBe(true)
+    await retainedTitle.fill('개별 편집 거래명')
     await page.getByRole('button', { name: '수정 중인 거래 바로 반영' }).click()
     await expect(page.getByText('모든 대기 거래를 처리했습니다.')).toBeVisible()
     await expect(page.getByRole('status').filter({ hasText: '가계부에 반영했습니다.' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: '가져오기 작업' })).toContainText('검토 대기0')
     await expect(page).toHaveURL('/inbox')
     await expectNoPageFlash(page)
+    await page.getByRole('navigation', { name: '주 메뉴', exact: true })
+      .getByRole('link', { name: '내역', exact: true }).click()
+    await expect(page.getByRole('row').filter({ hasText: '일괄 편집 거래명' })).toHaveCount(1)
+    await expect(page.getByRole('row').filter({ hasText: '개별 편집 거래명' })).toHaveCount(1)
+
+    const { data: saved, error: savedError } = await createAdminClient()
+      .from('transactions')
+      .select('memo, raw_merchant')
+      .eq('household_id', householdId)
+      .order('memo')
+    if (savedError) throw savedError
+    expect(saved).toEqual([
+      { memo: '개별 편집 거래명', raw_merchant: '수정 중인 거래' },
+      { memo: '일괄 편집 거래명', raw_merchant: '반영할 거래' },
+    ])
   } finally {
     await deleteTestState(email, householdId)
   }
@@ -402,7 +465,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
 
     await expect(page.getByText(/인박스에 1건 추가/)).toBeVisible()
     await openCardReview(page, transactionDate, 'DJ 삼성 제휴카드')
-    const inboxRow = page.getByRole('row').filter({ hasText: merchant })
+    const inboxRow = inboxRowBySourceTitle(page, merchant)
     await expect(inboxRow).toHaveCount(1)
     await expect(inboxRow.getByRole('checkbox', { name: `${merchant} 선택` })).not.toBeChecked()
     await expect(inboxRow.getByRole('combobox', { name: `${merchant} 결제수단` }))
@@ -449,7 +512,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
 
     await expect(page.getByText(/자동 분류 1건/).first()).toBeVisible()
     await openCardReview(page, transactionDate, 'DJ 삼성 제휴카드')
-    const repeatRow = page.getByRole('row').filter({ hasText: merchant })
+    const repeatRow = inboxRowBySourceTitle(page, merchant)
     await expect(repeatRow.getByText('자동 분류')).toBeVisible()
     await repeatRow.getByRole('button', { name: `${merchant} 바로 반영` }).click()
     await expect(page.getByText('모든 대기 거래를 처리했습니다.')).toBeVisible()

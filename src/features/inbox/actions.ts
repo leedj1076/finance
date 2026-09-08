@@ -16,6 +16,7 @@ import { requireHousehold } from '@/lib/household'
 import { revalidateFinance } from '@/lib/revalidate'
 
 import type { TransactionFlow } from './banksalad'
+import { inboxSourceTitle, validateEditedInboxTitle } from './inbox-title'
 import { merchantLookupUpsertStatement } from './merchant-lookup'
 import { normalizeMerchant } from './normalize'
 import { cardSourceFromMarker } from './parsers/cards'
@@ -50,6 +51,7 @@ type InboxRow = typeof importInbox.$inferSelect
 
 type PreparedInboxRow = {
   row: InboxRow
+  title: string
   flow: TransactionFlow
   categoryId: number | null
   accountId: number | null
@@ -69,6 +71,7 @@ export type ApplyInboxItemInput = {
   flow: TransactionFlow
   categoryId: number | null
   accountId: number | null
+  title?: string
 }
 
 export type ApplyInboxItemResult = {
@@ -79,6 +82,13 @@ export type ApplyInboxItemResult = {
 
 function inboxTransactionSource(row: InboxRow) {
   return cardSourceFromMarker(row.bsCat1) ?? `banksalad:${row.owner.toLowerCase()}`
+}
+
+function titleErrorMessage(id: number | null, error: 'invalid' | 'blank' | 'too-long') {
+  const prefix = id === null ? '' : `${id}번 `
+  if (error === 'blank') return `${prefix}거래명은 비워둘 수 없습니다.`
+  if (error === 'too-long') return `${prefix}거래명은 200자 이하로 입력해 주세요.`
+  return `${prefix}거래명을 확인해 주세요.`
 }
 
 /** Shared apply path for reviewed rows and high-confidence bulk approval. */
@@ -103,13 +113,13 @@ async function applyPreparedInboxRows(
     const inserted = await tx
       .insert(transactions)
       .values(
-        prepared.map(({ row, flow, categoryId, accountId, source }) => ({
+        prepared.map(({ row, title, flow, categoryId, accountId, source }) => ({
           householdId,
           date: row.date,
           flow,
           fixed: false,
           categoryId,
-          memo: row.merchant || row.memo || '',
+          memo: title,
           amount: row.amount,
           accountId,
           source,
@@ -282,6 +292,13 @@ async function processInboxSelection(formData: FormData): Promise<ProcessInboxRe
   const accountIds = new Set(accountRows.map((account) => account.id))
   const prepared: PreparedInboxRow[] = []
   for (const row of rows) {
+    const titleField = `title_${row.id}`
+    const editedTitle = formData.has(titleField)
+      ? validateEditedInboxTitle(formData.get(titleField))
+      : { title: inboxSourceTitle(row) }
+    if (editedTitle.error) {
+      return { error: titleErrorMessage(row.id, editedTitle.error) }
+    }
     const flow = parseFlow(formData.get(`flow_${row.id}`))
     if (!flow) return { error: `${row.id}번 거래의 유형이 올바르지 않습니다.` }
 
@@ -298,6 +315,7 @@ async function processInboxSelection(formData: FormData): Promise<ProcessInboxRe
 
     prepared.push({
       row,
+      title: editedTitle.title,
       flow,
       categoryId: requestedCategoryId,
       accountId: requestedAccountId,
@@ -346,6 +364,9 @@ export async function applyInboxItem(
   ) {
     return { error: '결제수단을 확인해 주세요.' }
   }
+  const hasEditedTitle = Object.prototype.hasOwnProperty.call(input, 'title')
+  const editedTitle = hasEditedTitle ? validateEditedInboxTitle(input.title) : null
+  if (editedTitle?.error) return { error: titleErrorMessage(null, editedTitle.error) }
 
   const householdId = household.householdId
   const [rows, categoryRows, accountRows] = await Promise.all([
@@ -388,6 +409,7 @@ export async function applyInboxItem(
   try {
     const result = await applyPreparedInboxRows(householdId, [{
       row,
+      title: editedTitle?.title ?? inboxSourceTitle(row),
       flow: input.flow,
       categoryId: input.categoryId,
       accountId: input.accountId,
@@ -444,6 +466,7 @@ export async function approveHighConfidence(): Promise<{ error?: string; applied
     }
     prepared.push({
       row,
+      title: inboxSourceTitle(row),
       flow: row.flow,
       categoryId: row.categoryId,
       accountId: row.accountId,

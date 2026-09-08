@@ -8,6 +8,7 @@ import {
   categories,
   categoryRules,
   households,
+  importBatches,
   importInbox,
   merchantLookup,
   transactions,
@@ -131,8 +132,9 @@ test('processInbox learns user merchant lookup, freezes category rules, and keep
   expect(transaction.importUid).toBe(importUid)
 })
 
-test('applyInboxItem applies one edited row without redirecting', async () => {
+test('applyInboxItem saves an edited title while preserving source identity and learning', async () => {
   const merchant = `바로반영-${crypto.randomUUID()}`
+  const title = `편집한 거래명-${crypto.randomUUID()}`
   const importUid = `inbox-single-${crypto.randomUUID()}`
   const [row] = await db
     .insert(importInbox)
@@ -154,6 +156,7 @@ test('applyInboxItem applies one edited row without redirecting', async () => {
     flow: 'expense',
     categoryId,
     accountId,
+    title: `  ${title}  `,
   })).resolves.toEqual({
     applied: true,
     message: '가계부에 반영했습니다.',
@@ -170,6 +173,8 @@ test('applyInboxItem applies one edited row without redirecting', async () => {
       flow: transactions.flow,
       categoryId: transactions.categoryId,
       accountId: transactions.accountId,
+      memo: transactions.memo,
+      rawMerchant: transactions.rawMerchant,
       importUid: transactions.importUid,
     })
     .from(transactions)
@@ -178,8 +183,182 @@ test('applyInboxItem applies one edited row without redirecting', async () => {
     flow: 'expense',
     categoryId,
     accountId,
+    memo: title,
+    rawMerchant: merchant,
     importUid,
   })
+
+  const [lookup] = await db
+    .select({ displayMerchant: merchantLookup.displayMerchant })
+    .from(merchantLookup)
+    .where(and(
+      eq(merchantLookup.householdId, context.householdId),
+      eq(merchantLookup.normMerchant, normalizeMerchant(merchant)),
+    ))
+  expect(lookup).toEqual({ displayMerchant: merchant })
+})
+
+test('omitted titles keep legacy merchant and memo fallbacks, including long source titles', async () => {
+  const longMerchant = `긴원문-${'가'.repeat(210)}`
+  const memoFallback = `메모대체-${crypto.randomUUID()}`
+  const rows = await db.insert(importInbox).values([
+    {
+      householdId: context.householdId, importUid: crypto.randomUUID(), owner: 'DJ',
+      date: '2026-09-04', merchant: longMerchant, memo: '사용하지 않는 메모', amount: 4100,
+      flow: 'expense' as const,
+    },
+    {
+      householdId: context.householdId, importUid: crypto.randomUUID(), owner: 'DJ',
+      date: '2026-09-04', merchant: null, memo: memoFallback, amount: 4200,
+      flow: 'expense' as const,
+    },
+  ]).returning({ id: importInbox.id, importUid: importInbox.importUid })
+
+  for (const row of rows) {
+    await expect(applyInboxItem({
+      id: row.id, flow: 'expense', categoryId, accountId,
+    })).resolves.toMatchObject({ applied: true })
+  }
+
+  const saved = await db.select({ importUid: transactions.importUid, memo: transactions.memo })
+    .from(transactions)
+    .where(inArray(transactions.importUid, rows.map((row) => row.importUid)))
+  expect(new Map(saved.map((row) => [row.importUid, row.memo]))).toEqual(new Map([
+    [rows[0].importUid, longMerchant],
+    [rows[1].importUid, memoFallback],
+  ]))
+})
+
+test.each([
+  ['blank', '   '],
+  ['over 200 characters', '나'.repeat(201)],
+  ['non-string', 123],
+])('applyInboxItem rejects an explicitly edited %s title before any write', async (_case, title) => {
+  const importUid = `invalid-title-${crypto.randomUUID()}`
+  const [row] = await db.insert(importInbox).values({
+    householdId: context.householdId, importUid, owner: 'DJ', date: '2026-09-05',
+    merchant: '검증 원문', amount: 4300, flow: 'expense',
+  }).returning({ id: importInbox.id })
+  const beforeTransactions = await db.select({ id: transactions.id }).from(transactions)
+    .where(eq(transactions.householdId, context.householdId))
+  const beforeBatches = await db.select({ id: importBatches.id }).from(importBatches)
+    .where(eq(importBatches.householdId, context.householdId))
+
+  await expect(applyInboxItem({
+    id: row.id,
+    flow: 'expense',
+    categoryId,
+    accountId,
+    title: title as string,
+  })).resolves.toHaveProperty('error')
+
+  const afterTransactions = await db.select({ id: transactions.id }).from(transactions)
+    .where(eq(transactions.householdId, context.householdId))
+  const afterBatches = await db.select({ id: importBatches.id }).from(importBatches)
+    .where(eq(importBatches.householdId, context.householdId))
+  const [source] = await db.select({ status: importInbox.status, merchant: importInbox.merchant })
+    .from(importInbox).where(eq(importInbox.id, row.id))
+  expect(afterTransactions).toHaveLength(beforeTransactions.length)
+  expect(afterBatches).toHaveLength(beforeBatches.length)
+  expect(source).toEqual({ status: 'pending', merchant: '검증 원문' })
+})
+
+test('bulk apply saves selected edited titles only and remains retry-idempotent', async () => {
+  const merchants = ['일괄 원문 하나', '일괄 원문 둘', '선택 안 한 원문']
+    .map((prefix) => `${prefix}-${crypto.randomUUID()}`)
+  const rows = await db.insert(importInbox).values(merchants.map((merchant) => ({
+    householdId: context.householdId, importUid: crypto.randomUUID(), owner: 'DJ',
+    date: '2026-09-06', merchant, amount: 4400, flow: 'expense' as const,
+  }))).returning({ id: importInbox.id, importUid: importInbox.importUid })
+  const titles = [`일괄 편집 하나-${crypto.randomUUID()}`, `일괄 편집 둘-${crypto.randomUUID()}`]
+  const form = new FormData()
+  form.set('inline', '1')
+  form.set('intent', 'apply')
+  for (const [index, row] of rows.entries()) {
+    form.set(`flow_${row.id}`, 'expense')
+    form.set(`category_${row.id}`, String(categoryId))
+    form.set(`account_${row.id}`, String(accountId))
+    form.set(`title_${row.id}`, index < 2 ? ` ${titles[index]} ` : '선택 안 한 편집값')
+    if (index < 2) form.append('ids', String(row.id))
+  }
+
+  const firstResult = await processInbox(form)
+  expect(firstResult).not.toHaveProperty('error')
+  if ('processedIds' in firstResult) {
+    expect(new Set(firstResult.processedIds)).toEqual(new Set([rows[0].id, rows[1].id]))
+  }
+  await expect(processInbox(form)).resolves.toHaveProperty('error')
+
+  const saved = await db.select({
+    importUid: transactions.importUid,
+    memo: transactions.memo,
+    rawMerchant: transactions.rawMerchant,
+  }).from(transactions).where(inArray(transactions.importUid, rows.map((row) => row.importUid)))
+    .orderBy(transactions.id)
+  expect(saved).toHaveLength(2)
+  expect(saved.map((row) => [row.memo, row.rawMerchant])).toEqual([
+    [titles[0], merchants[0]],
+    [titles[1], merchants[1]],
+  ])
+  const [unselected] = await db.select({ status: importInbox.status, merchant: importInbox.merchant })
+    .from(importInbox).where(eq(importInbox.id, rows[2].id))
+  expect(unselected).toEqual({ status: 'pending', merchant: merchants[2] })
+})
+
+test.each([
+  ['blank', '   '],
+  ['over 200 characters', '나'.repeat(201)],
+  ['non-string', new Blob(['거래명 파일'])],
+])('one %s bulk title rejects the whole selected batch before writes', async (_case, invalidTitle) => {
+  const rows = await db.insert(importInbox).values([4500, 4600].map((amount) => ({
+    householdId: context.householdId, importUid: crypto.randomUUID(), owner: 'DJ',
+    date: '2026-09-07', merchant: `원자성-${crypto.randomUUID()}`, amount,
+    flow: 'expense' as const,
+  }))).returning({ id: importInbox.id, importUid: importInbox.importUid })
+  const form = new FormData()
+  form.set('inline', '1')
+  for (const row of rows) {
+    form.append('ids', String(row.id))
+    form.set(`flow_${row.id}`, 'expense')
+    form.set(`category_${row.id}`, String(categoryId))
+  }
+  form.set(`title_${rows[0].id}`, '정상 제목')
+  form.set(`title_${rows[1].id}`, invalidTitle)
+  const beforeBatches = await db.select({ id: importBatches.id }).from(importBatches)
+    .where(eq(importBatches.householdId, context.householdId))
+
+  await expect(processInbox(form)).resolves.toHaveProperty('error')
+
+  const saved = await db.select({ id: transactions.id }).from(transactions)
+    .where(inArray(transactions.importUid, rows.map((row) => row.importUid)))
+  const statuses = await db.select({ status: importInbox.status }).from(importInbox)
+    .where(inArray(importInbox.id, rows.map((row) => row.id)))
+  const afterBatches = await db.select({ id: importBatches.id }).from(importBatches)
+    .where(eq(importBatches.householdId, context.householdId))
+  expect(saved).toHaveLength(0)
+  expect(statuses).toEqual([{ status: 'pending' }, { status: 'pending' }])
+  expect(afterBatches).toHaveLength(beforeBatches.length)
+})
+
+test('edited titles cannot apply foreign or already processed rows', async () => {
+  const [other] = await db.insert(households).values({ name: 'TEST-title-other' }).returning()
+  householdIds.push(other.id)
+  const [done, foreign] = await db.insert(importInbox).values([
+    { householdId: context.householdId, status: 'done' as const },
+    { householdId: other.id, status: 'pending' as const },
+  ].map((scope) => ({
+    ...scope, importUid: crypto.randomUUID(), owner: 'DJ', date: '2026-09-08',
+    merchant: '보호할 원문', amount: 4700, flow: 'expense' as const,
+  }))).returning({ id: importInbox.id, importUid: importInbox.importUid })
+
+  for (const row of [done, foreign]) {
+    await expect(applyInboxItem({
+      id: row.id, flow: 'expense', categoryId, accountId, title: '허용하면 안 되는 제목',
+    })).resolves.toHaveProperty('error')
+  }
+  const saved = await db.select({ id: transactions.id }).from(transactions)
+    .where(inArray(transactions.importUid, [done.importUid, foreign.importUid]))
+  expect(saved).toHaveLength(0)
 })
 
 test('inline bulk dismissal returns only changed household-owned pending ids', async () => {
@@ -196,16 +375,19 @@ test('inline bulk dismissal returns only changed household-owned pending ids', a
   const form = new FormData()
   form.set('inline', '1')
   form.set('intent', 'dismiss')
-  for (const row of [pending, done, foreign]) form.append('ids', String(row.id))
+  for (const row of [pending, done, foreign]) {
+    form.append('ids', String(row.id))
+    form.set(`title_${row.id}`, '제외하면서 저장하면 안 되는 제목')
+  }
   await expect(processInbox(form)).resolves.toEqual({
     processedIds: [pending.id], message: '1건을 인박스에서 제외했습니다.',
   })
-  const rows = await db.select({ id: importInbox.id, status: importInbox.status }).from(importInbox)
+  const rows = await db.select({ id: importInbox.id, status: importInbox.status, merchant: importInbox.merchant }).from(importInbox)
     .where(inArray(importInbox.id, [pending.id, done.id, foreign.id])).orderBy(importInbox.id)
   expect(rows).toEqual([
-    { id: pending.id, status: 'dismissed' },
-    { id: done.id, status: 'done' },
-    { id: foreign.id, status: 'pending' },
+    { id: pending.id, status: 'dismissed', merchant: '일괄 제외' },
+    { id: done.id, status: 'done', merchant: '일괄 제외' },
+    { id: foreign.id, status: 'pending', merchant: '일괄 제외' },
   ])
 })
 
