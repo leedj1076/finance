@@ -4,11 +4,12 @@ import { afterAll, beforeAll, beforeEach, expect, test, vi } from 'vitest'
 
 import { POST } from '@/app/api/import/route'
 import { db } from '@/db/client'
-import { accounts, balanceSnapshots, categories, households, importInbox, settings } from '@/db/schema'
+import { accounts, balanceSnapshots, categories, households, importInbox, merchantLookup, settings } from '@/db/schema'
 import { type AiMerchantResult } from '@/features/inbox/ai-classify'
 import { runImport } from '@/features/inbox/import-service'
 import { type ImportEvent } from '@/features/inbox/import-progress'
 import { readImportStream } from '@/features/inbox/import-stream'
+import { cardFingerprint } from '@/features/inbox/parsers/cards'
 import { insertInboxRows, resolveStagingSuggestions, loadStagingContext } from '@/features/inbox/staging'
 import { uploadBanksaladFiles, uploadCardStatement } from '@/features/inbox/upload-action'
 import { HYUNDAI_TEST_PASSWORD, secureHyundaiFixture } from '../fixtures/hyundai-secure'
@@ -82,14 +83,34 @@ test('classifying is visible before external AI settles; saving starts before da
 })
 
 test('AI observation is omitted for cached, disabled, empty taxonomy and blank-merchant no-op inputs', async () => {
+  const merchant = '독립캐시합성상점'
+  const row = { date: '2026-08-31', merchant, amount: 12500 }
+  await db.insert(importInbox).values({
+    householdId: context.householdId,
+    importUid: cardFingerprint('hyundai', 'DJ', row, 0),
+    owner: 'DJ',
+    ...row,
+    flow: 'expense',
+    accountId,
+    categoryId,
+  })
+  await db.insert(merchantLookup).values({
+    householdId: context.householdId,
+    normMerchant: merchant,
+    displayMerchant: merchant,
+    categoryId,
+    flow: 'expense',
+    source: 'ai',
+    confidence: 'high',
+  })
   const stages: ImportEvent[] = []
-  const result = await runImport(context.householdId, 'card', cardForm('진행관찰 상점'), (event) => stages.push(event))
+  const result = await runImport(context.householdId, 'card', cardForm(merchant), (event) => stages.push(event))
   expect(result).toMatchObject({ added: 0, alreadyProcessed: 1 })
   expect(stages.some((event) => event.type === 'stage' && event.phase === 'classifying')).toBe(false)
   const staging = await loadStagingContext(context.householdId)
   const observe = (event: ImportEvent) => stages.push(event)
   const items = [{ merchant: '  ', amount: 1, baseFlow: 'expense' as const, bsSuggestCategoryId: null }]
-  const cached = await resolveStagingSuggestions(context.householdId, staging, [{ ...items[0], merchant: '진행관찰 상점' }], staging.taxonomy, observe)
+  const cached = await resolveStagingSuggestions(context.householdId, staging, [{ ...items[0], merchant }], staging.taxonomy, observe)
   expect(cached[0]).toMatchObject({ categoryId, sugSource: 'ai' })
   await resolveStagingSuggestions(context.householdId, staging, items, staging.taxonomy, observe)
   await resolveStagingSuggestions(context.householdId, staging, [{ ...items[0], merchant: '새상점' }], [], observe)
