@@ -90,10 +90,9 @@ test('theme follows system, persists manual choices, and updates charts without 
     await page.getByRole('button', { name: '로그인', exact: true }).click()
     await expect(page).toHaveURL('/dashboard')
 
-    const desktopTheme = page.getByRole('group', { name: '화면 테마' })
     for (const width of [1024, 900]) {
       await page.setViewportSize({ width, height: 800 })
-      await expect(desktopTheme).toBeVisible()
+      await expect(page.getByRole('button', { name: '화면 테마: 시스템', exact: true })).toHaveCount(1)
       const headerFits = await page.locator('.finance-header-inner').evaluate((header) => {
         const navigation = header.querySelector('.finance-desktop-nav')?.getBoundingClientRect()
         const actions = header.querySelector('.finance-user-actions')?.getBoundingClientRect()
@@ -103,8 +102,18 @@ test('theme follows system, persists manual choices, and updates charts without 
     }
     await page.setViewportSize({ width: 1280, height: 720 })
 
-    await desktopTheme.getByRole('button', { name: '라이트' }).click()
+    const initialSystemTrigger = page.getByRole('button', { name: '화면 테마: 시스템', exact: true })
+    await expect(initialSystemTrigger).toHaveAttribute('aria-controls', 'finance-theme-menu-desktop')
+    await initialSystemTrigger.click()
+    const themeMenu = page.getByRole('menu', { name: '화면 테마 선택' })
+    await expect(themeMenu.getByRole('menuitemradio', { name: '시스템', exact: true })).toHaveAttribute('aria-checked', 'true')
+    await themeMenu.screenshot({
+      path: '.superpowers/sdd/2026-09-09-import-experience/task-2-desktop-theme-menu.png',
+    })
+    await themeMenu.getByRole('menuitemradio', { name: '라이트', exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+    await expect(page.locator('html')).toHaveAttribute('data-theme-preference', 'light')
+    await expect(themeMenu).toHaveCount(0)
     expect(await page.locator('html').evaluate((element) => getComputedStyle(element).colorScheme)).toBe('light')
     expect(await page.evaluate(() => localStorage.getItem('finance-theme'))).toBe('light')
 
@@ -113,11 +122,20 @@ test('theme follows system, persists manual choices, and updates charts without 
     await page.waitForTimeout(500)
     const lightChart = await canvas.evaluate((element) => (element as HTMLCanvasElement).toDataURL())
 
-    await desktopTheme.getByRole('button', { name: '다크' }).click()
+    await page.getByRole('button', { name: '화면 테마: 라이트', exact: true }).click()
+    await themeMenu.getByRole('menuitemradio', { name: '라이트', exact: true }).press('ArrowDown')
+    const darkMenuItem = themeMenu.getByRole('menuitemradio', { name: '다크', exact: true })
+    await expect(darkMenuItem).toBeFocused()
+    await darkMenuItem.press('Space')
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+    await expect(themeMenu).toHaveCount(0)
     await expect.poll(() => canvas.evaluate((element) => (element as HTMLCanvasElement).toDataURL())).not.toBe(lightChart)
 
-    await desktopTheme.getByRole('button', { name: '시스템' }).click()
+    await page.getByRole('button', { name: '화면 테마: 다크', exact: true }).click()
+    await darkMenuItem.press('End')
+    const systemMenuItem = themeMenu.getByRole('menuitemradio', { name: '시스템', exact: true })
+    await expect(systemMenuItem).toBeFocused()
+    await systemMenuItem.press('Enter')
     const systemDarkChart = await canvas.evaluate((element) => (element as HTMLCanvasElement).toDataURL())
     await page.emulateMedia({ colorScheme: 'light' })
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
@@ -125,7 +143,31 @@ test('theme follows system, persists manual choices, and updates charts without 
     await page.emulateMedia({ colorScheme: 'dark' })
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 
-    await desktopTheme.getByRole('button', { name: '다크' }).click()
+    const systemTrigger = page.getByRole('button', { name: '화면 테마: 시스템', exact: true })
+    await systemTrigger.click()
+    await systemMenuItem.press('Home')
+    await expect(themeMenu.getByRole('menuitemradio', { name: '라이트', exact: true })).toBeFocused()
+    await page.keyboard.press('ArrowDown')
+    await expect(darkMenuItem).toBeFocused()
+    await darkMenuItem.press('Space')
+
+    const darkTrigger = page.getByRole('button', { name: '화면 테마: 다크', exact: true })
+    await darkTrigger.click()
+    await page.keyboard.press('Escape')
+    await expect(themeMenu).toHaveCount(0)
+    await expect(darkTrigger).toBeFocused()
+
+    const settingsTrigger = page.getByRole('button', { name: '설정 메뉴', exact: true })
+    await darkTrigger.click()
+    await page.keyboard.press('Tab')
+    await expect(themeMenu).toHaveCount(0)
+    await expect(settingsTrigger).toBeFocused()
+
+    await darkTrigger.click()
+    await settingsTrigger.click()
+    await expect(themeMenu).toHaveCount(0)
+    await expect(settingsTrigger).toBeFocused()
+    await settingsTrigger.click()
 
     await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '내역', exact: true }).click()
     await expect(page).toHaveURL('/ledger')
@@ -137,7 +179,8 @@ test('theme follows system, persists manual choices, and updates charts without 
       window as typeof window & { __firstPaintTheme?: string }
     ).__firstPaintTheme)).toBe('dark')
 
-    await page.getByRole('group', { name: '화면 테마' }).getByRole('button', { name: '시스템' }).click()
+    await page.getByRole('button', { name: '화면 테마: 다크', exact: true }).click()
+    await page.getByRole('menuitemradio', { name: '시스템', exact: true }).click()
     await page.emulateMedia({ colorScheme: 'light' })
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
     await page.emulateMedia({ colorScheme: 'dark' })
@@ -145,10 +188,30 @@ test('theme follows system, persists manual choices, and updates charts without 
 
     await page.setViewportSize({ width: 390, height: 844 })
     await page.getByRole('button', { name: '더보기' }).click()
-    const mobileTheme = page.getByRole('group', { name: '화면 테마' })
-    await expect(mobileTheme).toBeVisible()
-    await mobileTheme.getByRole('button', { name: '라이트' }).click()
+    const mobileThemeTrigger = page.getByRole('button', { name: '화면 테마: 시스템', exact: true })
+    await expect(mobileThemeTrigger).toHaveCount(1)
+    await expect(mobileThemeTrigger).toHaveAttribute('aria-controls', 'finance-theme-menu-mobile')
+    await mobileThemeTrigger.click()
+    const mobileThemeMenu = page.getByRole('menu', { name: '화면 테마 선택' })
+    await expect(mobileThemeMenu.getByRole('menuitemradio', { name: '시스템', exact: true })).toHaveAttribute('aria-checked', 'true')
+    await page.keyboard.press('Escape')
+    await expect(mobileThemeMenu).toHaveCount(0)
+    await expect(page.locator('.finance-mobile-more')).toBeVisible()
+    await expect(mobileThemeTrigger).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.finance-mobile-more')).toHaveCount(0)
+    await page.getByRole('button', { name: '더보기' }).click()
+    await mobileThemeTrigger.click()
+    await page.locator('.finance-theme-selector.is-mobile').screenshot({
+      path: '.superpowers/sdd/2026-09-09-import-experience/task-2-mobile-theme-menu.png',
+    })
+    const mobileBounds = await mobileThemeMenu.boundingBox()
+    expect(mobileBounds).not.toBeNull()
+    expect(mobileBounds?.x).toBeGreaterThanOrEqual(0)
+    expect((mobileBounds?.x ?? 0) + (mobileBounds?.width ?? 0)).toBeLessThanOrEqual(390)
+    await mobileThemeMenu.getByRole('menuitemradio', { name: '라이트', exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+    await expect(mobileThemeMenu).toHaveCount(0)
     expect(browserErrors).toEqual([])
   } finally {
     await deleteTestUser(email, householdId)

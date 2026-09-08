@@ -57,6 +57,7 @@ export function AppHeaderMenu({ active, email, pendingInboxCount }: AppHeaderMen
       if (!headerRef.current?.contains(event.target as Node)) setOpenMenu(null)
     }
     function closeOnEscape(event: KeyboardEvent) {
+      if (event.defaultPrevented) return
       if (event.key === 'Escape') setOpenMenu(null)
     }
     document.addEventListener('pointerdown', closeOnOutside)
