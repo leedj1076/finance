@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gte, lt, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { accounts, categories, transactions } from '@/db/schema'
 import { currentMonthInKorea } from '@/lib/finance'
+import { readMonthStatuses, type MonthReader } from '@/features/month-close/queries'
 
 export {
   categoryDetailMonthlyAverage,
@@ -39,6 +40,8 @@ export type CategoryDetail = {
   months: number[]
   divisor: number
   currentMonth: number | null
+  closedMonths?: number[]
+  monthRevisions?: Record<number, number>
 }
 
 export type CategoryDetails = Record<CategoryDetailFlow, CategoryDetail>
@@ -49,6 +52,8 @@ export type CellTransactionParams = {
   month: number
   major: string
   sub: string
+  scope?: 'live' | 'closed'
+  revision?: number
 }
 
 export type CellTransactionResult = {
@@ -222,19 +227,44 @@ export function parseCellTransactionParams(
     || sub.length > 100
   ) return null
 
+  const scope = searchParams.get('scope')
+  if (scope !== null && scope !== 'live' && scope !== 'closed') return null
+  if (scope === 'closed') {
+    const rawRevision = searchParams.get('revision')
+    if (rawRevision === null || !/^\d+$/.test(rawRevision)) return null
+    const revision = Number(rawRevision)
+    if (!Number.isSafeInteger(revision)) return null
+    return { flow, year, month, major, sub, scope, revision }
+  }
   return { flow, year, month, major, sub }
+}
+
+export class StaleClosedMonthError extends Error {
+  constructor() { super('마감 상태 또는 내역이 변경되었습니다. 통계를 새로 확인해 주세요.') }
 }
 
 export async function getCellTransactions(
   householdId: string,
   params: CellTransactionParams,
 ): Promise<CellTransactionResult> {
+  if (params.scope === 'closed') {
+    return db.transaction(async tx => {
+      const month = `${params.year}-${String(params.month).padStart(2, '0')}`
+      const [status] = await readMonthStatuses(tx, householdId, [month])
+      if (!status || status.state !== 'closed' || status.revision !== params.revision || month >= currentMonthInKorea()) throw new StaleClosedMonthError()
+      return readCellTransactions(tx, householdId, params)
+    }, { isolationLevel: 'repeatable read', accessMode: 'read only' })
+  }
+  return readCellTransactions(db, householdId, params)
+}
+
+async function readCellTransactions(reader: MonthReader, householdId: string, params: CellTransactionParams): Promise<CellTransactionResult> {
   const ym = `${params.year}-${String(params.month).padStart(2, '0')}`
   const start = `${ym}-01`
   const end = params.month === 12
     ? `${params.year + 1}-01-01`
     : `${params.year}-${String(params.month + 1).padStart(2, '0')}-01`
-  const rows = await db
+  const rows = await reader
     .select({
       date: transactions.date,
       name: sql<string>`coalesce(nullif(${transactions.rawMerchant}, ''), nullif(${transactions.memo}, ''), '(내역 없음)')`,

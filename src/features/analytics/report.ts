@@ -106,15 +106,22 @@ export function buildAnnualReport({
   currentMonthKey,
   transactions: transactionRows,
   assetBalances,
+  eligibleMonths,
+  previousComparable,
 }: {
   year: number
   currentMonthKey: string
   transactions: ReportTransactionRow[]
   assetBalances: ReportAssetBalanceRow[]
+  /** Explicit closing eligibility; omitted only by legacy/live arithmetic callers. */
+  eligibleMonths?: number[]
+  previousComparable?: boolean
 }) {
   const selectedPrefix = `${year}-`
   const previousPrefix = `${year - 1}-`
-  const selectedRows = transactionRows.filter((row) => row.date.startsWith(selectedPrefix))
+  const eligible = eligibleMonths === undefined ? null : new Set(eligibleMonths)
+  const selectedRows = transactionRows.filter((row) => row.date.startsWith(selectedPrefix)
+    && (eligible === null || eligible.has(Number(row.date.slice(5, 7)))))
   const currentYear = Number(currentMonthKey.slice(0, 4))
   const comparisonThroughMonth = year < currentYear
     ? 12
@@ -123,11 +130,13 @@ export function buildAnnualReport({
       : 0
   const previousRows = transactionRows.filter((row) => (
     row.date.startsWith(previousPrefix)
-    && Number(row.date.slice(5, 7)) <= comparisonThroughMonth
+    && (eligible === null
+      ? Number(row.date.slice(5, 7)) <= comparisonThroughMonth
+      : previousComparable === true && eligible.has(Number(row.date.slice(5, 7))))
   ))
   const annual = flowTotals(selectedRows)
   const previous = flowTotals(previousRows)
-  const hasPrevious = previous.income + previous.expense > 0
+  const hasPrevious = eligible === null ? previous.income + previous.expense > 0 : previousComparable === true && eligible.size > 0
 
   const expenseByMajor = new Map<string, number>()
   for (const row of selectedRows) {
@@ -215,14 +224,14 @@ export function buildAnnualReport({
     (row) => year !== currentYear || row.date.slice(0, 7) < currentMonthKey,
   )
   const completedMonths = new Set(completedRows.map((row) => row.date.slice(0, 7)))
-  const completedMonthDivisor = completedMonths.size || 1
+  const completedMonthDivisor = eligible?.size ?? (completedMonths.size || 1)
   const completedTotals = flowTotals(completedRows)
   const monthlyNet = roundLikePython(
-    (completedTotals.income - completedTotals.expense) / completedMonthDivisor,
+    (completedTotals.income - completedTotals.expense) / (completedMonthDivisor || 1),
   )
   const startCash = latestCashBalance(assetBalances)
   let balance = startCash
-  const forecast = Array.from({ length: 6 }, (_, index) => {
+  const forecast = Array.from({ length: completedMonthDivisor > 0 ? 6 : 0 }, (_, index) => {
     balance += monthlyNet
     return {
       month: shiftMonth(currentMonthKey, index + 1),
