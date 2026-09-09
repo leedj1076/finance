@@ -482,7 +482,7 @@ import { MonthStatusLabel } from '@/features/month-close/month-status-label'
 
 `currentMonth`와 `defaultDate`는 현재 return 아래(line 107-110)에서 계산되므로 그 두 줄을 `monthClose` 계산 직후(line 79)로 올린다.
 
-(c) 정기거래 반영 폼을 변수로 뽑는다. line 162-171의 `<form action={applyRecurringMonth}>…</form>`을 `const recurringApplyForm = recurringPending > 0 ? (<form …>…</form>) : null`로 return 앞에 정의하고, 기존 자리에는 `{recurringApplyForm}`을 둔다.
+(c) 정기거래 반영 폼을 변수로 뽑는다. 기존 `<form action={applyRecurringMonth}>…</form>`을 `const recurringApplyForm = monthClose.unpostedRecurringCount > 0 ? (<form …>…</form>) : null`로 return 앞에 정의한다. 체크리스트가 보이면 이 노드는 MonthWrapUp 안에서만 렌더하고, 기존 자리는 체크리스트가 보이지 않을 때만 렌더한다. 같은 이름의 정기거래 반영 액션이 두 번 표시되지 않도록 렌더 테스트에서 액션 개수가 1임을 검증한다. 필터/탭은 마감 요약과 반영 대상 월을 바꾸지 않는다.
 
 (d) line 141 `<MonthCloseControl …/>` 바로 **위**에 삽입:
 
