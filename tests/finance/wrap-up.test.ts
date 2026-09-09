@@ -28,6 +28,16 @@ describe('wrapUpSteps', () => {
     expect(model.steps[1].href).toBeNull()
   })
 
+  test('marks pending imports as incomplete and links to the inbox', () => {
+    const model = wrapUpSteps(summary({ pendingCount: 2 }))
+    expect(model.steps[0]).toMatchObject({ key: 'inbox', count: 2, done: false, href: '/inbox' })
+  })
+
+  test('marks unposted recurring transactions as incomplete without a link', () => {
+    const model = wrapUpSteps(summary({ unpostedRecurringCount: 3 }))
+    expect(model.steps[1]).toMatchObject({ key: 'recurring', count: 3, done: false, href: null })
+  })
+
   test('collapses to all clear when every count is zero', () => {
     const model = wrapUpSteps(summary({ unclassifiedCount: 0, requiresAcknowledgment: false }))
     expect(model.allClear).toBe(true)
