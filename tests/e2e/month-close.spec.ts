@@ -2,18 +2,40 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { closeFixtureMonths } from './close-fixture-months'
 
-const KST_TODAY = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
-const CURRENT_MONTH = KST_TODAY.slice(0, 7)
-const CURRENT_YEAR = Number(CURRENT_MONTH.slice(0, 4))
-const CURRENT_MONTH_NUMBER = Number(CURRENT_MONTH.slice(5, 7))
-
 function shiftMonth(month: string, offset: number) {
   const date = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1 + offset, 1))
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-const CLOSE_MONTH = shiftMonth(CURRENT_MONTH, -1)
-const CLOSE_MONTH_NUMBER = Number(CLOSE_MONTH.slice(5, 7))
+function fixtureCalendar(currentMonth: string) {
+  const closeMonth = shiftMonth(currentMonth, -1)
+  return {
+    currentMonth,
+    currentYear: Number(currentMonth.slice(0, 4)),
+    currentMonthNumber: Number(currentMonth.slice(5, 7)),
+    closeMonth,
+    closeYear: Number(closeMonth.slice(0, 4)),
+    closeMonthNumber: Number(closeMonth.slice(5, 7)),
+    // Closed/open sparse roles always live in an already-ended year. Current
+    // and future masks are verified separately in the real current year.
+    sparseYear: Number(currentMonth.slice(0, 4)) - 1,
+  }
+}
+
+const KST_TODAY = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+const {
+  currentMonth: CURRENT_MONTH,
+  currentYear: CURRENT_YEAR,
+  currentMonthNumber: CURRENT_MONTH_NUMBER,
+  closeMonth: CLOSE_MONTH,
+  closeYear: CLOSE_YEAR,
+  closeMonthNumber: CLOSE_MONTH_NUMBER,
+  sparseYear: SPARSE_YEAR,
+} = fixtureCalendar(KST_TODAY.slice(0, 7))
+
+function monthKey(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, '0')}`
+}
 
 async function expectFitsViewport(page: Page, locator: Locator) {
   const box = await locator.boundingBox()
@@ -90,10 +112,10 @@ async function seed(household: string, sparse = false) {
   const { data: account, error: accountError } = await admin.from('accounts').insert({ household_id: household, name: '생활 카드', owner: 'DJ', type: 'card', active: true }).select('id').single()
   if (accountError) throw accountError
   const rows = sparse ? [
-    { date: `${CURRENT_YEAR}-01-15`, flow: 'expense', amount: 450, memo: '1월 커피', category_id: category.id, account_id: account.id },
-    { date: `${CURRENT_YEAR}-01-20`, flow: 'expense', amount: -50, memo: '1월 환불', category_id: category.id, account_id: account.id },
-    { date: `${CURRENT_YEAR}-02-15`, flow: 'expense', amount: 999, memo: '미마감 비용', category_id: category.id, account_id: account.id },
-    { date: `${CURRENT_YEAR}-03-15`, flow: 'expense', amount: 200, memo: '3월 커피', category_id: category.id, account_id: account.id },
+    { date: `${SPARSE_YEAR}-01-15`, flow: 'expense', amount: 450, memo: '1월 커피', category_id: category.id, account_id: account.id },
+    { date: `${SPARSE_YEAR}-01-20`, flow: 'expense', amount: -50, memo: '1월 환불', category_id: category.id, account_id: account.id },
+    { date: `${SPARSE_YEAR}-02-15`, flow: 'expense', amount: 999, memo: '미마감 비용', category_id: category.id, account_id: account.id },
+    { date: `${SPARSE_YEAR}-03-15`, flow: 'expense', amount: 200, memo: '3월 커피', category_id: category.id, account_id: account.id },
     { date: `${CURRENT_MONTH}-05`, flow: 'expense', amount: 300, memo: '이번 달 커피', category_id: category.id, account_id: account.id },
   ] : [
     { date: `${CLOSE_MONTH}-15`, flow: 'expense', amount: 42000, memo: '마감커피', category_id: category.id, account_id: account.id },
@@ -131,6 +153,26 @@ async function closeVisibleMonth(page: Page, month: string) {
   await expect(page.getByRole('region', { name: '월 마감 상태' })).toContainText(`${month} · 마감`)
 }
 
+suite('fixture calendar keeps January rollover and sparse/current roles in separate years', async () => {
+  expect(fixtureCalendar('2027-01')).toEqual({
+    currentMonth: '2027-01',
+    currentYear: 2027,
+    currentMonthNumber: 1,
+    closeMonth: '2026-12',
+    closeYear: 2026,
+    closeMonthNumber: 12,
+    sparseYear: 2026,
+  })
+  const january = fixtureCalendar('2027-01')
+  expect(new Set([
+    monthKey(january.sparseYear, 1),
+    monthKey(january.sparseYear, 2),
+    monthKey(january.sparseYear, 3),
+    monthKey(january.sparseYear, 4),
+    january.currentMonth,
+  ]).size).toBe(5)
+})
+
 suite('filtered ledger closes the whole month, inline edits invalidate it without reload, and reclose restores statistics', async ({ page, household }, info) => {
   suite.slow()
   const setup = await seed(household)
@@ -143,6 +185,7 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(kpis.locator('article')).toHaveCount(2)
   await expect(kpis).toContainText('목표대로 가고 있나')
   await expect(kpis).toContainText('이번 달 더 써도 되나')
+  await expect(page.getByText('자산이 늘고 있나', { exact: true })).toHaveCount(0)
   await expect(page.getByText('순자산 추이', { exact: true })).toHaveCount(0)
   await expect(page.getByText('이번 달 돈의 흐름', { exact: true })).toHaveCount(0)
   const todos = page.getByRole('region', { name: '해야 할 일' })
@@ -150,8 +193,15 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(closeTodo).toHaveAccessibleName(new RegExp(`${CLOSE_MONTH_NUMBER}월 마무리하기`))
   await expect(closeTodo).toContainText('미분류 1건 · 마감 전')
 
+  await page.goto(`/report?year=${CLOSE_YEAR}`)
+  await expect(page.getByRole('heading', { name: '마감한 월이 없습니다', exact: true })).toHaveCount(0)
+  await expect(page.getByText(`마감 0개월 · 잠정 1개월 (${CLOSE_MONTH_NUMBER}월)`)).toBeVisible()
+  await expect(page.getByRole('navigation', { name: '통계 월 마감 현황' }).getByRole('link', { name: `${CLOSE_MONTH_NUMBER}월 미마감`, exact: true })).toBeVisible()
+  await expect(page.getByText('잠정 · 마감 0개월').first()).toBeVisible()
+  await expect(page.getByText('미마감 · 잠정', { exact: true })).toBeVisible()
+
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.reload()
+  await page.goto('/dashboard')
   await expectFitsViewport(page, page.getByRole('heading', { level: 1 }))
   await expect(page.locator('main > section').first().locator('article')).toHaveCount(2)
   const mobileCloseTodo = page.getByRole('region', { name: '해야 할 일' }).getByRole('link').first()
@@ -162,7 +212,7 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(wrapUp).toContainText('정리 2 / 3')
   await expect(wrapUp).toContainText('미분류 거래')
   await expect(wrapUp).toContainText('1건')
-  await expect(page.getByRole('heading', { level: 1 })).toContainText(`내역${CURRENT_YEAR}년 ${CLOSE_MONTH_NUMBER}월 · 미마감 · 잠정`)
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(`내역${CLOSE_YEAR}년 ${CLOSE_MONTH_NUMBER}월 · 미마감 · 잠정`)
   await expectFitsViewport(page, page.getByRole('heading', { level: 1 }))
   await expectFitsViewport(page, wrapUp)
 
@@ -192,7 +242,7 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(page.getByRole('region', { name: `${CLOSE_MONTH_NUMBER}월 마무리` })).toHaveCount(0)
   await page.goto('/dashboard')
   await expect(page.getByRole('link', { name: new RegExp(`${CLOSE_MONTH_NUMBER}월 마무리하기`) })).toHaveCount(0)
-  await page.goto(`/report?year=${CURRENT_YEAR}`)
+  await page.goto(`/report?year=${CLOSE_YEAR}`)
   await expect(page.getByText('마감 1개월 · 잠정 0개월')).toBeVisible()
   await expect(page.getByText('확정').first()).toBeVisible()
   await expect(page.getByRole('navigation', { name: '통계 월 마감 현황' }).getByRole('link', { name: `${CLOSE_MONTH_NUMBER}월 마감`, exact: true })).toBeVisible()
@@ -206,7 +256,7 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(page.getByRole('region', { name: '월 마감 상태' })).toContainText('재확인 필요')
   await expect(page.getByRole('status').filter({ hasText: '마감이 해제' })).toBeVisible()
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(origin)
-  await page.goto(`/report?year=${CURRENT_YEAR}`)
+  await page.goto(`/report?year=${CLOSE_YEAR}`)
   await expect(page.getByRole('heading', { name: '마감한 월이 없습니다', exact: true })).toHaveCount(0)
   await expect(page.getByText(`마감 0개월 · 잠정 1개월 (${CLOSE_MONTH_NUMBER}월)`)).toBeVisible()
   await expect(page.getByRole('navigation', { name: '통계 월 마감 현황' }).getByRole('link', { name: `${CLOSE_MONTH_NUMBER}월 재확인 필요`, exact: true })).toBeVisible()
@@ -223,7 +273,7 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(rowTotal(provisionalRow)).toHaveText('101,000')
   await page.goto(`/ledger?month=${CLOSE_MONTH}`)
   await closeVisibleMonth(page, CLOSE_MONTH)
-  await page.goto(`/report?year=${CURRENT_YEAR}`)
+  await page.goto(`/report?year=${CLOSE_YEAR}`)
   await expect(page.getByText('마감 1개월 · 잠정 0개월')).toBeVisible()
   await expect(page.getByText('확정').first()).toBeVisible()
   await expect(page.getByRole('img', { name: '월별 수입 지출 저축 막대 차트' })).toBeVisible()
@@ -234,7 +284,7 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
 suite('sparse closed months keep gaps in every chart and tooltip, while closed zero remains selectable', async ({ page, household }, info) => {
   suite.slow()
   await seed(household, true)
-  const closedMonths = [`${CURRENT_YEAR}-01`, `${CURRENT_YEAR}-03`, `${CURRENT_YEAR}-04`]
+  const closedMonths = [`${SPARSE_YEAR}-01`, `${SPARSE_YEAR}-03`, `${SPARSE_YEAR}-04`]
   await closeFixtureMonths(adminClient(), household, closedMonths)
   const { data: ledgerMonths, error: ledgerError } = await adminClient()
     .from('ledger_months')
@@ -245,12 +295,15 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   const revisions = new Map(ledgerMonths.map(row => [row.month, Number(row.revision)]))
 
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto(`/report?year=${CURRENT_YEAR}`)
+  await page.goto(`/report?year=${SPARSE_YEAR}`)
   const reportHeading = page.getByRole('heading', { level: 1 })
-  await expect(reportHeading).toContainText(`연간 통계${CURRENT_YEAR}년 · 마감 3개월 · 잠정 1개월 (2월)`)
+  await expect(reportHeading).toContainText(`연간 통계${SPARSE_YEAR}년 · 마감 3개월 · 잠정 1개월 (2월)`)
   await expectFitsViewport(page, reportHeading)
   const annualFlow = page.locator('section').filter({ has: page.getByRole('heading', { name: '수입 · 지출 · 저축', exact: true }) })
   await expectFitsViewport(page, annualFlow.getByText(/마감 3개월/).last())
+  const provisionalLegend = annualFlow.getByText('미마감 · 잠정', { exact: true })
+  await expect(provisionalLegend).toBeVisible()
+  await expect(provisionalLegend.locator('i')).toHaveCSS('background-image', /repeating-linear-gradient/)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
 
   await page.setViewportSize({ width: 1280, height: 900 })
@@ -266,12 +319,10 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   const majorFebruary = section.getByRole('button', { name: '식비 2월 999원, 합계에서 제외', exact: true })
   const majorMarch = section.getByRole('button', { name: '식비 3월 200원, 합계에서 제외', exact: true })
   const majorApril = section.getByRole('button', { name: '식비 4월 0원, 합계에서 제외', exact: true })
-  const majorCurrent = section.getByRole('button', { name: `식비 ${CURRENT_MONTH_NUMBER}월 300원, 합계에서 제외`, exact: true })
   const subJanuary = section.getByRole('button', { name: '식비 카페 1월 400원, 합계에서 제외', exact: true })
   const subFebruary = section.getByRole('button', { name: '식비 카페 2월 999원, 합계에서 제외', exact: true })
   const subMarch = section.getByRole('button', { name: '식비 카페 3월 200원, 합계에서 제외', exact: true })
   const subApril = section.getByRole('button', { name: '식비 카페 4월 0원, 합계에서 제외', exact: true })
-  const subCurrent = section.getByRole('button', { name: `식비 카페 ${CURRENT_MONTH_NUMBER}월 300원, 합계에서 제외`, exact: true })
 
   for (const cell of [majorJanuary, subJanuary, majorMarch, subMarch, majorApril, subApril]) {
     await expect(cell).toBeEnabled()
@@ -283,24 +334,13 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
     await expect(cell).toHaveClass(/text-finance-faint/)
     await expect(cell).not.toHaveClass(/italic/)
   }
-  for (const cell of [majorCurrent, subCurrent]) {
-    await expect(cell).toBeEnabled()
-    await expect(cell).toHaveClass(/text-finance-faint/)
-    await expect(cell).toHaveClass(/italic/)
-  }
   await expect(majorApril).toHaveText('0')
   await expect(subApril).toHaveText('0')
   for (const prefix of ['식비', '식비 카페']) {
-    for (let month = 5; month < CURRENT_MONTH_NUMBER; month += 1) {
+    for (let month = 5; month <= 12; month += 1) {
       const cell = section.getByRole('button', { name: `${prefix} ${month}월 기록 없음`, exact: true })
       await expect(cell).toBeDisabled()
       await expect(cell).toHaveText('–')
-      await expect(cell).toHaveClass(/text-finance-faint/)
-    }
-    for (let month = CURRENT_MONTH_NUMBER + 1; month <= 12; month += 1) {
-      const cell = section.getByRole('button', { name: `${prefix} ${month}월 예정`, exact: true })
-      await expect(cell).toBeDisabled()
-      await expect(cell).toHaveText('—')
       await expect(cell).toHaveClass(/text-finance-faint/)
     }
   }
@@ -313,8 +353,10 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   const subSpark = subRow.getByRole('img', { name: '식비 카페 최근 추세', exact: true })
   await expect(majorSpark).toBeVisible()
   await expect(subSpark).toBeVisible()
-  await expect(majorSpark.locator('polyline')).toHaveCount(0)
-  await expect(subSpark.locator('polyline')).toHaveCount(0)
+  for (const spark of [majorSpark, subSpark]) {
+    const points = await spark.locator('polyline').getAttribute('points')
+    expect(points?.trim().split(/\s+/)).toHaveLength(4)
+  }
 
   const topMonthGrid = section.locator('div.mb-2.grid').first()
   const tableHeader = section.getByText('항목', { exact: true }).locator('..')
@@ -353,13 +395,8 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await canvas.hover({ position: { x: bounds.width * 3.5 / 12, y: bounds.height / 2 } })
   await expect(popup).toContainText('전월 대비 ▼ 200')
   await expect(popup.locator('span.border')).toHaveText('확정')
-  await canvas.hover({ position: { x: bounds.width * (CURRENT_MONTH_NUMBER - 0.5) / 12, y: bounds.height / 2 } })
-  await expect(popup).toContainText('300')
-  await expect(popup).toContainText('전월 대비 –')
-  await expect(popup.locator('span.border')).toHaveCount(0)
 
   const mutableMajorFebruary = majorRow.locator(':scope > button').nth(2)
-  const mutableMajorCurrent = majorRow.locator(':scope > button').nth(CURRENT_MONTH_NUMBER)
   const mutableSubFebruary = subRow.locator(':scope > button').nth(1)
   await mutableMajorFebruary.click()
   await expect(mutableMajorFebruary).toHaveAttribute('aria-pressed', 'true')
@@ -371,9 +408,6 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await expect(mutableMajorFebruary).toHaveAttribute('aria-pressed', 'false')
   await canvas.hover({ position: { x: bounds.width * 1.5 / 12, y: bounds.height / 2 } })
   await expect(popup).toContainText('999')
-  await mutableMajorCurrent.click()
-  await expect(rowTotal(majorRow)).toHaveText('600')
-  await mutableMajorCurrent.click()
 
   const cellResponse = (month: number) => page.waitForResponse(response => {
     const url = new URL(response.url())
@@ -383,7 +417,7 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await subJanuary.focus()
   let responseUrl = new URL((await response).url())
   expect(responseUrl.searchParams.get('scope')).toBe('closed')
-  expect(responseUrl.searchParams.get('revision')).toBe(String(revisions.get(`${CURRENT_YEAR}-01`)))
+  expect(responseUrl.searchParams.get('revision')).toBe(String(revisions.get(`${SPARSE_YEAR}-01`)))
   await expect(page.getByRole('tooltip')).toContainText('1월 커피')
   await expect(page.getByRole('tooltip')).toContainText('1월 환불')
   await page.keyboard.press('Escape')
@@ -401,7 +435,7 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await subApril.focus()
   responseUrl = new URL((await response).url())
   expect(responseUrl.searchParams.get('scope')).toBe('closed')
-  expect(responseUrl.searchParams.get('revision')).toBe(String(revisions.get(`${CURRENT_YEAR}-04`)))
+  expect(responseUrl.searchParams.get('revision')).toBe(String(revisions.get(`${SPARSE_YEAR}-04`)))
   await expect(page.getByRole('tooltip')).toContainText('0건 · 0원')
   await page.keyboard.press('Escape')
 
@@ -423,35 +457,25 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   const accountJanuary = section.getByRole('button', { name: '생활 카드 1월 400원, 합계에서 제외', exact: true })
   const accountFebruary = section.getByRole('button', { name: '생활 카드 2월 999원, 합계에서 제외', exact: true })
   const accountApril = section.getByRole('button', { name: '생활 카드 4월 0원, 합계에서 제외', exact: true })
-  const accountCurrent = section.getByRole('button', { name: `생활 카드 ${CURRENT_MONTH_NUMBER}월 300원, 합계에서 제외`, exact: true })
   await expect(accountJanuary).toHaveClass(/text-finance-ink/)
   await expect(accountFebruary).toHaveClass(/text-finance-faint/)
   await expect(accountApril).toHaveText('0')
   await expect(accountApril).toBeEnabled()
-  await expect(accountCurrent).toHaveClass(/text-finance-faint/)
-  await expect(accountCurrent).toHaveClass(/italic/)
-  for (let month = 5; month < CURRENT_MONTH_NUMBER; month += 1) {
+  for (let month = 5; month <= 12; month += 1) {
     await expect(section.getByRole('button', { name: `생활 카드 ${month}월 기록 없음`, exact: true })).toBeDisabled()
-  }
-  for (let month = CURRENT_MONTH_NUMBER + 1; month <= 12; month += 1) {
-    await expect(section.getByRole('button', { name: `생활 카드 ${month}월 예정`, exact: true })).toHaveText('—')
   }
   const accountRow = rowForCell(section.getByRole('button', { name: '생활 카드', exact: true }))
   const mutableAccountFebruary = accountRow.locator(':scope > button').nth(2)
-  const mutableAccountCurrent = accountRow.locator(':scope > button').nth(CURRENT_MONTH_NUMBER)
   await expect(rowTotal(accountRow)).toHaveText('600')
   await mutableAccountFebruary.click()
   await expect(rowTotal(accountRow)).toHaveText('600')
   await mutableAccountFebruary.click()
-  await mutableAccountCurrent.click()
-  await expect(rowTotal(accountRow)).toHaveText('600')
-  await mutableAccountCurrent.click()
 
   await section.getByRole('button', { name: '카테고리', exact: true }).click()
   await section.getByLabel('상세 항목 선택').selectOption({ label: '식비' })
   await section.getByRole('button', { name: '선', exact: true }).click()
   // March has not been fetched/cached yet; invalidate it behind the current report.
-  const update = await adminClient().from('transactions').update({ amount: 250 }).eq('household_id', household).eq('date', `${CURRENT_YEAR}-03-15`)
+  const update = await adminClient().from('transactions').update({ amount: 250 }).eq('household_id', household).eq('date', `${SPARSE_YEAR}-03-15`)
   if (update.error) throw update.error
   const staleResponse = page.waitForResponse(response => {
     const url = new URL(response.url())
@@ -468,7 +492,7 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
 
   // Refresh this mounted chart, rather than navigating/remounting it: February
   // becomes eligible while March is reopened, and the selected row must survive.
-  await closeFixtureMonths(adminClient(), household, [`${CURRENT_YEAR}-02`])
+  await closeFixtureMonths(adminClient(), household, [`${SPARSE_YEAR}-02`])
   const origin = await page.evaluate(() => performance.timeOrigin)
   await section.getByRole('button', { name: '최신 통계 확인', exact: true }).click()
   await expect(section.getByRole('button', { name: '식비 2월 999원, 합계에서 제외', exact: true })).toBeVisible()
@@ -492,7 +516,7 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await section.getByRole('button', { name: '식비 카페 1월 400원, 합계에서 제외', exact: true }).focus()
   responseUrl = new URL((await response).url())
   expect(responseUrl.searchParams.get('scope')).toBe('closed')
-  expect(responseUrl.searchParams.get('revision')).toBe(String(revisions.get(`${CURRENT_YEAR}-01`)))
+  expect(responseUrl.searchParams.get('revision')).toBe(String(revisions.get(`${SPARSE_YEAR}-01`)))
   await page.keyboard.press('Escape')
 
   const refreshedBounds = (await canvas.boundingBox())!
@@ -503,6 +527,72 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await expect(popup).toContainText('250')
   await expect(popup).toContainText('전월 대비 ▼ 749')
   await expect(popup.locator('span.border')).toHaveText('잠정')
+
+  // Current/future roles live in the real current year, separate from the
+  // already-ended sparse snapshot year above. This remains valid in January.
+  await page.goto(`/report?year=${CURRENT_YEAR}`)
+  const currentSection = page.locator('#category-detail')
+  await currentSection.getByLabel('상세 항목 선택').selectOption({ label: '식비' })
+  const currentMajor = currentSection.getByRole('button', { name: `식비 ${CURRENT_MONTH_NUMBER}월 300원, 합계에서 제외`, exact: true })
+  const currentSub = currentSection.getByRole('button', { name: `식비 카페 ${CURRENT_MONTH_NUMBER}월 300원, 합계에서 제외`, exact: true })
+  for (const cell of [currentMajor, currentSub]) {
+    await expect(cell).toBeEnabled()
+    await expect(cell).toHaveClass(/text-finance-faint/)
+    await expect(cell).toHaveClass(/italic/)
+  }
+  for (const prefix of ['식비', '식비 카페']) {
+    for (let month = 1; month < CURRENT_MONTH_NUMBER; month += 1) {
+      const cell = currentSection.getByRole('button', { name: `${prefix} ${month}월 기록 없음`, exact: true })
+      await expect(cell).toBeDisabled()
+      await expect(cell).toHaveText('–')
+    }
+    for (let month = CURRENT_MONTH_NUMBER + 1; month <= 12; month += 1) {
+      const cell = currentSection.getByRole('button', { name: `${prefix} ${month}월 예정`, exact: true })
+      await expect(cell).toBeDisabled()
+      await expect(cell).toHaveText('—')
+    }
+  }
+
+  response = cellResponse(CURRENT_MONTH_NUMBER)
+  await currentSub.focus()
+  responseUrl = new URL((await response).url())
+  expect(responseUrl.searchParams.get('scope')).toBe('live')
+  expect(responseUrl.searchParams.has('revision')).toBe(false)
+  await page.keyboard.press('Escape')
+
+  const currentMajorRow = rowForCell(currentSection.getByRole('button', { name: '▾ 식비', exact: true }))
+  const mutableCurrentMajor = currentMajorRow.locator(':scope > button').nth(CURRENT_MONTH_NUMBER)
+  await expect(rowTotal(currentMajorRow)).toHaveText('0')
+  await mutableCurrentMajor.click()
+  await expect(rowTotal(currentMajorRow)).toHaveText('0')
+  await mutableCurrentMajor.click()
+
+  await currentSection.getByRole('button', { name: '선', exact: true }).click()
+  const currentCanvas = currentSection.getByRole('img', { name: '선 월별 차트', exact: true }).locator('canvas')
+  const currentBounds = (await currentCanvas.boundingBox())!
+  await currentCanvas.hover({ position: { x: currentBounds.width * (CURRENT_MONTH_NUMBER - 0.5) / 12, y: currentBounds.height / 2 } })
+  const currentPopup = currentSection.locator('.pointer-events-none.absolute.top-2')
+  await expect(currentPopup).toContainText('300')
+  await expect(currentPopup).toContainText('전월 대비 –')
+  await expect(currentPopup.locator('span.border')).toHaveCount(0)
+
+  await currentSection.getByRole('button', { name: '결제수단', exact: true }).click()
+  await currentSection.getByLabel('상세 항목 선택').selectOption({ label: '생활 카드' })
+  const currentAccount = currentSection.getByRole('button', { name: `생활 카드 ${CURRENT_MONTH_NUMBER}월 300원, 합계에서 제외`, exact: true })
+  await expect(currentAccount).toHaveClass(/text-finance-faint/)
+  await expect(currentAccount).toHaveClass(/italic/)
+  for (let month = 1; month < CURRENT_MONTH_NUMBER; month += 1) {
+    await expect(currentSection.getByRole('button', { name: `생활 카드 ${month}월 기록 없음`, exact: true })).toBeDisabled()
+  }
+  for (let month = CURRENT_MONTH_NUMBER + 1; month <= 12; month += 1) {
+    await expect(currentSection.getByRole('button', { name: `생활 카드 ${month}월 예정`, exact: true })).toHaveText('—')
+  }
+  const currentAccountRow = rowForCell(currentSection.getByRole('button', { name: '생활 카드', exact: true }))
+  const mutableCurrentAccount = currentAccountRow.locator(':scope > button').nth(CURRENT_MONTH_NUMBER)
+  await expect(rowTotal(currentAccountRow)).toHaveText('0')
+  await mutableCurrentAccount.click()
+  await expect(rowTotal(currentAccountRow)).toHaveText('0')
+  await mutableCurrentAccount.click()
 })
 
 suite('current month is restricted and empty ended months require explicit consent in mobile dark mode', async ({ page, household }, info) => {
@@ -557,6 +647,6 @@ suite('a stale confirmation reloads totals and clears consent; new inbox-only ro
   const status = page.getByRole('region', { name: '월 마감 상태' })
   await expect(status).toContainText(`${CLOSE_MONTH} · 마감`)
   await expect(status).toContainText('이 달 가져오기 대기 1건')
-  await page.goto(`/report?year=${CURRENT_YEAR}`)
+  await page.goto(`/report?year=${CLOSE_YEAR}`)
   await expect(page.getByRole('navigation', { name: '통계 월 마감 현황' }).getByRole('link', { name: `${CLOSE_MONTH_NUMBER}월 마감`, exact: true })).toBeVisible()
 })
