@@ -373,11 +373,11 @@ export function StatsMonthlySection({
       : current)
   }
 
-  function showSummaryTooltip(row: { id: string; label: string }, month: number, value: number, anchor: TooltipAnchor) {
+  function showSummaryTooltip(row: { id: string; label: string }, month: number, value: number, anchor: TooltipAnchor, focusState?: FocusScrollState) {
     clearTimer(showTimer)
     clearTimer(hideTimer)
     abortCellRequest()
-    focusScroll.current = null
+    focusScroll.current = focusState ?? null
     activeCell.current = null
     activeAnchor.current = null
     setCellTooltip({ kind: 'summary', key: `summary:${row.id}:${month}`, major: row.label, month: month + 1, value, anchor })
@@ -609,7 +609,7 @@ export function StatsMonthlySection({
                             key={month}
                             onBlur={scheduleHide}
                             onClick={() => toggleCell(key)}
-                            onFocus={(event) => rawValue !== null && showSummaryTooltip(row, month, rawValue, cellAnchor(event.currentTarget))}
+                            onFocus={(event) => rawValue !== null && showSummaryTooltip(row, month, rawValue, cellAnchor(event.currentTarget), focusScrollState(event.currentTarget))}
                             onKeyDown={(event) => { if (event.key === 'Escape') closeCellTooltip() }}
                             onMouseEnter={(event) => {
                               updateHover(row.id, month)

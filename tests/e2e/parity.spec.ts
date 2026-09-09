@@ -54,7 +54,7 @@ async function deleteTestState(email: string, householdId?: string) {
 async function createTestUser(
   email: string,
   password: string,
-  options: { seedDashboard?: boolean } = {},
+  options: { seedDashboard?: boolean; dashboardYear?: number } = {},
 ) {
   const admin = createAdminClient()
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
@@ -110,7 +110,7 @@ async function createTestUser(
       timeZone: 'Asia/Seoul',
     }).slice(0, 7)
     const currentYear = Number(currentMonth.slice(0, 4))
-    const dashboardYear = currentYear
+    const dashboardYear = options.dashboardYear ?? currentYear
     const { error: transactionError } = await admin.from('transactions').insert([
       {
         household_id: household.id,
@@ -891,6 +891,70 @@ test('annual chart hover and selection show values, and cell exclusion updates t
   }
 })
 
+function tooltipReportYear(currentMonth: string) {
+  return Number(currentMonth.slice(0, 4)) - 1
+}
+
+test('tooltip fixtures use an ended report year in every calendar month, including March', () => {
+  for (let month = 1; month <= 12; month += 1) {
+    const currentMonth = `2026-${String(month).padStart(2, '0')}`
+    const year = tooltipReportYear(currentMonth)
+    expect(year).toBe(2025)
+    expect(`${year}-04` < currentMonth).toBe(true)
+  }
+})
+
+for (const axis of ['카테고리', '결제수단']) {
+  test(`offscreen ${axis} main cell retains its keyboard summary through native focus scroll`, async ({ page }) => {
+    const email = `finance-main-tooltip-${crypto.randomUUID()}@example.com`
+    let householdId: string | undefined
+    try {
+      const year = tooltipReportYear(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 7))
+      const setup = await createTestUser(email, 'passw0rd!', { seedDashboard: true, dashboardYear: year })
+      householdId = setup.householdId
+      await loginAs(page, email, 'passw0rd!')
+      await page.goto(`/report?year=${year}`)
+      const section = page.locator('#category-detail')
+      await section.getByRole('button', { name: axis, exact: true }).click()
+      await page.setViewportSize({ width: 390, height: 360 })
+      const scroller = section.getByLabel('월별 그래프와 항목별 표')
+      await scroller.evaluate(element => { element.scrollLeft = 450 })
+      const label = axis === '카테고리' ? '식비' : 'DJ 삼성카드'
+      const cell = section.getByRole('button', { name: `${label} 2월 300,000원, 합계에서 제외`, exact: true })
+      await cell.evaluate(element => window.scrollBy(0, element.getBoundingClientRect().top - (window.innerHeight + 8)))
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+      const before = await cell.boundingBox()
+      if (!before) throw new Error('Expected an offscreen main cell')
+      expect(before.y).toBeGreaterThan(360)
+      expect(before.x + before.width).toBeLessThan(0)
+      const offsets = await scroller.evaluate(element => ({ y: window.scrollY, left: element.scrollLeft }))
+      await page.mouse.move(1, 1)
+      await cell.focus()
+      const tooltip = page.getByRole('tooltip')
+      await expect(tooltip).toContainText(`${label} · 2월`)
+      await expect(tooltip).toContainText('300,000')
+      await expect.poll(() => scroller.evaluate(() => window.scrollY)).not.toBe(offsets.y)
+      await expect.poll(() => scroller.evaluate(element => element.scrollLeft)).not.toBe(offsets.left)
+      await expect(cell).toBeFocused()
+      const bounds = await tooltip.boundingBox()
+      if (!bounds) throw new Error('Expected the summary by the focused main cell')
+      expect(bounds.x).toBeGreaterThanOrEqual(8)
+      expect(bounds.y).toBeGreaterThanOrEqual(8)
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(382)
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(352)
+      await page.evaluate(() => window.scrollBy(0, 1))
+      await expect(tooltip).not.toBeVisible()
+      await section.getByRole('button', { name: '선', exact: true }).focus()
+      await cell.focus()
+      await expect(tooltip).toBeVisible()
+      await page.setViewportSize({ width: 390, height: 380 })
+      await expect(tooltip).not.toBeVisible()
+    } finally {
+      await deleteTestState(email, householdId)
+    }
+  })
+}
+
 test('pending table detail requests cancel on scroll or resize and keyboard focus clamps at the viewport edge', async ({ page }) => {
   const email = `finance-table-tooltip-${Date.now()}-${crypto.randomUUID()}@example.com`
   const password = 'passw0rd!'
@@ -898,9 +962,9 @@ test('pending table detail requests cancel on scroll or resize and keyboard focu
   let releaseDelayedResponse: (() => void) | undefined
 
   try {
-    const setup = await createTestUser(email, password, { seedDashboard: true })
+    const dashboardYear = tooltipReportYear(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 7))
+    const setup = await createTestUser(email, password, { seedDashboard: true, dashboardYear })
     householdId = setup.householdId
-    const dashboardYear = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 4)
     const { error: edgeTransactionError } = await createAdminClient().from('transactions').insert({
       household_id: householdId,
       date: `${dashboardYear}-04-12`,
@@ -939,7 +1003,7 @@ test('pending table detail requests cancel on scroll or resize and keyboard focu
     })
 
     await loginAs(page, email, password)
-    await page.goto('/report')
+    await page.goto(`/report?year=${dashboardYear}`)
     const detailSection = page.locator('section').filter({
       has: page.getByRole('heading', { name: '달마다 어떻게 달랐나', exact: true }),
     })

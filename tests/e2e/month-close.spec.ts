@@ -67,6 +67,99 @@ async function waitForCanvasAnimations(canvases: Locator) {
   }, { intervals: [100, 100, 100, 100, 100], timeout: 5_000 }).toBeGreaterThanOrEqual(2)
 }
 
+async function captureAnnualStatistics(
+  page: Page,
+  path: string,
+  axisMax: number,
+  expectedBars: Array<{ month: number; value: number; color: 'blue' | 'ink' | 'faint' }>,
+) {
+  const viewport = page.viewportSize()
+  if (!viewport) throw new Error('Expected a fixed statistics viewport')
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.evaluate(async () => {
+    await document.fonts.ready
+    await Promise.all(document.getAnimations()
+      .filter(animation => Number.isFinite(Number(animation.effect?.getComputedTiming().endTime)))
+      .map(animation => animation.finished.catch(() => {})))
+  })
+  // Chromium's beyond-viewport capture can corrupt bar pixels while Chart.js
+  // coordinates stay correct. Capture the normal page in a real full-height viewport.
+  const height = await page.evaluate(() => document.documentElement.scrollHeight)
+  await page.setViewportSize({ width: viewport.width, height })
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(height)
+  await waitForCanvasAnimations(page.locator('canvas'))
+  const chart = page.getByRole('img', { name: '월별 수입 지출 저축 막대 차트' })
+  const bounds = await chart.boundingBox()
+  if (!bounds) throw new Error('Expected the annual chart in the statistics capture')
+  const screenshot = await page.screenshot({ path, fullPage: true })
+  await page.setViewportSize(viewport)
+  // Verify the delivered PNG itself, independently of Chart.js element state.
+  const geometry = await page.evaluate(async ({ png, bounds, colors }) => {
+    const image = new Image()
+    image.src = `data:image/png;base64,${png}`
+    await image.decode()
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bounds.width)
+    canvas.height = Math.round(bounds.height)
+    const context = canvas.getContext('2d')!
+    context.drawImage(image, Math.round(bounds.x), Math.round(bounds.y), canvas.width, canvas.height, 0, 0, canvas.width, canvas.height)
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
+    const styles = getComputedStyle(document.documentElement)
+    const rgb = (color: string) => {
+      context.fillStyle = styles.getPropertyValue(`--finance-${color}`).trim()
+      context.fillRect(0, 0, 1, 1)
+      return Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3)
+    }
+    const matches = (x: number, y: number, color: number[]) => {
+      const offset = (y * canvas.width + x) * 4
+      return color.every((value, channel) => Math.abs(data[offset + channel] - value) <= 2)
+    }
+    const track = rgb('track')
+    const gridRows: number[] = []
+    for (let y = 0; y < canvas.height - 20; y += 1) {
+      let pixels = 0
+      for (let x = 0; x < canvas.width; x += 1) if (matches(x, y, track)) pixels += 1
+      if (pixels > canvas.width * 0.8) gridRows.push(y)
+    }
+    const top = Math.min(...gridRows)
+    const bottom = Math.max(...gridRows)
+    let plotLeft = 0
+    while (plotLeft < canvas.width && !matches(plotLeft, top, track)) plotLeft += 1
+    const bars = colors.map(color => {
+      const fill = rgb(color)
+      const groups: Array<{ left: number; right: number; top: number; bottom: number }> = []
+      for (let x = plotLeft; x < canvas.width; x += 1) {
+        const ys: number[] = []
+        for (let y = top; y < bottom; y += 1) if (matches(x, y, fill)) ys.push(y)
+        // Grid text, antialiasing and explicit zero bars are not nonzero bars.
+        if (ys.length < 5) continue
+        const previous = groups.at(-1)
+        if (previous && previous.right === x - 1) {
+          previous.right = x
+          previous.top = Math.min(previous.top, ys[0])
+          previous.bottom = Math.max(previous.bottom, ys.at(-1)!)
+        } else {
+          groups.push({ left: x, right: x, top: ys[0], bottom: ys.at(-1)! })
+        }
+      }
+      return { color, groups }
+    })
+    return { width: canvas.width, plotLeft, plotHeight: bottom - top, bars }
+  }, { png: screenshot.toString('base64'), bounds, colors: [...new Set(expectedBars.map(bar => bar.color))] })
+  expect(geometry.plotHeight).toBeGreaterThan(150)
+  for (const { color, groups } of geometry.bars) {
+    const expected = expectedBars.filter(bar => bar.color === color)
+    expect(groups, `${color} bar count in ${path}`).toHaveLength(expected.length)
+    for (const [index, bar] of groups.entries()) {
+      const fixture = expected[index]
+      const center = ((bar.left + bar.right) / 2 - geometry.plotLeft) / (geometry.width - geometry.plotLeft)
+      expect(Math.abs(center - (fixture.month - 0.5) / 12), `${fixture.month}월 ${color} position`).toBeLessThan(0.04)
+      expect((bar.right - bar.left + 1) / geometry.width, `${fixture.month}월 ${color} width`).toBeGreaterThan(0.008)
+      expect(Math.abs((bar.bottom - bar.top + 1) - fixture.value / axisMax * geometry.plotHeight), `${fixture.month}월 ${color} amount proportion`).toBeLessThan(3)
+    }
+  }
+}
+
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   if (!['127.0.0.1', 'localhost'].includes(new URL(url).hostname)) throw new Error('Local Supabase only')
@@ -277,8 +370,10 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(page.getByText('마감 1개월 · 잠정 0개월')).toBeVisible()
   await expect(page.getByText('확정').first()).toBeVisible()
   await expect(page.getByRole('img', { name: '월별 수입 지출 저축 막대 차트' })).toBeVisible()
-  await waitForCanvasAnimations(page.locator('canvas'))
-  await page.screenshot({ path: info.outputPath('closed-statistics.png'), fullPage: true })
+  await captureAnnualStatistics(page, info.outputPath('closed-statistics.png'), 600_000, [
+    { month: CLOSE_MONTH_NUMBER, value: 500_000, color: 'blue' },
+    { month: CLOSE_MONTH_NUMBER, value: 101_000, color: 'ink' },
+  ])
 })
 
 suite('sparse closed months keep gaps in every chart and tooltip, while closed zero remains selectable', async ({ page, household }, info) => {
@@ -485,10 +580,11 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await staleResponse
   await expect(section.getByRole('alert')).toContainText('마감 상태 또는 내역이 바뀌었습니다')
   await expect(page.getByRole('tooltip')).not.toBeVisible()
-  await waitForCanvasAnimations(page.locator('canvas'))
-  await page.evaluate(() => window.scrollTo(0, 0))
-  expect(await page.evaluate(() => window.scrollY)).toBe(0)
-  await page.screenshot({ path: info.outputPath('sparse-closed-months.png'), fullPage: true })
+  await captureAnnualStatistics(page, info.outputPath('sparse-closed-months.png'), 1_000, [
+    { month: 1, value: 400, color: 'ink' },
+    { month: 3, value: 200, color: 'ink' },
+    { month: 2, value: 999, color: 'faint' },
+  ])
 
   // Refresh this mounted chart, rather than navigating/remounting it: February
   // becomes eligible while March is reopened, and the selected row must survive.
