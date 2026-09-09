@@ -761,6 +761,8 @@ git commit -m "refactor(budgets): replace the provisional sentences with the hea
 
 ### Task 6: 통계 읽기 모델 · 확정과 잠정 두 결과
 
+**추가 실행 보정 (2026-09-09, TOP 비교 경계):** `src/features/analytics/report.ts`를 명시 허용/git add 경로에 추가한다. 기존 `topExpenses` 6개·`topMerchants` 8개 제한은 그대로 유지하고, 제한 전 이미 계산한 행에서 `expenseComparisons`(대분류 이름 키), `merchantComparisons`(normalizeAnalyticsMerchant 키)를 추가 반환한다. 각 값은 기존 amount/previous/delta를 그대로 재사용한다. 집계·정규화·비율·순위 산식 변경 없이 잠정 TOP 밖으로 밀려난 확정 TOP 항목도 Task 8에서 이름으로 비교할 수 있게 하는 메타데이터다. `tests/finance/closed-report.test.ts`에 6/8개 초과 및 확정/잠정 순위가 다른 사례를 검증한다. Task 8은 제한된 TOP 배열을 비교 lookup으로 사용하지 않는다.
+
 **실행 보정 (2026-09-09, 스펙/현재 코드 우선):** 중요: 스펙 §3.3의 '무거래 미마감 월은 0이 아님'이 아래 예시보다 우선한다. endedMonths는 끝난 달력 월 전부를 유지하되 recordedMonths(실제 거래가 있는 월), provisionalMonths = endedMonths ∩ (recordedMonths ∪ closedMonths)를 별도 반환한다. 잠정 report의 eligibleMonths/provisionalDivisor/달성 분모는 provisionalMonths를 사용한다. CategoryDetail에도 optional recordedMonths/provisionalMonths를 추가한다. hasTransactions는 금액 합계가 아닌 거래 존재로 연도/월에 제공한다. active는 미래 여부이고 값 존재와 별개. 미마감 무기록 월의 account series는 null, 명시 마감 0원은 0. 현재 fixture의 잠정 분모는 마감 전 2, 1·3월 마감 후 3이고 확정 분모는 2이므로 provisionalDivisor=8 예시는 폐기한다. 전년 잠정 비교도 대응 기록/명시 0원 마감 존재를 확인하여 전년 무기록을 0원으로 단정하지 않는다. 비교 양쪽 월 번호 집합을 일치시킨다. currentMonthKey 주입은 필수이며 통합 테스트에 명시한다. 환불만/상쇄 0원/현재달 수입만/미마감 무기록/마감 0원 테스트를 추가한다. report.ts의 기존 산식은 유지한다.
 
 **Files:**
@@ -1088,6 +1090,8 @@ git commit -m "feat(stats): separate displayed months from closed months in the 
 ---
 
 ### Task 8: 통계 화면 · 잠정 스타일, 표, 태그, 칩
+
+**추가 실행 보정 (2026-09-09, 소비자 연결):** Task 6의 `expenseComparisons`/`merchantComparisons`를 사용해 같은 항목의 잠정 비교 값을 찾는다(순위가 달라도 유지). `src/features/analytics/home-dashboard-charts.tsx`를 명시 허용/git add 경로에 추가한다. `SavingsProgressRing`은 기본값 false인 선택 `provisional` 표시 prop으로 SVG 숫자·선에 faint 토큰을 적용한다. 홈의 기본 표현과 링 계산식은 변경하지 않으며 `tests/finance/provisional-charts.test.tsx`에서 기본/잠정 렌더링을 검증한다. 원시 CSS 선택자로 부모에서 자식 SVG 색을 덮어쓰지 않는다.
 
 **실행 보정 (2026-09-09, 스펙/현재 코드 우선):** tests/finance/provisional-charts.test.tsx, tests/finance/stats-report-page.test.tsx를 신규 허용/git add 경로로 추가해 실패 테스트부터 작성한다. 실제 컴포넌트를 렌더하고 외부 차트 renderer/조회만 경계 mock하여 dataset·표시값 검증. 잠정 막대 테두리와 본문은 palette.faint/text-finance-faint(아래 시리즈색·muted 예시 보정). 현재달은 italic 및 '진행 중'. 잠정 합계는 provisionalTotal이며 현재달은 연 집계/예측에서 제외한다. hasAnyData는 거래 존재와 명시 0원 마감으로 판단하여 환불/상쇄/수입만 있는 현재달을 숨기지 않는다. 연 칩 잠정 목록은 기록 있는 미마감/재확인 끝난 월만 센다. YoY fallback은 비교의 양쪽 모두 provisional 값을 사용하고 카테고리/가맹점은 이름 키로 대응시킨다. 비교 fallback에도 잠정 태그/사유와 회색 본문을 표시한다. 차트 전월 대비는 바로 전 달만 사용하며 두 월 모두 closed면 확정, 아니면 잠정임을 표시한다. 필요 시 series-chart-geometry.ts와 tests/finance/series-chart.test.ts를 명시 허용/git add 경로로 사용한다. 연 누적은 '마감 N개월 X%'와 '잠정 포함 Y%'를 함께 표시한다. 열 위 상태 라벨과 12개월 정렬을 유지하며 SSR fallback/패턴/대시/빈 점/현재·미래/셀 scope/revision을 검증한다.
 
