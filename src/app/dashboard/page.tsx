@@ -99,7 +99,8 @@ export default async function DashboardPage() {
       <AppHeader active="dashboard" email={household.email} />
       <main className="mx-auto max-w-[1440px] px-5 pb-14 pt-9 sm:px-12">
         <header>
-          <p className="t-label uppercase text-finance-blue">이번 달</p>
+          <p className="t-label uppercase text-finance-blue">이번 달 · 잠정</p>
+          <p className="mt-2 t-caption text-finance-muted">홈의 금액·비교·추이는 미마감 내역을 포함한 실시간 집계입니다. 확정된 월은 통계에서 확인하세요.</p>
           <h1 className="mt-2 t-page-title text-finance-ink">홈</h1>
           <p className="mt-2 t-caption text-finance-muted">
             {year}년 {Number(month.slice(5))}월 · {data.pace.elapsed}일 경과 / {data.pace.daysInMonth}일 · 모든 수치는 <strong className="font-semibold text-finance-ink">월 단위</strong>

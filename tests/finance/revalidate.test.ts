@@ -14,8 +14,12 @@ test('a transaction change refreshes every page that reports on transactions', (
   ])
 })
 
-test('an inbox change refreshes the inbox and the home todo list', () => {
-  expect(routesToRevalidate(['inbox']).sort()).toEqual(['/dashboard', '/inbox'])
+test('an inbox change refreshes the inbox, home todos and closed-month pending notice', () => {
+  expect(routesToRevalidate(['inbox']).sort()).toEqual(['/dashboard', '/inbox', '/ledger'])
+})
+
+test('closing or reopening refreshes statistics and every live status label', () => {
+  expect(routesToRevalidate(['monthClose']).sort()).toEqual(['/budgets', '/budgets/review', '/dashboard', '/ledger', '/report'])
 })
 
 test('combining domains lists each route once', () => {

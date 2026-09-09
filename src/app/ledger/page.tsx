@@ -2,6 +2,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { ActionNotice } from '@/components/action-notice'
+import { MonthCloseControl } from '@/features/month-close/month-close-control'
+import { getMonthCloseSummary } from '@/features/month-close/queries'
 import { SubmitButton } from '@/components/submit-button'
 import { getCategoryPageData, parseCategoryPageParams } from '@/features/analytics/category-page'
 import { getAnalysisData } from '@/features/analytics/queries'
@@ -72,6 +75,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
   ])
   const majorOptions = [...new Set(formOptions.categories.map((category) => category.major))]
   const selectedFlow = filters.flow || 'expense'
+  const monthClose = await getMonthCloseSummary(household.householdId, shell.month)
 
   // Load only the active panel; diagnosis also skips transaction-only controls.
   const [recurring, analysis, categoryDetail, listData, diagnosisData] = await Promise.all([
@@ -134,6 +138,9 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
           </div>
         </header>
 
+        <MonthCloseControl key={shell.month} month={shell.month} status={monthClose} pendingCount={monthClose.pendingCount} />
+        {firstParam(params.notice) && <ActionNotice notice={firstParam(params.notice)} />}
+
         <div className="mt-6 flex gap-1.5 overflow-x-auto border-b border-finance-border pb-4 print:hidden">
           {shell.availableMonths.map((item) => (
             <Link className={`inline-flex h-[30px] shrink-0 items-center border px-3.5 t-caption font-medium ${item.month === shell.month ? 'border-finance-ink bg-finance-ink font-semibold text-white' : 'border-finance-border bg-white text-finance-muted hover:border-finance-ink hover:text-finance-ink'}`} href={ledgerUrl(item.month, filters, { tab })} key={item.month}>
@@ -182,7 +189,10 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         </div>
         </>}
 
-        {tab === 'ai' && diagnosisData && <DiagnosisPanel initialData={diagnosisData} key={shell.month} />}
+        {tab === 'ai' && diagnosisData && <>
+          {monthClose.state !== 'closed' && <p className="mt-4 t-caption text-finance-amber">잠정 내역 기준 진단 · {shell.month}은 아직 확정 통계에 포함되지 않습니다.</p>}
+          <DiagnosisPanel initialData={diagnosisData} key={shell.month} />
+        </>}
         {tab === 'summary' && analysis && <LedgerSummaryPanel data={analysis} monthTotals={shell.totals} />}
         {tab === 'categories' && analysis && <LedgerCategoriesPanel data={analysis} detail={categoryDetail} filters={filters} />}
         {tab === 'merchants' && analysis && <LedgerMerchantsPanel data={analysis} filters={filters} />}

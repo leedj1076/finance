@@ -30,6 +30,7 @@ export type FinanceDomain =
   | 'taxonomy'
   | 'recurring'
   | 'settings'
+  | 'monthClose'
 
 const READERS: Record<FinanceDomain, readonly Route[]> = {
   // History also reads ledger matches and their confirmed categories/accounts.
@@ -38,7 +39,8 @@ const READERS: Record<FinanceDomain, readonly Route[]> = {
   assets: ['home', 'assets', 'stats', 'settings'],
   // 홈's todo list counts pending rows; the header badge on other pages is
   // chrome and can wait for their next server render.
-  inbox: ['inbox', 'home'],
+  inbox: ['inbox', 'home', 'ledger'],
+  monthClose: ['ledger', 'stats', 'home', 'budgets', 'budgetReview'],
   taxonomy: ['home', 'ledger', 'stats', 'budgets', 'inbox', 'manage', 'settings'],
   recurring: ['home', 'ledger', 'budgets', 'recurring', 'settings'],
   settings: ['home', 'ledger', 'budgets', 'assets', 'manage', 'settings'],

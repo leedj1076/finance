@@ -41,7 +41,7 @@ function EditableRow({ accounts, categories, filters, onCancel, onSaved, row }: 
   categories: CategoryOption[]
   filters: LedgerFilters
   onCancel: () => void
-  onSaved: (saved: NonNullable<TransactionActionState['saved']>) => void
+  onSaved: (saved: NonNullable<TransactionActionState['saved']>, message?: string) => void
   row: LedgerRow
 }) {
   const [state, action] = useActionState(async (
@@ -50,7 +50,7 @@ function EditableRow({ accounts, categories, filters, onCancel, onSaved, row }: 
   ) => {
     try {
       const result = await saveTransaction(previousState, formData)
-      if (result.saved) onSaved(result.saved)
+      if (result.saved) onSaved(result.saved, result.message)
       return result
     } catch {
       return { error: '저장하지 못했습니다. 수정 내용은 유지됩니다. 잠시 후 다시 시도해 주세요.' }
@@ -115,6 +115,7 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
   const [editingId, setEditingId] = useState<number | null>(null)
   const [localRows, setLocalRows] = useState(rows)
   const [savedId, setSavedId] = useState<number | null>(null)
+  const [notice, setNotice] = useState('')
 
   // Inline edits update immediately; subsequent server refreshes can also
   // insert, remove or re-filter rows without remounting this table.
@@ -131,7 +132,8 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
     sessionStorage.setItem('ledgerScrollY', String(window.scrollY))
   }
 
-  function applySavedRow(saved: NonNullable<TransactionActionState['saved']>) {
+  function applySavedRow(saved: NonNullable<TransactionActionState['saved']>, message?: string) {
+    setNotice(message ?? '')
     const category = categories.find((item) => item.id === saved.categoryId)
     const account = accounts.find((item) => item.id === saved.accountId)
     setLocalRows((current) => current.map((row) => row.id === saved.id
@@ -152,6 +154,7 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
 
   return (
     <div className="overflow-x-auto border-t border-finance-ink">
+      {notice && <p role="status" className="border-l-2 border-finance-green px-4 py-3 t-caption text-finance-green">{notice}</p>}
       <table className="w-full min-w-[920px] text-left t-body">
         <thead className="border-b border-finance-border t-label uppercase text-finance-muted"><tr><th className="py-[9px] pr-2 font-semibold">날짜</th><th className="px-2 py-[9px] font-semibold">가맹점·사용내역</th><th className="px-2 py-[9px] font-semibold">분류</th><th className="px-2 py-[9px] font-semibold">결제수단</th><th className="px-2 py-[9px] text-center font-semibold">구분</th><th className="px-2 py-[9px] text-right font-semibold">금액</th><th className="py-[9px] pl-2 text-right font-semibold">관리</th></tr></thead>
         <tbody className="divide-y divide-finance-track">

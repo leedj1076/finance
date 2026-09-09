@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { getMonthStatuses } from '@/features/month-close/queries'
+import { MonthStatusLabel } from '@/features/month-close/month-status-label'
 import { SubmitButton } from '@/components/submit-button'
 import { BudgetForm } from '@/features/budgets/budget-form'
 import { getBudgetData } from '@/features/budgets/queries'
@@ -52,6 +54,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
   const reviewSaved = params.reviewSaved === '1'
   const data = await getBudgetData(household.householdId, requestedMonth)
+  const [monthStatus] = await getMonthStatuses(household.householdId, [data.month])
   const safeToSpend = data.spendCeiling - data.totalActual
   const remainingTone = safeToSpend < 0 ? 'warning' : 'good'
   const currentMonth = currentMonthInKorea()
@@ -70,6 +73,8 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
             <h1 className="mt-2 t-page-title text-finance-ink">
               {data.month.replace('-', '년 ')}월 예산
             </h1>
+            <p className="mt-3"><MonthStatusLabel status={monthStatus} /></p>
+            <p className="mt-1 t-caption text-finance-muted">실제 사용액은 마감 전 내역도 포함합니다. 예산의 평균·제안에는 잠정 내역이 포함될 수 있습니다.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link

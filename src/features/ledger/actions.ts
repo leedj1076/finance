@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { db } from '@/db/client'
 import { accounts, categories, transactions } from '@/db/schema'
 import { isPostingIdentityConflict, preservedPostingUid } from '@/features/recurring/posting-identity'
+import { captureClosedMonths, reopenedMonthNotice } from '@/features/month-close/mutation-notice'
 import { isMonthKey } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 import { revalidateFinance } from '@/lib/revalidate'
@@ -15,6 +16,7 @@ import { ledgerFiltersFromFormData, ledgerUrl } from './filters'
 
 export type TransactionActionState = {
   error?: string
+  message?: string
   saved?: {
     id: number
     date: string
@@ -77,6 +79,10 @@ export async function saveTransaction(
     accountId: input.accountId,
   }
 
+  const original = input.id === null ? [] : await db.select({ date: transactions.date }).from(transactions)
+    .where(and(eq(transactions.householdId, household.householdId), eq(transactions.id, input.id)))
+  const closedBefore = await captureClosedMonths(household.householdId, [input.date, ...original.map(row => row.date)])
+
   if (input.id === null) {
     await db.insert(transactions).values({
       householdId: household.householdId,
@@ -102,16 +108,18 @@ export async function saveTransaction(
     }
   }
 
+  const notice = await reopenedMonthNotice(household.householdId, closedBefore)
   revalidateFinance('transactions')
   if (formData.get('inline') === '1' && input.id !== null) {
     return {
+      ...(notice ? { message: `저장했습니다.${notice}` } : {}),
       saved: {
         id: input.id,
         ...values,
       },
     }
   }
-  redirect(ledgerUrl(input.month, ledgerFiltersFromFormData(formData)))
+  redirect(ledgerUrl(input.month, ledgerFiltersFromFormData(formData), notice ? { notice: `저장했습니다.${notice}` } : {}))
 }
 
 export async function deleteTransaction(formData: FormData) {
@@ -119,7 +127,10 @@ export async function deleteTransaction(formData: FormData) {
   if (!household) redirect('/login')
 
   const id = Number(formData.get('transactionId'))
+  let notice = ''
   if (Number.isSafeInteger(id) && id > 0) {
+    const original = await db.select({ date: transactions.date }).from(transactions).where(and(eq(transactions.householdId, household.householdId), eq(transactions.id, id)))
+    const closedBefore = await captureClosedMonths(household.householdId, original.map(row => row.date))
     await db
       .delete(transactions)
       .where(
@@ -128,6 +139,7 @@ export async function deleteTransaction(formData: FormData) {
           eq(transactions.householdId, household.householdId),
         ),
       )
+    notice = await reopenedMonthNotice(household.householdId, closedBefore)
   }
 
   const requestedMonth = formData.get('month')
@@ -136,6 +148,6 @@ export async function deleteTransaction(formData: FormData) {
     : undefined
   revalidateFinance('transactions')
   redirect(month
-    ? ledgerUrl(month, ledgerFiltersFromFormData(formData))
-    : '/ledger')
+    ? ledgerUrl(month, ledgerFiltersFromFormData(formData), notice ? { notice: `삭제했습니다.${notice}` } : {})
+    : `/ledger${notice ? `?notice=${encodeURIComponent(`삭제했습니다.${notice}`)}` : ''}`)
 }

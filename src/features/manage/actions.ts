@@ -9,6 +9,7 @@ import { isAggregatorNorm } from '@/features/inbox/merchant-lookup'
 import { normalizeMerchant } from '@/features/inbox/normalize'
 import { requireHousehold } from '@/lib/household'
 import { revalidateFinance } from '@/lib/revalidate'
+import { captureClosedMonths, reopenedMonthNotice } from '@/features/month-close/mutation-notice'
 
 import { classificationFromToken } from './bulk-classification'
 import { manageFlow, optionalText, parseBulkAccounts, parseBulkCategories, positiveId, requiredText } from './manage-input'
@@ -405,7 +406,7 @@ export async function classifyTransaction(formData: FormData) {
 
   const [transaction, category] = await Promise.all([
     db
-      .select({ id: transactions.id, flow: transactions.flow, memo: transactions.memo, rawMerchant: transactions.rawMerchant })
+      .select({ id: transactions.id, date: transactions.date, flow: transactions.flow, memo: transactions.memo, rawMerchant: transactions.rawMerchant })
       .from(transactions)
       .where(and(eq(transactions.householdId, household.householdId), eq(transactions.id, id)))
       .limit(1),
@@ -418,7 +419,8 @@ export async function classifyTransaction(formData: FormData) {
   if (!transaction[0] || !category[0]) finish('unclassified', 'error', '거래 또는 카테고리를 찾을 수 없습니다.')
   if (transaction[0].flow !== category[0].kind) finish('unclassified', 'error', '카테고리와 거래 유형이 맞지 않습니다.')
 
-  await db.transaction(async (tx) => {
+  const notice = await db.transaction(async (tx) => {
+    const closedBefore = await captureClosedMonths(household.householdId, [transaction[0].date], tx)
     await tx
       .update(transactions)
       .set({ categoryId, fixed: transaction[0].flow === 'expense' ? formData.get('fixed') === 'on' : false })
@@ -434,9 +436,10 @@ export async function classifyTransaction(formData: FormData) {
         flow: transaction[0].flow,
       }))
     }
+    return reopenedMonthNotice(household.householdId, closedBefore, tx)
   })
   revalidateFinance('taxonomy', 'transactions')
-  finish('unclassified', 'saved', '거래를 분류하고 다음 추천에 반영했습니다.')
+  finish('unclassified', 'saved', `거래를 분류하고 다음 추천에 반영했습니다.${notice}`)
 }
 
 export async function bulkClassifyTransactions(formData: FormData) {
@@ -456,6 +459,7 @@ export async function bulkClassifyTransactions(formData: FormData) {
   const transactionRows = await db
     .select({
       id: transactions.id,
+      date: transactions.date,
       memo: transactions.memo,
       rawMerchant: transactions.rawMerchant,
     })
@@ -504,7 +508,8 @@ export async function bulkClassifyTransactions(formData: FormData) {
     }
   }
 
-  const updatedCount = await db.transaction(async (tx) => {
+  const outcome = await db.transaction(async (tx) => {
+    const closedBefore = await captureClosedMonths(household.householdId, transactionRows.map(row => row.date), tx)
     let updated = 0
     for (const row of transactionRows) {
       const classification = requested.get(row.id)!
@@ -537,14 +542,15 @@ export async function bulkClassifyTransactions(formData: FormData) {
         flow: classification.flow,
       }))
     }
-    return updated
+    return { updated, notice: await reopenedMonthNotice(household.householdId, closedBefore, tx) }
   })
 
+  const updatedCount = outcome.updated
   if (updatedCount === 0) {
     finish('unclassified', 'error', '선택한 거래가 이미 다른 화면에서 분류되었습니다.')
   }
   revalidateFinance('taxonomy', 'transactions')
   const skipped = transactionRows.length - updatedCount
   const suffix = skipped > 0 ? ` · 이미 분류된 ${skipped}건 제외` : ''
-  finish('unclassified', 'saved', `${updatedCount}건을 분류하고 다음 추천에 반영했습니다${suffix}.`)
+  finish('unclassified', 'saved', `${updatedCount}건을 분류하고 다음 추천에 반영했습니다${suffix}.${outcome.notice}`)
 }

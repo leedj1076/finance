@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { getMonthStatuses } from '@/features/month-close/queries'
+import { MonthStatusLabel } from '@/features/month-close/month-status-label'
 import { BudgetReviewForm } from '@/features/budgets/budget-review-form'
 import { getBudgetReviewData } from '@/features/budgets/review-queries'
 import { formatRate, formatWon } from '@/lib/finance'
@@ -20,6 +22,7 @@ export default async function BudgetReviewPage({ searchParams }: BudgetReviewPag
   const params = await searchParams
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
   const data = await getBudgetReviewData(household.householdId, requestedMonth)
+  const [monthStatus] = await getMonthStatuses(household.householdId, [data.reviewMonth])
 
   return (
     <div className="min-h-screen bg-white">
@@ -32,6 +35,8 @@ export default async function BudgetReviewPage({ searchParams }: BudgetReviewPag
 
         {data.existingCount > 0 && <p className="mt-5 border-l-2 border-finance-blue bg-finance-blue-tint px-4 py-3 text-[13px] text-finance-blue">{data.targetMonth}에 이미 저장된 예산 {data.existingCount}개를 우선 불러왔습니다. 다시 저장해도 중복되지 않습니다.</p>}
 
+        <p className="mt-4"><MonthStatusLabel status={monthStatus} /></p>
+        <p className="mt-1 t-caption text-finance-muted">예산 제안은 미마감 내역도 포함한 실시간 기준입니다. 다음 달 예산 작성과 이번 달 마감은 별개입니다.</p>
         <section className="mt-6 grid border-y border-finance-ink sm:grid-cols-2 sm:divide-x sm:divide-finance-hairline xl:grid-cols-4">
           <SummaryCard label={`${data.reviewMonth} 수입`} tone="income" value={`${formatWon(data.reviewIncome)}원`} />
           <SummaryCard label={`${data.reviewMonth} 지출`} tone="expense" value={`${formatWon(data.reviewExpense)}원`} />

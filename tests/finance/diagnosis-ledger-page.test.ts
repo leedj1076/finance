@@ -25,6 +25,7 @@ vi.mock('@/features/ledger/ledger-transactions-table', () => ({ LedgerTransactio
 vi.mock('@/features/ledger/transaction-form', () => ({ TransactionForm: () => null }))
 vi.mock('@/features/recurring/queries', () => ({ getRecurringData: loaders.recurring }))
 vi.mock('@/features/recurring/actions', () => ({ applyRecurringMonth: vi.fn() }))
+vi.mock('@/features/month-close/queries', () => ({ getMonthCloseSummary: async () => ({ month: '2026-07', revision: 1, closedRevision: null, closedAt: null, state: 'open', count: 166, income: 7681047, expense: 5603949, saving: 850000, pendingCount: 0, unclassifiedCount: 0, unpostedRecurringCount: 0, closable: true, requiresAcknowledgment: false }) }))
 
 import LedgerPage from '@/app/ledger/page'
 

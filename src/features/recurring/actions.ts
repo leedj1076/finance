@@ -9,6 +9,7 @@ import { ledgerFiltersFromFormData, ledgerUrl } from '@/features/ledger/filters'
 import { isMonthKey } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 import { revalidateFinance } from '@/lib/revalidate'
+import { captureClosedMonths, reopenedMonthNotice } from '@/features/month-close/mutation-notice'
 
 import { recurringImportUid, recurringIsDue, recurringMemo, recurringPostingDate } from './calculations'
 import { previousKoreanBusinessDay } from './business-days'
@@ -179,6 +180,7 @@ export async function applyRecurringMonth(formData: FormData) {
       }
     }))
     // The unique index also guards concurrent writes to the same identity.
+    const closedBefore = await captureClosedMonths(household.householdId, values.map(row => row.date), transaction)
     const created = pending.length === 0 ? [] : await transaction
       .insert(transactions)
       .values(values)
@@ -186,7 +188,7 @@ export async function applyRecurringMonth(formData: FormData) {
         target: [transactions.householdId, transactions.importUid],
       })
       .returning({ id: transactions.id })
-    return { added: created.length, skipped: dueRules.length - created.length }
+    return { added: created.length, skipped: dueRules.length - created.length, notice: await reopenedMonthNotice(household.householdId, closedBefore, transaction) }
   }).catch((error: unknown) => {
     if (error instanceof Error && error.message.includes('공휴일')) return { error: error.message }
     throw error
@@ -199,6 +201,7 @@ export async function applyRecurringMonth(formData: FormData) {
   redirect(ledgerUrl(monthValue, ledgerFiltersFromFormData(formData), {
     tab, ...('error' in outcome ? { recurringError: outcome.error } : {
       recurringAdded: outcome.added, recurringSkipped: outcome.skipped,
+      ...(outcome.notice ? { notice: `정기거래를 반영했습니다.${outcome.notice}` } : {}),
     }),
   }))
 }

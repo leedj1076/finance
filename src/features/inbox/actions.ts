@@ -14,6 +14,7 @@ import {
 } from '@/db/schema'
 import { requireHousehold } from '@/lib/household'
 import { revalidateFinance } from '@/lib/revalidate'
+import { captureClosedMonths, reopenedMonthNotice } from '@/features/month-close/mutation-notice'
 
 import type { TransactionFlow } from './banksalad'
 import { inboxSourceTitle, validateEditedInboxTitle } from './inbox-title'
@@ -59,6 +60,7 @@ type PreparedInboxRow = {
 }
 
 type ApplyResult = {
+  notice: string
   processed: number
   inserted: number
   income: number
@@ -97,6 +99,7 @@ async function applyPreparedInboxRows(
   prepared: PreparedInboxRow[],
 ): Promise<ApplyResult> {
   const result = await db.transaction(async (tx) => {
+    const closedBefore = await captureClosedMonths(householdId, prepared.map(item => item.row.date), tx)
     const sources = new Set(prepared.map((item) => item.source))
     const batchSource = [...sources].every((source) => source.startsWith('banksalad:'))
       ? 'banksalad'
@@ -202,7 +205,7 @@ async function applyPreparedInboxRows(
         and(eq(importBatches.householdId, householdId), eq(importBatches.id, batch.id)),
       )
 
-    return { insertedRows }
+    return { insertedRows, notice: await reopenedMonthNotice(householdId, closedBefore, tx) }
   })
 
   await refreshDuplicateFlags(householdId)
@@ -210,6 +213,7 @@ async function applyPreparedInboxRows(
 
   return {
     processed: prepared.length,
+    notice: result.notice,
     inserted: result.insertedRows.length,
     income: result.insertedRows
       .filter((item) => item.flow === 'income')
@@ -335,7 +339,7 @@ async function processInboxSelection(formData: FormData): Promise<ProcessInboxRe
     .join(' · ')
   return {
     processedIds: rows.map((row) => row.id),
-    message: `${result.inserted}건을 가계부에 반영했습니다${suffix ? ` (${suffix})` : ''}.`,
+    message: `${result.inserted}건을 가계부에 반영했습니다${suffix ? ` (${suffix})` : ''}.${result.notice}`,
   }
 }
 
@@ -418,14 +422,14 @@ export async function applyInboxItem(
     const applied = result.inserted === 1
     return {
       applied: true,
-      message: applied ? '가계부에 반영했습니다.' : '이미 가계부에 반영된 거래입니다.',
+      message: (applied ? '가계부에 반영했습니다.' : '이미 가계부에 반영된 거래입니다.') + result.notice,
     }
   } catch {
     return { error: '거래를 반영하지 못했습니다. 잠시 후 다시 시도해 주세요.' }
   }
 }
 
-export async function approveHighConfidence(): Promise<{ error?: string; applied?: number }> {
+export async function approveHighConfidence(): Promise<{ error?: string; applied?: number; message?: string }> {
   const household = await requireHousehold()
   if (!household) return { error: '가족 가계부에 연결된 계정이 아닙니다.' }
 
@@ -476,7 +480,7 @@ export async function approveHighConfidence(): Promise<{ error?: string; applied
 
   try {
     const result = await applyPreparedInboxRows(householdId, prepared)
-    return { applied: result.inserted }
+    return { applied: result.inserted, ...(result.notice ? { message: `${result.inserted}건을 반영했습니다.${result.notice}` } : {}) }
   } catch {
     return { error: '자동 분류 거래를 반영하지 못했습니다. 잠시 후 다시 시도해 주세요.' }
   }
