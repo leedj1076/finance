@@ -35,6 +35,8 @@ export type CategoryDetailGroup = {
   }>
 }
 
+export type StatsMonthState = 'closed' | 'open' | 'needs_review' | 'current' | 'future'
+
 export type CategoryDetail = {
   groups: CategoryDetailGroup[]
   months: number[]
@@ -42,6 +44,15 @@ export type CategoryDetail = {
   currentMonth: number | null
   closedMonths?: number[]
   monthRevisions?: Record<number, number>
+  /** Every ended calendar month of the selected year. */
+  endedMonths?: number[]
+  /** Months with at least one transaction, independent of their net amount. */
+  recordedMonths?: number[]
+  /** Ended months that are either recorded or explicitly closed. */
+  provisionalMonths?: number[]
+  states?: StatsMonthState[]
+  /** Denominator for provisional averages, including explicit closed zero months. */
+  provisionalDivisor?: number
 }
 
 export type CategoryDetails = Record<CategoryDetailFlow, CategoryDetail>

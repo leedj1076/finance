@@ -57,12 +57,12 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
   const highlightedMajor = Array.isArray(params.major) ? params.major[0] : params.major
   const statsView = parseStatsViewState(params)
   const stats = await getStatsReportData(household.householdId, rawYear ? Number(rawYear) : undefined)
-  const data = stats.report
+  const data = stats.report.official
   const currentMonthKey = currentMonthInKorea()
-  const completedMonths = stats.eligibleMonths.length
+  const completedMonths = stats.closedMonths.length
   const unclosedMonths = stats.months.filter(row => row.month < currentMonthKey && row.state !== 'closed').length
   const hasAnnualData = completedMonths > 0
-  const monthList = stats.eligibleMonths.map(month => `${month}월`).join(' · ')
+  const monthList = stats.closedMonths.map(month => `${month}월`).join(' · ')
   const topExpenseMax = data.topExpenses[0]?.amount ?? 1
   const yoyRows = [
     { label: '수입', current: data.annual.income, previous: data.previous.income, delta: data.yoy.income.delta, pct: data.yoy.income.pct, goodWhenPositive: true },
