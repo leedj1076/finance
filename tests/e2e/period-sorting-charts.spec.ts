@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
+import { closeFixtureMonths } from './close-fixture-months'
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -193,6 +194,7 @@ suite('recurring schedule saves without preposting, renders occurrences, and sto
 
 suite('report year navigation and browser history keep the displayed year and chart view aligned', async ({ page, household }) => {
   await seedBudget(household)
+  await closeFixtureMonths(adminClient(), household, ['2026-06', '2026-07'])
   await page.goto('/report?year=2026&chart=line&axis=account&flow=expense')
   const previous = page.getByRole('link', { name: '이전 해', exact: true })
   const next = page.getByRole('link', { name: '다음 해', exact: true })
@@ -280,6 +282,7 @@ suite('stacked area selects the visible band, and leaving the chart clears only 
     household_id: household, category_id: category.id, date: `2026-0${month}-10`, amount: amounts[category.major], flow: 'expense', source: 'e2e',
   }))))
   if (txError) throw txError
+  await closeFixtureMonths(admin, household, ['2026-01', '2026-02'])
   await page.goto('/report?year=2026&chart=area')
   const section = page.locator('#category-detail')
   const canvas = section.locator('canvas')

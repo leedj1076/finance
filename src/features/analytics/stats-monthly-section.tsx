@@ -72,14 +72,16 @@ function Sparkline({
   values,
   flow,
   activeMonths,
+  closedOnly,
   label,
 }: {
   values: Array<number | null>
   flow: StatsMonthlyFlow
   activeMonths: number
+  closedOnly: boolean
   label: string
 }) {
-  const spark = statsSparkline(values, flow, activeMonths)
+  const spark = statsSparkline(values, flow, activeMonths, closedOnly)
   if (!spark) return <span className="text-finance-faint">–</span>
   return (
     <svg aria-label={`${label} 최근 추세`} className="h-5 w-20" role="img" viewBox="0 0 80 20">
@@ -354,14 +356,14 @@ export function StatsMonthlySection({
 
       {stale && <p role="alert" className="mt-3 border-l-2 border-finance-amber px-3 py-2 t-caption text-finance-amber">마감 상태 또는 내역이 바뀌었습니다. <button type="button" className="font-semibold underline" onClick={() => router.refresh()}>최신 통계 확인</button></p>}
       {model.rows.length > 0 && <label className="mt-4 flex flex-wrap items-center gap-2 t-caption text-finance-muted">상세 항목
-        <select aria-label="상세 항목 선택" className="max-w-full border border-finance-border bg-white px-2 py-1 text-finance-ink" value={selectedSeries?.id ?? ''} onChange={event => {
-          const id = event.target.value
+        <select aria-label="상세 항목 선택" className="max-w-full border border-finance-border bg-white px-2 py-1 text-finance-ink" value={encodeURIComponent(selectedSeries?.id ?? '')} onChange={event => {
+          const id = decodeURIComponent(event.target.value)
           setSelection(id ? { seriesId: id, month: null } : null)
           const row = model.rows.find(item => item.id === id)
           if (row) setExpanded(current => new Set(current).add(row.label))
         }}>
           <option value="">그래프 또는 목록에서 선택</option>
-          {model.rows.map(row => <option key={row.id} value={row.id}>{row.label}</option>)}
+          {model.rows.map(row => <option key={row.id} value={encodeURIComponent(row.id)}>{row.label}</option>)}
         </select>
       </label>}
 
@@ -485,7 +487,7 @@ export function StatsMonthlySection({
                       })}
                       <div className="text-right font-bold tabular-nums text-finance-ink">{formatWon(row.total)}</div>
                       <div className="text-right tabular-nums text-finance-muted">{row.average === null ? '—' : formatWon(row.average)}</div>
-                      <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} flow={flow} label={row.label} values={row.values.map((value, month) => model.eligibleMonths[month] ? value : null)} /></div>
+                      <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} closedOnly={details[flow].closedMonths !== undefined} flow={flow} label={row.label} values={row.values.map((value, month) => model.eligibleMonths[month] ? value : null)} /></div>
                     </div>
 
                     {isExpanded && row.subs.map((sub) => (
@@ -529,7 +531,7 @@ export function StatsMonthlySection({
                         })}
                         <div className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(sub.total)}</div>
                         <div className="text-right tabular-nums text-finance-muted">{sub.average === null ? '—' : formatWon(sub.average)}</div>
-                        <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} flow={flow} label={`${sub.major} ${sub.label}`} values={sub.values.map((value, month) => model.eligibleMonths[month] ? value : null)} /></div>
+                        <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} closedOnly={details[flow].closedMonths !== undefined} flow={flow} label={`${sub.major} ${sub.label}`} values={sub.values.map((value, month) => model.eligibleMonths[month] ? value : null)} /></div>
                       </div>
                     ))}
                   </div>

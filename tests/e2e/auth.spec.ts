@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
+import { closeFixtureMonths } from './close-fixture-months'
 
 test.use({ actionTimeout: 10_000 })
 
@@ -219,6 +220,7 @@ test('family user can manage a transaction and change their password', async ({ 
     expect(browserErrors).toEqual([])
 
     // Report smoke check here; parity.spec covers chart hover and selection.
+    await closeFixtureMonths(createAdminClient(), householdId, ['2026-01', '2026-02'])
     await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '통계', exact: true }).click()
     await expect(page).toHaveURL((url) => url.pathname === '/report')
     await expect(page.getByRole('heading', { name: '연간 통계' })).toBeVisible()

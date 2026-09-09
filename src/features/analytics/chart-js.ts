@@ -44,12 +44,15 @@ export const CHART_POINT_RADIUS_ACTIVE = 4
 export const CHART_ANIMATION = { duration: 400 }
 
 /** Missing calendar slots must not snap the pointer to a neighbouring month. */
-export function monthlyEligibilityBoundary(eligible: boolean[]): Plugin {
+export function monthlyEligibilityBoundary(): Plugin {
   return {
     id: 'finance-month-eligibility',
     beforeEvent(chart, { event, inChartArea }) {
       const index = event.x == null ? -1 : Number(chart.scales.x?.getValueForPixel(event.x))
-      if (event.type === 'mouseout' || !inChartArea || !eligible[index]) {
+      // react-chartjs-2 retains the initial plugin instance across refreshes.
+      // Read the updated datasets, not a mask captured when it was mounted.
+      const available = chart.data.datasets.some(dataset => dataset.data[index] != null)
+      if (event.type === 'mouseout' || !inChartArea || !available) {
         chart.setActiveElements([])
         chart.tooltip?.setActiveElements([], { x: event.x ?? 0, y: event.y ?? 0 })
         chart.draw()

@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises'
 
 import { expect, test, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
+import { closeFixtureMonths } from './close-fixture-months'
 import { HYUNDAI_TEST_PASSWORD, secureHyundaiFixture } from '../fixtures/hyundai-secure'
 import { NH_TEST_PASSWORD, syntheticNhPdf } from '../fixtures/nh-pdf'
 import { SHINHAN_STATEMENT_HTML } from '../fixtures/shinhan-statement'
@@ -155,6 +156,7 @@ async function createTestUser(
       },
     ])
     if (transactionError) throw transactionError
+    await closeFixtureMonths(admin, household.id, [`${dashboardYear}-01`, `${dashboardYear}-02`])
   }
 
   return {
@@ -499,26 +501,29 @@ test('history filter changes abort obsolete reads and ignore late data after fil
     })
     await page.getByRole('button', { name: '거래 보기', exact: true }).click()
     const details = page.getByRole('region', { name: '가져온 항목' })
-    await expect.poll(() => page.evaluate(() => Reflect.get(window, 'historyReads').length)).toBe(1)
+    // The dev server's StrictMode may abort and repeat the mount read. Assert
+    // live requests rather than treating that extra cancelled read as a failure.
+    await expect.poll(() => page.evaluate(() => Reflect.get(window, 'historyReads').filter((read: { signal: AbortSignal }) => !read.signal.aborted).length)).toBe(1)
+    const initialReads = await page.evaluate(() => Reflect.get(window, 'historyReads').length)
     await details.getByRole('button', { name: '검토 대기', exact: true }).click()
-    await expect.poll(() => page.evaluate(() => Reflect.get(window, 'historyReads').length)).toBe(2)
+    await expect.poll(() => page.evaluate(() => Reflect.get(window, 'historyReads').length)).toBe(initialReads + 1)
     expect(await page.evaluate(() => Reflect.get(window, 'historyReads').map((read: { signal: AbortSignal; cache: RequestCache }) => ({ aborted: read.signal.aborted, cache: read.cache })))).toEqual([
-      { aborted: true, cache: 'no-store' }, { aborted: false, cache: 'no-store' },
+      ...Array.from({ length: initialReads }, () => ({ aborted: true, cache: 'no-store' })), { aborted: false, cache: 'no-store' },
     ])
-    await page.evaluate(() => Reflect.get(window, 'historyReads')[1].release())
+    await page.evaluate(() => Reflect.get(window, 'historyReads').at(-1).release())
     await expect(details.getByText('pending 조회 결과', { exact: true })).toBeVisible()
     await page.evaluate(async () => {
-      Reflect.get(window, 'historyReads')[0].release()
+      Reflect.get(window, 'historyReads').slice(0, -1).forEach((read: { release: () => void }) => read.release())
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
     })
     await expect(details).toHaveAttribute('aria-busy', 'false')
     await expect(details.getByText('pending 조회 결과', { exact: true })).toBeVisible()
     await expect(details.getByText('all 조회 결과', { exact: true })).toHaveCount(0)
     await details.getByRole('button', { name: '선택 제외', exact: true }).click()
-    await expect.poll(() => page.evaluate(() => Reflect.get(window, 'historyReads').length)).toBe(3)
+    await expect.poll(() => page.evaluate(() => Reflect.get(window, 'historyReads').length)).toBe(initialReads + 2)
     await page.getByRole('button', { name: '거래 접기', exact: true }).click()
-    expect(await page.evaluate(() => Reflect.get(window, 'historyReads')[2].signal.aborted)).toBe(true)
-    await page.evaluate(() => Reflect.get(window, 'historyReads')[2].release())
+    expect(await page.evaluate(() => Reflect.get(window, 'historyReads').at(-1).signal.aborted)).toBe(true)
+    await page.evaluate(() => Reflect.get(window, 'historyReads').at(-1).release())
     await expect(details).toHaveCount(0)
   } finally {
     await deleteTestState(email, householdId)

@@ -217,17 +217,19 @@ export function SeriesChart({
     id: 'finance-hover-boundary',
     beforeEvent: (chart, { event, inChartArea, replay }) => {
       const month = event.x == null ? -1 : Number(chart.scales.x.getValueForPixel(event.x))
-      const unavailable = series.every(row => row.values[month] == null)
+      const unavailable = chart.data.datasets.every(dataset => dataset.data[month] == null)
       if (event.type === 'mouseout' || !inChartArea || !pointerInside.current || unavailable) {
         chart.setActiveElements([])
-        onHover(null, null)
+        // Options/data update in place; plugins do not. Use the current callback
+        // so refreshed report state never goes through the initial closure.
+        chart.options.onHover?.call(chart, event, [], chart)
         // Suppress stale hovers, but preserve a queued click: Chart.js batches
         // events in animation frames, so the pointer may have already left.
         if (event.type !== 'mouseout' && (unavailable || replay || event.type !== 'click')) return false
       }
     },
-  }), [onHover, series])
-  const eligibilityBoundary = useMemo(() => monthlyEligibilityBoundary(Array.from({ length: 12 }, (_, month) => month < activeMonths && series.some(row => row.values[month] != null))), [activeMonths, series])
+  }), [])
+  const eligibilityBoundary = useMemo(() => monthlyEligibilityBoundary(), [])
 
   return (
     <div

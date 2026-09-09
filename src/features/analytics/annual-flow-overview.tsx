@@ -41,7 +41,7 @@ export function AnnualFlowOverview({
   const palette = useFinanceChartPalette()
   const [hoveredMonth, setHoveredMonth] = useState<number | null>(null)
   const labels = monthly.map((_, index) => `${index + 1}월`)
-  const eligibilityBoundary = useMemo(() => monthlyEligibilityBoundary(monthly.map(row => row.active)), [monthly])
+  const eligibilityBoundary = useMemo(() => monthlyEligibilityBoundary(), [])
 
   const flowData = useMemo<ChartData<'bar'>>(() => ({
     labels,

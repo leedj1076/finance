@@ -297,10 +297,10 @@ export function buildStatsMonthlyModel({
   }
 }
 
-export function statsSparkline(values: Array<number | null>, flow: StatsMonthlyFlow, activeMonths = values.length) {
+export function statsSparkline(values: Array<number | null>, flow: StatsMonthlyFlow, activeMonths = values.length, preserveRecordedMonths = false) {
   const relevant = values.slice(0, Math.max(0, Math.min(activeMonths, values.length)))
   while (relevant.length && relevant.at(-1) === null) relevant.pop()
-  const firstValue = relevant.findIndex((value) => value !== null && value > 0)
+  const firstValue = relevant.findIndex((value) => value !== null && (preserveRecordedMonths || value > 0))
   const active = firstValue < 0 ? [] : relevant.slice(firstValue)
   const points = active.slice(-6)
   if (points.length < 2) return null

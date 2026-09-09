@@ -74,6 +74,16 @@ describe('stats monthly shared model', () => {
     expect(model.divisor).toBe(0)
     expect(model.series).toEqual([])
   })
+
+  test('closed zero and refund months retain their calendar slots in mini-trends', () => {
+    expect(statsSparkline([0, null, 200], 'expense', 3, true)?.segments).toEqual(['2,17.0', '78,3.0'])
+    expect(statsSparkline([0, null, 200, 300], 'expense', 4, true)?.segments).toEqual(['2,17.0', '52.666666666666664,7.7 78,3.0'])
+    expect(statsSparkline([0, null, 0], 'expense', 3, true)?.segments).toHaveLength(2)
+    expect(statsSparkline([-100, null, 200], 'expense', 3, true)?.segments).toEqual(['2,17.0', '78,3.0'])
+    expect(statsSparkline([null, null, 200], 'expense', 3, true)).toBeNull()
+    // Existing live callers keep their first-positive-month convention.
+    expect(statsSparkline([0, null, 200], 'expense', 3)).toBeNull()
+  })
   test('keeps only the selected series row and its category details', () => {
     const model = buildStatsMonthlyModel({
       flow: 'expense', axis: 'category', details, accountMonthly, excluded: new Set(),
