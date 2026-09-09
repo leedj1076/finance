@@ -102,11 +102,19 @@ describe('stats monthly shared model', () => {
 
     const category = buildStatsMonthlyModel({ flow: 'expense', axis: 'category', details: masked, accountMonthly, excluded: new Set() })
     expect(category.eligibleMonths.slice(0, 5)).toEqual([true, true, true, true, false])
+    expect(category.availableMonths).toEqual([true, true, false, false, false, false, false, false, false, false, false, false])
     expect(category.series[0].values.slice(0, 5)).toEqual([100, 0, null, null, null])
     expect(category.rows[0].displayValues.slice(0, 5)).toEqual([100, 0, null, null, null])
     expect(category.rows[0].subs[0]).toMatchObject({
       total: 40, closedTotal: 40, provisionalTotal: 40, average: 20, provisionalAverage: 20,
     })
+    const [selected] = selectedStatsMonthlyRows(category.rows, 'category\u0000식비')
+    const selectedTrendValues = selected.values.map((value, month) => category.availableMonths[month] ? value : null)
+    const subTrendValues = selected.subs[0].values.map((value, month) => category.availableMonths[month] ? value : null)
+    expect(selectedTrendValues.slice(0, 5)).toEqual([100, 0, null, null, null])
+    expect(subTrendValues.slice(0, 5)).toEqual([40, 0, null, null, null])
+    expect(statsSparkline(selectedTrendValues, 'expense', category.activeMonths, true)?.points.split(' ')).toHaveLength(2)
+    expect(statsSparkline(subTrendValues, 'expense', category.activeMonths, true)?.points.split(' ')).toHaveLength(2)
 
     const maskedAccountMonthly = {
       ...accountMonthly,
@@ -118,6 +126,7 @@ describe('stats monthly shared model', () => {
       },
     }
     const account = buildStatsMonthlyModel({ flow: 'expense', axis: 'account', details: masked, accountMonthly: maskedAccountMonthly, excluded: new Set() })
+    expect(account.availableMonths).toEqual([true, true, false, false, false, false, false, false, false, false, false, false])
     expect(account.series[0].values.slice(0, 5)).toEqual([90, 0, null, null, null])
     expect(account.rows[0].displayValues.slice(0, 5)).toEqual([90, 0, null, null, null])
   })

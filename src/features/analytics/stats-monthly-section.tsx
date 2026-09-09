@@ -487,7 +487,7 @@ export function StatsMonthlySection({
                       })}
                       <div className="text-right font-bold tabular-nums text-finance-ink">{formatWon(row.total)}</div>
                       <div className="text-right tabular-nums text-finance-muted">{row.average === null ? '—' : formatWon(row.average)}</div>
-                      <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} closedOnly={details[flow].closedMonths !== undefined} flow={flow} label={row.label} values={row.values.map((value, month) => model.eligibleMonths[month] ? value : null)} /></div>
+                      <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} closedOnly={details[flow].closedMonths !== undefined} flow={flow} label={row.label} values={row.values.map((value, month) => model.availableMonths[month] ? value : null)} /></div>
                     </div>
 
                     {isExpanded && row.subs.map((sub) => (
@@ -503,7 +503,7 @@ export function StatsMonthlySection({
                           const key = statsCellKey({ axis: 'category', label: sub.major, sub: sub.sub, month })
                           const rawValue = details[flow].groups.find((group) => group.major === sub.major)?.subs.find((item) => item.sub === sub.sub)?.months[month] ?? 0
                           const isExcluded = excluded.has(key)
-                          const available = model.eligibleMonths[month]
+                          const available = model.availableMonths[month]
                           const tooltipKey = cellCacheKey(sub.major, sub.sub, month + 1)
                           return (
                             <button
@@ -531,7 +531,7 @@ export function StatsMonthlySection({
                         })}
                         <div className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(sub.total)}</div>
                         <div className="text-right tabular-nums text-finance-muted">{sub.average === null ? '—' : formatWon(sub.average)}</div>
-                        <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} closedOnly={details[flow].closedMonths !== undefined} flow={flow} label={`${sub.major} ${sub.label}`} values={sub.values.map((value, month) => model.eligibleMonths[month] ? value : null)} /></div>
+                        <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} closedOnly={details[flow].closedMonths !== undefined} flow={flow} label={`${sub.major} ${sub.label}`} values={sub.values.map((value, month) => model.availableMonths[month] ? value : null)} /></div>
                       </div>
                     ))}
                   </div>

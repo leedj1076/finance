@@ -90,6 +90,7 @@ export type StatsMonthlyModel = {
   provisionalDivisor: number
   monthStates: StatsMonthState[]
   eligibleMonths: boolean[]
+  availableMonths: boolean[]
   closedMonths: boolean[]
 }
 
@@ -331,6 +332,7 @@ export function buildStatsMonthlyModel({
   ))
   const currentMonthIndex = detail.currentMonth ? detail.currentMonth - 1 : null
   const displayMask = Array.from({ length: 12 }, (_, month) => monthDisplayed(detail, month))
+  const availableMask = Array.from({ length: 12 }, (_, month) => monthValueDisplayed(detail, month))
   const closedMask = Array.from({ length: 12 }, (_, month) => monthClosed(detail, month))
   const provisionalMask = Array.from({ length: 12 }, (_, month) => monthProvisional(detail, month))
   const total = monthTotals.reduce((sum, value, month) => displayMask[month] ? sum + value : sum, 0)
@@ -357,6 +359,7 @@ export function buildStatsMonthlyModel({
     provisionalDivisor,
     monthStates: detail.states ?? Array.from({ length: 12 }, (_, month): StatsMonthState => displayMask[month] ? 'open' : 'future'),
     eligibleMonths: displayMask,
+    availableMonths: availableMask,
     closedMonths: closedMask,
   }
 }
