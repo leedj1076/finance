@@ -40,6 +40,21 @@ test('the same rows yield official and provisional reports that only differ by e
   expect(provisional.cashflow.completedMonthDivisor).toBe(2)
 })
 
+test('provisional previous values use the same month-number input and allow partial evidence', () => {
+  const partialRows = rows.filter((row) => row.date !== '2025-02-01')
+  const partial = buildAnnualReport({ year: 2026, currentMonthKey: '2026-09', transactions: partialRows, assetBalances: [], eligibleMonths: [1, 2], previousComparable: true })
+  expect(partial.hasPrevious).toBe(true)
+  expect(partial.previous.expense).toBe(200)
+
+  const outsideOnly = [
+    ...rows.filter((row) => !row.date.startsWith('2025-')),
+    { id: 20, date: '2025-03-01', flow: 'expense' as const, amount: 300, major: '식비', memo: '식사' },
+  ]
+  const absent = buildAnnualReport({ year: 2026, currentMonthKey: '2026-09', transactions: outsideOnly, assetBalances: [], eligibleMonths: [1, 2], previousComparable: false })
+  expect(absent.hasPrevious).toBe(false)
+  expect(absent.previous.expense).toBe(0)
+})
+
 test('comparison metadata stays uncapped when official and provisional rankings diverge', () => {
   const names = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta', 'Iota']
   const rankedRows = names.flatMap((name, index) => [

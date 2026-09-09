@@ -66,7 +66,7 @@ export async function getStatsReportData(
       .map(row => Number(row.date.slice(5, 7))))
     const previousComparable = closedMonths.length > 0 && closedMonths.every(month => previousClosed.has(month))
     const previousEndedComparable = provisionalMonths.length > 0
-      && provisionalMonths.every(month => previousRecorded.has(month) || previousClosed.has(month))
+      && provisionalMonths.some(month => previousRecorded.has(month) || previousClosed.has(month))
     const displayRows = yearRows.filter(row => {
       const month = Number(row.date.slice(5, 7))
       return ended.has(month) || monthStates[month - 1] === 'current'

@@ -66,7 +66,8 @@ test('statistics compute official and provisional results from closed and record
   expect(data.details.expense.groups[0].subs[0].months.slice(0, 3)).toEqual([400, 999, 0])
   expect(data.accountMonthly.expense.series['(미지정)'].slice(0, 4)).toEqual([400, 999, 0, null])
   expect(data.previousComparable).toBe(false)
-  expect(data.previousEndedComparable).toBe(false)
+  expect(data.previousEndedComparable).toBe(true)
+  expect(data.report.provisional.previous.expense).toBe(900)
   await close('2025-01')
   expect((await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })).previousComparable).toBe(false)
   await close('2025-03')
@@ -98,6 +99,32 @@ test('transaction presence distinguishes refunds, net zero, current activity, em
   expect(data.monthly[8]).toMatchObject({ income: 500, hasTransactions: true, active: true, state: 'current' })
   expect(data.report.provisional.annual.income).toBe(1000)
   expect(data.accountMonthly.expense.series['(미지정)'].slice(3, 8)).toEqual([-50, 0, null, 0, null])
+})
+
+test('provisional prior-year comparison needs some evidence inside the same month-number period', async () => {
+  await db.delete(transactions).where(and(
+    eq(transactions.householdId, householdId),
+    eq(transactions.date, '2025-02-01'),
+  ))
+
+  const partial = await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })
+  expect(partial.provisionalMonths).toEqual([1, 2])
+  expect(partial.previousEndedComparable).toBe(true)
+  expect(partial.report.provisional.previous.expense).toBe(200)
+
+  await db.delete(transactions).where(and(
+    eq(transactions.householdId, householdId),
+    eq(transactions.date, '2025-01-01'),
+  ))
+  const absent = await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })
+  expect(absent.previousEndedComparable).toBe(false)
+  expect(absent.report.provisional.previous.expense).toBe(0)
+
+  await db.insert(transactions).values({ householdId, date: '2025-03-01', flow: 'expense', amount: 300, categoryId })
+  const outsidePeriod = await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })
+  expect(outsidePeriod.provisionalMonths).toEqual([1, 2])
+  expect(outsidePeriod.previousEndedComparable).toBe(false)
+  expect(outsidePeriod.report.provisional.previous.expense).toBe(0)
 })
 
 test('closed cell requests reject invalidated revisions while live scope retains the ledger rows', async () => {
