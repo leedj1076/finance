@@ -11,6 +11,7 @@ import { uploadCardStatement } from '@/features/inbox/upload-action'
 import { cardFingerprint } from '@/features/inbox/parsers/cards'
 import { HYUNDAI_TEST_PASSWORD, secureHyundaiFixture } from '../fixtures/hyundai-secure'
 import { NH_TEST_PASSWORD, syntheticNhPdf } from '../fixtures/nh-pdf'
+import { SHINHAN_STATEMENT_HTML } from '../fixtures/shinhan-statement'
 
 const context = vi.hoisted(() => ({ householdId: '' }))
 
@@ -418,6 +419,30 @@ test('BankSalad-like pay label does not collide with the internal card source ma
       ),
     )
   expect(applied.source).toBe('banksalad:dj')
+})
+
+test('Shinhan billing metadata imports charges once into review without duplicating benefits', async () => {
+  const form = new FormData()
+  form.set('file', new File([SHINHAN_STATEMENT_HTML], 'shinhan-bill.xls', { type: 'application/vnd.ms-excel' }))
+  form.set('issuer', 'shinhan')
+  form.set('owner', 'YJ')
+  form.set('accountId', String(wrongOwnerAccountId)) // Valid for the selected YJ owner.
+  const result = await uploadCardStatement(form)
+  expect(result.error).toBeUndefined()
+  expect(result.message).toContain('인박스에 4건 추가')
+  const rows = await db.select().from(importInbox).where(and(
+    eq(importInbox.householdId, context.householdId), eq(importInbox.owner, 'YJ'),
+  )).orderBy(importInbox.id)
+  expect(rows.map(({ merchant, amount, status, accountId }) => ({ merchant, amount, status, accountId }))).toEqual([
+    { merchant: '신한형식 카페', amount: 6500, status: 'pending', accountId: wrongOwnerAccountId },
+    { merchant: '신한형식 마트', amount: 20000, status: 'pending', accountId: wrongOwnerAccountId },
+    { merchant: '신한형식 음수', amount: -2000, status: 'pending', accountId: wrongOwnerAccountId },
+    { merchant: '신한형식 마트', amount: -5000, status: 'pending', accountId: wrongOwnerAccountId },
+  ])
+  const repeated = await uploadCardStatement(form)
+  expect(repeated.error).toBeUndefined()
+  expect(repeated.message).toContain('인박스에 0건 추가')
+  expect(repeated.message).toContain('이미 처리 4건')
 })
 
 test('Shinhan partial cancellation survives staging and apply, and reupload stays idempotent', async () => {

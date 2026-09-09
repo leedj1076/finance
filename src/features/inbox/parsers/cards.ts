@@ -194,12 +194,18 @@ function parseShinhanGrid(grid: string[][]): CardRow[] {
     const merchant = header.findIndex((cell) => cell === '이용가맹점' || cell === '이용가맹점명')
     if (date !== -1 && merchant !== -1) {
       const refund = header.includes('원거래금액') && header.includes('취소금액')
-      const benefit = header.some((cell) => /할인금액|적립포인트|포인트적립|적용구분/.test(cell))
+      const pay = header.findIndex((cell) => cell === '이용카드' || cell === '카드명')
+      // Charge tables also contain 적용 구분 and 포인트적립율. A rate is
+      // metadata, not another benefit transaction. Keep actual benefit amounts
+      // excluded even when their detail table includes an 이용카드 column.
+      const benefitAmount = header.some((cell) => /할인금액|적립포인트|포인트적립(?![률율])/.test(cell))
+      const billedCharge = pay !== -1 || header.includes('이번달납부금액')
+      const benefit = benefitAmount || (!billedCharge && header.includes('적용구분'))
       const amount = header.indexOf(refund ? '취소금액' : '이용금액')
       section = benefit || amount === -1 ? null : {
         date,
         merchant,
-        pay: header.findIndex((cell) => cell === '이용카드' || cell === '카드명'),
+        pay,
         amount,
         refund,
       }

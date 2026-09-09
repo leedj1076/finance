@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx'
 import { describe, expect, it } from 'vitest'
 
 import { parseCardStatement } from '@/features/inbox/parsers/cards'
+import { SHINHAN_STATEMENT_HTML } from '../fixtures/shinhan-statement'
 
 function workbookBuffer(rows: unknown[][]) {
   const workbook = XLSX.utils.book_new()
@@ -10,6 +11,45 @@ function workbookBuffer(rows: unknown[][]) {
 }
 
 describe('card statement parsers', () => {
+  it('reads Shinhan billed charges with benefit metadata, but excludes benefit detail tables', () => {
+    expect(parseCardStatement(Buffer.from(SHINHAN_STATEMENT_HTML), 'shinhan')).toEqual([
+      { date: '2026-08-03', merchant: '신한형식 카페', amount: 6500, pay: '본인100' },
+      { date: '2026-08-05', merchant: '신한형식 마트', amount: 20000, pay: '본인100' },
+      { date: '2026-08-06', merchant: '신한형식 음수', amount: -2000, pay: '본인100' },
+      { date: '2026-08-05', merchant: '신한형식 마트', amount: -5000, pay: '본인100' },
+    ])
+  })
+
+  it.each(['적용 구분', '포인트적립율(마이신한포인트)', '포인트적립률'])('does not mistake the charge metadata %s for a benefit amount', (metadata) => {
+    const buffer = workbookBuffer([
+      ['이용일', '이용카드', '이용가맹점', '이용금액', metadata],
+      ['2026.08.03', '본인100', '카드 이용', 6500, ''],
+    ])
+    expect(parseCardStatement(buffer, 'shinhan')).toEqual([
+      { date: '2026-08-03', merchant: '카드 이용', amount: 6500, pay: '본인100' },
+    ])
+  })
+
+  it('recognizes billed charges without a card column but keeps application-only benefit rows excluded', () => {
+    const buffer = workbookBuffer([
+      ['이용일', '이용가맹점', '이용금액', '이번달 납부금액', '적용 구분'],
+      ['2026.08.03', '카드 이용', 6500, 6000, '할인'],
+      ['이용일', '이용가맹점', '이용금액', '적용 구분'],
+      ['2026.08.03', '혜택 중복', 6500, '할인'],
+    ])
+    expect(parseCardStatement(buffer, 'shinhan')).toEqual([
+      { date: '2026-08-03', merchant: '카드 이용', amount: 6500, pay: null },
+    ])
+  })
+
+  it.each(['포인트적립', '포인트적립(마이신한포인트)', '할인금액'])('excludes actual benefit amounts in %s even with a card column', (benefit) => {
+    const buffer = workbookBuffer([
+      ['이용일', '이용카드', '이용가맹점', '이용금액', benefit],
+      ['2026.08.03', '본인100', '혜택 중복', 6500, 500],
+    ])
+    expect(parseCardStatement(buffer, 'shinhan')).toEqual([])
+  })
+
   it('keeps a cancellation row as a negative charge and drops zero rows', () => {
     const buffer = workbookBuffer([
       ['KB국민카드 이용내역'],

@@ -4,6 +4,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 import { HYUNDAI_TEST_PASSWORD, secureHyundaiFixture } from '../fixtures/hyundai-secure'
 import { NH_TEST_PASSWORD, syntheticNhPdf } from '../fixtures/nh-pdf'
+import { SHINHAN_STATEMENT_HTML } from '../fixtures/shinhan-statement'
 
 test.use({ actionTimeout: 10_000 })
 
@@ -636,6 +637,47 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
 
     await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '내역', exact: true }).click()
     await expect(page.getByRole('row').filter({ hasText: merchant })).toHaveCount(2)
+  } finally {
+    await deleteTestState(email, householdId)
+  }
+})
+
+test('Shinhan billing headers upload through the real route into review without benefit duplicates', async ({ page }) => {
+  const email = `finance-shinhan-${crypto.randomUUID()}@example.com`
+  const password = 'passw0rd!'
+  let householdId: string | undefined
+  try {
+    const setup = await createTestUser(email, password)
+    householdId = setup.householdId
+    const admin = createAdminClient()
+    const { data: card, error: cardError } = await admin.from('accounts').insert({
+      household_id: householdId, name: 'YJ 신한카드', owner: 'YJ', type: 'card', active: true,
+    }).select('id').single()
+    if (cardError) throw cardError
+    await loginAs(page, email, password)
+    await page.goto('/inbox?tab=upload')
+    await page.getByRole('tab', { name: '카드사 명세서' }).click()
+    await page.locator('select[name="issuer"]').selectOption('shinhan')
+    await page.locator('select[name="owner"]').selectOption('YJ')
+    await page.locator('input[name="file"]').setInputFiles({
+      name: '신한 테스트 이용대금명세서.xls', mimeType: 'application/vnd.ms-excel', buffer: Buffer.from(SHINHAN_STATEMENT_HTML),
+    })
+    await page.getByRole('button', { name: '인박스로 불러오기', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: '거래 파일 처리 진행' })
+    await expect(dialog.getByText(/인박스에 4건 추가/)).toBeVisible()
+    const { data: rows, error } = await admin.from('import_inbox').select('amount, status, account_id')
+      .eq('household_id', householdId).order('id')
+    if (error) throw error
+    expect(rows).toEqual([
+      { amount: 6500, status: 'pending', account_id: card.id },
+      { amount: 20000, status: 'pending', account_id: card.id },
+      { amount: -2000, status: 'pending', account_id: card.id },
+      { amount: -5000, status: 'pending', account_id: card.id },
+    ])
+    await dialog.getByRole('button', { name: '검토 대기 보기', exact: true }).click()
+    await expect(page).toHaveURL('/inbox?tab=review')
+    await expect(page.getByRole('navigation', { name: '가져오기 작업' })).toContainText('검토 대기4')
+    await expect(page.locator('input[type="checkbox"]:checked')).toHaveCount(0)
   } finally {
     await deleteTestState(email, householdId)
   }
