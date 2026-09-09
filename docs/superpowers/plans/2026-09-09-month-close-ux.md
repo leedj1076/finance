@@ -1317,6 +1317,8 @@ git commit -m "feat(stats): show unclosed months as provisional instead of hidin
 
 ### Task 9: E2E 갱신과 최종 검증
 
+**검증 포트 보정 (2026-09-10, 실행 중 서비스 보호):** 후속 UI 검증 도중 다른 체크아웃 `/Users/leedj/workspace/Personal/finance-web`의 서버가3000번 포트를 사용하기 시작했다. 그 프로세스는 종료하거나 재사용하지 않는다. 비어 있는3101번을 테스트 전용 기본 포트로 사용한다: `baseURL`=`http://localhost:3101`, `webServer.url`=`http://localhost:3101/login`, `webServer.command`=`pnpm build && pnpm start --port 3101`. 테스트 코드에3000번 하드코딩이 없음을 확인했다. 병렬도/재시도/타임아웃은 그대로이며3101번도 사용 중이면 다른 서비스를 종료하지 않는다.
+
 **검증 서버 보정 (2026-09-09, 실제 trace 근거):** 기본 5-worker 실행에서 `/ledger` 클릭은 전달됐지만 Next 개발 서버의 연속 Fast Refresh/컴파일과 RSC 응답이 겹치며 본문/라우트 전환이 끝나지 않았다. `playwright.config.ts`를 허용/git add 경로에 추가한다. `webServer.command`를 `pnpm build && pnpm start`로 바꿔 실행할 소스를 먼저 빌드한 뒤 배포 모드의 로컬 서버를 검증한다. `reuseExistingServer: false`로 다른 체크아웃/개발 서버 재사용을 막는다. 병렬 worker 수, assertion timeout, retry는 변경하지 않는다. 포트가 사용 중이면 기존 프로세스를 임의 종료하지 않는다. 같은 기본 병렬 전체 `pnpm e2e`와 기존 focused 명령으로 검증하고, 실패하면 trace 증거를 보존한다. 운영 배포나 운영 DB 연결은 아니다. 원인은 개발 서버의 HMR/RSC 경계까지 확인됐으며 다른 실패의 원인까지 단정하지 않는다.
 
 **기존 E2E/브라우저 경계 보정 (2026-09-09):** `tests/e2e/auth.spec.ts`를 명시 허용/git add 경로에 추가한다. 예산 h1에 상태 칩이 붙었으므로 기존 제목 완전 일치 어서션을 제목과 선택 월 상태를 함께 확인하는 어서션으로 갱신한다. 자산 페이지의 순자산 차트 검증은 유지한다. Task 8은 새 DOM 의존성 없이 SSR/dataset 검증을 수행했으므로 실제 선택/확장 표는 이 태스크에서 검증한다: 상위·소분류 잠정 색과 현재 기울임, category/account 값 존재 마스크, 무기록 비활성·명시 마감 0원 활성, 잠정/현재 셀 제외·복원과 집계 기준, live/closed scope 및 revision, stale409 뒤 갱신, 바로 전 달이 무기록인 비교는 '–', 양쪽 마감/한쪽 잠정의 비교 표시, 실제 빗금·점선·빈 점과 12열 정렬. 홈/내역의 데스크톱·모바일 제목 및 체크리스트/대화상자 배치도 확인한다. 기본 선택 동작을 테스트 편의로 바꾸지 않는다.
