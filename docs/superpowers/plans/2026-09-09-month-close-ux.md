@@ -761,6 +761,8 @@ git commit -m "refactor(budgets): replace the provisional sentences with the hea
 
 ### Task 6: 통계 읽기 모델 · 확정과 잠정 두 결과
 
+**전년 잠정 비교 보정 (2026-09-09):** `previousComparable`만 모든 대응 월의 전년 마감을 요구한다. `previousEndedComparable`은 `provisionalMonths`와 같은 월 번호 중 전년 거래 또는 명시 0원 마감이 **하나 이상** 있으면 true다(`some`, `every`가 아님). 양쪽 집계 입력의 월 번호 집합은 같게 유지하되, 일부만 기록된 전년은 잠정 값으로 표시한다. 같은 기간에 전년 근거가 전혀 없으면 false다. 일부 전년 기록/전년 전무/기간 밖 전년 기록만 있는 경우를 회귀 테스트로 구분한다.
+
 **추가 실행 보정 (2026-09-09, TOP 비교 경계):** `src/features/analytics/report.ts`를 명시 허용/git add 경로에 추가한다. 기존 `topExpenses` 6개·`topMerchants` 8개 제한은 그대로 유지하고, 제한 전 이미 계산한 행에서 `expenseComparisons`(대분류 이름 키), `merchantComparisons`(normalizeAnalyticsMerchant 키)를 추가 반환한다. 각 값은 기존 amount/previous/delta를 그대로 재사용한다. 집계·정규화·비율·순위 산식 변경 없이 잠정 TOP 밖으로 밀려난 확정 TOP 항목도 Task 8에서 이름으로 비교할 수 있게 하는 메타데이터다. `tests/finance/closed-report.test.ts`에 6/8개 초과 및 확정/잠정 순위가 다른 사례를 검증한다. Task 8은 제한된 TOP 배열을 비교 lookup으로 사용하지 않는다.
 
 **실행 보정 (2026-09-09, 스펙/현재 코드 우선):** 중요: 스펙 §3.3의 '무거래 미마감 월은 0이 아님'이 아래 예시보다 우선한다. endedMonths는 끝난 달력 월 전부를 유지하되 recordedMonths(실제 거래가 있는 월), provisionalMonths = endedMonths ∩ (recordedMonths ∪ closedMonths)를 별도 반환한다. 잠정 report의 eligibleMonths/provisionalDivisor/달성 분모는 provisionalMonths를 사용한다. CategoryDetail에도 optional recordedMonths/provisionalMonths를 추가한다. hasTransactions는 금액 합계가 아닌 거래 존재로 연도/월에 제공한다. active는 미래 여부이고 값 존재와 별개. 미마감 무기록 월의 account series는 null, 명시 마감 0원은 0. 현재 fixture의 잠정 분모는 마감 전 2, 1·3월 마감 후 3이고 확정 분모는 2이므로 provisionalDivisor=8 예시는 폐기한다. 전년 잠정 비교도 대응 기록/명시 0원 마감 존재를 확인하여 전년 무기록을 0원으로 단정하지 않는다. 비교 양쪽 월 번호 집합을 일치시킨다. currentMonthKey 주입은 필수이며 통합 테스트에 명시한다. 환불만/상쇄 0원/현재달 수입만/미마감 무기록/마감 0원 테스트를 추가한다. report.ts의 기존 산식은 유지한다.
