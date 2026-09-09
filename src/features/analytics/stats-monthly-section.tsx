@@ -52,6 +52,14 @@ type TooltipAnchor = {
   y: number
 }
 
+type FocusScrollState = {
+  x: number
+  y: number
+  container: HTMLElement | null
+  containerLeft: number
+  containerTop: number
+}
+
 type CellTooltipState = {
   kind: 'detail'
   key: string
@@ -145,6 +153,8 @@ export function StatsMonthlySection({
   const cache = useRef(new Map<string, CellTransactionResult>())
   const activeCell = useRef<string | null>(null)
   const activeAnchor = useRef<TooltipAnchor | null>(null)
+  const activeRequest = useRef<AbortController | null>(null)
+  const focusScroll = useRef<FocusScrollState | null>(null)
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -179,11 +189,15 @@ export function StatsMonthlySection({
   useEffect(() => {
     cache.current.clear()
     activeCell.current = null
+    activeRequest.current?.abort()
+    activeRequest.current = null
+    focusScroll.current = null
     setCellTooltip(null)
     setStale(false)
     return () => {
       if (showTimer.current) clearTimeout(showTimer.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
+      activeRequest.current?.abort()
     }
   }, [details])
 
@@ -219,9 +233,21 @@ export function StatsMonthlySection({
   }, [cellTooltip])
 
   useEffect(() => {
-    if (!cellTooltip) return
     const hide = (event?: Event) => {
       if (event?.target instanceof Node && tooltipRef.current?.contains(event.target)) return
+      const focus = focusScroll.current
+      if (event?.type === 'scroll' && focus) {
+        if (
+          window.scrollX === focus.x
+          && window.scrollY === focus.y
+          && (!focus.container || (focus.container.scrollLeft === focus.containerLeft && focus.container.scrollTop === focus.containerTop))
+        ) return
+      }
+      focusScroll.current = null
+      if (showTimer.current) clearTimeout(showTimer.current)
+      if (hideTimer.current) clearTimeout(hideTimer.current)
+      activeRequest.current?.abort()
+      activeRequest.current = null
       activeCell.current = null
       activeAnchor.current = null
       setCellTooltip(null)
@@ -232,16 +258,23 @@ export function StatsMonthlySection({
       window.removeEventListener('scroll', hide, true)
       window.removeEventListener('resize', hide)
     }
-  }, [cellTooltip])
+  }, [])
 
   function clearTimer(timer: typeof showTimer) {
     if (timer.current) clearTimeout(timer.current)
     timer.current = null
   }
 
+  function abortCellRequest() {
+    activeRequest.current?.abort()
+    activeRequest.current = null
+  }
+
   function closeCellTooltip() {
     clearTimer(showTimer)
     clearTimer(hideTimer)
+    abortCellRequest()
+    focusScroll.current = null
     activeCell.current = null
     activeAnchor.current = null
     setCellTooltip(null)
@@ -251,28 +284,28 @@ export function StatsMonthlySection({
     clearTimer(showTimer)
     clearTimer(hideTimer)
     hideTimer.current = setTimeout(() => {
-      activeCell.current = null
-      activeAnchor.current = null
-      setCellTooltip(null)
+      closeCellTooltip()
     }, 150)
   }
 
   function requestCellTransactions(
-    target: HTMLButtonElement,
     major: string,
     sub: string,
     month: number,
     delay: number,
     anchor: TooltipAnchor,
+    focusState?: FocusScrollState,
   ) {
     clearTimer(showTimer)
     clearTimer(hideTimer)
+    abortCellRequest()
+    focusScroll.current = focusState ?? null
     if (!model.availableMonths[month - 1]) return
     const key = cellCacheKey(major, sub, month)
     activeCell.current = key
     activeAnchor.current = anchor
     setCellTooltip(null)
-    showTimer.current = setTimeout(async () => {
+    const load = async () => {
       const cached = cache.current.get(key)
       if (cached) {
         if (activeCell.current === key) {
@@ -280,6 +313,8 @@ export function StatsMonthlySection({
         }
         return
       }
+      const controller = new AbortController()
+      activeRequest.current = controller
       const params = new URLSearchParams({ flow, year: String(year), month: String(month), major, sub })
       if (model.closedMonths[month - 1]) {
         params.set('scope', 'closed')
@@ -288,7 +323,7 @@ export function StatsMonthlySection({
         params.set('scope', 'live')
       }
       try {
-        const response = await fetch(`/api/cell-tx?${params}`)
+        const response = await fetch(`/api/cell-tx?${params}`, { signal: controller.signal })
         if (response.status === 409) {
           cache.current.clear()
           closeCellTooltip()
@@ -303,13 +338,31 @@ export function StatsMonthlySection({
         }
       } catch {
         // The table remains usable when a tooltip request is interrupted.
+      } finally {
+        if (activeRequest.current === controller) activeRequest.current = null
       }
-    }, delay)
+    }
+    if (delay === 0) {
+      void load()
+      return
+    }
+    showTimer.current = setTimeout(() => { void load() }, delay)
   }
 
   function cellAnchor(target: HTMLButtonElement) {
     const bounds = target.getBoundingClientRect()
     return { x: bounds.left + (bounds.width / 2), y: bounds.bottom }
+  }
+
+  function focusScrollState(target: HTMLButtonElement): FocusScrollState {
+    const container = target.closest<HTMLElement>('[aria-label="월별 그래프와 항목별 표"]')
+    return {
+      x: window.scrollX,
+      y: window.scrollY,
+      container,
+      containerLeft: container?.scrollLeft ?? 0,
+      containerTop: container?.scrollTop ?? 0,
+    }
   }
 
   function updateDetailTooltipAnchor(key: string, anchor: TooltipAnchor) {
@@ -323,6 +376,8 @@ export function StatsMonthlySection({
   function showSummaryTooltip(row: { id: string; label: string }, month: number, value: number, anchor: TooltipAnchor) {
     clearTimer(showTimer)
     clearTimer(hideTimer)
+    abortCellRequest()
+    focusScroll.current = null
     activeCell.current = null
     activeAnchor.current = null
     setCellTooltip({ kind: 'summary', key: `summary:${row.id}:${month}`, major: row.label, month: month + 1, value, anchor })
@@ -603,11 +658,11 @@ export function StatsMonthlySection({
                               key={month}
                               onBlur={scheduleHide}
                               onClick={() => toggleCell(key)}
-                              onFocus={(event) => available && requestCellTransactions(event.currentTarget, sub.major, sub.sub, month + 1, 0, cellAnchor(event.currentTarget))}
+                              onFocus={(event) => available && requestCellTransactions(sub.major, sub.sub, month + 1, 0, cellAnchor(event.currentTarget), focusScrollState(event.currentTarget))}
                               onKeyDown={(event) => { if (event.key === 'Escape') closeCellTooltip() }}
                               onMouseEnter={(event) => {
                                 updateHover(row.id, month)
-                                if (available) requestCellTransactions(event.currentTarget, sub.major, sub.sub, month + 1, 180, { x: event.clientX, y: event.clientY })
+                                if (available) requestCellTransactions(sub.major, sub.sub, month + 1, 180, { x: event.clientX, y: event.clientY })
                               }}
                               onMouseLeave={scheduleHide}
                               onMouseMove={(event) => updateDetailTooltipAnchor(tooltipKey, { x: event.clientX, y: event.clientY })}
