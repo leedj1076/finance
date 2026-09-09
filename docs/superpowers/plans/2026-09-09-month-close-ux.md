@@ -48,6 +48,8 @@
 
 ### Task 1: `wrapUpSteps` 순수 함수
 
+**실행 보정 (2026-09-09, 스펙/현재 코드 우선):** 단일 summary 인자는 유지한다(summary.month/closable이 중복 인자를 대체). 실제 소비 태스크는 Task 3. 각각의 미완료 항목·모두 완료·표시 제외 상태를 테스트한다.
+
 **Files:**
 - Create: `src/features/month-close/wrap-up.ts`
 - Test: `tests/finance/wrap-up.test.ts`
@@ -173,6 +175,8 @@ git commit -m "feat(month-close): derive the wrap-up checklist from the close su
 ---
 
 ### Task 2: 상태 칩 변형과 `YearStatusLabel`
+
+**실행 보정 (2026-09-09, 스펙/현재 코드 우선):** 테스트 확장자는 처음부터 .test.tsx이며 vitest.config.ts도 수정한다. 마지막 KST Intl 구현을 사용하고 UTC/KST 날짜 경계를 테스트한다. compact 문구는 보존하되 needs_review는 red와 적절한 title을 사용한다.
 
 **Files:**
 - Modify: `src/features/month-close/month-status-label.tsx`
@@ -345,6 +349,8 @@ git commit -m "feat(month-close): heading variant and year summary for the statu
 
 ### Task 3: 내역 · 체크리스트 블록과 h1 칩
 
+**실행 보정 (2026-09-09, 스펙/현재 코드 우선):** 스펙 §3.1의 표시 조건은 open && closable뿐이므로 아래 tab !== 'ai' 가드를 제거한다. AI 탭에서도 체크리스트를 보여주되 기존 전체 월 진단 범위·불필요한 분석 로더 생략은 유지한다. 정기거래 액션 노드는 monthClose.unpostedRecurringCount로 만들 수 있어 AI 탭에서 정기거래 목록을 로드할 필요가 없다. 기존 AI 테스트는 '정기거래 텍스트 없음' 대신 중복 입력/필터 없음과 체크리스트 존재를 확인한다. Self-Review에만 있던 allClear?: boolean prop 및 ended/open/allClear일 때 초록 마감 버튼을 이 태스크에서 구현한다. 확인 창의 해제 설명도 '잠정 값으로 돌아갑니다'로 바꾼다. 완료된 정기거래 줄은 '정기거래 반영 완료'. 현재 /budgets/review?month=는 작성할 예산 월을 받으므로 다음 달 링크 예시를 유지하며 연도 경계를 검증한다. mock 상태는 beforeEach에서 복원한다.
+
 **Files:**
 - Create: `src/features/month-close/month-wrap-up.tsx`
 - Modify: `src/app/ledger/page.tsx:112-195`, `src/features/month-close/month-close-control.tsx:66`
@@ -509,6 +515,8 @@ git commit -m "feat(ledger): stack the wrap-up checklist above the month close c
 ---
 
 ### Task 4: 홈 · `close` 할 일, KPI 두 칸, 섹션 제거
+
+**실행 보정 (2026-09-09, 스펙/현재 코드 우선):** 첫 거래 월 쿼리는 householdId로 한정하고 이전 12개월 상태를 첫 거래 월 이후로 필터한다. 첫 거래가 없으면 closeTargets=[]. 제목은 최대 두 월, 복수면 상세 끝에 N개월(최신이 needs_review인 경우도 포함), 최신 needs_review는 '다시 마감하기'. 기존 통합 buildHomeTodos 호출에도 closeTargets: [] 추가. 현재 net-worth 관련 순수 테스트는 세 개이므로 모두 제거하되 고정비/변동비 검증 보존. 8월 fixture 추가 시 미분류 총수도 실제에 맞춘다. 테스트 시계는 KST 기준으로 고정하며 빈 가구와 여러 재확인 월을 추가 검증한다.
 
 **Files:**
 - Modify: `src/features/analytics/home-todos.ts`, `src/app/dashboard/page.tsx`
@@ -703,6 +711,8 @@ git commit -m "feat(home): put the month close first in the todo list and drop t
 
 ### Task 5: 예산·월말 리뷰 · 문장 삭제와 칩 위치
 
+**실행 보정 (2026-09-09, 스펙/현재 코드 우선):** tests/finance/month-status-pages.test.tsx를 신규 허용/git add 경로로 추가한다. 외부 로더/인증만 mock하고 실제 페이지를 renderToStaticMarkup하여 선택 월 칩이 h1에 있고 독립 안내 문장이 없는지 실패 테스트부터 작성한다. 이번 달 예산 칩에 KST 경과일/월 일수를 전달한다. 두 파일의 남은 원시 text-[Npx]도 t-*로 바꾸되 로더/계산은 유지한다.
+
 **Files:**
 - Modify: `src/app/budgets/page.tsx:70-78`, `src/app/budgets/review/page.tsx:32-39`
 
@@ -750,6 +760,8 @@ git commit -m "refactor(budgets): replace the provisional sentences with the hea
 ---
 
 ### Task 6: 통계 읽기 모델 · 확정과 잠정 두 결과
+
+**실행 보정 (2026-09-09, 스펙/현재 코드 우선):** 중요: 스펙 §3.3의 '무거래 미마감 월은 0이 아님'이 아래 예시보다 우선한다. endedMonths는 끝난 달력 월 전부를 유지하되 recordedMonths(실제 거래가 있는 월), provisionalMonths = endedMonths ∩ (recordedMonths ∪ closedMonths)를 별도 반환한다. 잠정 report의 eligibleMonths/provisionalDivisor/달성 분모는 provisionalMonths를 사용한다. CategoryDetail에도 optional recordedMonths/provisionalMonths를 추가한다. hasTransactions는 금액 합계가 아닌 거래 존재로 연도/월에 제공한다. active는 미래 여부이고 값 존재와 별개. 미마감 무기록 월의 account series는 null, 명시 마감 0원은 0. 현재 fixture의 잠정 분모는 마감 전 2, 1·3월 마감 후 3이고 확정 분모는 2이므로 provisionalDivisor=8 예시는 폐기한다. 전년 잠정 비교도 대응 기록/명시 0원 마감 존재를 확인하여 전년 무기록을 0원으로 단정하지 않는다. 비교 양쪽 월 번호 집합을 일치시킨다. currentMonthKey 주입은 필수이며 통합 테스트에 명시한다. 환불만/상쇄 0원/현재달 수입만/미마감 무기록/마감 0원 테스트를 추가한다. report.ts의 기존 산식은 유지한다.
 
 **Files:**
 - Modify: `src/features/analytics/stats-report.ts`, `src/features/analytics/category-detail.ts:40-60`, `src/app/report/page.tsx` (컴파일 유지용 최소 변경)
@@ -937,6 +949,8 @@ git commit -m "feat(stats): compute official and provisional annual results side
 
 ### Task 7: `stats-monthly.ts` · 표시 대상과 확정 대상 분리
 
+**실행 보정 (2026-09-09, 스펙/현재 코드 우선):** 표시 마스크는 끝난 월+진행 중, 확정은 closed, 잠정 집계는 Task 6 provisionalMonths다. recordedMonths가 있으면 무기록 미마감/현재 월의 series/displayValues는 null이며 0원 점을 만들지 않는다. states/recordedMonths 없는 기존 소비자는 기존 현재 달 제외 평균을 유지한다(아래 monthDisplayed 폴백만으로 기존 평균을 바꾸면 안 됨). 행/소분류/전체에 provisionalTotal도 추가해 fallback 합계가 현재달 포함 total을 쓰지 않게 한다. 제외는 표시·확정·잠정에 동일하게 반영. statsChartSeries 등 상세 확장 경로도 동일 표시 마스크를 사용. 두 축·상세·진행 중·무기록·제외 상태를 검증한다.
+
 **Files:**
 - Modify: `src/features/analytics/stats-monthly.ts:59-82,121-138,145-260,260-298`
 - Test: `tests/finance/stats-monthly.test.ts`
@@ -1074,6 +1088,8 @@ git commit -m "feat(stats): separate displayed months from closed months in the 
 ---
 
 ### Task 8: 통계 화면 · 잠정 스타일, 표, 태그, 칩
+
+**실행 보정 (2026-09-09, 스펙/현재 코드 우선):** tests/finance/provisional-charts.test.tsx, tests/finance/stats-report-page.test.tsx를 신규 허용/git add 경로로 추가해 실패 테스트부터 작성한다. 실제 컴포넌트를 렌더하고 외부 차트 renderer/조회만 경계 mock하여 dataset·표시값 검증. 잠정 막대 테두리와 본문은 palette.faint/text-finance-faint(아래 시리즈색·muted 예시 보정). 현재달은 italic 및 '진행 중'. 잠정 합계는 provisionalTotal이며 현재달은 연 집계/예측에서 제외한다. hasAnyData는 거래 존재와 명시 0원 마감으로 판단하여 환불/상쇄/수입만 있는 현재달을 숨기지 않는다. 연 칩 잠정 목록은 기록 있는 미마감/재확인 끝난 월만 센다. YoY fallback은 비교의 양쪽 모두 provisional 값을 사용하고 카테고리/가맹점은 이름 키로 대응시킨다. 비교 fallback에도 잠정 태그/사유와 회색 본문을 표시한다. 차트 전월 대비는 바로 전 달만 사용하며 두 월 모두 closed면 확정, 아니면 잠정임을 표시한다. 필요 시 series-chart-geometry.ts와 tests/finance/series-chart.test.ts를 명시 허용/git add 경로로 사용한다. 연 누적은 '마감 N개월 X%'와 '잠정 포함 Y%'를 함께 표시한다. 열 위 상태 라벨과 12개월 정렬을 유지하며 SSR fallback/패턴/대시/빈 점/현재·미래/셀 scope/revision을 검증한다.
 
 **Files:**
 - Modify: `src/features/analytics/chart-js.ts`, `src/features/analytics/series-chart.tsx:118-172`, `src/features/analytics/annual-flow-overview.tsx:22-100,131-145`, `src/features/analytics/stats-monthly-section.tsx:71-100,157,236-250,440-540`, `src/app/report/page.tsx`
@@ -1290,6 +1306,8 @@ git commit -m "feat(stats): show unclosed months as provisional instead of hidin
 ---
 
 ### Task 9: E2E 갱신과 최종 검증
+
+**실행 보정 (2026-09-09, 스펙/현재 코드 우선):** inline 수정 직후 8월 상태는 미마감이 아니라 재확인 필요다. 첫 진입 미마감과 변경 후 재확인을 각각 확인한다. 잠정 월수는 기록 있는 월 목록을 사용한다. 미분류 seed 1건을 그대로 두고 링크 실제 이동·홈 3개 섹션 제거·태그/빗금 범례를 검증한다. refresh 후 3월 250원은 hover도 가능하므로 남은 '팝업 없음' 기대까지 수정한다. 한쪽이 잠정인 전월 대비는 잠정으로 검증한다. 시계는 서버/브라우저 구분해 실행 시점 의존을 피한다. 최종에는 필터 없는 pnpm e2e 전체를 실행하고 closed-statistics.png 및 sparse-closed-months.png를 실제 이미지로 확인한다.
 
 **Files:**
 - Modify: `tests/e2e/month-close.spec.ts:60-105,107-160`
