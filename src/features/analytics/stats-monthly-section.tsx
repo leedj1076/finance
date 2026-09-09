@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 
 import { formatWon } from '@/lib/finance'
 
@@ -46,14 +47,31 @@ const CHART_LABELS: Record<SeriesChartKind, string> = {
 
 const GRID_COLUMNS = '150px repeat(12, minmax(0, 1fr)) 110px 95px 90px'
 
+type TooltipAnchor = {
+  x: number
+  y: number
+}
+
 type CellTooltipState = {
+  kind: 'detail'
   key: string
   major: string
   sub: string
   month: number
-  anchor: DOMRect
+  anchor: TooltipAnchor
   data: CellTransactionResult
 }
+
+type SummaryTooltipState = {
+  kind: 'summary'
+  key: string
+  major: string
+  month: number
+  value: number
+  anchor: TooltipAnchor
+}
+
+type TableTooltipState = CellTooltipState | SummaryTooltipState
 
 function segmentedButton(active: boolean, disabled = false) {
   if (disabled) return 'cursor-not-allowed text-finance-faint'
@@ -123,9 +141,10 @@ export function StatsMonthlySection({
   const [hoverMonth, setHoverMonth] = useState<number | null>(null)
   const [chartHovered, setChartHovered] = useState(false)
   const [selection, setSelection] = useState<StatsSeriesSelection | null>(null)
-  const [cellTooltip, setCellTooltip] = useState<CellTooltipState | null>(null)
+  const [cellTooltip, setCellTooltip] = useState<TableTooltipState | null>(null)
   const cache = useRef(new Map<string, CellTransactionResult>())
   const activeCell = useRef<string | null>(null)
+  const activeAnchor = useRef<TooltipAnchor | null>(null)
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -188,15 +207,31 @@ export function StatsMonthlySection({
     const margin = 8
     const gap = 6
     const bounds = element.getBoundingClientRect()
-    let left = Math.min(cellTooltip.anchor.left, window.innerWidth - bounds.width - margin)
+    let left = Math.min(cellTooltip.anchor.x + gap, window.innerWidth - bounds.width - margin)
     left = Math.max(margin, left)
-    let top = cellTooltip.anchor.bottom + gap
+    let top = cellTooltip.anchor.y + gap
     if (top + bounds.height > window.innerHeight - margin) {
-      top = Math.max(margin, cellTooltip.anchor.top - bounds.height - gap)
+      top = Math.max(margin, cellTooltip.anchor.y - bounds.height - gap)
     }
     element.style.left = `${left}px`
     element.style.top = `${top}px`
     element.style.visibility = 'visible'
+  }, [cellTooltip])
+
+  useEffect(() => {
+    if (!cellTooltip) return
+    const hide = (event?: Event) => {
+      if (event?.target instanceof Node && tooltipRef.current?.contains(event.target)) return
+      activeCell.current = null
+      activeAnchor.current = null
+      setCellTooltip(null)
+    }
+    window.addEventListener('scroll', hide, true)
+    window.addEventListener('resize', hide)
+    return () => {
+      window.removeEventListener('scroll', hide, true)
+      window.removeEventListener('resize', hide)
+    }
   }, [cellTooltip])
 
   function clearTimer(timer: typeof showTimer) {
@@ -208,6 +243,7 @@ export function StatsMonthlySection({
     clearTimer(showTimer)
     clearTimer(hideTimer)
     activeCell.current = null
+    activeAnchor.current = null
     setCellTooltip(null)
   }
 
@@ -216,6 +252,7 @@ export function StatsMonthlySection({
     clearTimer(hideTimer)
     hideTimer.current = setTimeout(() => {
       activeCell.current = null
+      activeAnchor.current = null
       setCellTooltip(null)
     }, 150)
   }
@@ -226,17 +263,20 @@ export function StatsMonthlySection({
     sub: string,
     month: number,
     delay: number,
+    anchor: TooltipAnchor,
   ) {
     clearTimer(showTimer)
     clearTimer(hideTimer)
     if (!model.availableMonths[month - 1]) return
     const key = cellCacheKey(major, sub, month)
     activeCell.current = key
+    activeAnchor.current = anchor
+    setCellTooltip(null)
     showTimer.current = setTimeout(async () => {
       const cached = cache.current.get(key)
       if (cached) {
         if (activeCell.current === key) {
-          setCellTooltip({ key, major, sub, month, anchor: target.getBoundingClientRect(), data: cached })
+          setCellTooltip({ kind: 'detail', key, major, sub, month, anchor: activeAnchor.current ?? anchor, data: cached })
         }
         return
       }
@@ -259,12 +299,33 @@ export function StatsMonthlySection({
         const data = await response.json() as CellTransactionResult
         cache.current.set(key, data)
         if (activeCell.current === key) {
-          setCellTooltip({ key, major, sub, month, anchor: target.getBoundingClientRect(), data })
+          setCellTooltip({ kind: 'detail', key, major, sub, month, anchor: activeAnchor.current ?? anchor, data })
         }
       } catch {
         // The table remains usable when a tooltip request is interrupted.
       }
     }, delay)
+  }
+
+  function cellAnchor(target: HTMLButtonElement) {
+    const bounds = target.getBoundingClientRect()
+    return { x: bounds.left + (bounds.width / 2), y: bounds.bottom }
+  }
+
+  function updateDetailTooltipAnchor(key: string, anchor: TooltipAnchor) {
+    if (activeCell.current !== key) return
+    activeAnchor.current = anchor
+    setCellTooltip((current) => current?.kind === 'detail' && current.key === key
+      ? { ...current, anchor }
+      : current)
+  }
+
+  function showSummaryTooltip(row: { id: string; label: string }, month: number, value: number, anchor: TooltipAnchor) {
+    clearTimer(showTimer)
+    clearTimer(hideTimer)
+    activeCell.current = null
+    activeAnchor.current = null
+    setCellTooltip({ kind: 'summary', key: `summary:${row.id}:${month}`, major: row.label, month: month + 1, value, anchor })
   }
 
   function selectFlow(nextFlow: StatsMonthlyFlow) {
@@ -365,7 +426,7 @@ export function StatsMonthlySection({
           const row = model.rows.find(item => item.id === id)
           if (row) setExpanded(current => new Set(current).add(row.label))
         }}>
-          <option value="">그래프 또는 목록에서 선택</option>
+          <option value="">전체 항목</option>
           {model.rows.map(row => <option key={row.id} value={encodeURIComponent(row.id)}>{row.label}</option>)}
         </select>
       </label>}
@@ -446,10 +507,10 @@ export function StatsMonthlySection({
             <div className="mt-4 border-t border-finance-ink">
               <div className="flex items-center justify-between border-b border-finance-hairline py-2">
                 <p className="t-body-strong text-finance-ink">
-                  <span className="mr-2 inline-block h-[9px] w-[9px]" style={{ background: selectedSeries?.color }} />
-                  {selectedSeries?.label} · {selection?.month !== null && selection?.month !== undefined ? `${selection.month + 1}월 선택` : '항목 선택'}
+                  {selectedSeries && <span className="mr-2 inline-block h-[9px] w-[9px]" style={{ background: selectedSeries.color }} />}
+                  {selectedSeries ? `${selectedSeries.label} · ${selection?.month !== null && selection?.month !== undefined ? `${selection.month + 1}월 선택` : '항목 선택'}` : '전체 항목'}
                 </p>
-                <button className="t-caption font-semibold text-finance-blue hover:text-finance-ink" onClick={() => setSelection(null)} type="button">선택 해제</button>
+                {selectedSeries && <button className="t-caption font-semibold text-finance-blue hover:text-finance-ink" onClick={() => setSelection(null)} type="button">선택 해제</button>}
               </div>
               <div className="grid items-center gap-x-1.5 border-b border-finance-hairline py-[9px] t-label text-finance-muted" style={{ gridTemplateColumns: GRID_COLUMNS }}>
                 <div>{effectiveAxis === 'account' ? '결제수단' : '항목'}</div>
@@ -485,13 +546,26 @@ export function StatsMonthlySection({
                         const isExcluded = excluded.has(key)
                         return (
                           <button
+                            aria-describedby={cellTooltip?.kind === 'summary' && cellTooltip.key === `summary:${row.id}:${month}` ? tooltipId : undefined}
                             aria-label={rawValue === null ? `${row.label} ${month + 1}월 ${model.monthStates[month] === 'future' ? '예정' : '기록 없음'}` : `${row.label} ${month + 1}월 ${formatWon(rawValue)}원, ${isExcluded ? '합계에 다시 포함' : '합계에서 제외'}`}
                             aria-pressed={isExcluded}
                             className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${month === model.currentMonthIndex ? 'italic' : ''} ${isExcluded ? 'text-finance-faint line-through' : rawValue === null ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
                             disabled={rawValue === null}
                             key={month}
+                            onBlur={scheduleHide}
                             onClick={() => toggleCell(key)}
-                            onMouseEnter={() => updateHover(row.id, month)}
+                            onFocus={(event) => rawValue !== null && showSummaryTooltip(row, month, rawValue, cellAnchor(event.currentTarget))}
+                            onKeyDown={(event) => { if (event.key === 'Escape') closeCellTooltip() }}
+                            onMouseEnter={(event) => {
+                              updateHover(row.id, month)
+                              if (rawValue !== null) showSummaryTooltip(row, month, rawValue, { x: event.clientX, y: event.clientY })
+                            }}
+                            onMouseLeave={scheduleHide}
+                            onMouseMove={(event) => rawValue !== null && setCellTooltip((current) => (
+                              current?.kind === 'summary' && current.key === `summary:${row.id}:${month}`
+                                ? { ...current, anchor: { x: event.clientX, y: event.clientY } }
+                                : current
+                            ))}
                             title={rawValue === null ? undefined : isExcluded ? '합계에 다시 포함' : '합계와 그래프에서 제외'}
                             type="button"
                           >
@@ -521,7 +595,7 @@ export function StatsMonthlySection({
                           const tooltipKey = cellCacheKey(sub.major, sub.sub, month + 1)
                           return (
                             <button
-                              aria-describedby={cellTooltip?.key === tooltipKey ? tooltipId : undefined}
+                              aria-describedby={cellTooltip?.kind === 'detail' && cellTooltip.key === tooltipKey ? tooltipId : undefined}
                               aria-label={!available ? `${sub.major} ${sub.sub} ${month + 1}월 ${model.monthStates[month] === 'future' ? '예정' : '기록 없음'}` : `${sub.major} ${sub.sub} ${month + 1}월 ${formatWon(rawValue)}원, ${isExcluded ? '합계에 다시 포함' : '합계에서 제외'}`}
                               aria-pressed={isExcluded}
                               className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${month === model.currentMonthIndex ? 'italic' : ''} ${isExcluded ? 'text-finance-faint line-through' : !available ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
@@ -529,13 +603,14 @@ export function StatsMonthlySection({
                               key={month}
                               onBlur={scheduleHide}
                               onClick={() => toggleCell(key)}
-                              onFocus={(event) => available && requestCellTransactions(event.currentTarget, sub.major, sub.sub, month + 1, 0)}
+                              onFocus={(event) => available && requestCellTransactions(event.currentTarget, sub.major, sub.sub, month + 1, 0, cellAnchor(event.currentTarget))}
                               onKeyDown={(event) => { if (event.key === 'Escape') closeCellTooltip() }}
                               onMouseEnter={(event) => {
                                 updateHover(row.id, month)
-                                if (available) requestCellTransactions(event.currentTarget, sub.major, sub.sub, month + 1, 180)
+                                if (available) requestCellTransactions(event.currentTarget, sub.major, sub.sub, month + 1, 180, { x: event.clientX, y: event.clientY })
                               }}
                               onMouseLeave={scheduleHide}
+                              onMouseMove={(event) => updateDetailTooltipAnchor(tooltipKey, { x: event.clientX, y: event.clientY })}
                               title={!available ? model.monthStates[month] === 'future' ? '아직 오지 않은 달입니다' : '거래 기록이 없습니다' : isExcluded ? '합계에 다시 포함' : '합계와 그래프에서 제외'}
                               type="button"
                             >
@@ -565,7 +640,7 @@ export function StatsMonthlySection({
         추세는 최근 6개월 · {flow === 'expense' ? '결제수단 축은 같은 지출을 결제수단별로 나눈 값입니다.' : '수입·저축은 카테고리 축만 제공합니다.'}
       </p>
 
-      {cellTooltip && (
+      {cellTooltip && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed z-50 max-h-[min(420px,calc(100vh-16px))] w-[min(360px,calc(100vw-16px))] overflow-y-auto bg-finance-ink p-3 text-white shadow-xl"
           id={tooltipId}
@@ -575,24 +650,34 @@ export function StatsMonthlySection({
           role="tooltip"
           style={{ left: 8, top: 8, visibility: 'hidden' }}
         >
-          <div className="border-b border-finance-border pb-2">
-            <p className="font-semibold text-white">{cellTooltip.major} › {cellTooltip.sub} · {cellTooltip.month}월</p>
-            <p className="mt-0.5 t-caption text-finance-faint">{cellTooltip.data.items.length}건 · {formatWon(cellTooltip.data.total)}원</p>
-          </div>
-          <div className="divide-y divide-finance-border">
-            {cellTooltip.data.items.slice(0, 15).map((item, index) => (
-              <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 py-2 t-caption" key={`${item.date}-${item.name}-${item.amount}-${index}`}>
-                <span className="text-finance-faint">{item.date.slice(5).replace('-', '/')}</span>
-                <span className="min-w-0 truncate text-finance-faint">{item.name}{item.acct && <span className="ml-1">{item.acct}</span>}</span>
-                <span className="font-medium tabular-nums text-white">{formatWon(item.amount)}</span>
+          {cellTooltip.kind === 'summary' ? (
+            <div>
+              <p className="font-semibold text-white">{cellTooltip.major} · {cellTooltip.month}월</p>
+              <p className="mt-1 t-kpi-sm">{formatWon(cellTooltip.value)}<span className="ml-1 t-caption font-medium text-finance-faint">원</span></p>
+            </div>
+          ) : (
+            <>
+              <div className="border-b border-finance-border pb-2">
+                <p className="font-semibold text-white">{cellTooltip.major} › {cellTooltip.sub} · {cellTooltip.month}월</p>
+                <p className="mt-0.5 t-caption text-finance-faint">{cellTooltip.data.items.length}건 · {formatWon(cellTooltip.data.total)}원</p>
               </div>
-            ))}
-            {cellTooltip.data.items.length === 0 && <p className="py-4 text-center t-body text-finance-faint">내역 없음</p>}
-          </div>
-          <Link className="mt-3 block border-t border-finance-border pt-2 text-right t-caption font-semibold text-white hover:text-finance-blue" href={`/ledger?month=${year}-${String(cellTooltip.month).padStart(2, '0')}&tab=list&flow=${flow}&major=${encodeURIComponent(cellTooltip.major)}`}>
-            이 달 거래 보기 →
-          </Link>
-        </div>
+              <div className="divide-y divide-finance-border">
+                {cellTooltip.data.items.slice(0, 15).map((item, index) => (
+                  <div className="grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2 py-2 t-caption" key={`${item.date}-${item.name}-${item.amount}-${index}`}>
+                    <span className="text-finance-faint">{item.date.slice(5).replace('-', '/')}</span>
+                    <span className="min-w-0 truncate text-finance-faint">{item.name}{item.acct && <span className="ml-1">{item.acct}</span>}</span>
+                    <span className="font-medium tabular-nums text-white">{formatWon(item.amount)}</span>
+                  </div>
+                ))}
+                {cellTooltip.data.items.length === 0 && <p className="py-4 text-center t-body text-finance-faint">내역 없음</p>}
+              </div>
+              <Link className="mt-3 block border-t border-finance-border pt-2 text-right t-caption font-semibold text-white hover:text-finance-blue" href={`/ledger?month=${year}-${String(cellTooltip.month).padStart(2, '0')}&tab=list&flow=${flow}&major=${encodeURIComponent(cellTooltip.major)}`}>
+                이 달 거래 보기 →
+              </Link>
+            </>
+          )}
+        </div>,
+        document.body,
       )}
     </section>
   )

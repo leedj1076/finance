@@ -8,7 +8,7 @@ export default defineConfig({
   timeout: 30_000,
   fullyParallel: false,
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:3101',
     trace: 'on-first-retry',
   },
   projects: [
@@ -18,8 +18,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm build && pnpm start',
-    url: 'http://localhost:3000/login',
+    command: 'pnpm build && pnpm start --port 3101',
+    url: 'http://localhost:3101/login',
     reuseExistingServer: false,
     timeout: 60_000,
   },

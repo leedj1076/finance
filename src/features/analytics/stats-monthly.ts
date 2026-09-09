@@ -103,7 +103,7 @@ export function selectedStatsMonthlyRows(
   rows: StatsMonthlyRow[],
   selectedSeriesId: string | null,
 ) {
-  if (!selectedSeriesId) return []
+  if (!selectedSeriesId) return rows
   return rows.filter((row) => row.id === selectedSeriesId)
 }
 

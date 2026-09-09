@@ -140,7 +140,7 @@ describe('stats monthly shared model', () => {
     // Existing live callers keep their first-positive-month convention.
     expect(statsSparkline([0, null, 200], 'expense', 3)).toBeNull()
   })
-  test('keeps only the selected series row and its category details', () => {
+  test('shows all rows by default and only the selected series row after selection', () => {
     const model = buildStatsMonthlyModel({
       flow: 'expense', axis: 'category', details, accountMonthly, excluded: new Set(),
     })
@@ -148,7 +148,7 @@ describe('stats monthly shared model', () => {
 
     expect(selected.map((row) => row.label)).toEqual(['식비'])
     expect(selected[0].subs.map((row) => row.label)).toEqual(['외식', '장보기'])
-    expect(selectedStatsMonthlyRows(model.rows, null)).toEqual([])
+    expect(selectedStatsMonthlyRows(model.rows, null).map((row) => row.label)).toEqual(['식비', '생활', '의료', '교통'])
     expect(selectedStatsMonthlyRows(model.rows, 'category\u0000없는 항목')).toEqual([])
   })
 
