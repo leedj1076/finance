@@ -95,9 +95,83 @@ test('authenticated clients cannot forge revisions or closing records', async ()
   await add()
   await expect(db.transaction(async tx => {
     await tx.execute(sql`set local role authenticated`)
-    await tx.execute(sql`update public.ledger_months set closed_revision = revision, closed_at = now() where household_id = ${householdId}::uuid`)
-  })).rejects.toThrow()
+    await tx.execute(sql`update public.ledger_months set closed_revision = revision, closed_at = now(), closed_by = ${userId}::uuid where household_id = ${householdId}::uuid`)
+  })).rejects.toMatchObject({ cause: { code: '42501' } })
   expect((await status()).state).toBe('open')
+})
+
+function barrier() {
+  let release!: () => void
+  const promise = new Promise<void>(resolve => { release = resolve })
+  return { promise, release }
+}
+
+async function waitForBlockedBy(pid: number) {
+  const deadline = Date.now() + 5000
+  do {
+    const [row] = await db.execute(sql`select exists(select 1 from pg_stat_activity where ${pid} = any(pg_blocking_pids(pid))) as blocked`)
+    if (row.blocked) return
+    await new Promise(resolve => setTimeout(resolve, 10))
+  } while (Date.now() < deadline)
+  throw new Error('expected a real database lock wait')
+}
+
+test('writer-first lock ordering rejects a close already waiting on its uncommitted revision', async () => {
+  const row = await add()
+  const summary = await getMonthCloseSummary(householdId, '2026-01')
+  const acquired = barrier(); const release = barrier()
+  let pid = 0
+  const writer = db.transaction(async tx => {
+    const [connection] = await tx.execute(sql`select pg_backend_pid() as pid`)
+    pid = Number(connection.pid)
+    await tx.update(transactions).set({ amount: 888 }).where(and(eq(transactions.householdId, householdId), eq(transactions.id, row.id)))
+    acquired.release()
+    await release.promise
+  })
+  await acquired.promise
+  const closing = closeMonth(householdId, userId, { month: '2026-01', revision: summary.revision, acknowledgeWarnings: true, acknowledgeEmpty: true })
+  try { await waitForBlockedBy(pid) } finally { release.release() }
+  await writer
+  expect(await closing).toMatchObject({ ok: false })
+  expect((await status()).state).toBe('open')
+})
+
+test('close-first invalidates when an earlier-started writer reaches its mutation after close', async () => {
+  const row = await add()
+  const acquired = barrier(); const release = barrier()
+  const writer = db.transaction(async tx => {
+    await tx.select().from(transactions).where(and(eq(transactions.householdId, householdId), eq(transactions.id, row.id))).for('update')
+    acquired.release()
+    await release.promise
+    await tx.update(transactions).set({ amount: 888 }).where(and(eq(transactions.householdId, householdId), eq(transactions.id, row.id)))
+  })
+  await acquired.promise
+  try { await close() } finally { release.release() }
+  await writer
+  expect((await status()).state).toBe('needs_review')
+})
+
+test('overlapping multi-month statements wait in sorted month order and both commits are retained', async () => {
+  const first = [await add('2026-02'), await add('2026-01')]
+  const second = [await add('2026-01'), await add('2026-02')]
+  await close('2026-01'); await close('2026-02')
+  const before = await getMonthStatuses(householdId, ['2026-01', '2026-02'])
+  const acquired = barrier(); const release = barrier()
+  let pid = 0
+  const a = db.transaction(async tx => {
+    const [connection] = await tx.execute(sql`select pg_backend_pid() as pid`)
+    pid = Number(connection.pid)
+    await tx.execute(sql`update transactions set amount = 800 where household_id = ${householdId}::uuid and id in (${first[0].id}, ${first[1].id})`)
+    acquired.release()
+    await release.promise
+  })
+  await acquired.promise
+  const b = db.execute(sql`update transactions set amount = 900 where household_id = ${householdId}::uuid and id in (${second[0].id}, ${second[1].id})`).then(result => result)
+  try { await waitForBlockedBy(pid) } finally { release.release() }
+  await Promise.all([a, b])
+  const after = await getMonthStatuses(householdId, ['2026-01', '2026-02'])
+  expect(after.map((row, i) => row.revision - before[i].revision)).toEqual([2, 2])
+  expect(after.map(row => row.state)).toEqual(['needs_review', 'needs_review'])
 })
 
 test('bulk writes touch affected months and household cascade never resurrects them', async () => {

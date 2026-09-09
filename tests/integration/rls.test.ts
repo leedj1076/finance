@@ -89,6 +89,22 @@ test('member B cannot see household A transaction', async () => {
   expect(data ?? []).toHaveLength(0)
 })
 
+test('month closing status is visible only to its household members', async () => {
+  const own = await context.clientA!.from('ledger_months').select('month,revision')
+  expect(own.error).toBeNull()
+  expect(own.data).toContainEqual({ month: '2026-06', revision: 1 })
+  const other = await context.clientB!.from('ledger_months').select('month,revision')
+  expect(other.error).toBeNull()
+  expect(other.data).toEqual([])
+})
+
+test('authenticated ledger writes can advance revisions through the restricted trigger', async () => {
+  const { error } = await context.clientA!.from('transactions').insert({ household_id: context.householdA, date: '2026-07-01', flow: 'expense', amount: 50 })
+  expect(error).toBeNull()
+  const { data } = await context.clientA!.from('ledger_months').select('month,revision').eq('month', '2026-07')
+  expect(data).toEqual([{ month: '2026-07', revision: 1 }])
+})
+
 test('user cannot self-join another household', async () => {
   const { data } = await context.clientB!.auth.getUser()
   const { error } = await context.clientB!.from('household_members').insert({
