@@ -1317,12 +1317,16 @@ git commit -m "feat(stats): show unclosed months as provisional instead of hidin
 
 ### Task 9: E2E 갱신과 최종 검증
 
+**검증 서버 보정 (2026-09-09, 실제 trace 근거):** 기본 5-worker 실행에서 `/ledger` 클릭은 전달됐지만 Next 개발 서버의 연속 Fast Refresh/컴파일과 RSC 응답이 겹치며 본문/라우트 전환이 끝나지 않았다. `playwright.config.ts`를 허용/git add 경로에 추가한다. `webServer.command`를 `pnpm build && pnpm start`로 바꿔 실행할 소스를 먼저 빌드한 뒤 배포 모드의 로컬 서버를 검증한다. `reuseExistingServer: false`로 다른 체크아웃/개발 서버 재사용을 막는다. 병렬 worker 수, assertion timeout, retry는 변경하지 않는다. 포트가 사용 중이면 기존 프로세스를 임의 종료하지 않는다. 같은 기본 병렬 전체 `pnpm e2e`와 기존 focused 명령으로 검증하고, 실패하면 trace 증거를 보존한다. 운영 배포나 운영 DB 연결은 아니다. 원인은 개발 서버의 HMR/RSC 경계까지 확인됐으며 다른 실패의 원인까지 단정하지 않는다.
+
 **기존 E2E/브라우저 경계 보정 (2026-09-09):** `tests/e2e/auth.spec.ts`를 명시 허용/git add 경로에 추가한다. 예산 h1에 상태 칩이 붙었으므로 기존 제목 완전 일치 어서션을 제목과 선택 월 상태를 함께 확인하는 어서션으로 갱신한다. 자산 페이지의 순자산 차트 검증은 유지한다. Task 8은 새 DOM 의존성 없이 SSR/dataset 검증을 수행했으므로 실제 선택/확장 표는 이 태스크에서 검증한다: 상위·소분류 잠정 색과 현재 기울임, category/account 값 존재 마스크, 무기록 비활성·명시 마감 0원 활성, 잠정/현재 셀 제외·복원과 집계 기준, live/closed scope 및 revision, stale409 뒤 갱신, 바로 전 달이 무기록인 비교는 '–', 양쪽 마감/한쪽 잠정의 비교 표시, 실제 빗금·점선·빈 점과 12열 정렬. 홈/내역의 데스크톱·모바일 제목 및 체크리스트/대화상자 배치도 확인한다. 기본 선택 동작을 테스트 편의로 바꾸지 않는다.
 
 **실행 보정 (2026-09-09, 스펙/현재 코드 우선):** inline 수정 직후 8월 상태는 미마감이 아니라 재확인 필요다. 첫 진입 미마감과 변경 후 재확인을 각각 확인한다. 잠정 월수는 기록 있는 월 목록을 사용한다. 미분류 seed 1건을 그대로 두고 링크 실제 이동·홈 3개 섹션 제거·태그/빗금 범례를 검증한다. refresh 후 3월 250원은 hover도 가능하므로 남은 '팝업 없음' 기대까지 수정한다. 한쪽이 잠정인 전월 대비는 잠정으로 검증한다. 시계는 서버/브라우저 구분해 실행 시점 의존을 피한다. 최종에는 필터 없는 pnpm e2e 전체를 실행하고 closed-statistics.png 및 sparse-closed-months.png를 실제 이미지로 확인한다.
 
 **Files:**
 - Modify: `tests/e2e/month-close.spec.ts:60-105,107-160`
+- Modify: `tests/e2e/auth.spec.ts` (상태 칩 검사)
+- Modify: `playwright.config.ts` (위 검증 서버 보정만)
 - Test: `pnpm e2e`
 
 - [ ] **Step 1: 빈 화면 확인을 잠정 확인으로** — 첫 suite의 line 99를 교체
@@ -1396,6 +1400,7 @@ Expected: 모두 통과.
 
 ```bash
 git add tests/e2e/month-close.spec.ts
+git add tests/e2e/auth.spec.ts playwright.config.ts
 git commit -m "test(e2e): cover provisional statistics, the wrap-up checklist and the home close todo"
 ```
 
