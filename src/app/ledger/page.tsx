@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { AppHeader } from '@/components/app-header'
 import { ActionNotice } from '@/components/action-notice'
 import { MonthCloseControl } from '@/features/month-close/month-close-control'
+import { MonthStatusLabel } from '@/features/month-close/month-status-label'
+import { MonthWrapUp } from '@/features/month-close/month-wrap-up'
 import { getMonthCloseSummary } from '@/features/month-close/queries'
 import { SubmitButton } from '@/components/submit-button'
 import { getCategoryPageData, parseCategoryPageParams } from '@/features/analytics/category-page'
@@ -76,6 +78,10 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
   const majorOptions = [...new Set(formOptions.categories.map((category) => category.major))]
   const selectedFlow = filters.flow || 'expense'
   const monthClose = await getMonthCloseSummary(household.householdId, shell.month)
+  const currentMonth = currentMonthInKorea()
+  const defaultDate = shell.month === currentMonth
+    ? new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+    : `${shell.month}-01`
 
   // Load only the active panel; diagnosis also skips transaction-only controls.
   const [recurring, analysis, categoryDetail, listData, diagnosisData] = await Promise.all([
@@ -102,12 +108,20 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
     tab === 'list' ? getLedgerTransactions(household.householdId, shell.month, filters) : null,
     tab === 'ai' ? getDiagnosisPageData(household.householdId, shell.month) : null,
   ])
-  const recurringPending = recurring ? Math.max(recurring.activeCount - recurring.generatedCount, 0) : 0
-
-  const currentMonth = currentMonthInKorea()
-  const defaultDate = shell.month === currentMonth
-    ? new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
-    : `${shell.month}-01`
+  const recurringPending = monthClose.unpostedRecurringCount
+  const showWrapUp = monthClose.state === 'open' && monthClose.closable
+  const recurringApplyForm = recurringPending > 0 ? (
+    <form action={applyRecurringMonth}>
+      <input name="month" type="hidden" value={shell.month} />
+      <input name="returnAccount" type="hidden" value={filters.account} />
+      <input name="returnFlow" type="hidden" value={filters.flow} />
+      <input name="returnMajor" type="hidden" value={filters.major} />
+      <input name="returnQ" type="hidden" value={filters.q} />
+      <input name="returnSort" type="hidden" value={filters.sort ?? 'date-desc'} />
+      <input name="returnTab" type="hidden" value={tab} />
+      <SubmitButton className="h-[30px] bg-finance-ink px-3.5 t-body-strong text-white hover:bg-finance-blue" pendingLabel="반영 중…" type="submit">미반영 {recurringPending}건 반영</SubmitButton>
+    </form>
+  ) : null
 
   return (
     <div className="min-h-screen bg-white">
@@ -116,7 +130,10 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end print:hidden">
           <div>
             <p className="t-label uppercase text-finance-blue">월간 기록과 분석</p>
-            <h1 className="mt-2 t-page-title text-finance-ink">내역</h1>
+            <h1 className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 t-page-title text-finance-ink">
+              내역
+              <MonthStatusLabel currentMonthKey={currentMonth} elapsed={shell.month === currentMonth ? { day: Number(defaultDate.slice(8, 10)), days: new Date(Date.UTC(Number(shell.month.slice(0, 4)), Number(shell.month.slice(5, 7)), 0)).getUTCDate() } : undefined} status={monthClose} variant="heading" />
+            </h1>
             <p className="mt-2 t-caption text-finance-muted">{tab === 'ai' ? '한 달의 기록을 바탕으로 우리집의 돈 흐름을 살펴봅니다' : '필터를 한 번 잡고 합계에서 거래 행까지 내려봅니다'}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -138,7 +155,8 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
           </div>
         </header>
 
-        <MonthCloseControl key={shell.month} month={shell.month} status={monthClose} pendingCount={monthClose.pendingCount} />
+        <MonthWrapUp recurringForm={recurringApplyForm ?? <span className="t-caption text-finance-faint">내역에서 반영</span>} summary={monthClose} />
+        <MonthCloseControl allClear={showWrapUp && !monthClose.requiresAcknowledgment} key={shell.month} month={shell.month} status={monthClose} pendingCount={monthClose.pendingCount} />
         {firstParam(params.notice) && <ActionNotice notice={firstParam(params.notice)} />}
 
         <div className="mt-6 flex gap-1.5 overflow-x-auto border-b border-finance-border pb-4 print:hidden">
@@ -158,18 +176,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
           </p>
           <div className="ml-auto flex items-center gap-3">
             <Link className="t-caption font-semibold text-finance-muted hover:text-finance-blue" href="/recurring">규칙 설정</Link>
-            {recurringPending > 0 && (
-              <form action={applyRecurringMonth}>
-                <input name="month" type="hidden" value={shell.month} />
-                <input name="returnAccount" type="hidden" value={filters.account} />
-                <input name="returnFlow" type="hidden" value={filters.flow} />
-                <input name="returnMajor" type="hidden" value={filters.major} />
-                <input name="returnQ" type="hidden" value={filters.q} />
-                <input name="returnSort" type="hidden" value={filters.sort ?? 'date-desc'} />
-                <input name="returnTab" type="hidden" value={tab} />
-                <SubmitButton className="h-[30px] bg-finance-ink px-3.5 t-body-strong text-white hover:bg-finance-blue" pendingLabel="반영 중…" type="submit">미반영 {recurringPending}건 반영</SubmitButton>
-              </form>
-            )}
+            {!showWrapUp && recurringApplyForm}
           </div>
         </section>}
 
@@ -189,10 +196,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         </div>
         </>}
 
-        {tab === 'ai' && diagnosisData && <>
-          {monthClose.state !== 'closed' && <p className="mt-4 t-caption text-finance-amber">잠정 내역 기준 진단 · {shell.month}은 아직 확정 통계에 포함되지 않습니다.</p>}
-          <DiagnosisPanel initialData={diagnosisData} key={shell.month} />
-        </>}
+        {tab === 'ai' && diagnosisData && <DiagnosisPanel initialData={diagnosisData} key={shell.month} />}
         {tab === 'summary' && analysis && <LedgerSummaryPanel data={analysis} monthTotals={shell.totals} />}
         {tab === 'categories' && analysis && <LedgerCategoriesPanel data={analysis} detail={categoryDetail} filters={filters} />}
         {tab === 'merchants' && analysis && <LedgerMerchantsPanel data={analysis} filters={filters} />}
