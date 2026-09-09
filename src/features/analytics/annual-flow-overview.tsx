@@ -1,6 +1,6 @@
 'use client'
 
-import type { ChartData, ChartOptions } from 'chart.js'
+import type { ChartData, ChartOptions, Scale } from 'chart.js'
 import { useMemo, useState } from 'react'
 import { Bar, Line } from 'react-chartjs-2'
 
@@ -34,6 +34,11 @@ export type AnnualFlowRow = {
   hasTransactions: boolean
 }
 
+// Both canvases share the same plot edges, even when won and percent labels
+// have different measured widths. Offset puts each month in its bar-group slot.
+const calendarLayout = { autoPadding: false, padding: { right: 6 } }
+const fitCalendarAxis = (axis: Scale) => { axis.width = 60 }
+
 export function AnnualFlowOverview({
   monthly,
   annualRate,
@@ -47,7 +52,7 @@ export function AnnualFlowOverview({
 }) {
   const palette = useFinanceChartPalette()
   const [hoveredMonth, setHoveredMonth] = useState<number | null>(null)
-  const labels = monthly.map((row, index) => `${index + 1}월${row.state === 'current' ? '·진행 중' : row.state === 'open' || row.state === 'needs_review' ? '·잠정' : ''}`)
+  const labels = useMemo(() => monthly.map((row, index) => `${index + 1}월${row.state === 'current' ? '·진행 중' : row.state === 'open' || row.state === 'needs_review' ? '·잠정' : ''}`), [monthly])
   const available = (row: AnnualFlowRow) => row.active && (row.hasTransactions || row.state === 'closed')
   const eligibilityBoundary = useMemo(() => monthlyEligibilityBoundary(), [])
 
@@ -68,6 +73,7 @@ export function AnnualFlowOverview({
     responsive: true,
     maintainAspectRatio: false,
     animation: CHART_ANIMATION,
+    layout: calendarLayout,
     interaction: { mode: 'index', intersect: false },
     onHover: (_event, elements) => setHoveredMonth(elements[0]?.index ?? null),
     plugins: {
@@ -85,7 +91,10 @@ export function AnnualFlowOverview({
         },
       },
     },
-    scales: financeScales(palette),
+    scales: {
+      x: { ...financeScales(palette, { showMonths: false }).x, offset: true },
+      y: { ...financeScales(palette).y, afterFit: fitCalendarAxis },
+    },
   }), [monthly, palette])
 
   const rateData = useMemo<ChartData<'line'>>(() => ({
@@ -99,9 +108,10 @@ export function AnnualFlowOverview({
         borderWidth: CHART_LINE_WIDTH,
         segment: {
           borderDash: context => monthly[context.p0DataIndex].state === 'closed' && monthly[context.p1DataIndex].state === 'closed' ? undefined : PROVISIONAL_DASH,
+          borderColor: context => monthly[context.p0DataIndex].state === 'closed' && monthly[context.p1DataIndex].state === 'closed' ? palette.green : alpha(palette.green, 0.45),
         },
         pointBackgroundColor: monthly.map(row => row.state === 'closed' ? palette.green : palette.background),
-        pointBorderColor: monthly.map(row => row.state === 'closed' ? palette.background : palette.green),
+        pointBorderColor: monthly.map(row => row.state === 'closed' ? palette.background : alpha(palette.green, 0.45)),
         pointRadius: (context) => context.dataIndex === hoveredMonth ? CHART_POINT_RADIUS_ACTIVE : CHART_POINT_RADIUS,
         pointHoverRadius: CHART_POINT_RADIUS_ACTIVE,
         tension: 0.24,
@@ -125,6 +135,7 @@ export function AnnualFlowOverview({
     responsive: true,
     maintainAspectRatio: false,
     animation: CHART_ANIMATION,
+    layout: calendarLayout,
     interaction: { mode: 'index', intersect: false },
     onHover: (_event, elements) => setHoveredMonth(elements[0]?.index ?? null),
     plugins: {
@@ -135,14 +146,22 @@ export function AnnualFlowOverview({
         callbacks: { label: (context) => `순저축률: ${formatRate(Number(context.raw ?? 0))}%` },
       },
     },
-    // Three ticks, no month labels: the bar chart directly above owns the
-    // x axis and this strip is 86px tall.
-    scales: financeScales(palette, {
-      beginAtZero: false,
-      format: percentAxis,
-      showMonths: false,
-      ticks: 3,
-    }),
+    scales: {
+      x: {
+        ...financeScales(palette).x, offset: true,
+        ticks: { ...financeScales(palette).x.ticks, maxRotation: 0, callback: value => `${Number(value) + 1}월` },
+      },
+      y: {
+        ...financeScales(palette, {
+          beginAtZero: false,
+          // Tiny income can produce very large negative rates. Compact only
+          // axis labels; the hover tooltip retains the full financial value.
+          format: value => Math.abs(value) >= 10_000 ? `${value.toExponential(0)}%` : percentAxis(Number(value.toFixed(2))),
+          ticks: 3,
+        }).y,
+        afterFit: fitCalendarAxis,
+      },
+    },
   }), [palette])
 
   return (
@@ -164,12 +183,12 @@ export function AnnualFlowOverview({
         <div className="relative h-[230px] w-full" onMouseLeave={() => setHoveredMonth(null)}>
           <Bar aria-label="월별 수입 지출 저축 막대 차트" data={flowData} options={flowOptions} plugins={[eligibilityBoundary]} role="img" />
         </div>
-        <div className="mt-2 grid items-center gap-3 sm:grid-cols-[120px_minmax(0,1fr)_180px]">
-          <p className="t-caption text-finance-muted">순저축률 <span className="text-finance-faint">· 목표 {formatRate(savingsTarget)}%</span></p>
-          <div className="relative h-[86px] min-w-0" onMouseLeave={() => setHoveredMonth(null)}>
-            <Line aria-label="월별 순저축률 선 차트" data={rateData} options={rateOptions} plugins={[eligibilityBoundary]} role="img" />
-          </div>
-          <p className="text-right t-caption text-finance-ink"><strong>마감 {monthly.filter(row => row.state === 'closed').length}개월 {formatRate(annualRate)}%</strong><span className="mt-1 block text-finance-faint">잠정 포함 {formatRate(provisionalRate)}%</span></p>
+        <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 t-caption">
+          <p className="text-finance-muted">저축률 <span className="text-finance-faint">· 목표{Number(formatRate(savingsTarget))}%</span></p>
+          <p className="text-finance-ink"><strong>마감 {monthly.filter(row => row.state === 'closed').length}개월 {formatRate(annualRate)}%</strong><span className="ml-2 text-finance-faint">잠정 포함 {formatRate(provisionalRate)}%</span></p>
+        </div>
+        <div className="relative mt-1 h-[110px] w-full min-w-0" onMouseLeave={() => setHoveredMonth(null)}>
+          <Line aria-label="월별 순저축률 선 차트" data={rateData} options={rateOptions} plugins={[eligibilityBoundary]} role="img" />
         </div>
       </div>
     </section>

@@ -1,11 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import type { ChartData } from 'chart.js'
+import type { ChartData, ChartOptions } from 'chart.js'
 import { afterEach, expect, test, vi } from 'vitest'
 
-const captured = vi.hoisted(() => ({ bars: [] as ChartData<'bar'>[], lines: [] as ChartData<'line'>[] }))
+const captured = vi.hoisted(() => ({ bars: [] as ChartData<'bar'>[], lines: [] as ChartData<'line'>[], options: [] as Array<ChartOptions<'bar'> | ChartOptions<'line'>> }))
 vi.mock('react-chartjs-2', () => ({
-  Bar: ({ data }: { data: ChartData<'bar'> }) => { captured.bars.push(data); return null },
-  Line: ({ data }: { data: ChartData<'line'> }) => { captured.lines.push(data); return null },
+  Bar: ({ data, options }: { data: ChartData<'bar'>; options: ChartOptions<'bar'> }) => { captured.bars.push(data); captured.options.push(options); return null },
+  Line: ({ data, options }: { data: ChartData<'line'>; options: ChartOptions<'line'> }) => { captured.lines.push(data); captured.options.push(options); return null },
 }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 
@@ -16,7 +16,7 @@ import { SavingsProgressRing } from '@/features/analytics/home-dashboard-charts'
 import type { StatsMonthState } from '@/features/analytics/category-detail'
 import { StatsMonthlySection } from '@/features/analytics/stats-monthly-section'
 
-afterEach(() => { captured.bars.length = 0; captured.lines.length = 0; vi.unstubAllGlobals() })
+afterEach(() => { captured.bars.length = 0; captured.lines.length = 0; captured.options.length = 0; vi.unstubAllGlobals() })
 
 const states: StatsMonthState[] = ['closed', 'open', 'needs_review', 'closed', 'open', 'current', 'future', 'future', 'future', 'future', 'future', 'future']
 const monthly = states.map((state, index) => ({
@@ -24,6 +24,32 @@ const monthly = states.map((state, index) => ({
   hasTransactions: index < 3, income: index < 3 ? 100 : 0, expense: index < 3 ? 60 : 0,
   saving: index < 3 ? 10 : 0, savingsRate: index < 3 ? 40 : 0,
 })) as AnnualFlowRow[]
+
+test('money and rate plots use equal calendar slots despite different numeric axis label widths', () => {
+  renderToStaticMarkup(<AnnualFlowOverview monthly={monthly} annualRate={40} provisionalRate={35} savingsTarget={30} />)
+  const [money, rate] = captured.options
+  for (const options of [money, rate]) expect(options.scales?.x?.offset).toBe(true)
+  const axisWidths = captured.options.map((options, index) => {
+    const axis = { width: index === 0 ? 53 : 28 }
+    const fit = options.scales?.y?.afterFit as unknown as (axis: { width: number }) => void
+    fit(axis)
+    return axis.width
+  })
+  expect(axisWidths[0]).toBe(axisWidths[1])
+  expect(money.layout).toEqual(rate.layout)
+  expect(money.scales?.x?.ticks?.display).toBe(false)
+  expect(rate.scales?.x?.ticks?.display).not.toBe(false)
+})
+
+test('large negative rate ticks fit the common gutter without truncating the actual tooltip value', () => {
+  renderToStaticMarkup(<AnnualFlowOverview monthly={monthly} annualRate={40} provisionalRate={35} savingsTarget={30} />)
+  const options = captured.options[1]
+  const tick = options.scales?.y?.ticks?.callback as unknown as (value: number) => string
+  const tooltip = options.plugins?.tooltip?.callbacks?.label as unknown as (ctx: { raw: number }) => string
+  expect(tick(-500000000)).toBe('-5e+8%')
+  expect(tick(37.5)).toBe('37.5%')
+  expect(tooltip({ raw: -299999900 })).toBe('순저축률: -299,999,900.0%')
+})
 
 test('annual chart keeps explicit closed zero, gaps absent open/current/future, and marks provisional bars and points', () => {
   const html = renderToStaticMarkup(<AnnualFlowOverview monthly={monthly} annualRate={40} provisionalRate={35} savingsTarget={30} />)
@@ -59,6 +85,37 @@ test.each(['stacked', 'line', 'area'] as const)('series %s preserves nulls and a
     expect((line.pointBackgroundColor as string[])[1]).toBe('#ffffff')
     expect((line.segment as { borderDash: (context: unknown) => unknown }).borderDash({ p0DataIndex: 0, p1DataIndex: 1 })).toEqual([5, 4])
   }
+})
+
+test.each(['line', 'area'] as const)('%s fades provisional segments and points without losing hue or selection dimming', kind => {
+  for (const selectedSeries of [null, 'other']) {
+    renderToStaticMarkup(<SeriesChart kind={kind} monthStates={states} currentMonthIndex={5} activeMonths={6}
+      series={[{ id: 'food', label: '식비', color: '#2563eb', values: [40, 60, 20, 0, null, 10] }]}
+      hoverSeries={null} hoverMonth={null} selectedSeries={selectedSeries} selectedMonth={null} onHover={() => {}} onSelect={() => {}} />)
+    const line = captured.lines.at(-1)!.datasets[0]
+    const segment = line.segment as unknown as Record<string, (ctx: { p0DataIndex: number; p1DataIndex: number }) => string>
+    const closed = { p0DataIndex: 0, p1DataIndex: 3 }
+    const provisional = { p0DataIndex: 0, p1DataIndex: 1 }
+    const opacity = (value: string) => Number(value.match(/, ([\d.]+)\)$/)?.[1] ?? 1)
+    const closedStroke = segment.borderColor(closed)
+    const pendingStroke = segment.borderColor(provisional)
+    expect(pendingStroke).toContain('37, 99, 235')
+    expect(opacity(pendingStroke) / opacity(closedStroke)).toBeCloseTo(0.45)
+    expect(opacity((line.pointBorderColor as string[])[1])).toBeCloseTo(selectedSeries ? 0.072 : 0.45)
+    if (kind === 'area') {
+      expect(opacity(segment.backgroundColor(provisional))).toBeCloseTo(selectedSeries ? 0.08 * 0.2 / 0.72 : 0.2)
+      expect(opacity(segment.backgroundColor(closed))).toBeCloseTo(selectedSeries ? 0.08 : 0.72)
+    }
+  }
+})
+
+test('annual savings-rate segments and hollow point outlines fade in unclosed months', () => {
+  renderToStaticMarkup(<AnnualFlowOverview monthly={monthly} annualRate={40} provisionalRate={35} savingsTarget={30} />)
+  const line = captured.lines[0].datasets[0]
+  const color = (line.segment as unknown as { borderColor: (ctx: { p0DataIndex: number; p1DataIndex: number }) => string }).borderColor
+  expect(color({ p0DataIndex: 0, p1DataIndex: 3 })).toBe('#16a34a')
+  expect(color({ p0DataIndex: 0, p1DataIndex: 1 })).toBe('rgba(22, 163, 74, 0.45)')
+  expect((line.pointBorderColor as string[])[1]).toBe('rgba(22, 163, 74, 0.45)')
 })
 
 test('hatch has an SSR fallback and builds a faint diagonal repeating canvas pattern', () => {

@@ -116,7 +116,9 @@ async function captureAnnualStatistics(
     }
     const track = rgb('track')
     const gridRows: number[] = []
-    for (let y = 0; y < canvas.height - 20; y += 1) {
+    // Month labels now live below the rate strip, so the money plot's zero
+    // gridline can extend into what used to be the bottom 20px label gutter.
+    for (let y = 0; y < canvas.height; y += 1) {
       let pixels = 0
       for (let x = 0; x < canvas.width; x += 1) if (matches(x, y, track)) pixels += 1
       if (pixels > canvas.width * 0.8) gridRows.push(y)
@@ -467,7 +469,7 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
     expect(Math.abs(chartCenter - (valueCell.x + valueCell.width / 2))).toBeLessThan(1)
   }
 
-  const popup = section.locator('.pointer-events-none.absolute.top-2')
+  const popup = page.getByRole('tooltip', { name: '월별 차트 상세' })
   for (const kind of ['누적 막대', '선', '100% 누적 영역']) {
     await section.getByRole('button', { name: kind, exact: true }).click()
     const canvas = section.getByRole('img', { name: `${kind} 월별 차트`, exact: true }).locator('canvas')
@@ -510,6 +512,7 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   })
   let response = cellResponse(1)
   await subJanuary.focus()
+  await expect(popup).not.toBeVisible()
   let responseUrl = new URL((await response).url())
   expect(responseUrl.searchParams.get('scope')).toBe('closed')
   expect(responseUrl.searchParams.get('revision')).toBe(String(revisions.get(`${SPARSE_YEAR}-01`)))
@@ -667,7 +670,7 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   const currentCanvas = currentSection.getByRole('img', { name: '선 월별 차트', exact: true }).locator('canvas')
   const currentBounds = (await currentCanvas.boundingBox())!
   await currentCanvas.hover({ position: { x: currentBounds.width * (CURRENT_MONTH_NUMBER - 0.5) / 12, y: currentBounds.height / 2 } })
-  const currentPopup = currentSection.locator('.pointer-events-none.absolute.top-2')
+  const currentPopup = page.getByRole('tooltip', { name: '월별 차트 상세' })
   await expect(currentPopup).toContainText('300')
   await expect(currentPopup).toContainText('전월 대비 –')
   await expect(currentPopup.locator('span.border')).toHaveCount(0)

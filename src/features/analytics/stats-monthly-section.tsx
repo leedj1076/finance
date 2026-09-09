@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
+  useCallback,
   useId,
   useEffect,
   useLayoutEffect,
@@ -18,6 +19,8 @@ import type { AccountMonthlyData } from './account-monthly'
 import { toggleCategoryDetailCell } from './category-detail-calculations'
 import type { CategoryDetails, CellTransactionResult } from './category-detail'
 import { compactWon } from './chart-theme'
+import { ChartHoverTooltip } from './chart-hover-tooltip'
+import type { ChartHoverAnchor } from './chart-tooltip-position'
 import { buildSeriesChartGeometry } from './series-chart-geometry'
 import { SeriesChart, type SeriesChartKind } from './series-chart'
 import {
@@ -148,6 +151,7 @@ export function StatsMonthlySection({
   const [hoverSeries, setHoverSeries] = useState<string | null>(null)
   const [hoverMonth, setHoverMonth] = useState<number | null>(null)
   const [chartHovered, setChartHovered] = useState(false)
+  const [chartAnchor, setChartAnchor] = useState<ChartHoverAnchor | null>(null)
   const [selection, setSelection] = useState<StatsSeriesSelection | null>(null)
   const [cellTooltip, setCellTooltip] = useState<TableTooltipState | null>(null)
   const cache = useRef(new Map<string, CellTransactionResult>())
@@ -411,7 +415,7 @@ export function StatsMonthlySection({
     setExcluded((current) => toggleCategoryDetailCell(current, key))
   }
 
-  function updateHover(seriesId: string | null, month: number | null, fromChart = false) {
+  const updateHover = useCallback((seriesId: string | null, month: number | null, fromChart = false) => {
     if (month !== null && !model.eligibleMonths[month]) {
       setChartHovered(false); setHoverSeries(null); setHoverMonth(null)
       return
@@ -419,15 +423,24 @@ export function StatsMonthlySection({
     setChartHovered(fromChart && seriesId !== null)
     setHoverSeries(seriesId)
     setHoverMonth(month)
-  }
+  }, [model.eligibleMonths])
 
-  function selectSeries(seriesId: string, month: number) {
+  const handleChartHover = useCallback((seriesId: string | null, month: number | null, anchor?: ChartHoverAnchor) => {
+    updateHover(seriesId, month, true)
+    if (anchor) setChartAnchor(previous => previous
+      && previous.x === anchor.x && previous.y === anchor.y
+      && previous.plot.left === anchor.plot.left && previous.plot.right === anchor.plot.right
+      && previous.plot.top === anchor.plot.top && previous.plot.bottom === anchor.plot.bottom
+      ? previous : anchor)
+  }, [updateHover])
+
+  const selectSeries = useCallback((seriesId: string, month: number) => {
     const next = toggleStatsSeriesSelection(selection, { seriesId, month })
     setSelection(next)
     if (!next || effectiveAxis !== 'category') return
     const row = model.rows.find((item) => item.id === next.seriesId)
     if (row) setExpanded((current) => new Set(current).add(row.label))
-  }
+  }, [effectiveAxis, model.rows, selection])
 
   const axisLabels = chart === 'area'
     ? ['100%', '50%', '0']
@@ -517,21 +530,14 @@ export function StatsMonthlySection({
                   hoverMonth={hoverMonth}
                   hoverSeries={hoverSeries}
                   kind={chart}
-                  onHover={(seriesId, month) => updateHover(seriesId, month, true)}
+                  onHover={handleChartHover}
                   onSelect={selectSeries}
                   selectedMonth={selection?.month ?? null}
                   selectedSeries={selectedSeries?.id ?? null}
                   series={model.series}
                 />
-                {chartHovered && hoveredSeries && hoverMonth !== null && model.eligibleMonths[hoverMonth] && (
-                  <div
-                    className="pointer-events-none absolute top-2 z-20 flex w-[8.3333%] justify-center"
-                    style={{
-                      left: `${(hoverMonth / 12) * 100}%`,
-                      transform: `translateX(${hoverMonth <= 1 ? 90 : hoverMonth >= model.activeMonths - 1 ? -90 : 0}px)`,
-                    }}
-                  >
-                    <div className="whitespace-nowrap bg-finance-ink px-3 py-2.5 text-white shadow-xl">
+                {chartHovered && chartAnchor && hoveredSeries && hoverMonth !== null && model.eligibleMonths[hoverMonth] && (
+                  <ChartHoverTooltip anchor={chartAnchor}>
                       <p className="flex items-center gap-1.5 t-body-strong">
                         <span className="inline-block h-[9px] w-[9px]" style={{ background: hoveredSeries.color }} />
                         {hoveredSeries.label}
@@ -539,12 +545,11 @@ export function StatsMonthlySection({
                       </p>
                       <p className={`mt-1.5 t-kpi-sm ${isProvisional(hoverMonth) ? 'text-finance-faint' : ''}`}>{formatWon(hoveredValue)}<span className="ml-1 t-caption font-medium text-finance-faint">원</span></p>
                       <p className="mt-1 t-caption text-finance-faint">
-                        월 합계 {formatWon(hoveredTotal)}원의 <strong className="text-white">{hoveredTotal > 0 ? ((hoveredValue / hoveredTotal) * 100).toFixed(1) : '0.0'}%</strong>
+                        월 합계 {formatWon(hoveredTotal)}원의 <strong className="text-[var(--background)]">{hoveredTotal > 0 ? ((hoveredValue / hoveredTotal) * 100).toFixed(1) : '0.0'}%</strong>
                         {' · '}전월 대비 <strong className={comparisonIsProvisional ? 'text-finance-faint' : trendDeltaColor(hoveredDelta, flow)}>{hoveredDelta === null ? '–' : hoveredDelta === 0 ? '변동 없음' : `${hoveredDelta > 0 ? '▲' : '▼'} ${formatWon(Math.abs(hoveredDelta))}`}</strong>
                         {hoveredDelta !== null && <span className={`ml-1.5 border px-1 t-label ${comparisonIsProvisional ? 'border-finance-faint text-finance-faint' : 'border-finance-green text-finance-green'}`}>{comparisonIsProvisional ? '잠정' : '확정'}</span>}
                       </p>
-                    </div>
-                  </div>
+                  </ChartHoverTooltip>
                 )}
               </div>
               <div className="col-span-3 self-end pb-1 t-caption text-finance-muted">
