@@ -990,6 +990,18 @@ test('pending table detail requests cancel on scroll or resize and keyboard focu
     if (!tooltipBox) throw new Error('Expected a visible keyboard tooltip')
     expect(tooltipBox.x + tooltipBox.width).toBeLessThanOrEqual(viewport.width)
     expect(tooltipBox.y + tooltipBox.height).toBeLessThanOrEqual(viewport.height)
+    const horizontalGap = Math.max(
+      tooltipBox.x - (edgeCellBox.x + edgeCellBox.width),
+      edgeCellBox.x - (tooltipBox.x + tooltipBox.width),
+      0,
+    )
+    const verticalGap = Math.max(
+      tooltipBox.y - (edgeCellBox.y + edgeCellBox.height),
+      edgeCellBox.y - (tooltipBox.y + tooltipBox.height),
+      0,
+    )
+    expect(horizontalGap).toBeLessThanOrEqual(8)
+    expect(verticalGap).toBeLessThanOrEqual(8)
     await page.evaluate(() => window.scrollBy(0, 1))
     await expect(tooltip).not.toBeVisible()
 
