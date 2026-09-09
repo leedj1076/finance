@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
 import { AnnualFlowOverview } from '@/features/analytics/annual-flow-overview'
+import { normalizeAnalyticsMerchant } from '@/features/analytics/calculations'
 import { SavingsProgressRing } from '@/features/analytics/home-dashboard-charts'
 import { getStatsReportData } from '@/features/analytics/stats-report'
 import { MONTH_STATE_LABELS } from '@/features/month-close/state'
@@ -216,7 +217,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
                 <span>#</span><span>가맹점</span><span className="text-right">건수</span><span className="text-right">올해</span><span className="text-right">전년 대비</span>
               </div>
               {data.topMerchants.map((merchant, index) => {
-                const compared = comparison.merchantComparisons[merchant.name]
+                const compared = comparison.merchantComparisons[normalizeAnalyticsMerchant(merchant.name)]
                 return (
                 <div className="grid grid-cols-[30px_minmax(0,1fr)_70px_120px_90px] items-center border-b border-finance-track py-2.5 t-caption" key={merchant.name}>
                   <span className="text-finance-faint">{index + 1}</span>

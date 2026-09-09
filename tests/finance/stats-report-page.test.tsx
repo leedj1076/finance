@@ -76,6 +76,30 @@ test('official KPI stays official while fallback comparison takes both years fro
   expect(html.split('가맹점 TOP')[1].split('전년 같은 기간과 비교')[0]).toContain('▲ 400')
 })
 
+test.each([
+  { path: 'official', previousComparable: true, delta: '▲ 50', tone: 'text-finance-red' },
+  { path: 'provisional', previousComparable: false, delta: '▲ 400', tone: 'text-finance-faint' },
+])('$path merchant comparison normalizes display-name whitespace, digits and uppercase before lookup', async ({ previousComparable, delta, tone }) => {
+  const stats = fixture()
+  const input = {
+    year: 2026, currentMonthKey: '2026-04', assetBalances: [],
+    transactions: [
+      { id: 1, date: '2026-01-01', flow: 'expense', amount: 100, major: '식비', memo: 'Starbucks 123' },
+      { id: 2, date: '2026-02-01', flow: 'expense', amount: 500, major: '식비', memo: 'STAR BUCKS 456' },
+      { id: 3, date: '2025-01-01', flow: 'expense', amount: 50, major: '식비', memo: 'starbucks789' },
+      { id: 4, date: '2025-02-01', flow: 'expense', amount: 150, major: '식비', memo: 'star bucks 0' },
+    ] as ReportTransactionRow[],
+  }
+  stats.report = {
+    official: buildAnnualReport({ ...input, eligibleMonths: [1], previousComparable }),
+    provisional: buildAnnualReport({ ...input, eligibleMonths: [1, 2], previousComparable: true }),
+  }
+  const merchants = (await render(stats)).split('가맹점 TOP')[1].split('전년 같은 기간과 비교')[0]
+  expect(merchants).toContain('Starbucks 123')
+  expect(merchants).toContain(`class="text-right tabular-nums ${tone}">${delta}</span>`)
+  expect(merchants.includes('잠정 · 2025년 미마감')).toBe(!previousComparable)
+})
+
 test.each(['income', 'refund', 'offset'] as const)('current-only %s records stay visible with no annual contribution', async kind => {
   const stats = fixture({ closed: [], records: [4], previous: false })
   Object.assign(stats.monthly[3], { income: kind === 'income' ? 99999 : 0, expense: kind === 'refund' ? -200 : 0 })
