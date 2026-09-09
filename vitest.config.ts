@@ -19,6 +19,8 @@ export default defineConfig({
     projects: [
       {
         resolve: { alias },
+        oxc: { jsx: { runtime: 'automatic' } },
+        css: { postcss: { plugins: [] } },
         test: {
           name: 'unit',
           environment: 'node',
