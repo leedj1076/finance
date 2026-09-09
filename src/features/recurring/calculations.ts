@@ -1,5 +1,24 @@
 import { normalizeAnalyticsMerchant } from '@/features/analytics/calculations'
 
+export type RecurringSchedule = {
+  startMonth?: string | null
+  endMonth?: string | null
+  startOccurrence?: number | null
+  adjustToBusinessDay?: boolean
+}
+
+export function recurringIsDue(rule: RecurringSchedule & { active: boolean }, month: string) {
+  return rule.active && (!rule.startMonth || month >= rule.startMonth)
+    && (!rule.endMonth || month <= rule.endMonth)
+}
+
+export function recurringMemo(rule: RecurringSchedule & { memo: string | null }, month: string) {
+  if (!rule.startMonth || rule.startOccurrence == null) return rule.memo
+  const offset = (Number(month.slice(0, 4)) - Number(rule.startMonth.slice(0, 4))) * 12
+    + Number(month.slice(5, 7)) - Number(rule.startMonth.slice(5, 7))
+  return rule.memo?.replace(/X(?=\s*회)/g, String(rule.startOccurrence + offset)) ?? null
+}
+
 export type RecurringCandidateRow = {
   date: string
   amount: number

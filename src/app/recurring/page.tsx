@@ -57,7 +57,7 @@ export default async function RecurringPage({ searchParams }: RecurringPageProps
         {saved && <p className="mt-5 border-l-2 border-finance-green bg-finance-green-tint px-4 py-3 text-[13px] text-finance-green">정기거래 규칙을 저장했습니다.</p>}
 
         <section className="mt-6 grid border-y border-finance-ink sm:grid-cols-2 sm:divide-x sm:divide-finance-hairline xl:grid-cols-4">
-          <SummaryCard label="사용 중인 규칙" value={`${data.activeCount}개`} />
+          <SummaryCard label={`${data.month} 적용 규칙`} value={`${data.activeCount}개`} />
           <SummaryCard label="월 정기지출" tone="expense" value={`${formatWon(data.totals.expense)}원`} />
           <SummaryCard label="월 정기수입" tone="income" value={`${formatWon(data.totals.income)}원`} />
           <SummaryCard label="월 저축 납입" tone="saving" value={`${formatWon(data.totals.saving)}원`} />
@@ -82,8 +82,13 @@ export default async function RecurringPage({ searchParams }: RecurringPageProps
             day: rule.day,
             active: rule.active,
             generated: rule.generated,
+            startMonth: rule.startMonth,
+            endMonth: rule.endMonth,
+            startOccurrence: rule.startOccurrence,
+            adjustToBusinessDay: rule.adjustToBusinessDay,
           }))}
           month={data.month}
+          key={data.month}
         />
           </div>
         </div>

@@ -20,6 +20,7 @@
     "diagnosis:service": "tsx scripts/manage-diagnosis-worker.ts"
   },
   "dependencies": {
+    "@hyunbinseo/holidays-kr": "5.2027.1",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
     "chart.js": "4.5.1",

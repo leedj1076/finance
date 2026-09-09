@@ -4,7 +4,7 @@ import { db } from '@/db/client'
 import { accounts, categories, recurring, transactions } from '@/db/schema'
 import { currentMonthInKorea, isMonthKey, monthBounds, shiftMonth } from '@/lib/finance'
 
-import { detectRecurringCandidates } from './calculations'
+import { detectRecurringCandidates, recurringIsDue } from './calculations'
 import { flowToToken } from './recurring-input'
 import { recurringPostingInMonth } from './posting-identity'
 
@@ -29,6 +29,10 @@ export async function getRecurringData(householdId: string, requestedMonth?: str
         day: recurring.day,
         active: recurring.active,
         sortOrder: recurring.sortOrder,
+        startMonth: recurring.startMonth,
+        endMonth: recurring.endMonth,
+        startOccurrence: recurring.startOccurrence,
+        adjustToBusinessDay: recurring.adjustToBusinessDay,
       })
       .from(recurring)
       .leftJoin(
@@ -85,7 +89,7 @@ export async function getRecurringData(householdId: string, requestedMonth?: str
     flowToken: flowToToken(row.flow, row.fixed),
     generated: generatedIds.has(row.id),
   }))
-  const activeRules = rules.filter((rule) => rule.active)
+  const activeRules = rules.filter((rule) => recurringIsDue(rule, month))
   const totals = {
     expense: activeRules.filter((rule) => rule.flow === 'expense').reduce((sum, rule) => sum + rule.amount, 0),
     income: activeRules.filter((rule) => rule.flow === 'income').reduce((sum, rule) => sum + rule.amount, 0),

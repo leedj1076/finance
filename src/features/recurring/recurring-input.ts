@@ -1,9 +1,12 @@
 import type { TransactionFlow } from '@/features/ledger/transaction-input'
+import { isMonthKey } from '@/lib/finance'
+
+import type { RecurringSchedule } from './calculations'
 
 export const recurringFlowTokens = ['exp_fix', 'exp_var', 'income', 'saving'] as const
 export type RecurringFlowToken = (typeof recurringFlowTokens)[number]
 
-export type RecurringInput = {
+export type RecurringInput = RecurringSchedule & {
   id: number | null
   flow: TransactionFlow
   fixed: boolean
@@ -69,8 +72,35 @@ export function parseRecurringPayload(value: FormDataEntryValue | null): ParseRe
       if (categoryId === undefined) return { error: `${memo} 분류가 올바르지 않습니다.` }
       if (accountId === undefined) return { error: `${memo} 결제수단이 올바르지 않습니다.` }
 
+      const schedule: RecurringSchedule = {}
+      for (const key of ['startMonth', 'endMonth'] as const) {
+        if (row[key] === undefined) continue // Old clients must not erase existing settings.
+        if (row[key] !== null && row[key] !== '' && (typeof row[key] !== 'string' || !isMonthKey(row[key]))) {
+          return { error: `${memo} 시작·종료 월을 YYYY-MM 형식으로 입력해 주세요.` }
+        }
+        schedule[key] = row[key] ? String(row[key]) : null
+      }
+      if (schedule.startMonth && schedule.endMonth && schedule.startMonth > schedule.endMonth) {
+        return { error: `${memo} 종료 월은 시작 월보다 빠를 수 없습니다.` }
+      }
+      if (row.startOccurrence !== undefined) {
+        const occurrence = row.startOccurrence === null || row.startOccurrence === '' ? null : Number(row.startOccurrence)
+        if (occurrence !== null && (!Number.isSafeInteger(occurrence) || occurrence < 1 || occurrence > 1000000)) {
+          return { error: `${memo} 시작 회차는 1~1,000,000의 정수로 입력해 주세요.` }
+        }
+        if (occurrence !== null && (!schedule.startMonth || !/X\s*회/.test(memo))) {
+          return { error: `${memo} 회차 자동 증가에는 시작 월과 제목의 X회 표시가 필요합니다.` }
+        }
+        schedule.startOccurrence = occurrence
+      }
+      if (row.adjustToBusinessDay !== undefined) {
+        if (typeof row.adjustToBusinessDay !== 'boolean') return { error: `${memo} 영업일 조정 설정이 올바르지 않습니다.` }
+        schedule.adjustToBusinessDay = row.adjustToBusinessDay
+      }
+
       const flow = tokenToFlow(token as RecurringFlowToken)
       result.push({
+        ...schedule,
         id,
         ...flow,
         categoryId,

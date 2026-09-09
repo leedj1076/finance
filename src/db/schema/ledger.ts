@@ -1,6 +1,7 @@
 import {
   bigint,
   boolean,
+  check,
   date,
   index,
   integer,
@@ -10,6 +11,7 @@ import {
   unique,
   uuid,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 import { flowEnum } from '../enums'
 import { households } from './auth'
@@ -40,7 +42,14 @@ export const recurring = pgTable('recurring', {
   day: integer('day').notNull().default(1),
   active: boolean('active').notNull().default(true),
   sortOrder: integer('sort_order').notNull().default(0),
-})
+  startMonth: text('start_month'),
+  endMonth: text('end_month'),
+  startOccurrence: integer('start_occurrence'),
+  adjustToBusinessDay: boolean('adjust_to_business_day').notNull().default(false),
+}, (table) => [
+  check('recurring_schedule_months', sql`(${table.startMonth} is null or ${table.startMonth} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$') and (${table.endMonth} is null or ${table.endMonth} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$') and (${table.startMonth} is null or ${table.endMonth} is null or ${table.startMonth} <= ${table.endMonth})`),
+  check('recurring_schedule_occurrence', sql`${table.startOccurrence} is null or (${table.startOccurrence} between 1 and 1000000 and ${table.startMonth} is not null and ${table.memo} is not null and ${table.memo} ~ 'X[[:space:]]*회')`),
+])
 
 export const transactions = pgTable(
   'transactions',

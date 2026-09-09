@@ -43,6 +43,13 @@
       "when": 1788921206296,
       "tag": "0005_diagnosis_queue",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788928486768,
+      "tag": "0006_recurring_schedule",
+      "breakpoints": true
     }
   ]
 }

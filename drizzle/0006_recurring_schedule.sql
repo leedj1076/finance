@@ -1,0 +1,6 @@
+ALTER TABLE "recurring" ADD COLUMN "start_month" text;--> statement-breakpoint
+ALTER TABLE "recurring" ADD COLUMN "end_month" text;--> statement-breakpoint
+ALTER TABLE "recurring" ADD COLUMN "start_occurrence" integer;--> statement-breakpoint
+ALTER TABLE "recurring" ADD COLUMN "adjust_to_business_day" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "recurring" ADD CONSTRAINT "recurring_schedule_months" CHECK (("recurring"."start_month" is null or "recurring"."start_month" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$') and ("recurring"."end_month" is null or "recurring"."end_month" ~ '^[0-9]{4}-(0[1-9]|1[0-2])$') and ("recurring"."start_month" is null or "recurring"."end_month" is null or "recurring"."start_month" <= "recurring"."end_month"));--> statement-breakpoint
+ALTER TABLE "recurring" ADD CONSTRAINT "recurring_schedule_occurrence" CHECK ("recurring"."start_occurrence" is null or ("recurring"."start_occurrence" between 1 and 1000000 and "recurring"."start_month" is not null and "recurring"."memo" is not null and "recurring"."memo" ~ 'X[[:space:]]*회'));

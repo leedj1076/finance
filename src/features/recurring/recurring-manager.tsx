@@ -7,10 +7,10 @@ import type { TransactionFlow } from '@/features/ledger/transaction-input'
 import { formatWon } from '@/lib/finance'
 
 import { saveRecurringRules, type RecurringActionState } from './actions'
-import type { RecurringCandidate } from './calculations'
+import { recurringIsDue, recurringMemo, type RecurringCandidate, type RecurringSchedule } from './calculations'
 import type { RecurringFlowToken } from './recurring-input'
 
-type RuleDraft = {
+type RuleDraft = RecurringSchedule & {
   key: string
   id: number | null
   flowToken: RecurringFlowToken
@@ -63,9 +63,9 @@ export function RecurringManager({
   const [nextKey, setNextKey] = useState(1)
   const activeTotal = useMemo(
     () => rules
-      .filter((rule) => rule.active)
+      .filter((rule) => recurringIsDue(rule, month))
       .reduce((sum, rule) => sum + (Number(rule.amount.replace(/,/g, '')) || 0), 0),
-    [rules],
+    [rules, month],
   )
 
   function updateRule(key: string, values: Partial<RuleDraft>) {
@@ -86,6 +86,10 @@ export function RecurringManager({
       day: candidate?.suggestedDay ?? 1,
       active: true,
       generated: false,
+      startMonth: month,
+      endMonth: null,
+      startOccurrence: null,
+      adjustToBusinessDay: false,
     }])
   }
 
@@ -191,7 +195,7 @@ export function RecurringManager({
         <input
           name="rules"
           type="hidden"
-          value={JSON.stringify(rules.map(({ id, flowToken, categoryId, memo, amount, accountId, day, active }) => ({
+          value={JSON.stringify(rules.map(({ id, flowToken, categoryId, memo, amount, accountId, day, active, startMonth, endMonth, startOccurrence, adjustToBusinessDay }) => ({
             id,
             flowToken,
             categoryId,
@@ -200,13 +204,18 @@ export function RecurringManager({
             accountId,
             day,
             active,
+            startMonth: startMonth ?? null,
+            endMonth: endMonth ?? null,
+            startOccurrence: startOccurrence ?? null,
+            adjustToBusinessDay: adjustToBusinessDay ?? false,
           })))}
         />
         <section className="overflow-hidden border-t border-finance-ink">
           <div className="flex flex-col justify-between gap-4 border-b border-finance-hairline py-4 sm:flex-row sm:items-center">
             <div>
               <h2 className="t-section text-finance-ink">정기거래 목록</h2>
-              <p className="mt-1 t-caption text-finance-muted">사용 중인 전체 규칙 합계 {formatWon(activeTotal)}원 · 방향키/Enter 이동 · 스프레드시트 범위 붙여넣기</p>
+              <p className="mt-1 t-caption text-finance-muted">{month} 적용 규칙 합계 {formatWon(activeTotal)}원 · 방향키/Enter 이동 · 스프레드시트 범위 붙여넣기</p>
+              <p className="mt-1 t-caption text-finance-muted">규칙 저장만으로 거래가 생성되지는 않습니다. 내역에서 해당 월을 반영할 때 생성됩니다.</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -241,6 +250,7 @@ export function RecurringManager({
                       </label>
                       {rule.generated && <span className="bg-finance-green-tint px-2 py-0.5 t-badge text-finance-green">{month} 반영됨</span>}
                       {isNew && <span className="bg-finance-blue-tint px-2 py-0.5 t-badge text-finance-blue">새 규칙</span>}
+                      {rule.active && !recurringIsDue(rule, month) && <span className="bg-finance-panel px-2 py-0.5 t-badge text-finance-muted">{rule.startMonth && month < rule.startMonth ? '시작 전' : '기간 종료'}</span>}
                     </div>
                     {isNew && (
                       <button className="t-caption text-finance-faint hover:text-finance-red" onClick={() => removeNewRule(rule.key)} type="button">제거</button>
@@ -338,6 +348,39 @@ export function RecurringManager({
                       />
                     </label>
                   </div>
+                  <details className="mt-3 border-t border-finance-hairline pt-3">
+                    <summary className="cursor-pointer t-caption text-finance-muted">
+                      기간·회차·휴일 설정 · {rule.startMonth || '시작 제한 없음'} ~ {rule.endMonth || '종료 없음'}
+                      {rule.startOccurrence != null && ` · 시작 ${rule.startOccurrence}회`}
+                      {rule.adjustToBusinessDay && ' · 휴일이면 이전 영업일'}
+                    </summary>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <label className="t-caption text-finance-muted">시작 월
+                        <input aria-label={`${rule.memo || '새 정기거래'} 시작 월`} type="month" value={rule.startMonth ?? ''}
+                          onChange={(event) => updateRule(rule.key, { startMonth: event.target.value || null })}
+                          className="mt-1 h-[34px] w-full min-w-0 border border-finance-hairline bg-white px-2 t-body text-finance-ink" />
+                      </label>
+                      <label className="t-caption text-finance-muted">종료 월 (포함)
+                        <input aria-label={`${rule.memo || '새 정기거래'} 종료 월`} type="month" value={rule.endMonth ?? ''} min={rule.startMonth || undefined}
+                          onChange={(event) => updateRule(rule.key, { endMonth: event.target.value || null })}
+                          className="mt-1 h-[34px] w-full min-w-0 border border-finance-hairline bg-white px-2 t-body text-finance-ink" />
+                      </label>
+                      <label className="t-caption text-finance-muted">시작 회차 (선택)
+                        <input aria-label={`${rule.memo || '새 정기거래'} 시작 회차`} type="number" min={1} max={1000000} step={1} value={rule.startOccurrence ?? ''}
+                          onChange={(event) => updateRule(rule.key, { startOccurrence: event.target.value === '' ? null : Number(event.target.value) })}
+                          className="mt-1 h-[34px] w-full border border-finance-hairline bg-white px-2 t-body text-finance-ink" />
+                      </label>
+                      <label className="flex items-center gap-2 t-caption text-finance-ink">
+                        <input aria-label={`${rule.memo || '새 정기거래'} 이전 영업일 조정`} type="checkbox" checked={rule.adjustToBusinessDay ?? false}
+                          onChange={(event) => updateRule(rule.key, { adjustToBusinessDay: event.target.checked })} />
+                        주말·공휴일이면 이전 영업일
+                      </label>
+                    </div>
+                    <p className="mt-2 t-caption text-finance-muted">회차를 설정하면 제목의 X회를 시작 월 기준으로 바꿉니다. 종료 월을 비우면 계속 적용합니다.</p>
+                    {rule.startOccurrence != null && rule.startMonth && recurringIsDue(rule, month) && <p className="mt-1 t-caption text-finance-blue">{month} 제목: {recurringMemo(rule, month)}</p>}
+                    {rule.startOccurrence != null && rule.startMonth && rule.endMonth && rule.endMonth >= rule.startMonth && <p className="mt-1 t-caption text-finance-muted">마지막: {rule.endMonth} · {recurringMemo(rule, rule.endMonth)}</p>}
+                    {rule.adjustToBusinessDay && <p className="mt-1 t-caption text-finance-muted">한국 공휴일·대체공휴일·근로자의 날 기준 (2018~2027). 이후 연도는 달력 업데이트 후 반영할 수 있습니다.</p>}
+                  </details>
                 </article>
               )
             })}

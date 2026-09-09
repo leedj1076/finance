@@ -11,6 +11,7 @@ import {
 } from '@/db/schema'
 import { calculateBudgetPace, type BudgetPaceWarning } from '@/features/budgets/pace'
 import { recurringPostingInMonth } from '@/features/recurring/posting-identity'
+import { recurringIsDue } from '@/features/recurring/calculations'
 import { currentMonthInKorea, monthBounds, shiftMonth } from '@/lib/finance'
 
 import { anomalyAlerts, type AnalyticsRow } from './calculations'
@@ -156,7 +157,7 @@ export async function getHomeTodos(householdId: string) {
       .from(transactions)
       .where(and(eq(transactions.householdId, householdId), isNull(transactions.categoryId))),
     db
-      .select({ id: recurring.id })
+      .select({ id: recurring.id, active: recurring.active, startMonth: recurring.startMonth, endMonth: recurring.endMonth })
       .from(recurring)
       .where(and(eq(recurring.householdId, householdId), eq(recurring.active, true))),
     db
@@ -196,6 +197,6 @@ export async function getHomeTodos(householdId: string) {
     pendingInboxCount: Number(pendingRows[0]?.value ?? 0),
     unclassifiedCount: Number(unclassifiedRows[0]?.value ?? 0),
     needsReview: Number(today.slice(8, 10)) >= 25 && !budgetRows.some((row) => row.month === nextMonth),
-    ungeneratedRecurringCount: recurringRows.filter((row) => !generated.has(row.id)).length,
+    ungeneratedRecurringCount: recurringRows.filter((row) => recurringIsDue(row, month) && !generated.has(row.id)).length,
   })
 }

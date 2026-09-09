@@ -64,6 +64,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
   const anyFilter = hasLedgerFilters(filters)
   const recurringAdded = firstParam(params.recurringAdded)
   const recurringSkipped = firstParam(params.recurringSkipped)
+  const recurringError = firstParam(params.recurringError)
 
   const [shell, formOptions] = await Promise.all([
     getLedgerShellData(household.householdId, requestedMonth, filters),
@@ -141,6 +142,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
           ))}
         </div>
 
+        {recurringError && <p role="alert" className="mt-4 border-l-2 border-finance-red bg-finance-red-tint px-4 py-3 t-body text-finance-red">{recurringError} 거래는 추가되지 않았습니다.</p>}
         {recurring && <section className="flex flex-col gap-3 border-b border-finance-border py-4 sm:flex-row sm:items-center">
           <span aria-hidden className={`h-[7px] w-[7px] shrink-0 ${recurringPending > 0 ? 'bg-finance-amber' : 'bg-finance-green'}`} />
           <p className="t-body text-finance-ink">
