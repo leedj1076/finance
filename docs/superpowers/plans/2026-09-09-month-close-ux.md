@@ -953,6 +953,8 @@ git commit -m "feat(stats): compute official and provisional annual results side
 
 ### Task 7: `stats-monthly.ts` · 표시 대상과 확정 대상 분리
 
+**상세 소비자 보정 (2026-09-09):** 실제 상세 확장 경로는 `stats-monthly-section.tsx`의 선택 행/소분류 미니 추이와 소분류 셀이다. `src/features/analytics/stats-monthly-section.tsx`를 이 태스크의 명시 허용/git add 경로에 추가한다. 모델에 값 존재 마스크 `availableMonths: boolean[]`를 반환하고 이 경로가 넓은 표시 마스크 `eligibleMonths` 대신 값 존재 마스크를 사용하게 연결한다. 무기록 open/current는 null/비활성, 명시 마감 0원은 숫자 0/활성을 유지한다. 이 변경은 값 마스크 연결에 한정하며 잠정 색·태그·scope 변경은 Task 8에 남긴다. 기존 모델 테스트에서 선택 행/상세 행과 미니 추이 입력까지 실제 helper를 조합해 null·0 경계를 검증한다.
+
 **실행 보정 (2026-09-09, 스펙/현재 코드 우선):** 표시 마스크는 끝난 월+진행 중, 확정은 closed, 잠정 집계는 Task 6 provisionalMonths다. recordedMonths가 있으면 무기록 미마감/현재 월의 series/displayValues는 null이며 0원 점을 만들지 않는다. states/recordedMonths 없는 기존 소비자는 기존 현재 달 제외 평균을 유지한다(아래 monthDisplayed 폴백만으로 기존 평균을 바꾸면 안 됨). 행/소분류/전체에 provisionalTotal도 추가해 fallback 합계가 현재달 포함 total을 쓰지 않게 한다. 제외는 표시·확정·잠정에 동일하게 반영. statsChartSeries 등 상세 확장 경로도 동일 표시 마스크를 사용. 두 축·상세·진행 중·무기록·제외 상태를 검증한다.
 
 **Files:**
