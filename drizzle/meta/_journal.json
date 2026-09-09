@@ -50,6 +50,13 @@
       "when": 1788928486768,
       "tag": "0006_recurring_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788932319809,
+      "tag": "0007_monthly_close",
+      "breakpoints": true
     }
   ]
 }
