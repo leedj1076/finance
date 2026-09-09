@@ -54,7 +54,7 @@ async function deleteTestState(email: string, householdId?: string) {
 async function createTestUser(
   email: string,
   password: string,
-  options: { seedDashboard?: boolean } = {},
+  options: { seedDashboard?: boolean; dashboardYear?: number } = {},
 ) {
   const admin = createAdminClient()
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
@@ -110,7 +110,7 @@ async function createTestUser(
       timeZone: 'Asia/Seoul',
     }).slice(0, 7)
     const currentYear = Number(currentMonth.slice(0, 4))
-    const dashboardYear = currentYear
+    const dashboardYear = options.dashboardYear ?? currentYear
     const { error: transactionError } = await admin.from('transactions').insert([
       {
         household_id: household.id,
@@ -796,7 +796,8 @@ test('annual chart hover and selection show values, and cell exclusion updates t
       has: page.getByRole('heading', { name: '달마다 어떻게 달랐나', exact: true }),
     })
     await expect(detailSection).toBeVisible()
-    await expect(detailSection.getByText('그래프에서 확인할 항목을 선택하세요.', { exact: true })).toBeVisible()
+    await expect(detailSection.getByLabel('월별 그래프와 항목별 표').getByText('전체 항목', { exact: true })).toBeVisible()
+    await expect(detailSection.getByRole('button', { name: '▾ 식비', exact: true })).toBeVisible()
     const chart = detailSection.getByRole('img', { name: '누적 막대 월별 차트' }).locator('canvas')
     const bounds = await chart.boundingBox()
     if (!bounds) throw new Error('Monthly chart did not render')
@@ -838,8 +839,263 @@ test('annual chart hover and selection show values, and cell exclusion updates t
       await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%', { timeout: 200 })
     }).toPass({ timeout: 5000 })
     await detailSection.getByRole('button', { name: '선택 해제', exact: true }).click()
-    await expect(detailSection.getByText('그래프에서 확인할 항목을 선택하세요.', { exact: true })).toBeVisible()
+    await expect(detailSection.getByLabel('월별 그래프와 항목별 표').getByText('전체 항목', { exact: true })).toBeVisible()
+    await expect(detailSection.getByRole('button', { name: '▾ 식비', exact: true })).toBeVisible()
+
+    await page.setViewportSize({ width: 390, height: 520 })
+    await detailSection.scrollIntoViewIfNeeded()
+    const tableScroller = detailSection.getByLabel('월별 그래프와 항목별 표')
+    await tableScroller.evaluate((element) => { element.scrollLeft = 150 })
+    await expect.poll(() => tableScroller.evaluate((element) => element.scrollLeft)).toBe(150)
+    await tableScroller.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    const visibleMainCell = detailSection.getByRole('button', { name: '식비 2월 300,000원, 합계에서 제외', exact: true })
+    await visibleMainCell.hover()
+    const tableTooltip = page.getByRole('tooltip')
+    await expect(tableTooltip).toContainText('식비 · 2월')
+    const [cellBox, tooltipBox, viewport] = await Promise.all([
+      visibleMainCell.boundingBox(), tableTooltip.boundingBox(), Promise.resolve(page.viewportSize()),
+    ])
+    if (!cellBox || !tooltipBox || !viewport) throw new Error('Expected a visible table cell tooltip')
+    expect(tooltipBox.x).toBeGreaterThanOrEqual(0)
+    expect(tooltipBox.y).toBeGreaterThanOrEqual(0)
+    expect(tooltipBox.x + tooltipBox.width).toBeLessThanOrEqual(viewport.width)
+    expect(tooltipBox.y + tooltipBox.height).toBeLessThanOrEqual(viewport.height)
+    expect(Math.abs(tooltipBox.x - cellBox.x)).toBeLessThan(160)
+
+    const visibleSubCell = detailSection.getByRole('button', { name: '식비 카페 2월 300,000원, 합계에서 제외', exact: true })
+    await visibleSubCell.scrollIntoViewIfNeeded()
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    const subPointerBox = await visibleSubCell.boundingBox()
+    if (!subPointerBox) throw new Error('Expected a visible detailed transaction cell')
+    const transactionResponse = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === '/api/cell-tx' && url.searchParams.get('month') === '2'
+    })
+    await page.mouse.move(subPointerBox.x + (subPointerBox.width / 2), subPointerBox.y + (subPointerBox.height / 2))
+    expect((await transactionResponse).status()).toBe(200)
+    await expect(tableTooltip).toContainText('Parity E2E 대시보드 마트 2호점')
+    const [subCellBox, detailedTooltipBox] = await Promise.all([visibleSubCell.boundingBox(), tableTooltip.boundingBox()])
+    if (!subCellBox || !detailedTooltipBox) throw new Error('Expected a visible detailed transaction tooltip')
+    expect(detailedTooltipBox.x).toBeGreaterThanOrEqual(0)
+    expect(detailedTooltipBox.y).toBeGreaterThanOrEqual(0)
+    expect(detailedTooltipBox.x + detailedTooltipBox.width).toBeLessThanOrEqual(viewport.width)
+    expect(detailedTooltipBox.y + detailedTooltipBox.height).toBeLessThanOrEqual(viewport.height)
+    expect(Math.abs(detailedTooltipBox.x - subCellBox.x)).toBeLessThan(160)
+    await tableTooltip.getByRole('link', { name: '이 달 거래 보기 →', exact: true }).hover()
+    await expect(tableTooltip).toBeVisible()
+    await visibleSubCell.focus()
+    await page.keyboard.press('Escape')
+    await expect(tableTooltip).not.toBeVisible()
   } finally {
+    await deleteTestState(email, householdId)
+  }
+})
+
+function tooltipReportYear(currentMonth: string) {
+  return Number(currentMonth.slice(0, 4)) - 1
+}
+
+test('tooltip fixtures use an ended report year in every calendar month, including March', () => {
+  for (let month = 1; month <= 12; month += 1) {
+    const currentMonth = `2026-${String(month).padStart(2, '0')}`
+    const year = tooltipReportYear(currentMonth)
+    expect(year).toBe(2025)
+    expect(`${year}-04` < currentMonth).toBe(true)
+  }
+})
+
+for (const axis of ['카테고리', '결제수단']) {
+  test(`offscreen ${axis} main cell retains its keyboard summary through native focus scroll`, async ({ page }) => {
+    const email = `finance-main-tooltip-${crypto.randomUUID()}@example.com`
+    let householdId: string | undefined
+    try {
+      const year = tooltipReportYear(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 7))
+      const setup = await createTestUser(email, 'passw0rd!', { seedDashboard: true, dashboardYear: year })
+      householdId = setup.householdId
+      await loginAs(page, email, 'passw0rd!')
+      await page.goto(`/report?year=${year}`)
+      const section = page.locator('#category-detail')
+      await section.getByRole('button', { name: axis, exact: true }).click()
+      await page.setViewportSize({ width: 390, height: 360 })
+      const scroller = section.getByLabel('월별 그래프와 항목별 표')
+      await scroller.evaluate(element => { element.scrollLeft = 450 })
+      const label = axis === '카테고리' ? '식비' : 'DJ 삼성카드'
+      const cell = section.getByRole('button', { name: `${label} 2월 300,000원, 합계에서 제외`, exact: true })
+      await cell.evaluate(element => window.scrollBy(0, element.getBoundingClientRect().top - (window.innerHeight + 8)))
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+      const before = await cell.boundingBox()
+      if (!before) throw new Error('Expected an offscreen main cell')
+      expect(before.y).toBeGreaterThan(360)
+      expect(before.x + before.width).toBeLessThan(0)
+      const offsets = await scroller.evaluate(element => ({ y: window.scrollY, left: element.scrollLeft }))
+      await page.mouse.move(1, 1)
+      await cell.focus()
+      const tooltip = page.getByRole('tooltip')
+      await expect(tooltip).toContainText(`${label} · 2월`)
+      await expect(tooltip).toContainText('300,000')
+      await expect.poll(() => scroller.evaluate(() => window.scrollY)).not.toBe(offsets.y)
+      await expect.poll(() => scroller.evaluate(element => element.scrollLeft)).not.toBe(offsets.left)
+      await expect(cell).toBeFocused()
+      const bounds = await tooltip.boundingBox()
+      if (!bounds) throw new Error('Expected the summary by the focused main cell')
+      expect(bounds.x).toBeGreaterThanOrEqual(8)
+      expect(bounds.y).toBeGreaterThanOrEqual(8)
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(382)
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(352)
+      await page.evaluate(() => window.scrollBy(0, 1))
+      await expect(tooltip).not.toBeVisible()
+      await section.getByRole('button', { name: '선', exact: true }).focus()
+      await cell.focus()
+      await expect(tooltip).toBeVisible()
+      await page.setViewportSize({ width: 390, height: 380 })
+      await expect(tooltip).not.toBeVisible()
+    } finally {
+      await deleteTestState(email, householdId)
+    }
+  })
+}
+
+test('pending table detail requests cancel on scroll or resize and keyboard focus clamps at the viewport edge', async ({ page }) => {
+  const email = `finance-table-tooltip-${Date.now()}-${crypto.randomUUID()}@example.com`
+  const password = 'passw0rd!'
+  let householdId: string | undefined
+  let releaseDelayedResponse: (() => void) | undefined
+
+  try {
+    const dashboardYear = tooltipReportYear(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 7))
+    const setup = await createTestUser(email, password, { seedDashboard: true, dashboardYear })
+    householdId = setup.householdId
+    const { error: edgeTransactionError } = await createAdminClient().from('transactions').insert({
+      household_id: householdId,
+      date: `${dashboardYear}-04-12`,
+      flow: 'expense',
+      fixed: false,
+      amount: 123_456,
+      category_id: setup.categoryId,
+      raw_merchant: 'Parity E2E 가장자리 거래',
+      memo: '키보드 가장자리',
+      account_id: setup.accountId,
+      source: 'e2e',
+    })
+    if (edgeTransactionError) throw edgeTransactionError
+
+    let delayedRouteStarted!: () => void
+    const delayedRouteReady = new Promise<void>((resolve) => { delayedRouteStarted = resolve })
+    let delayedRouteFinished!: () => void
+    const delayedRouteDone = new Promise<void>((resolve) => { delayedRouteFinished = resolve })
+    let actualResponseStatus: number | undefined
+    const delayedResponse = new Promise<void>((resolve) => { releaseDelayedResponse = resolve })
+    await page.route('**/api/cell-tx?**', async (route) => {
+      const url = new URL(route.request().url())
+      if (url.searchParams.get('month') !== '2') {
+        await route.continue()
+        return
+      }
+      try {
+        const response = await route.fetch()
+        actualResponseStatus = response.status()
+        delayedRouteStarted()
+        await delayedResponse
+        await route.fulfill({ response })
+      } finally {
+        delayedRouteFinished()
+      }
+    })
+
+    await loginAs(page, email, password)
+    await page.goto(`/report?year=${dashboardYear}`)
+    const detailSection = page.locator('section').filter({
+      has: page.getByRole('heading', { name: '달마다 어떻게 달랐나', exact: true }),
+    })
+    const tableScroller = detailSection.getByLabel('월별 그래프와 항목별 표')
+    const pendingCell = detailSection.getByRole('button', { name: '식비 카페 2월 300,000원, 합계에서 제외', exact: true })
+    await pendingCell.scrollIntoViewIfNeeded()
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    const pendingBox = await pendingCell.boundingBox()
+    if (!pendingBox) throw new Error('Expected a visible delayed detail cell')
+    await page.mouse.move(pendingBox.x + (pendingBox.width / 2), pendingBox.y + (pendingBox.height / 2))
+    await delayedRouteReady
+    expect(actualResponseStatus).toBe(200)
+    await tableScroller.evaluate((element) => { element.scrollLeft = 1 })
+    await page.evaluate(() => window.dispatchEvent(new Event('resize')))
+    releaseDelayedResponse?.()
+    await delayedRouteDone
+    await expect(page.getByRole('tooltip')).not.toBeVisible()
+    await page.unroute('**/api/cell-tx?**')
+
+    await page.setViewportSize({ width: 390, height: 360 })
+    await tableScroller.evaluate((element) => { element.scrollLeft = 450 })
+    const edgeCell = detailSection.getByRole('button', { name: '식비 카페 4월 123,456원, 합계에서 제외', exact: true })
+    await page.evaluate((name) => {
+      const cell = Array.from(document.querySelectorAll('button')).find((element) => element.getAttribute('aria-label') === name)
+      if (!cell) throw new Error('Expected keyboard edge cell')
+      const bounds = cell.getBoundingClientRect()
+      window.scrollBy(0, bounds.top - (window.innerHeight + 8))
+    }, '식비 카페 4월 123,456원, 합계에서 제외')
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    const viewport = page.viewportSize()
+    const beforeFocusBox = await edgeCell.boundingBox()
+    const beforeFocusOffsets = await tableScroller.evaluate((element) => ({ x: window.scrollX, y: window.scrollY, left: element.scrollLeft, top: element.scrollTop }))
+    if (!beforeFocusBox || !viewport) throw new Error('Expected an offscreen keyboard cell')
+    expect(beforeFocusBox.y).toBeGreaterThan(viewport.height)
+    await page.mouse.move(1, 1)
+    await edgeCell.focus()
+    const tooltip = page.getByRole('tooltip')
+    await expect(tooltip).toContainText('Parity E2E 가장자리 거래')
+    const edgeCellBox = await edgeCell.boundingBox()
+    if (!edgeCellBox) throw new Error('Expected the browser to scroll the focused keyboard cell into view')
+    expect(edgeCellBox.x).toBeLessThan(viewport.width)
+    expect(edgeCellBox.x + edgeCellBox.width).toBeGreaterThan(0)
+    expect(edgeCellBox.y).toBeLessThan(viewport.height)
+    expect(edgeCellBox.y + edgeCellBox.height).toBeGreaterThan(0)
+    await expect.poll(() => tableScroller.evaluate(() => window.scrollY)).not.toBe(beforeFocusOffsets.y)
+    await expect.poll(() => tableScroller.evaluate((element) => element.scrollLeft)).not.toBe(beforeFocusOffsets.left)
+    const tooltipBox = await tooltip.boundingBox()
+    if (!tooltipBox) throw new Error('Expected a visible keyboard tooltip')
+    expect(tooltipBox.x + tooltipBox.width).toBeLessThanOrEqual(viewport.width)
+    expect(tooltipBox.y + tooltipBox.height).toBeLessThanOrEqual(viewport.height)
+    const horizontalGap = Math.max(
+      tooltipBox.x - (edgeCellBox.x + edgeCellBox.width),
+      edgeCellBox.x - (tooltipBox.x + tooltipBox.width),
+      0,
+    )
+    const verticalGap = Math.max(
+      tooltipBox.y - (edgeCellBox.y + edgeCellBox.height),
+      edgeCellBox.y - (tooltipBox.y + tooltipBox.height),
+      0,
+    )
+    expect(horizontalGap).toBeLessThanOrEqual(8)
+    expect(verticalGap).toBeLessThanOrEqual(8)
+    await page.evaluate(() => window.scrollBy(0, 1))
+    await expect(tooltip).not.toBeVisible()
+
+    await page.evaluate((name) => {
+      const cell = Array.from(document.querySelectorAll('button')).find((element) => element.getAttribute('aria-label') === name)
+      const table = document.querySelector<HTMLElement>('[aria-label="월별 그래프와 항목별 표"]')
+      if (!cell || !table) throw new Error('Expected keyboard edge cell and table')
+      const horizontal = cell.getBoundingClientRect()
+      table.scrollLeft += horizontal.right - (window.innerWidth - 8)
+      const vertical = cell.getBoundingClientRect()
+      window.scrollBy(0, vertical.bottom - (window.innerHeight - 8))
+    }, '식비 카페 4월 123,456원, 합계에서 제외')
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    const bottomRightCellBox = await edgeCell.boundingBox()
+    if (!bottomRightCellBox) throw new Error('Expected a bottom-right detail cell')
+    expect(bottomRightCellBox.x + bottomRightCellBox.width).toBeGreaterThan(viewport.width - 16)
+    expect(bottomRightCellBox.y + bottomRightCellBox.height).toBeGreaterThan(viewport.height - 16)
+    await page.mouse.move(bottomRightCellBox.x + (bottomRightCellBox.width / 2), bottomRightCellBox.y + (bottomRightCellBox.height / 2))
+    await expect(tooltip).toContainText('Parity E2E 가장자리 거래')
+    const bottomRightTooltipBox = await tooltip.boundingBox()
+    if (!bottomRightTooltipBox) throw new Error('Expected a bottom-right tooltip')
+    expect(bottomRightTooltipBox.x + bottomRightTooltipBox.width).toBeLessThanOrEqual(viewport.width - 8)
+    expect(bottomRightTooltipBox.y + bottomRightTooltipBox.height).toBeLessThanOrEqual(viewport.height - 8)
+    await detailSection.getByRole('button', { name: '선', exact: true }).focus()
+    await edgeCell.focus()
+    await expect(tooltip).toContainText('Parity E2E 가장자리 거래')
+    await page.keyboard.press('Escape')
+    await expect(tooltip).not.toBeVisible()
+  } finally {
+    releaseDelayedResponse?.()
     await deleteTestState(email, householdId)
   }
 })

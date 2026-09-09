@@ -3,16 +3,17 @@ import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
 import { SavingsProgressRing, Sparkline } from '@/features/analytics/home-dashboard-charts'
-import { CashflowWaterfall, SavingsRateChart } from '@/features/analytics/home-trend-charts'
+import { SavingsRateChart } from '@/features/analytics/home-trend-charts'
 import { getHomeTodos } from '@/features/analytics/home-todos'
 import { MonthlyCashflowChart } from '@/features/analytics/monthly-cashflow-chart'
-import { getNetWorthSeries } from '@/features/analytics/net-worth'
 import { getDashboardData } from '@/features/analytics/queries'
-import { NetWorthChart } from '@/features/assets/net-worth-chart'
+import { MonthStatusLabel } from '@/features/month-close/month-status-label'
+import { getMonthStatuses } from '@/features/month-close/queries'
 import { currentMonthInKorea, formatRate, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 
 const TODO_TONES = {
+  close: 'bg-finance-amber',
   anomaly: 'bg-finance-red',
   pace: 'bg-finance-amber',
   inbox: 'bg-finance-blue',
@@ -62,17 +63,12 @@ export default async function DashboardPage() {
 
   const month = currentMonthInKorea()
   const year = Number(month.slice(0, 4))
-  const [data, todos, netWorth] = await Promise.all([
+  const [data, todos, [monthStatus]] = await Promise.all([
     getDashboardData(household.householdId, year, month),
     getHomeTodos(household.householdId),
-    getNetWorthSeries(household.householdId, 12),
+    getMonthStatuses(household.householdId, [month]),
   ])
   const visibleTodos = todos.slice(0, 3)
-  const latestNetWorth = netWorth.at(-1)
-  const previousNetWorth = netWorth.at(-2)
-  const netWorthDelta = latestNetWorth && previousNetWorth
-    ? latestNetWorth.netWorth - previousNetWorth.netWorth
-    : null
   const budgetRows = data.budget.categories
     .filter((row) => row.budget > 0 || row.amount > 0)
     .slice(0, 6)
@@ -99,16 +95,14 @@ export default async function DashboardPage() {
       <AppHeader active="dashboard" email={household.email} />
       <main className="mx-auto max-w-[1440px] px-5 pb-14 pt-9 sm:px-12">
         <header>
-          <p className="t-label uppercase text-finance-blue">이번 달 · 잠정</p>
-          <p className="mt-2 t-caption text-finance-muted">홈의 금액·비교·추이는 미마감 내역을 포함한 실시간 집계입니다. 확정된 월은 통계에서 확인하세요.</p>
-          <h1 className="mt-2 t-page-title text-finance-ink">홈</h1>
-          <p className="mt-2 t-caption text-finance-muted">
-            {year}년 {Number(month.slice(5))}월 · {data.pace.elapsed}일 경과 / {data.pace.daysInMonth}일 · 모든 수치는 <strong className="font-semibold text-finance-ink">월 단위</strong>
-            {' · '}지난 달은 <Link className="font-semibold text-finance-blue" href={`/ledger?month=${data.previousMonth}&tab=list`}>내역</Link>, 다른 해는 <Link className="font-semibold text-finance-blue" href="/report">통계</Link>에서
-          </p>
+          <p className="t-label uppercase text-finance-blue">이번 달</p>
+          <h1 className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 t-page-title text-finance-ink">
+            홈
+            <MonthStatusLabel currentMonthKey={month} elapsed={{ day: data.pace.elapsed, days: data.pace.daysInMonth }} status={monthStatus} variant="heading" />
+          </h1>
         </header>
 
-        <section className="mt-6 grid border-y border-finance-ink lg:grid-cols-3 lg:divide-x lg:divide-finance-border">
+        <section className="mt-6 grid border-y border-finance-ink lg:grid-cols-2 lg:divide-x lg:divide-finance-border">
           <article className="flex min-h-[202px] items-center gap-6 border-b border-finance-border py-6 lg:border-b-0 lg:pr-8">
             <SavingsProgressRing target={data.savingsTarget} value={data.current.savingsRate} />
             <div>
@@ -122,7 +116,7 @@ export default async function DashboardPage() {
             </div>
           </article>
 
-          <article className="min-h-[202px] border-b border-finance-border py-7 lg:border-b-0 lg:px-8">
+          <article className="min-h-[202px] border-b border-finance-border py-7 lg:border-b-0 lg:pl-8">
             <p className="t-label uppercase text-finance-muted">이번 달 더 써도 되나</p>
             {data.safeToSpend?.hasIncome ? (
               <>
@@ -144,26 +138,6 @@ export default async function DashboardPage() {
             )}
           </article>
 
-          <Link className="block min-h-[202px] py-7 lg:pl-8" href="/assets">
-            <p className="t-label uppercase text-finance-muted">자산이 늘고 있나</p>
-            {latestNetWorth ? (
-              <>
-                <p className="mt-4 t-hero text-finance-ink">{formatWon(latestNetWorth.netWorth)}<span className="ml-1 t-body font-medium text-finance-muted">원</span></p>
-                <div className="mt-5 flex items-center justify-between gap-5">
-                  <p className={`t-caption font-semibold ${netWorthDelta === null ? 'text-finance-muted' : netWorthDelta >= 0 ? 'text-finance-green' : 'text-finance-red'}`}>
-                    {netWorthDelta === null ? '이전 달 비교 없음' : `전월보다 ${netWorthDelta >= 0 ? '+' : '−'}${formatWon(Math.abs(netWorthDelta))}원`}
-                  </p>
-                  <Sparkline tone={netWorthDelta === null ? 'neutral' : netWorthDelta >= 0 ? 'good' : 'bad'} values={netWorth.map((point) => point.netWorth)} />
-                </div>
-                <p className="mt-3 t-caption text-finance-faint">총자산 {formatWon(latestNetWorth.assets)}원 · 부채 {formatWon(latestNetWorth.liabilities)}원</p>
-              </>
-            ) : (
-              <div className="mt-7 border-l-2 border-finance-faint pl-4">
-                <p className="t-body-strong text-finance-ink">자산을 입력하면 추이가 보입니다</p>
-                <p className="mt-2 t-caption text-finance-muted">자산 화면에서 잔고를 보정할 수 있습니다. →</p>
-              </div>
-            )}
-          </Link>
         </section>
 
         <section aria-label="해야 할 일" className="border-b border-finance-border">
@@ -177,28 +151,6 @@ export default async function DashboardPage() {
           )) : (
             <p className="flex min-h-12 items-center gap-3 py-3 t-body text-finance-muted"><span aria-hidden className="h-[7px] w-[7px] bg-finance-green" />지금 바로 확인할 일은 없습니다.</p>
           )}
-        </section>
-
-        <section className="grid gap-10 border-b border-finance-border py-7 xl:grid-cols-[minmax(0,1.35fr)_minmax(440px,0.8fr)]">
-          <article className="min-w-0">
-            <div className="flex items-baseline justify-between">
-              <div><h2 className="t-section text-finance-ink">순자산 추이</h2><p className="mt-1 t-caption text-finance-faint">최근 12개월 · 잔액이 없는 달은 직전 값 유지</p></div>
-              <Link className="t-caption font-semibold text-finance-blue" href="/assets">자산 보기 →</Link>
-            </div>
-            {netWorth.length > 0 ? (
-              <div className="mt-5 min-w-0"><NetWorthChart data={netWorth.map((point) => ({ ...point, debt: point.liabilities, active: true }))} /></div>
-            ) : (
-              <p className="mt-5 grid min-h-[260px] place-items-center border-y border-finance-border t-body text-finance-muted">자산을 입력하면 12개월 추이가 보입니다.</p>
-            )}
-          </article>
-          <article className="min-w-0 xl:border-l xl:border-finance-border xl:pl-10">
-            <div><h2 className="t-section text-finance-ink">이번 달 돈의 흐름</h2><p className="mt-1 t-caption text-finance-faint">수입에서 지출과 저축 납입을 차례로 차감</p></div>
-            {data.current.income + data.current.expense + data.current.saving > 0 ? (
-              <div className="mt-5 min-w-0"><CashflowWaterfall cashRemaining={data.current.cashRemaining} fixedExpense={data.current.fixedExpense} income={data.current.income} saving={data.current.saving} variableExpense={data.current.variableExpense} /></div>
-            ) : (
-              <p className="mt-5 grid min-h-[220px] place-items-center border-y border-finance-border t-body text-finance-muted">이번 달 거래를 입력하면 돈의 흐름이 보입니다.</p>
-            )}
-          </article>
         </section>
 
         <section className="border-b border-finance-border py-7">

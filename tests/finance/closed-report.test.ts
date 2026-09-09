@@ -29,6 +29,55 @@ test('no closed months means no forecast; missing prior close suppresses compari
   expect(partial.previous.expense).toBe(0)
 })
 
+test('the same rows yield official and provisional reports that only differ by eligibility', () => {
+  const official = buildAnnualReport({ year: 2026, currentMonthKey: '2026-09', transactions: rows, assetBalances: [], eligibleMonths: [1], previousComparable: false })
+  const provisional = buildAnnualReport({ year: 2026, currentMonthKey: '2026-09', transactions: rows, assetBalances: [], eligibleMonths: [1, 2], previousComparable: true })
+  expect(official.annual.expense).toBe(400)
+  expect(official.hasPrevious).toBe(false)
+  expect(provisional.annual.expense).toBe(1399)
+  expect(provisional.hasPrevious).toBe(true)
+  expect(provisional.previous.expense).toBe(900)
+  expect(provisional.cashflow.completedMonthDivisor).toBe(2)
+})
+
+test('provisional previous values use the same month-number input and allow partial evidence', () => {
+  const partialRows = rows.filter((row) => row.date !== '2025-02-01')
+  const partial = buildAnnualReport({ year: 2026, currentMonthKey: '2026-09', transactions: partialRows, assetBalances: [], eligibleMonths: [1, 2], previousComparable: true })
+  expect(partial.hasPrevious).toBe(true)
+  expect(partial.previous.expense).toBe(200)
+
+  const outsideOnly = [
+    ...rows.filter((row) => !row.date.startsWith('2025-')),
+    { id: 20, date: '2025-03-01', flow: 'expense' as const, amount: 300, major: '식비', memo: '식사' },
+  ]
+  const absent = buildAnnualReport({ year: 2026, currentMonthKey: '2026-09', transactions: outsideOnly, assetBalances: [], eligibleMonths: [1, 2], previousComparable: false })
+  expect(absent.hasPrevious).toBe(false)
+  expect(absent.previous.expense).toBe(0)
+})
+
+test('comparison metadata stays uncapped when official and provisional rankings diverge', () => {
+  const names = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta', 'Iota']
+  const rankedRows = names.flatMap((name, index) => [
+    { id: index + 1, date: '2026-01-01', flow: 'expense' as const, amount: 100 - index, major: `Closed ${name}`, memo: `Closed Shop ${name}` },
+    { id: index + 20, date: '2026-02-01', flow: 'expense' as const, amount: 1000 - index, major: `Open ${name}`, memo: `Open Shop ${name}` },
+  ])
+  rankedRows.push({ id: 50, date: '2025-01-01', flow: 'expense', amount: 40, major: 'Closed Alpha', memo: 'Closed Shop Alpha' })
+
+  const official = buildAnnualReport({ year: 2026, currentMonthKey: '2026-09', transactions: rankedRows, assetBalances: [], eligibleMonths: [1], previousComparable: true })
+  const provisional = buildAnnualReport({ year: 2026, currentMonthKey: '2026-09', transactions: rankedRows, assetBalances: [], eligibleMonths: [1, 2], previousComparable: true })
+
+  expect(official.topExpenses).toHaveLength(6)
+  expect(official.topMerchants).toHaveLength(8)
+  expect(Object.keys(official.expenseComparisons)).toHaveLength(9)
+  expect(Object.keys(official.merchantComparisons)).toHaveLength(9)
+  expect(official.expenseComparisons['Closed Alpha']).toEqual({ amount: 100, previous: 40, delta: 60 })
+  expect(official.merchantComparisons.closedshopalpha).toEqual({ amount: 100, previous: 40, delta: 60 })
+  expect(provisional.topExpenses.some((row) => row.major === 'Closed Alpha')).toBe(false)
+  expect(provisional.topMerchants.some((row) => row.name === 'Closed Shop Alpha')).toBe(false)
+  expect(provisional.expenseComparisons['Closed Alpha']).toEqual({ amount: 100, previous: 40, delta: 60 })
+  expect(provisional.merchantComparisons.closedshopalpha).toEqual({ amount: 100, previous: 40, delta: 60 })
+})
+
 test('closed tooltip scope requires a nonnegative safe integer revision and never falls back to live', () => {
   const base = 'year=2026&month=1&flow=expense&major=식비&sub=식사'
   expect(parseCellTransactionParams(new URLSearchParams(`${base}&scope=closed&revision=2`))).toMatchObject({ scope: 'closed', revision: 2 })

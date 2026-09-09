@@ -20,6 +20,7 @@ beforeEach(async () => {
     { householdId, date: '2026-01-02', flow: 'expense', amount: 400, categoryId, memo: '식사' },
     { householdId, date: '2026-02-01', flow: 'expense', amount: 999, categoryId },
     { householdId, date: '2025-01-01', flow: 'expense', amount: 200, categoryId },
+    { householdId, date: '2025-02-01', flow: 'expense', amount: 700, categoryId },
   ])
 })
 afterEach(async () => { await db.delete(households).where(eq(households.id, householdId)) })
@@ -29,29 +30,101 @@ async function close(month: string) {
   return summary
 }
 
-test('all report blocks share explicit closed eligibility, including zero months and exact prior-year matches', async () => {
+test('statistics compute official and provisional results from closed and recorded ended months', async () => {
   await db.insert(settings).values({ householdId, key: 'savings_target', value: '65' })
-  expect((await getStatsReportData(householdId, 2026)).eligibleMonths).toEqual([])
+  const before = await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })
+  expect(before.closedMonths).toEqual([])
+  expect(before.endedMonths).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+  expect(before.recordedMonths).toEqual([1, 2])
+  expect(before.provisionalMonths).toEqual([1, 2])
+  expect(before.hasTransactions).toBe(true)
+  expect(before.report.official.annual.expense).toBe(0)
+  expect(before.report.provisional.annual.expense).toBe(1399)
+  expect(before.monthly[1]).toMatchObject({ expense: 999, state: 'open', active: true, hasTransactions: true })
+  expect(before.monthly[2]).toMatchObject({ expense: 0, state: 'open', active: true, hasTransactions: false })
+  expect(before.monthStates.slice(7, 10)).toEqual(['open', 'current', 'future'])
+  expect(before.previousComparable).toBe(false)
+  expect(before.previousEndedComparable).toBe(true)
+  expect(before.report.provisional.previous.expense).toBe(900)
+
   await close('2026-01'); await close('2026-03')
-  const data = await getStatsReportData(householdId, 2026)
+  const data = await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })
   expect(data.savingsTarget).toBe(65)
   expect(data.targetHitMonths).toBe(0)
-  expect(data.eligibleMonths).toEqual([1, 3])
-  expect(data.report.annual.expense).toBe(400)
-  expect(data.report.cashflow.monthlyNet).toBe(300)
-  expect(data.monthly[1].active).toBe(false)
-  expect(data.monthly[2].active).toBe(true)
+  expect(data.provisionalTargetHitMonths).toBe(0)
+  expect(data.closedMonths).toEqual([1, 3])
+  expect(data.provisionalMonths).toEqual([1, 2, 3])
+  expect(data.monthStates.slice(0, 3)).toEqual(['closed', 'open', 'closed'])
+  expect(data.report.official.annual.expense).toBe(400)
+  expect(data.report.official.cashflow.monthlyNet).toBe(300)
+  expect(data.report.provisional.annual.expense).toBe(1399)
   expect(data.details.expense.closedMonths).toEqual([1, 3])
   expect(data.details.expense.divisor).toBe(2)
-  expect(data.accountMonthly.expense.series['(미지정)'].slice(0, 3)).toEqual([400, null, 0])
+  expect(data.details.expense.recordedMonths).toEqual([1, 2])
+  expect(data.details.expense.provisionalMonths).toEqual([1, 2, 3])
+  expect(data.details.expense.provisionalDivisor).toBe(3)
+  expect(data.details.expense.groups[0].subs[0].months.slice(0, 3)).toEqual([400, 999, 0])
+  expect(data.accountMonthly.expense.series['(미지정)'].slice(0, 4)).toEqual([400, 999, 0, null])
   expect(data.previousComparable).toBe(false)
+  expect(data.previousEndedComparable).toBe(true)
+  expect(data.report.provisional.previous.expense).toBe(900)
   await close('2025-01')
-  expect((await getStatsReportData(householdId, 2026)).previousComparable).toBe(false)
+  expect((await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })).previousComparable).toBe(false)
   await close('2025-03')
-  const comparable = await getStatsReportData(householdId, 2026)
+  const comparable = await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })
   expect(comparable.previousComparable).toBe(true)
-  expect(comparable.report.previous.expense).toBe(200)
-  expect(comparable.report.topMerchants[0].amount).toBe(400)
+  expect(comparable.previousEndedComparable).toBe(true)
+  expect(comparable.report.official.previous.expense).toBe(200)
+  expect(comparable.report.provisional.previous.expense).toBe(900)
+  expect(comparable.report.official.topMerchants[0].amount).toBe(400)
+})
+
+test('transaction presence distinguishes refunds, net zero, current activity, empty open months, and closed zero', async () => {
+  await db.insert(transactions).values([
+    { householdId, date: '2026-04-01', flow: 'expense', amount: -50, categoryId },
+    { householdId, date: '2026-05-01', flow: 'expense', amount: 50, categoryId },
+    { householdId, date: '2026-05-02', flow: 'expense', amount: -50, categoryId },
+    { householdId, date: '2026-09-01', flow: 'income', amount: 500 },
+  ])
+  await close('2026-07')
+
+  const data = await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })
+  expect(data.recordedMonths).toEqual([1, 2, 4, 5, 9])
+  expect(data.provisionalMonths).toEqual([1, 2, 4, 5, 7])
+  expect(data.details.expense.provisionalDivisor).toBe(5)
+  expect(data.monthly[3]).toMatchObject({ expense: -50, hasTransactions: true, active: true, state: 'open' })
+  expect(data.monthly[4]).toMatchObject({ expense: 0, hasTransactions: true, active: true, state: 'open' })
+  expect(data.monthly[5]).toMatchObject({ expense: 0, hasTransactions: false, active: true, state: 'open' })
+  expect(data.monthly[6]).toMatchObject({ expense: 0, hasTransactions: false, active: true, state: 'closed' })
+  expect(data.monthly[8]).toMatchObject({ income: 500, hasTransactions: true, active: true, state: 'current' })
+  expect(data.report.provisional.annual.income).toBe(1000)
+  expect(data.accountMonthly.expense.series['(미지정)'].slice(3, 8)).toEqual([-50, 0, null, 0, null])
+})
+
+test('provisional prior-year comparison needs some evidence inside the same month-number period', async () => {
+  await db.delete(transactions).where(and(
+    eq(transactions.householdId, householdId),
+    eq(transactions.date, '2025-02-01'),
+  ))
+
+  const partial = await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })
+  expect(partial.provisionalMonths).toEqual([1, 2])
+  expect(partial.previousEndedComparable).toBe(true)
+  expect(partial.report.provisional.previous.expense).toBe(200)
+
+  await db.delete(transactions).where(and(
+    eq(transactions.householdId, householdId),
+    eq(transactions.date, '2025-01-01'),
+  ))
+  const absent = await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })
+  expect(absent.previousEndedComparable).toBe(false)
+  expect(absent.report.provisional.previous.expense).toBe(0)
+
+  await db.insert(transactions).values({ householdId, date: '2025-03-01', flow: 'expense', amount: 300, categoryId })
+  const outsidePeriod = await getStatsReportData(householdId, 2026, { currentMonthKey: '2026-09' })
+  expect(outsidePeriod.provisionalMonths).toEqual([1, 2])
+  expect(outsidePeriod.previousEndedComparable).toBe(false)
+  expect(outsidePeriod.report.provisional.previous.expense).toBe(0)
 })
 
 test('closed cell requests reject invalidated revisions while live scope retains the ledger rows', async () => {
@@ -63,5 +136,7 @@ test('closed cell requests reject invalidated revisions while live scope retains
   expect((await getCellTransactions(householdId, { ...params, scope: 'live' })).total).toBe(450)
   await close('2026-01')
   await expect(getCellTransactions(householdId, params)).rejects.toThrow('마감')
-  expect((await getStatsReportData(randomUUID(), 2026)).eligibleMonths).toEqual([])
+  const empty = await getStatsReportData(randomUUID(), 2026, { currentMonthKey: '2026-09' })
+  expect(empty.closedMonths).toEqual([])
+  expect(empty.hasTransactions).toBe(false)
 })

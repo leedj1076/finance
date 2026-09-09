@@ -148,7 +148,7 @@ export function buildAnnualReport({
     if (row.flow !== 'expense') continue
     previousExpenseByMajor.set(row.major, (previousExpenseByMajor.get(row.major) ?? 0) + row.amount)
   }
-  const topExpenses = [...expenseByMajor.entries()]
+  const expenseComparisonRows = [...expenseByMajor.entries()]
     .map(([major, amount]) => {
       const previousAmount = previousExpenseByMajor.get(major) ?? 0
       return {
@@ -160,7 +160,11 @@ export function buildAnnualReport({
       }
     })
     .sort((left, right) => right.amount - left.amount || left.major.localeCompare(right.major, 'ko'))
-    .slice(0, 6)
+  const topExpenses = expenseComparisonRows.slice(0, 6)
+  const expenseComparisons = Object.fromEntries(expenseComparisonRows.map((row) => [
+    row.major,
+    { amount: row.amount, previous: row.previous, delta: row.delta },
+  ]))
 
   const merchantMap = new Map<string, { name: string; amount: number; count: number }>()
   for (const row of selectedRows) {
@@ -181,7 +185,7 @@ export function buildAnnualReport({
     if (!key) continue
     previousMerchantMap.set(key, (previousMerchantMap.get(key) ?? 0) + row.amount)
   }
-  const topMerchants = [...merchantMap.values()]
+  const merchantComparisonRows = [...merchantMap.values()]
     .map((merchant) => {
       const key = normalizeAnalyticsMerchant(merchant.name)
       const previousAmount = previousMerchantMap.get(key) ?? 0
@@ -192,7 +196,11 @@ export function buildAnnualReport({
       }
     })
     .sort((left, right) => right.amount - left.amount || right.count - left.count || left.name.localeCompare(right.name, 'ko'))
-    .slice(0, 8)
+  const topMerchants = merchantComparisonRows.slice(0, 8)
+  const merchantComparisons = Object.fromEntries(merchantComparisonRows.map((row) => [
+    normalizeAnalyticsMerchant(row.name),
+    { amount: row.amount, previous: row.previous, delta: row.delta },
+  ]))
 
   const expenseRows = selectedRows
     .filter((row) => row.flow === 'expense')
@@ -256,6 +264,8 @@ export function buildAnnualReport({
     savingsRateDelta: roundOneDecimal(annual.savingsRate - previous.savingsRate),
     topExpenses,
     topMerchants,
+    expenseComparisons,
+    merchantComparisons,
     largestExpense,
     bestMonth,
     worstMonth,

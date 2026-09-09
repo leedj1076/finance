@@ -7,7 +7,7 @@ import { closeLedgerMonth, loadMonthCloseSummary, reopenLedgerMonth } from './ac
 import { MonthStatusLabel } from './month-status-label'
 import { type MonthCloseSummary, type MonthStatus } from './state'
 
-export function MonthCloseControl({ month, status, pendingCount = 0 }: { month: string; status: MonthStatus; pendingCount?: number }) {
+export function MonthCloseControl({ month, status, pendingCount = 0, allClear = false }: { month: string; status: MonthStatus; pendingCount?: number; allClear?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const [summary, setSummary] = useState<MonthCloseSummary | null>(null)
   const [error, setError] = useState('')
@@ -42,7 +42,7 @@ export function MonthCloseControl({ month, status, pendingCount = 0 }: { month: 
           setError(result.error ?? '최신 요약을 다시 확인해 주세요.')
           return
         }
-        setNotice(reopen ? `${month} 마감을 해제했습니다. 통계에서 제외됩니다.` : `${month} 전체를 마감했습니다. 통계에 반영됩니다.`)
+        setNotice(reopen ? `${month} 마감을 해제했습니다. 통계에서 잠정 값으로 돌아갑니다.` : `${month} 전체를 마감했습니다. 통계에서 확정 값으로 계산됩니다.`)
         dialog.current?.close()
         // The action revalidates the current RSC tree without navigating or
         // remounting the ledger, so inline drafts and scroll remain intact.
@@ -54,7 +54,7 @@ export function MonthCloseControl({ month, status, pendingCount = 0 }: { month: 
     <section className="mt-4 border-b border-finance-hairline pb-4 print:hidden" aria-label="월 마감 상태">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <MonthStatusLabel status={status} />
-        <button type="button" className="border border-finance-ink px-3 py-2 t-caption font-semibold text-finance-ink hover:bg-finance-panel" onClick={open}>{month} {status.state === 'closed' ? '마감 확인 · 해제' : '월 마감'}</button>
+        <button type="button" className={allClear ? 'border border-finance-green bg-finance-green px-3 py-2 t-caption font-semibold text-white hover:opacity-80' : 'border border-finance-ink px-3 py-2 t-caption font-semibold text-finance-ink hover:bg-finance-panel'} onClick={open}>{month} {status.state === 'closed' ? '마감 확인 · 해제' : '월 마감'}</button>
       </div>
       {status.state === 'closed' && pendingCount > 0 && <p className="mt-2 t-caption text-finance-amber">이 달 가져오기 대기 {pendingCount}건이 있습니다. <Link className="underline" href="/inbox">가져오기에서 검토</Link> · 내역에 반영하면 마감이 해제됩니다.</p>}
       {notice && <p role="status" className="mt-2 t-caption text-finance-green">{notice}</p>}
@@ -63,7 +63,7 @@ export function MonthCloseControl({ month, status, pendingCount = 0 }: { month: 
           <div><p className="t-label text-finance-blue">월 전체 확인</p><h2 className="mt-2 t-section" id="month-close-title">{month} 전체 마감</h2></div>
           <button type="button" className="px-2 py-1 text-finance-muted" aria-label="마감 창 닫기" onClick={() => dialog.current?.close()}>✕</button>
         </div>
-        <p className="mt-3 t-caption leading-relaxed text-finance-muted">현재 탭·필터와 무관한 한 달 전체 거래입니다. 마감한 월만 통계에 포함되고, 이후 내역이 바뀌면 다시 확인해야 합니다.</p>
+        <p className="mt-3 t-caption leading-relaxed text-finance-muted">현재 탭·필터와 무관한 한 달 전체 거래입니다. 마감하면 통계에서 확정 값으로 계산되고, 이후 내역이 바뀌면 다시 확인해야 합니다.</p>
         {!summary && pending && <p role="status" className="py-8 t-body text-finance-muted">전체 월 요약을 불러오는 중…</p>}
         {summary && <>
           <p className="mt-5 t-body-strong">전체 거래 {summary.count.toLocaleString('ko-KR')}건</p>
@@ -76,7 +76,7 @@ export function MonthCloseControl({ month, status, pendingCount = 0 }: { month: 
             <li>미반영 정기거래 {summary.unpostedRecurringCount}건</li>
           </ul>
           {!summary.closable && <p className="mt-4 t-caption text-finance-amber">한국 시간 기준으로 끝난 월만 마감할 수 있습니다.</p>}
-          {summary.state === 'closed' ? <p className="mt-4 t-caption text-finance-muted">마감 해제 시 이 달은 통계에서 제외됩니다. 거래 내역은 그대로 유지됩니다.</p> : <>
+          {summary.state === 'closed' ? <p className="mt-4 t-caption text-finance-muted">마감 해제 시 이 달은 통계에서 잠정 값으로 돌아갑니다. 거래 내역은 그대로 유지됩니다.</p> : <>
             {summary.requiresAcknowledgment && <label className="mt-4 flex items-start gap-2 t-caption leading-relaxed"><input className="mt-1" type="checkbox" checked={acknowledgeWarnings} onChange={event => setAcknowledgeWarnings(event.target.checked)} />대기·미분류·미반영 항목과 누락 가능성을 확인했습니다.</label>}
             {summary.count === 0 && <label className="mt-3 flex items-start gap-2 t-caption"><input type="checkbox" checked={acknowledgeEmpty} onChange={event => setAcknowledgeEmpty(event.target.checked)} />거래 없는 월로 마감합니다.</label>}
           </>}

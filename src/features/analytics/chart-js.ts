@@ -249,3 +249,24 @@ export function wonTooltipLabel(context: { dataset: { label?: string }; raw: unk
 export function percentAxis(value: number) {
   return `${value}%`
 }
+
+export const PROVISIONAL_DASH = [5, 4]
+
+/** A repeating diagonal hatch; server rendering and unavailable canvases use faint grey. */
+export function provisionalPattern(palette: FinanceChartPalette): CanvasPattern | string {
+  if (typeof document === 'undefined') return palette.faint
+  const tile = document.createElement('canvas')
+  tile.width = 6
+  tile.height = 6
+  const context = tile.getContext('2d')
+  if (!context) return palette.faint
+  context.fillStyle = palette.background
+  context.fillRect(0, 0, 6, 6)
+  context.strokeStyle = palette.faint
+  context.lineWidth = 1.5
+  context.beginPath()
+  context.moveTo(-1, 7)
+  context.lineTo(7, -1)
+  context.stroke()
+  return context.createPattern(tile, 'repeat') ?? palette.faint
+}

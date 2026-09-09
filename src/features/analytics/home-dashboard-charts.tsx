@@ -5,7 +5,7 @@ import { LINE_WIDTH, POINT_RADIUS, ROLE } from './chart-theme'
 // Fixed-size server-rendered marks for the home hero and tables. The
 // responsive trend charts live in home-trend-charts.tsx.
 
-export function SavingsProgressRing({ value, target }: { value: number; target: number }) {
+export function SavingsProgressRing({ value, target, provisional = false }: { value: number; target: number; provisional?: boolean }) {
   const radius = 54
   const circumference = 2 * Math.PI * radius
   const progress = Math.min(Math.max(value, 0), 100)
@@ -20,22 +20,22 @@ export function SavingsProgressRing({ value, target }: { value: number; target: 
         cy="68"
         fill="none"
         r={radius}
-        stroke={value >= target ? ROLE.saving : ROLE.ink}
+        stroke={provisional ? 'var(--finance-faint)' : value >= target ? ROLE.saving : ROLE.ink}
         strokeDasharray={`${(progress / 100) * circumference} ${circumference}`}
         strokeLinecap="butt"
         strokeWidth="14"
         transform="rotate(-90 68 68)"
       />
       <line
-        stroke={ROLE.ink}
+        stroke={provisional ? 'var(--finance-faint)' : ROLE.ink}
         strokeWidth="2"
         x1={68 + Math.cos(targetAngle) * markerStart}
         x2={68 + Math.cos(targetAngle) * markerEnd}
         y1={68 + Math.sin(targetAngle) * markerStart}
         y2={68 + Math.sin(targetAngle) * markerEnd}
       />
-      <text className="chart-hero-value" fill={ROLE.ink} textAnchor="middle" x="68" y="68">{formatRate(value)}%</text>
-      <text className="chart-caption" fill={ROLE.muted} textAnchor="middle" x="68" y="84">목표 {formatRate(target)}%</text>
+      <text className="chart-hero-value" fill={provisional ? 'var(--finance-faint)' : ROLE.ink} textAnchor="middle" x="68" y="68">{formatRate(value)}%</text>
+      <text className="chart-caption" fill={provisional ? 'var(--finance-faint)' : ROLE.muted} textAnchor="middle" x="68" y="84">목표 {formatRate(target)}%</text>
     </svg>
   )
 }

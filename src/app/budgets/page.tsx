@@ -58,9 +58,15 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
   const safeToSpend = data.spendCeiling - data.totalActual
   const remainingTone = safeToSpend < 0 ? 'warning' : 'good'
   const currentMonth = currentMonthInKorea()
-  const isMonthEnd = data.month === currentMonth && Number(
+  const currentDay = Number(
     new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(8, 10),
-  ) >= 25
+  )
+  const daysInCurrentMonth = new Date(Date.UTC(
+    Number(currentMonth.slice(0, 4)),
+    Number(currentMonth.slice(5, 7)),
+    0,
+  )).getUTCDate()
+  const isMonthEnd = data.month === currentMonth && currentDay >= 25
   const reviewNeedsAttention = isMonthEnd || !data.nextBudgetExists
 
   return (
@@ -70,11 +76,15 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <p className="t-label uppercase text-finance-blue">월별 계획</p>
-            <h1 className="mt-2 t-page-title text-finance-ink">
+            <h1 className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 t-page-title text-finance-ink">
               {data.month.replace('-', '년 ')}월 예산
+              <MonthStatusLabel
+                currentMonthKey={currentMonth}
+                elapsed={data.month === currentMonth ? { day: currentDay, days: daysInCurrentMonth } : undefined}
+                status={monthStatus}
+                variant="heading"
+              />
             </h1>
-            <p className="mt-3"><MonthStatusLabel status={monthStatus} /></p>
-            <p className="mt-1 t-caption text-finance-muted">실제 사용액은 마감 전 내역도 포함합니다. 예산의 평균·제안에는 잠정 내역이 포함될 수 있습니다.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
