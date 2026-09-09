@@ -10,13 +10,22 @@ import {
   transactions,
 } from '@/db/schema'
 import { calculateBudgetPace, type BudgetPaceWarning } from '@/features/budgets/pace'
+import { readMonthCloseSummary, readMonthStatuses } from '@/features/month-close/queries'
 import { recurringPostingInMonth } from '@/features/recurring/posting-identity'
 import { recurringIsDue } from '@/features/recurring/calculations'
 import { currentMonthInKorea, monthBounds, shiftMonth } from '@/lib/finance'
 
 import { anomalyAlerts, type AnalyticsRow } from './calculations'
 
-export type HomeTodoKind = 'anomaly' | 'pace' | 'inbox' | 'unclassified' | 'review' | 'recurring'
+export type HomeTodoKind = 'close' | 'anomaly' | 'pace' | 'inbox' | 'unclassified' | 'review' | 'recurring'
+
+export type CloseTarget = {
+  month: string
+  state: 'open' | 'needs_review'
+  pendingCount: number
+  unclassifiedCount: number
+  unpostedRecurringCount: number
+}
 
 export type HomeTodo = {
   kind: HomeTodoKind
@@ -34,10 +43,36 @@ export type HomeTodoInput = {
   unclassifiedCount: number
   needsReview: boolean
   ungeneratedRecurringCount: number
+  /** Ended months still open or needing review, most recent first. */
+  closeTargets: CloseTarget[]
+}
+
+function monthWord(month: string) {
+  return `${Number(month.slice(5, 7))}월`
+}
+
+function closeTodo(targets: CloseTarget[]): HomeTodo | null {
+  const [first] = targets
+  if (!first) return null
+  const title = first.state === 'needs_review'
+    ? `${monthWord(first.month)} 다시 마감하기`
+    : `${targets.slice(0, 2).map((target) => monthWord(target.month)).join(' · ')} 마무리하기`
+  const monthCount = targets.length > 1 ? ` · ${targets.length}개월` : ''
+  const leftovers = [
+    first.pendingCount > 0 ? `대기 ${first.pendingCount}건` : null,
+    first.unclassifiedCount > 0 ? `미분류 ${first.unclassifiedCount}건` : null,
+    first.unpostedRecurringCount > 0 ? `정기거래 미반영 ${first.unpostedRecurringCount}건` : null,
+  ].filter((part): part is string => part !== null)
+  const detail = first.state === 'needs_review'
+    ? `마감 뒤 내역이 바뀌었습니다${monthCount}`
+    : [...(leftovers.length > 0 ? leftovers : ['정리 완료']), '마감 전', ...(targets.length > 1 ? [`${targets.length}개월`] : [])].join(' · ')
+  return { kind: 'close', priority: 0, title, detail, href: `/ledger?month=${first.month}` }
 }
 
 export function buildHomeTodos(input: HomeTodoInput): HomeTodo[] {
   const rows: HomeTodo[] = []
+  const close = closeTodo(input.closeTargets)
+  if (close) rows.push(close)
   const anomaly = input.anomalies[0]
   if (anomaly) rows.push({
     kind: 'anomaly',
@@ -94,12 +129,21 @@ function effectiveBudgetMap(rows: Array<{ major: string; month: string; amount: 
   return result
 }
 
-export async function getHomeTodos(householdId: string) {
-  const month = currentMonthInKorea()
+export async function getHomeTodos(householdId: string, now = new Date()) {
+  const month = currentMonthInKorea(now)
   const nextMonth = shiftMonth(month, 1)
   const { end } = monthBounds(month)
   const yearStart = `${month.slice(0, 4)}-01-01`
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+  const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+  const endedMonths = Array.from({ length: 12 }, (_, index) => shiftMonth(month, -(index + 1)))
+  const monthStatusesPromise = db
+    .select({ first: sql<string | null>`min(to_char(${transactions.date}, 'YYYY-MM'))` })
+    .from(transactions)
+    .where(eq(transactions.householdId, householdId))
+    .then(([row]) => {
+      const first = row?.first
+      return readMonthStatuses(db, householdId, first ? endedMonths.filter((candidate) => candidate >= first) : [])
+    })
 
   const [
     transactionRows,
@@ -109,6 +153,7 @@ export async function getHomeTodos(householdId: string) {
     unclassifiedRows,
     recurringRows,
     generatedRows,
+    monthStatuses,
   ] = await Promise.all([
     db
       .select({
@@ -169,6 +214,7 @@ export async function getHomeTodos(householdId: string) {
           recurringPostingInMonth(month),
         ),
       ),
+    monthStatusesPromise,
   ])
 
   const rows = transactionRows as AnalyticsRow[]
@@ -189,6 +235,21 @@ export async function getHomeTodos(householdId: string) {
     today,
   )
   const generated = new Set(generatedRows.flatMap((row) => row.recurringId === null ? [] : [row.recurringId]))
+  const targets = monthStatuses
+    .filter((status) => status.state !== 'closed')
+    .sort((left, right) => right.month.localeCompare(left.month))
+  const [latest] = targets
+  const latestSummary = latest ? await readMonthCloseSummary(db, householdId, latest.month) : null
+  const closeTargets: CloseTarget[] = targets.map((status) => {
+    const summary = status.month === latest?.month ? latestSummary : null
+    return {
+      month: status.month,
+      state: status.state === 'needs_review' ? 'needs_review' : 'open',
+      pendingCount: summary?.pendingCount ?? 0,
+      unclassifiedCount: summary?.unclassifiedCount ?? 0,
+      unpostedRecurringCount: summary?.unpostedRecurringCount ?? 0,
+    }
+  })
 
   return buildHomeTodos({
     month,
@@ -198,5 +259,6 @@ export async function getHomeTodos(householdId: string) {
     unclassifiedCount: Number(unclassifiedRows[0]?.value ?? 0),
     needsReview: Number(today.slice(8, 10)) >= 25 && !budgetRows.some((row) => row.month === nextMonth),
     ungeneratedRecurringCount: recurringRows.filter((row) => recurringIsDue(row, month) && !generated.has(row.id)).length,
+    closeTargets,
   })
 }

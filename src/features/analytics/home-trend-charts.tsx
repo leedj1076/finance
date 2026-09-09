@@ -2,9 +2,9 @@
 
 import type { ChartData, ChartOptions } from 'chart.js'
 import { useMemo } from 'react'
-import { Bar, Line } from 'react-chartjs-2'
+import { Line } from 'react-chartjs-2'
 
-import { formatRate, formatWon } from '@/lib/finance'
+import { formatRate } from '@/lib/finance'
 
 import {
   CHART_ANIMATION,
@@ -75,74 +75,6 @@ export function SavingsRateChart({ data, target }: {
   return (
     <div className="relative w-full" style={{ height: CHART_HEIGHT }}>
       <Line aria-label="올해 월별 순저축률" data={chartData} options={options} role="img" />
-    </div>
-  )
-}
-export function CashflowWaterfall({
-  income,
-  fixedExpense,
-  variableExpense,
-  saving,
-  cashRemaining,
-}: {
-  income: number
-  fixedExpense: number
-  variableExpense: number
-  saving: number
-  cashRemaining: number
-}) {
-  const palette = useFinanceChartPalette()
-  const amounts = useMemo(() => [income, fixedExpense, variableExpense, saving, cashRemaining], [cashRemaining, fixedExpense, income, saving, variableExpense])
-  const chartData = useMemo<ChartData<'bar'>>(() => {
-    const afterFixed = income - fixedExpense
-    const afterVariable = afterFixed - variableExpense
-    const afterSaving = afterVariable - saving
-    return {
-      labels: ['수입', '고정비', '변동비', '저축 납입', '계좌에 남음'],
-      datasets: [{
-        label: '금액',
-        data: [
-          [0, income],
-          [afterFixed, income],
-          [afterVariable, afterFixed],
-          [afterSaving, afterVariable],
-          [Math.min(0, cashRemaining), Math.max(0, cashRemaining)],
-        ],
-        backgroundColor: [palette.blue, palette.ink, palette.muted, palette.green, cashRemaining >= 0 ? alpha(palette.green, 0.65) : palette.red],
-        borderColor: [palette.blue, palette.ink, palette.muted, palette.green, cashRemaining >= 0 ? palette.green : palette.red],
-        borderWidth: [0, 0, 0, 0, 1.5],
-        barPercentage: 0.65,
-        categoryPercentage: 0.78,
-      }],
-    }
-  }, [cashRemaining, fixedExpense, income, palette, saving, variableExpense])
-  const options = useMemo<ChartOptions<'bar'>>(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: CHART_ANIMATION,
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        ...financeTooltip(palette),
-        callbacks: {
-          label: (context) => {
-            const value = amounts[context.dataIndex] ?? 0
-            const prefix = context.dataIndex > 0 && context.dataIndex < 4 ? '−' : value < 0 ? '−' : ''
-            return `${prefix}${formatWon(Math.abs(value))}원`
-          },
-        },
-      },
-    },
-    scales: financeScales(palette, { beginAtZero: false }),
-  }), [amounts, palette])
-
-  return (
-    <div>
-      <div className="relative w-full" style={{ height: CHART_HEIGHT }}>
-        <Bar aria-label="이번 달 수입에서 고정비 변동비 저축 납입을 뺀 현금흐름" data={chartData} options={options} role="img" />
-      </div>
-      <p className="mt-2 t-caption text-finance-faint">단위 원 · 순저축 = 저축 납입 + 계좌 잔여</p>
     </div>
   )
 }

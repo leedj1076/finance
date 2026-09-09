@@ -3,48 +3,9 @@ import { afterAll, describe, expect, test } from 'vitest'
 
 import { calculateMonthPace } from '@/features/analytics/home-pace'
 import { buildHomeTodos, getHomeTodos } from '@/features/analytics/home-todos'
-import {
-  buildNetWorthSeries,
-  getNetWorthSeries,
-} from '@/features/analytics/net-worth'
 import { getDashboardData } from '@/features/analytics/queries'
 
 describe('home dashboard calculations', () => {
-  test('carries account balances across months without snapshots', () => {
-    expect(buildNetWorthSeries(
-      [
-        { id: 1, kind: 'asset' },
-        { id: 2, kind: 'liability' },
-      ],
-      [
-        { accountId: 1, month: '2026-06', amount: 10_000_000 },
-        { accountId: 2, month: '2026-06', amount: 3_000_000 },
-        { accountId: 1, month: '2026-08', amount: 12_000_000 },
-      ],
-      3,
-      '2026-08',
-    )).toEqual([
-      { month: '2026-06', assets: 10_000_000, liabilities: 3_000_000, netWorth: 7_000_000 },
-      { month: '2026-07', assets: 10_000_000, liabilities: 3_000_000, netWorth: 7_000_000 },
-      { month: '2026-08', assets: 12_000_000, liabilities: 3_000_000, netWorth: 9_000_000 },
-    ])
-  })
-
-  test('returns an empty series when no asset snapshot exists', () => {
-    expect(buildNetWorthSeries([{ id: 1, kind: 'asset' }], [], 12, '2026-08')).toEqual([])
-  })
-
-  test('supports a household with liabilities only', () => {
-    expect(buildNetWorthSeries(
-      [{ id: 7, kind: 'liability' }],
-      [{ accountId: 7, month: '2026-08', amount: 4_000_000 }],
-      1,
-      '2026-08',
-    )).toEqual([
-      { month: '2026-08', assets: 0, liabilities: 4_000_000, netWorth: -4_000_000 },
-    ])
-  })
-
   test('uses elapsed days for the current month and 100% for past months', () => {
     expect(calculateMonthPace('2026-09', '2026-09-20')).toEqual({
       elapsed: 20,
@@ -77,6 +38,7 @@ describe('home dashboard calculations', () => {
       unclassifiedCount: 2,
       needsReview: true,
       ungeneratedRecurringCount: 3,
+      closeTargets: [],
     })
 
     expect(todos.map((todo) => todo.kind)).toEqual([
@@ -95,13 +57,14 @@ describe('home dashboard calculations', () => {
 describe('home dashboard query scope', () => {
   const raw = postgres(process.env.DATABASE_URL!, { prepare: false })
   const householdIds: string[] = []
+  const now = new Date('2026-09-09T03:00:00.000Z')
 
   afterAll(async () => {
     if (householdIds.length > 0) await raw`delete from households where id in ${raw(householdIds)}`
     await raw.end()
   })
 
-  test('isolates net worth and splits current fixed and variable expenses', async () => {
+  test('isolates household tasks and splits current fixed and variable expenses', async () => {
     const suffix = Date.now()
     const [householdA] = await raw`insert into households (name) values (${`home-a-${suffix}`}) returning id`
     const [householdB] = await raw`insert into households (name) values (${`home-b-${suffix}`}) returning id`
@@ -110,24 +73,12 @@ describe('home dashboard query scope', () => {
     await raw`
       insert into transactions (household_id, date, flow, fixed, amount, source)
       values
+        (${householdA.id}, '2026-08-31', 'expense', false, 500000, 'test'),
         (${householdA.id}, '2026-09-01', 'income', false, 10000000, 'test'),
         (${householdA.id}, '2026-09-02', 'expense', true, 3000000, 'test'),
         (${householdA.id}, '2026-09-03', 'expense', false, 1500000, 'test'),
+        (${householdB.id}, '2025-10-01', 'expense', false, 1000, 'test'),
         (${householdB.id}, '2026-09-02', 'expense', true, 99000000, 'test')
-    `
-    const [assetA] = await raw`
-      insert into asset_accounts (household_id, major, name, kind)
-      values (${householdA.id}, '현금', 'A 현금', 'asset') returning id
-    `
-    const [assetB] = await raw`
-      insert into asset_accounts (household_id, major, name, kind)
-      values (${householdB.id}, '현금', 'B 현금', 'asset') returning id
-    `
-    await raw`
-      insert into balance_snapshots (household_id, account_id, month, amount)
-      values
-        (${householdA.id}, ${assetA.id}, '2026-09', 7000000),
-        (${householdB.id}, ${assetB.id}, '2026-09', 99000000)
     `
     await raw`
       insert into import_inbox (household_id, import_uid, owner, date, amount, flow, status)
@@ -137,14 +88,50 @@ describe('home dashboard query scope', () => {
     `
 
     const dashboard = await getDashboardData(householdA.id, 2026, '2026-09')
-    const netWorth = await getNetWorthSeries(householdA.id, 1)
-    const todos = await getHomeTodos(householdA.id)
+    const todos = await getHomeTodos(householdA.id, now)
 
     expect(dashboard.current).toMatchObject({ fixedExpense: 3_000_000, variableExpense: 1_500_000 })
-    expect(netWorth).toEqual([
-      { month: '2026-09', assets: 7_000_000, liabilities: 0, netWorth: 7_000_000 },
-    ])
+    expect(todos[0]).toMatchObject({ kind: 'close', title: '8월 마무리하기', href: '/ledger?month=2026-08' })
     expect(todos.find((todo) => todo.kind === 'inbox')?.title).toBe('검토 대기 1건')
-    expect(todos.find((todo) => todo.kind === 'unclassified')?.title).toBe('미분류 거래 3건')
+    expect(todos.find((todo) => todo.kind === 'unclassified')?.title).toBe('미분류 거래 4건')
+  })
+
+  test('has no close task for an empty household', async () => {
+    const suffix = Date.now()
+    const [empty] = await raw`insert into households (name) values (${`home-empty-${suffix}`}) returning id`
+    householdIds.push(empty.id)
+
+    expect((await getHomeTodos(empty.id, now)).some((todo) => todo.kind === 'close')).toBe(false)
+  })
+
+  test('counts several review months while reopening the latest month', async () => {
+    const suffix = Date.now()
+    const [review] = await raw`insert into households (name) values (${`home-review-${suffix}`}) returning id`
+    householdIds.push(review.id)
+
+    await raw`
+      insert into transactions (household_id, date, flow, fixed, amount, source)
+      values
+        (${review.id}, '2026-07-02', 'expense', false, 1000, 'test'),
+        (${review.id}, '2026-08-02', 'expense', false, 2000, 'test')
+    `
+    await raw`
+      insert into ledger_months (household_id, month, revision, closed_revision, closed_at, closed_by)
+      values
+        (${review.id}, '2026-07', 2, 1, '2026-08-01T00:00:00Z', ${review.id}),
+        (${review.id}, '2026-08', 2, 1, '2026-09-01T00:00:00Z', ${review.id})
+      on conflict (household_id, month) do update set
+        revision = excluded.revision,
+        closed_revision = excluded.closed_revision,
+        closed_at = excluded.closed_at,
+        closed_by = excluded.closed_by
+    `
+
+    expect((await getHomeTodos(review.id, now))[0]).toMatchObject({
+      kind: 'close',
+      title: '8월 다시 마감하기',
+      detail: '마감 뒤 내역이 바뀌었습니다 · 2개월',
+      href: '/ledger?month=2026-08',
+    })
   })
 })
