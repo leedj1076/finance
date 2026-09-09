@@ -3,6 +3,7 @@ import type {
   CategoryDetail,
   CategoryDetailFlow,
   CategoryDetails,
+  StatsMonthState,
 } from './category-detail'
 import type { AccountMonthlyData } from './account-monthly'
 import { OTHER_SERIES_NAME, seriesColor } from './chart-theme'
@@ -53,7 +54,10 @@ export type StatsMonthlySubRow = {
   sub: string
   values: number[]
   total: number
+  closedTotal: number
+  provisionalTotal: number
   average: number | null
+  provisionalAverage: number | null
 }
 
 export type StatsMonthlyRow = {
@@ -63,7 +67,10 @@ export type StatsMonthlyRow = {
   values: number[]
   displayValues: Array<number | null>
   total: number
+  closedTotal: number
+  provisionalTotal: number
   average: number | null
+  provisionalAverage: number | null
   folded: string[]
   subs: StatsMonthlySubRow[]
 }
@@ -73,11 +80,17 @@ export type StatsMonthlyModel = {
   rows: StatsMonthlyRow[]
   monthTotals: number[]
   total: number
+  closedTotal: number
+  provisionalTotal: number
   average: number | null
+  provisionalAverage: number | null
   activeMonths: number
   currentMonthIndex: number | null
   divisor: number
+  provisionalDivisor: number
+  monthStates: StatsMonthState[]
   eligibleMonths: boolean[]
+  closedMonths: boolean[]
 }
 
 export type StatsSeriesSelection = {
@@ -122,17 +135,50 @@ function normalizedValues(values: Array<number | null> | undefined) {
   return Array.from({ length: 12 }, (_, month) => values?.[month] ?? 0)
 }
 
-function averageFor(values: number[], detail: CategoryDetail) {
-  const total = values.reduce((sum, value) => sum + value, 0)
-  const current = detail.currentMonth ? values[detail.currentMonth - 1] : 0
-  return {
-    total,
-    average: detail.divisor > 0 ? categoryDetailMonthlyAverage(total, current, detail.divisor) : null,
-  }
+/** A month whose values can be shown: every ended month plus the month in progress. */
+function monthDisplayed(detail: CategoryDetail, month: number) {
+  if (detail.states) return detail.states[month] !== 'future'
+  return month < (detail.months.at(-1) ?? 0)
 }
 
-function monthEligible(detail: CategoryDetail, month: number) {
-  return detail.closedMonths ? detail.closedMonths.includes(month + 1) : month < (detail.months.at(-1) ?? 0)
+/** A month that counts toward official totals and averages. */
+function monthClosed(detail: CategoryDetail, month: number) {
+  if (detail.closedMonths) return detail.closedMonths.includes(month + 1)
+  if (detail.states) return detail.states[month] === 'closed'
+  return monthDisplayed(detail, month) && detail.currentMonth !== month + 1
+}
+
+/** An ended month that belongs to the provisional reporting basis. */
+function monthProvisional(detail: CategoryDetail, month: number) {
+  if (detail.provisionalMonths) return detail.provisionalMonths.includes(month + 1)
+  const ended = detail.states
+    ? detail.states[month] !== 'future' && detail.states[month] !== 'current'
+    : monthDisplayed(detail, month) && detail.currentMonth !== month + 1
+  if (!ended || !detail.recordedMonths) return ended
+  return detail.recordedMonths.includes(month + 1) || monthClosed(detail, month)
+}
+
+/** A displayed month with a real value; an explicit closed zero is still a value. */
+function monthValueDisplayed(detail: CategoryDetail, month: number) {
+  if (!monthDisplayed(detail, month)) return false
+  if (!detail.recordedMonths) return true
+  return detail.recordedMonths.includes(month + 1) || monthClosed(detail, month)
+}
+
+function averageFor(values: number[], detail: CategoryDetail) {
+  const total = values.reduce((sum, value, month) => monthDisplayed(detail, month) ? sum + value : sum, 0)
+  const closedTotal = values.reduce((sum, value, month) => monthClosed(detail, month) ? sum + value : sum, 0)
+  const provisionalTotal = values.reduce((sum, value, month) => monthProvisional(detail, month) ? sum + value : sum, 0)
+  const provisionalDivisor = detail.provisionalDivisor ?? detail.divisor
+  return {
+    total,
+    closedTotal,
+    provisionalTotal,
+    average: detail.divisor > 0 ? categoryDetailMonthlyAverage(closedTotal, 0, detail.divisor) : null,
+    provisionalAverage: provisionalDivisor > 0
+      ? categoryDetailMonthlyAverage(provisionalTotal, 0, provisionalDivisor)
+      : null,
+  }
 }
 
 function latestActiveMonth(series: Array<Array<number | null>>) {
@@ -151,12 +197,11 @@ function buildCategoryModel({
 }) {
   const rows: StatsMonthlyRow[] = []
   const series: SeriesChartSeries[] = []
-  const activeMonths = detail.months.at(-1) ?? 0
   const groups = detail.groups
     .map((group) => ({
       group,
       total: group.subs.reduce(
-        (sum, sub) => sum + sub.months.reduce((monthSum, value, month) => monthSum + (monthEligible(detail, month) ? value : 0), 0),
+        (sum, sub) => sum + sub.months.reduce((monthSum, value, month) => monthSum + (monthValueDisplayed(detail, month) ? value : 0), 0),
         0,
       ),
     }))
@@ -167,14 +212,14 @@ function buildCategoryModel({
     const name = group.major
     const id = statsSeriesId('category', name)
     const rawDisplay = Array.from({ length: 12 }, (_, month) => (
-      month < activeMonths && monthEligible(detail, month)
+      monthValueDisplayed(detail, month)
         ? group.subs.reduce((sum, sub) => sum + sub.months[month], 0)
         : null
     ))
     const rawValues = normalizedValues(rawDisplay)
     const subs = group.subs.map((sub) => {
       const values = sub.months.map((value, month) => (
-        !monthEligible(detail, month) || excluded.has(statsCellKey({ axis: 'category', label: name, sub: sub.sub, month }))
+        !monthValueDisplayed(detail, month) || excluded.has(statsCellKey({ axis: 'category', label: name, sub: sub.sub, month }))
           ? 0
           : value
       ))
@@ -188,7 +233,7 @@ function buildCategoryModel({
       }
     })
     const values = rawValues.map((rawValue, month) => {
-      if (!monthEligible(detail, month) || excluded.has(statsCellKey({ axis: 'category', label: name, month }))) return 0
+      if (!monthValueDisplayed(detail, month) || excluded.has(statsCellKey({ axis: 'category', label: name, month }))) return 0
       const excludedSubTotal = group.subs.reduce((sum, sub) => (
         excluded.has(statsCellKey({ axis: 'category', label: name, sub: sub.sub, month }))
           ? sum + sub.months[month]
@@ -205,11 +250,14 @@ function buildCategoryModel({
       values,
       displayValues: rawDisplay,
       total: summary.total,
+      closedTotal: summary.closedTotal,
+      provisionalTotal: summary.provisionalTotal,
       average: summary.average,
+      provisionalAverage: summary.provisionalAverage,
       folded: [],
       subs,
     })
-    series.push({ id, label: name, color, values: detail.closedMonths ? values.map((value, month) => monthEligible(detail, month) ? value : null) : values })
+    series.push({ id, label: name, color, values: values.map((value, month) => monthValueDisplayed(detail, month) ? value : null) })
   })
 
   return { rows, series }
@@ -230,7 +278,7 @@ function buildAccountModel({
   monthly.accounts.forEach((name, index) => {
     const id = statsSeriesId('account', name)
     const rawDisplay = (monthly.series[name] ?? Array<number | null>(12).fill(null))
-      .map((value, month) => detail.closedMonths ? monthEligible(detail, month) ? value ?? 0 : null : value)
+      .map((value, month) => monthValueDisplayed(detail, month) ? value ?? 0 : null)
     const values = normalizedValues(rawDisplay).map((value, month) => (
       excluded.has(statsCellKey({ axis: 'account', label: name, month })) ? 0 : value
     ))
@@ -247,11 +295,14 @@ function buildAccountModel({
       values,
       displayValues: rawDisplay,
       total: summary.total,
+      closedTotal: summary.closedTotal,
+      provisionalTotal: summary.provisionalTotal,
       average: summary.average,
+      provisionalAverage: summary.provisionalAverage,
       folded,
       subs: [],
     })
-    series.push({ id, label, color, values: detail.closedMonths ? values.map((value, month) => monthEligible(detail, month) ? value : null) : values })
+    series.push({ id, label, color, values: values.map((value, month) => monthValueDisplayed(detail, month) ? value : null) })
   })
 
   return { rows, series }
@@ -279,8 +330,13 @@ export function buildStatsMonthlyModel({
     result.series.reduce((sum, item) => sum + (item.values[month] ?? 0), 0)
   ))
   const currentMonthIndex = detail.currentMonth ? detail.currentMonth - 1 : null
-  const total = monthTotals.reduce((sum, value) => sum + value, 0)
-  const current = currentMonthIndex === null ? 0 : monthTotals[currentMonthIndex]
+  const displayMask = Array.from({ length: 12 }, (_, month) => monthDisplayed(detail, month))
+  const closedMask = Array.from({ length: 12 }, (_, month) => monthClosed(detail, month))
+  const provisionalMask = Array.from({ length: 12 }, (_, month) => monthProvisional(detail, month))
+  const total = monthTotals.reduce((sum, value, month) => displayMask[month] ? sum + value : sum, 0)
+  const closedTotal = monthTotals.reduce((sum, value, month) => closedMask[month] ? sum + value : sum, 0)
+  const provisionalTotal = monthTotals.reduce((sum, value, month) => provisionalMask[month] ? sum + value : sum, 0)
+  const provisionalDivisor = detail.provisionalDivisor ?? detail.divisor
   const activeMonths = effectiveAxis === 'account'
     ? latestActiveMonth(Object.values(accountMonthly.expense.series))
     : detail.months.at(-1) ?? 0
@@ -289,11 +345,19 @@ export function buildStatsMonthlyModel({
     ...result,
     monthTotals,
     total,
-    average: detail.divisor > 0 ? categoryDetailMonthlyAverage(total, current, detail.divisor) : null,
-    activeMonths,
+    closedTotal,
+    provisionalTotal,
+    average: detail.divisor > 0 ? categoryDetailMonthlyAverage(closedTotal, 0, detail.divisor) : null,
+    provisionalAverage: provisionalDivisor > 0
+      ? categoryDetailMonthlyAverage(provisionalTotal, 0, provisionalDivisor)
+      : null,
+    activeMonths: detail.states ? displayMask.lastIndexOf(true) + 1 : activeMonths,
     currentMonthIndex,
     divisor: detail.divisor,
-    eligibleMonths: Array.from({ length: 12 }, (_, month) => detail.closedMonths ? monthEligible(detail, month) : month < activeMonths),
+    provisionalDivisor,
+    monthStates: detail.states ?? Array.from({ length: 12 }, (_, month): StatsMonthState => displayMask[month] ? 'open' : 'future'),
+    eligibleMonths: displayMask,
+    closedMonths: closedMask,
   }
 }
 
