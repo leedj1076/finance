@@ -1,7 +1,6 @@
 'use server'
 
 import { sql } from 'drizzle-orm'
-import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
 import { budgets, settings } from '@/db/schema'
@@ -69,5 +68,5 @@ export async function saveBudgetPlan(
   })
 
   revalidateFinance('budgets')
-  redirect(`/budgets?month=${monthValue}`)
+  return {}
 }

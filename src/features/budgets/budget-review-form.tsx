@@ -108,7 +108,7 @@ export function BudgetReviewForm({ averageIncome, rows, savingsTarget, spendCeil
                       <td className="px-3 py-3 text-right text-finance-ink">{row.previousActual ? `${formatWon(row.previousActual)}원` : '—'}</td>
                       <td className={`px-3 py-3 text-right ${row.difference > 0 ? 'text-finance-red' : row.difference < 0 ? 'text-finance-green' : 'text-finance-faint'}`}>{row.previousBudget || row.previousActual ? `${row.difference > 0 ? '+' : ''}${formatWon(row.difference)}원` : '—'}</td>
                       <td className="px-3 py-3 text-right text-finance-muted">{row.median ? `${formatWon(row.median)}원` : '—'}</td>
-                      <td className="px-5 py-3 text-right"><input aria-label={`${row.major} 다음 달 예산`} className="h-[34px] w-32 border border-finance-hairline bg-white px-3 text-right t-body tabular-nums text-finance-ink outline-none focus:border-finance-blue" min="0" name={`budget:${row.major}`} onChange={(event) => setAmounts((current) => ({ ...current, [row.major]: event.target.value }))} placeholder="0" step="1000" type="number" value={amounts[row.major]} /></td>
+                      <td className="px-5 py-3 text-right"><input aria-label={`${row.major} 다음 달 예산`} className="h-[34px] w-32 border border-finance-hairline bg-white px-3 text-right t-body tabular-nums text-finance-ink outline-none focus:border-finance-blue" min="0" name={`budget:${row.major}`} onChange={(event) => setAmounts((current) => ({ ...current, [row.major]: event.target.value }))} placeholder="0" step="1" type="number" value={amounts[row.major]} /></td>
                     </tr>
                   ))}
                 </tbody>

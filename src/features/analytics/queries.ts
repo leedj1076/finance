@@ -166,8 +166,8 @@ export async function getDashboardData(
   const previousRows = rowsForMonth(rows, previousMonth)
   const monthly = monthlySummaries(yearRows, year)
   const accountMonthly = {
-    expense: buildAccountMonthly(yearRows, 'expense'),
-    income: buildAccountMonthly(yearRows, 'income'),
+    expense: buildAccountMonthly(yearRows, 'expense', { fold: false }),
+    income: buildAccountMonthly(yearRows, 'income', { fold: false }),
   }
   const categoryMonthly = {
     expense: buildCategoryMonthly(yearRows, 'expense'),

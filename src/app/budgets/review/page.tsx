@@ -41,7 +41,7 @@ export default async function BudgetReviewPage({ searchParams }: BudgetReviewPag
 
         {data.reviewIncome === 0 && data.reviewExpense === 0 && <p className="mt-5 border-l-2 border-finance-amber bg-finance-amber-tint px-4 py-3 text-[13px] text-finance-amber">{data.reviewMonth} 거래가 아직 없습니다. 이전 기록의 중앙값과 기존 예산을 기준으로 제안합니다.</p>}
 
-        <BudgetReviewForm averageIncome={data.averageIncome} rows={data.rows} savingsTarget={data.savingsTarget} spendCeiling={data.spendCeiling} targetMonth={data.targetMonth} />
+        <BudgetReviewForm averageIncome={data.averageIncome} key={data.targetMonth} rows={data.rows} savingsTarget={data.savingsTarget} spendCeiling={data.spendCeiling} targetMonth={data.targetMonth} />
       </main>
     </div>
   )

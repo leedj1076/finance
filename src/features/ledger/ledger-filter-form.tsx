@@ -26,6 +26,7 @@ export function LedgerFilterForm({ accounts, filters, majorOptions, month, tab }
     <form action="/ledger" className="flex flex-wrap items-center gap-2 border-b border-finance-border py-4" ref={formRef}>
       <input name="month" type="hidden" value={month} />
       <input name="tab" type="hidden" value={tab} />
+      {filters.sort && <input name="sort" type="hidden" value={filters.sort} />}
       <select aria-label="거래 유형 필터" className={inputClass} defaultValue={filters.flow} name="flow" onChange={submitSelection}>
         <option value="">전체 유형</option><option value="expense">지출</option><option value="income">수입</option><option value="saving">저축</option>
       </select>
@@ -39,7 +40,7 @@ export function LedgerFilterForm({ accounts, filters, majorOptions, month, tab }
       </select>
       <input aria-label="사용내역 검색" className={`${inputClass} ml-auto min-w-[220px]`} defaultValue={filters.q} name="q" placeholder="가맹점·메모 검색" type="search" />
       <button className="h-[30px] bg-finance-ink px-3.5 t-caption font-semibold text-white hover:bg-finance-blue" type="submit">검색</button>
-      {anyFilter && <Link className="self-center text-center t-caption font-semibold text-finance-blue hover:text-finance-ink" href={ledgerUrl(month, { account: '', flow: '', major: '', q: '' }, { tab })}>초기화</Link>}
+      {anyFilter && <Link className="self-center text-center t-caption font-semibold text-finance-blue hover:text-finance-ink" href={ledgerUrl(month, { account: '', flow: '', major: '', q: '', sort: filters.sort }, { tab })}>초기화</Link>}
     </form>
   )
 }

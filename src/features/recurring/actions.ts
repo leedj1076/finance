@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
 import { accounts, categories, recurring, transactions } from '@/db/schema'
+import { ledgerFiltersFromFormData, ledgerUrl } from '@/features/ledger/filters'
 import { isMonthKey } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 import { revalidateFinance } from '@/lib/revalidate'
@@ -164,5 +165,10 @@ export async function applyRecurringMonth(formData: FormData) {
   })
 
   revalidateFinance('recurring', 'transactions')
-  redirect(`/ledger?month=${monthValue}&recurringAdded=${result.added}&recurringSkipped=${result.skipped}`)
+  const requestedTab = formData.get('returnTab')
+  const tab = typeof requestedTab === 'string' && ['summary', 'categories', 'merchants', 'list'].includes(requestedTab)
+    ? requestedTab : undefined
+  redirect(ledgerUrl(monthValue, ledgerFiltersFromFormData(formData), {
+    tab, recurringAdded: result.added, recurringSkipped: result.skipped,
+  }))
 }

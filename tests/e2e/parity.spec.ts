@@ -783,8 +783,13 @@ test('annual chart hover and selection show values, and cell exclusion updates t
     await line.hover({ position: januaryLine })
     await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
     await detailSection.getByRole('button', { name: '100% 누적 영역', exact: true }).click()
-    await detailSection.getByRole('img', { name: '100% 누적 영역 월별 차트' }).locator('canvas').hover({ position: januaryLine })
-    await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
+    const area = detailSection.getByRole('img', { name: '100% 누적 영역 월별 차트' }).locator('canvas')
+    // Area hits require painted fill, not the old nearest-point fallback in
+    // the margin to the left of January's center. Move inside the Jan-Feb band.
+    await expect(async () => {
+      await area.hover({ position: { x: lineBounds.width * 0.75 / 12, y: lineBounds.height / 2 } })
+      await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%', { timeout: 200 })
+    }).toPass({ timeout: 5000 })
     await detailSection.getByRole('button', { name: '선택 해제', exact: true }).click()
     await expect(detailSection.getByText('그래프에서 확인할 항목을 선택하세요.', { exact: true })).toBeVisible()
   } finally {

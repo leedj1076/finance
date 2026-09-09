@@ -225,7 +225,7 @@ export function BudgetForm({
                               }))
                             }
                             placeholder="0"
-                            step={10000}
+                            step={1}
                             type="number"
                             value={amounts[row.major]}
                           />

@@ -57,6 +57,30 @@ describe('series chart geometry', () => {
 })
 
 describe('series chart hit testing', () => {
+  test('interpolates the two cumulative edges of an area band between months', () => {
+    const bands = [
+      { id: 'lower', label: 'lower', color: '#000', values: [60, 20] },
+      { id: 'middle', label: 'middle', color: '#111', values: [30, 10] },
+      { id: 'upper', label: 'upper', color: '#222', values: [10, 70] },
+    ]
+    // A quarter of the way from Jan to Feb: lower = 50%, upper = 75%.
+    expect(hitTestSeriesChart({
+      series: bands, kind: 'area', activeMonths: 2, xRatio: 0.75 / 12,
+      yRatio: ratioForY(SERIES_PLOT_HEIGHT - 0.55 * (SERIES_PLOT_HEIGHT - SERIES_PLOT_TOP)),
+    })).toEqual({ seriesId: 'middle', month: 0 })
+  })
+
+  test('does not select unpainted margins or zero-thickness area bands', () => {
+    const bands = [
+      { id: 'zero', label: 'zero', color: '#000', values: [0, 0] },
+      { id: 'full', label: 'full', color: '#111', values: [100, 100] },
+    ]
+    expect(hitTestSeriesChart({ series: bands, kind: 'area', activeMonths: 2, xRatio: 1 / 12, yRatio: 1 }))
+      .toEqual({ seriesId: 'full', month: 1 })
+    expect(hitTestSeriesChart({ series: bands, kind: 'area', activeMonths: 2, xRatio: 1.8 / 12, yRatio: 0.5 }))
+      .toBeNull()
+  })
+
   test('finds the stacked interval under the pointer', () => {
     expect(hitTestSeriesChart({
       series,
@@ -82,7 +106,7 @@ describe('series chart hit testing', () => {
       series,
       kind: 'area',
       activeMonths: 2,
-      xRatio: 0.04,
+      xRatio: 0.5 / 12,
       yRatio: ratioForY(170),
     })).toEqual({ seriesId: 'food', month: 0 })
     expect(hitTestSeriesChart({

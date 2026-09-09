@@ -236,7 +236,7 @@ test('family user can manage a transaction and change their password', async ({ 
     // something is unposted, and posting twice is a no-op.
     await page.goto('/ledger?month=2026-04&tab=list')
     await page.getByRole('button', { name: /미반영 1건 반영/ }).click()
-    await expect(page).toHaveURL('/ledger?month=2026-04&recurringAdded=1&recurringSkipped=0')
+    await expect(page).toHaveURL('/ledger?month=2026-04&tab=list&recurringAdded=1&recurringSkipped=0')
     await expect(page.getByText('방금 1건 추가')).toBeVisible()
     await expect(page.getByRole('row', { name: /E2E 정기비용/ })).toContainText('105,000원')
     await expect(page.getByText('활성 1건 중 1건 반영')).toBeVisible()

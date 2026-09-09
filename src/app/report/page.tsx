@@ -94,7 +94,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
               {data.year}년 · 완료월 {completedMonths}개{currentActive ? ` · ${currentMonthIndex! + 1}월 진행 중` : ''} · 월평균은 완료월 기준
             </p>
           </div>
-          <StatsYearSelector highlightedMajor={highlightedMajor} initialView={statsView} nextYear={data.nextYear} previousYear={data.previousYear} year={data.year} />
+          <StatsYearSelector highlightedMajor={highlightedMajor} initialView={statsView} key={`${data.year}:${statsView.chart}:${statsView.flow}:${statsView.axis}`} nextYear={data.nextYear} previousYear={data.previousYear} year={data.year} />
         </div>
 
         {!hasAnnualData ? (

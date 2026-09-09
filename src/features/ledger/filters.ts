@@ -1,10 +1,12 @@
 export type LedgerFlowFilter = '' | 'expense' | 'income' | 'saving'
+export type LedgerSort = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc'
 
 export type LedgerFilters = {
   account: string
   flow: LedgerFlowFilter
   major: string
   q: string
+  sort?: LedgerSort
 }
 
 type SearchParamValue = string | string[] | undefined
@@ -26,17 +28,20 @@ export function parseLedgerFilters(params: {
   flow?: SearchParamValue
   major?: SearchParamValue
   q?: SearchParamValue
+  sort?: SearchParamValue
 }): LedgerFilters {
   const flow = firstString(params.flow !== undefined ? params.flow : params.fflow)
   const major = firstString(params.major !== undefined ? params.major : params.fmajor)
   const account = firstString(params.account)
   const accountId = parseLedgerAccountId(account)
+  const sort = firstString(params.sort)
 
   return {
     account: accountId === null ? '' : String(accountId),
     flow: flow === 'expense' || flow === 'income' || flow === 'saving' ? flow : '',
     major,
     q: firstString(params.q).trim(),
+    ...(sort === 'date-asc' || sort === 'amount-desc' || sort === 'amount-asc' ? { sort } : {}),
   }
 }
 
@@ -46,6 +51,7 @@ export function ledgerFiltersFromFormData(formData: FormData): LedgerFilters {
     flow: String(formData.get('returnFlow') ?? ''),
     major: String(formData.get('returnMajor') ?? ''),
     q: String(formData.get('returnQ') ?? ''),
+    sort: String(formData.get('returnSort') ?? ''),
   })
 }
 
@@ -63,6 +69,7 @@ export function ledgerUrl(
   if (filters.flow) params.set('flow', filters.flow)
   if (filters.major) params.set('major', filters.major)
   if (filters.q) params.set('q', filters.q)
+  if (filters.sort && filters.sort !== 'date-desc') params.set('sort', filters.sort)
   Object.entries(extras).forEach(([key, value]) => {
     if (value !== undefined) params.set(key, String(value))
   })

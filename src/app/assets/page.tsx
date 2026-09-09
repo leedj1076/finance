@@ -66,7 +66,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             <Link className="h-[34px] border border-finance-hairline px-3 py-2 t-body-strong text-finance-muted hover:text-finance-blue" href="/settings?section=assets">자산 계정 설정</Link>
             <Link aria-label="이전 달" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/assets?month=${data.previousMonth}`}>←</Link>
             <form action="/assets" className="flex items-center gap-2">
-              <input aria-label="자산 기준 월" className="h-[34px] border border-finance-hairline bg-white px-3 t-body text-finance-ink" defaultValue={data.month} name="month" type="month" />
+              <input aria-label="자산 기준 월" className="h-[34px] border border-finance-hairline bg-white px-3 t-body text-finance-ink" defaultValue={data.month} key={data.month} name="month" type="month" />
               <SubmitButton className="h-[34px] bg-finance-ink px-3 t-body-strong text-white hover:opacity-80 disabled:opacity-60" pendingLabel="불러오는 중…" type="submit">보기</SubmitButton>
             </form>
             <Link aria-label="다음 달" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/assets?month=${data.nextMonth}`}>→</Link>
@@ -135,7 +135,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             <span>잔고 보정 <span className="ml-2 font-normal text-finance-muted">자동 스냅샷에 없는 계정이나 잔액만 직접 고칩니다</span></span>
             <span className="text-finance-muted group-open:rotate-180" aria-hidden="true">⌄</span>
           </summary>
-          <AssetForm balanceOnly groups={data.overview.groups} month={data.month} />
+          <AssetForm balanceOnly groups={data.overview.groups} key={data.month} month={data.month} />
         </details>
       </main>
     </div>

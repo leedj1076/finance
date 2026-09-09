@@ -27,6 +27,7 @@ function aggregateMonthly(
   rows: MonthlyBreakdownRow[],
   flow: AnalyticsFlow,
   nameFor: (row: MonthlyBreakdownRow) => string,
+  fold = true,
 ) {
   const activeMonths = new Set<number>()
   const totals = new Map<string, number>()
@@ -56,7 +57,7 @@ function aggregateMonthly(
 
   // Fold only when there is more than one leftover series; hiding a single
   // series behind "그 외" would lose information for no visual benefit.
-  if (sortedByTotal.length <= MAX_SERIES_COUNT + 1) {
+  if (!fold || sortedByTotal.length <= MAX_SERIES_COUNT + 1) {
     const names = sortedByTotal
     const nullableSeries = Object.fromEntries(names.map((name) => [name, nullableFor(name)]))
     return { names, series: nullableSeries }
@@ -93,8 +94,9 @@ function aggregateMonthly(
 export function buildAccountMonthly(
   rows: MonthlyBreakdownRow[],
   flow: AnalyticsFlow,
+  options: { fold?: boolean } = {},
 ): AccountMonthlyData {
-  const result = aggregateMonthly(rows, flow, (row) => row.accountName || '(미지정)')
+  const result = aggregateMonthly(rows, flow, (row) => row.accountName || '(미지정)', options.fold)
   return { accounts: result.names, series: result.series, folded: result.folded }
 }
 

@@ -92,6 +92,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
                 aria-label="예산 월"
                 className="h-[34px] border border-finance-hairline bg-white px-3 t-body text-finance-ink"
                 defaultValue={data.month}
+                key={data.month}
                 name="month"
                 type="month"
               />
@@ -153,6 +154,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
         )}
 
         <BudgetForm
+          key={data.month}
           averageExpense={data.averageExpense}
           averageIncome={data.averageIncome}
           currentSavingsRate={data.currentSavingsRate}

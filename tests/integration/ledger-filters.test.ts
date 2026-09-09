@@ -7,7 +7,7 @@ import {
   parseLedgerAccountId,
   parseLedgerFilters,
 } from '@/features/ledger/filters'
-import { getLedgerShellData, getLedgerTransactions } from '@/features/ledger/queries'
+import { LEDGER_ROW_LIMIT, getLedgerShellData, getLedgerTransactions } from '@/features/ledger/queries'
 
 describe('ledger filters', () => {
   test('accepts the four supported filters and trims the query', () => {
@@ -66,6 +66,41 @@ describe('ledger filter database behavior', () => {
       await raw`delete from households where id in ${raw(householdIds)}`
     }
     await raw.end()
+  })
+
+  test('sorts the entire scoped match before the row cap, with deterministic ties and signed amounts', async () => {
+    const [household] = await raw`insert into households (name) values ('ledger sorting') returning id`
+    const [other] = await raw`insert into households (name) values ('ledger sorting foreign') returning id`
+    householdIds.push(household.id, other.id)
+    await raw`
+      insert into transactions (household_id, date, flow, memo, amount, source)
+      select ${household.id}, '2026-07-15', 'expense', 'matching', n, 'test'
+      from generate_series(1, ${LEDGER_ROW_LIMIT + 2}) n
+    `
+    await raw`
+      insert into transactions (household_id, date, flow, memo, amount, source) values
+        (${household.id}, '2026-07-01', 'expense', 'matching oldest', 90000, 'test'),
+        (${household.id}, '2026-07-20', 'expense', 'matching refund', -123, 'test'),
+        (${household.id}, '2026-07-21', 'expense', 'matching latest', 2, 'test'),
+        (${household.id}, '2026-07-22', 'income', 'matching wrong flow', 999999, 'test'),
+        (${other.id}, '2026-07-23', 'expense', 'matching foreign', 999999, 'test')
+    `
+    const filters = { account: '', flow: 'expense' as const, major: '', q: 'matching' }
+    const high = await getLedgerTransactions(household.id, '2026-07', { ...filters, sort: 'amount-desc' })
+    expect(high.rows[0].memo).toBe('matching oldest')
+    expect(high.rows[1].amount).toBe(1002)
+    expect(high.rows).toHaveLength(LEDGER_ROW_LIMIT)
+    expect(high.truncated).toBe(true)
+    const low = await getLedgerTransactions(household.id, '2026-07', { ...filters, sort: 'amount-asc' })
+    expect(low.rows.slice(0, 4).map((row) => [row.memo, row.amount])).toEqual([
+      ['matching refund', -123], ['matching', 1], ['matching latest', 2], ['matching', 2],
+    ])
+    const oldest = await getLedgerTransactions(household.id, '2026-07', { ...filters, sort: 'date-asc' })
+    expect(oldest.rows[0].memo).toBe('matching oldest')
+    const newest = await getLedgerTransactions(household.id, '2026-07', filters)
+    expect(newest.rows[0].memo).toBe('matching latest')
+    const tied = newest.rows.filter((row) => row.date === '2026-07-15')
+    expect(tied[0].id).toBeGreaterThan(tied[1].id)
   })
 
   test('searches memo case-insensitively and rejects unsafe account filters', async () => {

@@ -93,6 +93,7 @@ function EditableRow({ accounts, categories, filters, onCancel, onSaved, row }: 
         <td className="py-2 pl-2">
           <form action={action} className="flex justify-end gap-1" id={formId}>
             <input name="inline" type="hidden" value="1" />
+            <input name="returnSort" type="hidden" value={filters.sort ?? 'date-desc'} />
             <input name="transactionId" type="hidden" value={row.id} /><input name="returnAccount" type="hidden" value={filters.account} /><input name="returnFlow" type="hidden" value={filters.flow} /><input name="returnMajor" type="hidden" value={filters.major} /><input name="returnQ" type="hidden" value={filters.q} />
             <RowSaveButton />
             <button aria-label="거래 수정 취소" className="h-[30px] px-2 t-caption text-finance-muted hover:bg-white hover:text-finance-ink" onClick={onCancel} type="button">✕</button>
@@ -169,6 +170,7 @@ export function LedgerTransactionsTable({ accounts, categories, filters, month, 
                   {savedId === row.id && <span className="t-caption font-medium text-finance-green">저장됨</span>}
                   <button className="t-caption text-finance-muted hover:text-finance-ink" onClick={() => setEditingId(row.id)} type="button">수정</button>
                   <form action={deleteTransaction} onSubmit={(event) => { if (!window.confirm('이 거래를 삭제할까요?')) event.preventDefault(); else rememberScroll() }}>
+                    <input name="returnSort" type="hidden" value={filters.sort ?? 'date-desc'} />
                     <input name="transactionId" type="hidden" value={row.id} /><input name="month" type="hidden" value={month} /><input name="returnAccount" type="hidden" value={filters.account} /><input name="returnFlow" type="hidden" value={filters.flow} /><input name="returnMajor" type="hidden" value={filters.major} /><input name="returnQ" type="hidden" value={filters.q} />
                     <button className="t-caption text-finance-faint hover:text-finance-red" type="submit">삭제</button>
                   </form>

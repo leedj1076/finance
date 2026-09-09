@@ -96,6 +96,7 @@ export function TransactionForm({
         <input name="returnFlow" type="hidden" value={filters.flow} />
         <input name="returnMajor" type="hidden" value={filters.major} />
         <input name="returnQ" type="hidden" value={filters.q} />
+        <input name="returnSort" type="hidden" value={filters.sort ?? 'date-desc'} />
         <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
           날짜
           <input

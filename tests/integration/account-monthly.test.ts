@@ -159,6 +159,23 @@ describe('dashboard household scope', () => {
     await raw.end()
   })
 
+  test('provides all cards to the report even when Naver Hyundai falls outside the top six', async () => {
+    const [household] = await raw`insert into households (name) values ('all monthly cards') returning id`
+    householdIds.push(household.id)
+    for (let index = 0; index < 9; index += 1) {
+      const name = index === 8 ? 'DJ 현대 - 네이버' : `테스트 카드 ${index}`
+      const [account] = await raw`insert into accounts (household_id, name) values (${household.id}, ${name}) returning id`
+      await raw`
+        insert into transactions (household_id, date, flow, amount, account_id, source)
+        values (${household.id}, '2026-01-10', 'expense', ${index === 8 ? 100 : 10000}, ${account.id}, 'test')
+      `
+    }
+    const dashboard = await getDashboardData(household.id, 2026)
+    expect(dashboard.accountMonthly.expense.accounts).toHaveLength(9)
+    expect(dashboard.accountMonthly.expense.accounts).not.toContain('그 외')
+    expect(dashboard.accountMonthly.expense.series['DJ 현대 - 네이버'][0]).toBe(100)
+  })
+
   test('does not mix another household account totals or latest asset balances', async () => {
     const suffix = Date.now()
     const [householdA] = await raw`

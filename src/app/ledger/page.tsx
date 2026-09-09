@@ -12,6 +12,7 @@ import {
   LedgerSummaryPanel,
 } from '@/features/ledger/ledger-analysis-panels'
 import { LedgerFilterForm } from '@/features/ledger/ledger-filter-form'
+import { LedgerSortSelect } from '@/features/ledger/ledger-sort-select'
 import { LedgerTransactionsTable } from '@/features/ledger/ledger-transactions-table'
 import {
   LEDGER_ROW_LIMIT,
@@ -115,11 +116,12 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
               <Link aria-label="이전 달" className="grid h-8 w-[34px] place-items-center border-r border-finance-ink t-body hover:bg-finance-track" href={ledgerUrl(shell.previousMonth, filters, { tab })}>←</Link>
               <form action="/ledger" className="flex h-8 items-center">
                 <input name="tab" type="hidden" value={tab} />
+                {filters.sort && <input name="sort" type="hidden" value={filters.sort} />}
                 {filters.account && <input name="account" type="hidden" value={filters.account} />}
                 {filters.flow && <input name="flow" type="hidden" value={filters.flow} />}
                 {filters.major && <input name="major" type="hidden" value={filters.major} />}
                 {filters.q && <input name="q" type="hidden" value={filters.q} />}
-                <input aria-label="조회 월" className="h-8 w-[124px] border-0 bg-white px-2 text-center t-body-strong text-finance-ink outline-none" defaultValue={shell.month} max={shell.latestMonth} name="month" type="month" />
+                <input aria-label="조회 월" className="h-8 w-[124px] border-0 bg-white px-2 text-center t-body-strong text-finance-ink outline-none" defaultValue={shell.month} key={shell.month} max={shell.latestMonth} name="month" type="month" />
                 <SubmitButton className="h-8 border-l border-finance-ink bg-finance-ink px-3 t-body-strong text-white hover:bg-finance-blue" pendingLabel="불러오는 중…" type="submit">보기</SubmitButton>
               </form>
               <Link aria-label="다음 달" className="grid h-8 w-[34px] place-items-center border-l border-finance-ink t-body hover:bg-finance-track" href={ledgerUrl(shell.nextMonth, filters, { tab })}>→</Link>
@@ -146,6 +148,12 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
             {recurringPending > 0 && (
               <form action={applyRecurringMonth}>
                 <input name="month" type="hidden" value={shell.month} />
+                <input name="returnAccount" type="hidden" value={filters.account} />
+                <input name="returnFlow" type="hidden" value={filters.flow} />
+                <input name="returnMajor" type="hidden" value={filters.major} />
+                <input name="returnQ" type="hidden" value={filters.q} />
+                <input name="returnSort" type="hidden" value={filters.sort ?? 'date-desc'} />
+                <input name="returnTab" type="hidden" value={tab} />
                 <SubmitButton className="h-[30px] bg-finance-ink px-3.5 t-body-strong text-white hover:bg-finance-blue" pendingLabel="반영 중…" type="submit">미반영 {recurringPending}건 반영</SubmitButton>
               </form>
             )}
@@ -158,7 +166,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
           ))}
         </nav>
 
-        <LedgerFilterForm accounts={formOptions.accounts} filters={filters} majorOptions={majorOptions} month={shell.month} tab={tab} />
+        <LedgerFilterForm accounts={formOptions.accounts} filters={filters} key={`${shell.month}:${filters.account}:${filters.flow}:${filters.major}:${filters.q}`} majorOptions={majorOptions} month={shell.month} tab={tab} />
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-finance-ink py-3 t-caption text-finance-muted">
           <strong className="text-finance-ink">{anyFilter ? '현재 필터' : '이 달 전체'} · {shell.filteredTotals.count}건</strong>
           <span>수입 <strong className="text-finance-blue">{formatWon(shell.filteredTotals.income)}원</strong></span>
@@ -171,12 +179,12 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         {tab === 'merchants' && analysis && <LedgerMerchantsPanel data={analysis} filters={filters} />}
         {tab === 'list' && listData && (
           <>
-            <div id="transaction-form"><TransactionForm accounts={formOptions.accounts} categories={formOptions.categories} defaultDate={defaultDate} editing={null} filters={filters} month={shell.month} /></div>
+            <div id="transaction-form"><TransactionForm accounts={formOptions.accounts} categories={formOptions.categories} defaultDate={defaultDate} editing={null} filters={filters} key={shell.month} month={shell.month} /></div>
             <section className="mt-6">
-              <div className="flex items-baseline justify-between border-t border-finance-ink pt-4"><h2 className="t-section text-finance-ink">거래 내역</h2><span className="t-caption text-finance-faint">최근순</span></div>
+              <div className="flex items-baseline justify-between border-t border-finance-ink pt-4"><h2 className="t-section text-finance-ink">거래 내역</h2><LedgerSortSelect filters={filters} month={shell.month} /></div>
               {listData.truncated && (
                 <p className="mt-3 border border-finance-amber px-3 py-2 t-caption text-finance-ink">
-                  최근 {LEDGER_ROW_LIMIT.toLocaleString('ko-KR')}건만 표시했습니다 · 위 합계는 필터에 걸린 {shell.filteredTotals.count}건 전체 기준입니다
+                  선택한 정렬 기준으로 앞 {LEDGER_ROW_LIMIT.toLocaleString('ko-KR')}건만 표시했습니다 · 위 합계는 필터에 걸린 {shell.filteredTotals.count}건 전체 기준입니다
                 </p>
               )}
               <LedgerTransactionsTable accounts={formOptions.accounts} categories={formOptions.categories} filters={filters} key={`${shell.month}:${filters.account}:${filters.flow}:${filters.major}:${filters.q}`} month={shell.month} rows={listData.rows} />

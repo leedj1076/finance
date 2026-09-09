@@ -114,6 +114,7 @@ export function StatsMonthlySection({
   ))
   const [hoverSeries, setHoverSeries] = useState<string | null>(null)
   const [hoverMonth, setHoverMonth] = useState<number | null>(null)
+  const [chartHovered, setChartHovered] = useState(false)
   const [selection, setSelection] = useState<StatsSeriesSelection | null>(null)
   const [cellTooltip, setCellTooltip] = useState<CellTooltipState | null>(null)
   const cache = useRef(new Map<string, CellTransactionResult>())
@@ -256,7 +257,8 @@ export function StatsMonthlySection({
     setExcluded((current) => toggleCategoryDetailCell(current, key))
   }
 
-  function updateHover(seriesId: string | null, month: number | null) {
+  function updateHover(seriesId: string | null, month: number | null, fromChart = false) {
+    setChartHovered(fromChart && seriesId !== null)
     setHoverSeries(seriesId)
     setHoverMonth(month)
   }
@@ -334,13 +336,13 @@ export function StatsMonthlySection({
                   hoverMonth={hoverMonth}
                   hoverSeries={hoverSeries}
                   kind={chart}
-                  onHover={updateHover}
+                  onHover={(seriesId, month) => updateHover(seriesId, month, true)}
                   onSelect={selectSeries}
                   selectedMonth={selection?.month ?? null}
                   selectedSeries={selectedSeries?.id ?? null}
                   series={model.series}
                 />
-                {hoveredSeries && hoverMonth !== null && hoverMonth < model.activeMonths && (
+                {chartHovered && hoveredSeries && hoverMonth !== null && hoverMonth < model.activeMonths && (
                   <div
                     className="pointer-events-none absolute top-2 z-20 flex w-[8.3333%] justify-center"
                     style={{

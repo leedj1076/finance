@@ -1,7 +1,8 @@
 'use client'
 
-import type { ChartData, ChartOptions } from 'chart.js'
-import { useMemo } from 'react'
+import { Interaction, type BarElement, type ChartData, type ChartOptions, type InteractionModeFunction, type Plugin, type PointElement } from 'chart.js'
+import { getRelativePosition } from 'chart.js/helpers'
+import { useMemo, useRef } from 'react'
 import { Bar, Line } from 'react-chartjs-2'
 
 import {
@@ -13,9 +14,55 @@ import {
   resolveChartColor,
   useFinanceChartPalette,
 } from './chart-js'
-import type { SeriesChartKind, SeriesChartSeries } from './series-chart-geometry'
+import { hitTestAreaBands, type SeriesChartKind, type SeriesChartSeries } from './series-chart-geometry'
 
 export * from './series-chart-geometry'
+
+declare module 'chart.js' {
+  interface InteractionModeMap {
+    financeArea: InteractionModeFunction
+    financeStacked: InteractionModeFunction
+  }
+}
+
+// Keep the column under the pointer even when exclusions shrink its bars to
+// zero. Global nearest-XY would otherwise jump to a taller neighbouring month.
+Interaction.modes.financeStacked = (chart, event, options, useFinalPosition) => {
+  const position = getRelativePosition(event, chart)
+  const items = Interaction.modes.index(chart, event, { ...options, axis: 'x', intersect: false }, useFinalPosition)
+  const intersected = items.find(({ element }) => (element as BarElement).inRange(position.x, position.y, useFinalPosition))
+  if (intersected) return [intersected]
+  let nearest: (typeof items)[number] | undefined
+  let nearestDistance = Infinity
+  for (const item of items) {
+    const y = (item.element as BarElement).getCenterPoint(useFinalPosition).y
+    if (y === null) continue
+    const distance = Math.abs(y - position.y)
+    if (distance < nearestDistance) {
+      nearest = item
+      nearestDistance = distance
+    }
+  }
+  return nearest ? [nearest] : []
+}
+
+Interaction.modes.financeArea = (chart, event, _options, useFinalPosition) => {
+  const position = getRelativePosition(event, chart)
+  const { left, right, top, bottom } = chart.chartArea
+  if (position.x < left || position.x > right || position.y < top || position.y > bottom) return []
+  const bands = chart.getSortedVisibleDatasetMetas().map((meta) => ({
+    seriesId: String(meta.index),
+    points: meta.data.map((element) => {
+      const point = element as PointElement
+      const { x, y } = point.getProps(['x', 'y'], useFinalPosition)
+      return point.skip || x === null || y === null ? null : { x, y }
+    }),
+  }))
+  const hit = hitTestAreaBands(bands, chart.scales.y.getPixelForValue(0), position.x, position.y)
+  if (!hit) return []
+  const datasetIndex = Number(hit.seriesId)
+  return [{ element: chart.getDatasetMeta(datasetIndex).data[hit.month], datasetIndex, index: hit.month }]
+}
 
 function normalizedPercent(series: SeriesChartSeries[], seriesIndex: number, month: number) {
   const total = series.reduce((sum, row) => sum + Math.max(row.values[month] ?? 0, 0), 0)
@@ -47,6 +94,7 @@ export function SeriesChart({
   onSelect: (seriesId: string, month: number) => void
 }) {
   const palette = useFinanceChartPalette()
+  const pointerInside = useRef(false)
   const labels = useMemo(() => Array.from({ length: 12 }, (_, month) => `${month + 1}월`), [])
   const isBar = kind === 'stacked'
 
@@ -80,7 +128,7 @@ export function SeriesChart({
         backgroundColor: kind === 'area' ? alpha(color, dimmed ? 0.08 : 0.72) : color,
         borderColor: alpha(color, dimmed ? 0.16 : 1),
         borderWidth: focusedSeries === row.id ? CHART_LINE_WIDTH_ACTIVE : CHART_LINE_WIDTH,
-        fill: kind === 'area' ? 'origin' : false,
+        fill: kind === 'area' ? (seriesIndex === 0 ? 'origin' : '-1') : false,
         pointBackgroundColor: color,
         pointBorderColor: palette.background,
         pointBorderWidth: 1.5,
@@ -104,10 +152,10 @@ export function SeriesChart({
     responsive: true,
     maintainAspectRatio: false,
     animation: { duration: 300 },
-    interaction: { mode: 'nearest' as const, intersect: false },
+    interaction: { mode: kind === 'area' ? 'financeArea' as const : kind === 'stacked' ? 'financeStacked' as const : 'nearest' as const, intersect: false },
     onHover: (_event: unknown, elements: Array<{ datasetIndex: number; index: number }>) => {
       const element = elements[0]
-      if (!element || element.index >= activeMonths) {
+      if (!pointerInside.current || !element || element.index >= activeMonths) {
         onHover(null, null)
         return
       }
@@ -140,16 +188,31 @@ export function SeriesChart({
     },
   }), [activeMonths, kind, onHover, onSelect, palette.track, series])
 
+  const hoverBoundary = useMemo<Plugin<'bar' | 'line'>>(() => ({
+    id: 'finance-hover-boundary',
+    beforeEvent: (chart, { event, inChartArea, replay }) => {
+      if (event.type === 'mouseout' || !inChartArea || !pointerInside.current) {
+        chart.setActiveElements([])
+        onHover(null, null)
+        // Suppress stale hovers, but preserve a queued click: Chart.js batches
+        // events in animation frames, so the pointer may have already left.
+        if (event.type !== 'mouseout' && (replay || event.type !== 'click')) return false
+      }
+    },
+  }), [onHover])
+
   return (
     <div
       aria-label={`${kind === 'stacked' ? '누적 막대' : kind === 'line' ? '선' : '100% 누적 영역'} 월별 차트`}
       className="relative block h-[220px] w-full cursor-crosshair"
-      onMouseLeave={() => onHover(null, null)}
+      onMouseMoveCapture={() => { pointerInside.current = true }}
+      onTouchStartCapture={() => { pointerInside.current = true }}
+      onMouseLeave={() => { pointerInside.current = false; onHover(null, null) }}
       role="img"
     >
       {isBar
-        ? <Bar data={data as ChartData<'bar'>} options={commonOptions as ChartOptions<'bar'>} />
-        : <Line data={data as ChartData<'line'>} options={commonOptions as ChartOptions<'line'>} />}
+        ? <Bar data={data as ChartData<'bar'>} options={commonOptions as ChartOptions<'bar'>} plugins={[hoverBoundary]} />
+        : <Line data={data as ChartData<'line'>} options={commonOptions as ChartOptions<'line'>} plugins={[hoverBoundary]} />}
     </div>
   )
 }

@@ -41,6 +41,16 @@ async function post(targetMonth: string, added: number, skipped: number) {
   )
 }
 
+test('posting from the ledger preserves its active filters, tab and sort', async () => {
+  const form = new FormData()
+  Object.entries({ month, returnFlow: 'expense', returnQ: 'coffee', returnSort: 'amount-asc', returnTab: 'list' })
+    .forEach(([key, value]) => form.set(key, value))
+  await expect(applyRecurringMonth(form)).rejects.toThrow(
+    `REDIRECT:/ledger?month=${month}&flow=expense&q=coffee&sort=amount-asc&tab=list&recurringAdded=1&recurringSkipped=0`,
+  )
+  expect(await postedRows()).toHaveLength(1)
+})
+
 function editForm(id: number, date: string) {
   const form = new FormData()
   Object.entries({

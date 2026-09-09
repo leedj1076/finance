@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lt, or, sql } from 'drizzle-orm'
 
 import { db } from '@/db/client'
 import { accounts, categories, transactions } from '@/db/schema'
@@ -151,6 +151,10 @@ export async function getLedgerTransactions(
 ) {
   const { start, end } = monthBounds(month)
   const accountId = parseLedgerAccountId(filters.account)
+  const order = filters.sort === 'date-asc' ? [asc(transactions.date), asc(transactions.id)]
+    : filters.sort === 'amount-desc' ? [desc(transactions.amount), desc(transactions.date), desc(transactions.id)]
+      : filters.sort === 'amount-asc' ? [asc(transactions.amount), desc(transactions.date), desc(transactions.id)]
+        : [desc(transactions.date), desc(transactions.id)]
   const rows = await db
     .select({
       id: transactions.id,
@@ -188,7 +192,7 @@ export async function getLedgerTransactions(
         filters.q ? ledgerSearchPredicate(filters.q) : undefined,
       ),
     )
-    .orderBy(desc(transactions.date), desc(transactions.id))
+    .orderBy(...order)
     .limit(LEDGER_ROW_LIMIT + 1)
 
   return {

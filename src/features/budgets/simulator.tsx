@@ -107,7 +107,7 @@ export function VariableSpendSimulator({
                         className="h-[34px] w-32 border border-finance-hairline bg-white px-3 text-right text-[13px] tabular-nums text-finance-ink outline-none focus:border-finance-blue"
                         min={0}
                         onChange={(event) => updateCut(row.major, event.target.value)}
-                        step={10_000}
+                        step={1}
                         type="number"
                         value={cuts[row.major] ?? '0'}
                       />

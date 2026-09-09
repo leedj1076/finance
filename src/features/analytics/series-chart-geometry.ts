@@ -196,21 +196,46 @@ export function hitTestSeriesChart({
       }
     }
   } else {
-    const share = 1 - (y - SERIES_PLOT_TOP) / (SERIES_PLOT_HEIGHT - SERIES_PLOT_TOP)
-    let lower = 0
-    for (const item of series) {
-      const upper = lower + (
-        geometry.monthTotals[month] > 0
-          ? valueAt(item, month) / geometry.monthTotals[month]
-          : 0
-      )
-      if (share >= lower && share <= upper) {
-        seriesId = item.id
-        break
-      }
-      lower = upper
-    }
+    return hitTestAreaBands(geometry.areas.map((area) => ({
+      seriesId: area.seriesId,
+      points: area.upper.slice(0, visibleMonthCount).map((share, index) => ({
+        x: (index + 0.5) * SERIES_MONTH_SLOT,
+        y: seriesY(share, 1),
+      })),
+    })), SERIES_PLOT_HEIGHT, xRatio * SERIES_PLOT_WIDTH, y)
   }
 
   return seriesId ? { seriesId, month } : null
+}
+
+type AreaBand = {
+  seriesId: string
+  points: Array<{ x: number; y: number } | null>
+}
+
+// Both the geometry tests and the live Chart.js interaction use the painted
+// edges. Interpolate between adjacent points (area tension is zero), not the
+// nearest month's cumulative endpoint. Empty/zero-thickness bands cannot hit.
+export function hitTestAreaBands(bands: AreaBand[], baseline: number, x: number, y: number) {
+  for (let bandIndex = 0; bandIndex < bands.length; bandIndex += 1) {
+    const band = bands[bandIndex]
+    for (let index = 0; index < band.points.length - 1; index += 1) {
+      const left = band.points[index]
+      const right = band.points[index + 1]
+      if (!left || !right || x < left.x || x > right.x || right.x <= left.x) continue
+      const fraction = (x - left.x) / (right.x - left.x)
+      const upper = left.y + (right.y - left.y) * fraction
+      let lower = baseline
+      if (bandIndex > 0) {
+        const lowerLeft = bands[bandIndex - 1].points[index]
+        const lowerRight = bands[bandIndex - 1].points[index + 1]
+        if (!lowerLeft || !lowerRight) continue
+        lower = lowerLeft.y + (lowerRight.y - lowerLeft.y) * fraction
+      }
+      if (lower - upper > 0.000001 && y >= upper && y <= lower) {
+        return { seriesId: band.seriesId, month: fraction < 0.5 ? index : index + 1 }
+      }
+    }
+  }
+  return null
 }
