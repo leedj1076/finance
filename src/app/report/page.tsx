@@ -3,10 +3,9 @@ import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
 import { AnnualFlowOverview } from '@/features/analytics/annual-flow-overview'
-import { getCategoryDetails } from '@/features/analytics/category-detail'
 import { SavingsProgressRing } from '@/features/analytics/home-dashboard-charts'
-import { getDashboardData } from '@/features/analytics/queries'
-import { getReportData } from '@/features/analytics/report'
+import { getStatsReportData } from '@/features/analytics/stats-report'
+import { MONTH_STATE_LABELS } from '@/features/month-close/state'
 import { StatsMonthlySection } from '@/features/analytics/stats-monthly-section'
 import { parseStatsViewState, statsViewSearch } from '@/features/analytics/stats-monthly'
 import { StatsYearSelector } from '@/features/analytics/stats-year-selector'
@@ -57,18 +56,13 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
   const rawYear = Array.isArray(params.year) ? params.year[0] : params.year
   const highlightedMajor = Array.isArray(params.major) ? params.major[0] : params.major
   const statsView = parseStatsViewState(params)
-  const data = await getReportData(household.householdId, rawYear ? Number(rawYear) : undefined)
-  const [dashboard, categoryDetails] = await Promise.all([
-    getDashboardData(household.householdId, data.year),
-    getCategoryDetails(household.householdId, data.year),
-  ])
+  const stats = await getStatsReportData(household.householdId, rawYear ? Number(rawYear) : undefined)
+  const data = stats.report
   const currentMonthKey = currentMonthInKorea()
-  const currentMonthIndex = data.year === Number(currentMonthKey.slice(0, 4))
-    ? Number(currentMonthKey.slice(5, 7)) - 1
-    : null
-  const completedMonths = dashboard.monthly.filter((item, index) => item.active && index !== currentMonthIndex).length
-  const currentActive = currentMonthIndex !== null && dashboard.monthly[currentMonthIndex]?.active
-  const hasAnnualData = data.annual.income + data.annual.expense + data.annual.saving > 0
+  const completedMonths = stats.eligibleMonths.length
+  const unclosedMonths = stats.months.filter(row => row.month < currentMonthKey && row.state !== 'closed').length
+  const hasAnnualData = completedMonths > 0
+  const monthList = stats.eligibleMonths.map(month => `${month}월`).join(' · ')
   const topExpenseMax = data.topExpenses[0]?.amount ?? 1
   const yoyRows = [
     { label: '수입', current: data.annual.income, previous: data.previous.income, delta: data.yoy.income.delta, pct: data.yoy.income.pct, goodWhenPositive: true },
@@ -91,37 +85,43 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
             <p className="t-label uppercase text-finance-blue">한 해 통계</p>
             <h1 className="mt-2 t-page-title text-finance-ink">연간 통계</h1>
             <p className="mt-2 t-caption text-finance-muted">
-              {data.year}년 · 완료월 {completedMonths}개{currentActive ? ` · ${currentMonthIndex! + 1}월 진행 중` : ''} · 월평균은 완료월 기준
+              {data.year}년 · 마감 {completedMonths}개월 · 미마감 {unclosedMonths}개월{monthList && ` · ${monthList} 기준`} · 월평균은 마감 월 기준
             </p>
           </div>
           <StatsYearSelector highlightedMajor={highlightedMajor} initialView={statsView} key={`${data.year}:${statsView.chart}:${statsView.flow}:${statsView.axis}`} nextYear={data.nextYear} previousYear={data.previousYear} year={data.year} />
         </div>
 
+        <nav aria-label="통계 월 마감 현황" className="mt-5 grid grid-cols-4 gap-1 sm:grid-cols-6 xl:grid-cols-12">
+          {stats.months.map(row => <Link className={`border px-2 py-2 text-center t-caption ${row.state === 'closed' ? 'border-finance-green text-finance-green' : 'border-finance-hairline text-finance-muted'}`} key={row.month} href={`/ledger?month=${row.month}`}>
+            <span className="font-semibold">{Number(row.month.slice(5))}월</span><span className="mt-1 block t-label">{row.month === currentMonthKey ? '진행 중' : row.month > currentMonthKey ? '예정' : MONTH_STATE_LABELS[row.state]}</span>
+          </Link>)}
+        </nav>
+
         {!hasAnnualData ? (
           <section className="mt-8 border-y border-finance-ink py-14 text-center">
             <p className="t-label uppercase text-finance-blue">{data.year}년</p>
-            <h2 className="mt-3 t-section text-finance-ink">이 연도에는 집계할 거래가 없습니다.</h2>
+            <h2 className="mt-3 t-section text-finance-ink">마감한 월이 없습니다</h2>
             <p className="mx-auto mt-2 max-w-md t-body leading-relaxed text-finance-muted">
-              다른 연도의 통계를 보거나 거래 파일을 가져오면 연간 성적과 월별 흐름을 확인할 수 있습니다.
+              내역에서 한 달 전체를 확인하고 마감하면 통계에 반영됩니다. 미마감 월은 0원이 아니며, 기존 내역은 그대로 유지됩니다.
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
               <Link className="border border-finance-ink px-4 py-2 t-caption font-semibold text-finance-ink hover:bg-finance-panel" href={reportYearHref(data.previousYear)}>← {data.previousYear}년 보기</Link>
-              <Link className="bg-finance-ink px-4 py-2 t-caption font-semibold text-white hover:bg-finance-blue" href="/inbox">거래 가져오기</Link>
+              <Link className="bg-finance-ink px-4 py-2 t-caption font-semibold text-white hover:bg-finance-blue" href={`/ledger?month=${data.year}-01`}>내역에서 월 마감 →</Link>
             </div>
           </section>
         ) : (
           <>
         <section className="mt-6 grid divide-y divide-finance-hairline border-y border-finance-ink lg:grid-cols-[400px_repeat(3,minmax(0,1fr))] lg:divide-x lg:divide-y-0">
           <article className="flex items-center gap-5 py-5 pr-6">
-            <SavingsProgressRing target={dashboard.savingsTarget} value={data.annual.savingsRate} />
+            <SavingsProgressRing target={stats.savingsTarget} value={data.annual.savingsRate} />
             <div className="min-w-0">
               <p className="t-label text-finance-muted">올해 순저축률</p>
-              <p className={`mt-2 t-body-strong ${data.annual.savingsRate >= dashboard.savingsTarget ? 'text-finance-green' : 'text-finance-ink'}`}>
-                목표 {formatRate(dashboard.savingsTarget)}% {data.annual.savingsRate >= dashboard.savingsTarget ? '달성' : '진행 중'} · {data.annual.savingsRate - dashboard.savingsTarget >= 0 ? '+' : ''}{formatRate(data.annual.savingsRate - dashboard.savingsTarget)}%p
+              <p className={`mt-2 t-body-strong ${data.annual.savingsRate >= stats.savingsTarget ? 'text-finance-green' : 'text-finance-ink'}`}>
+                목표 {formatRate(stats.savingsTarget)}% {data.annual.savingsRate >= stats.savingsTarget ? '달성' : '진행 중'} · {data.annual.savingsRate - stats.savingsTarget >= 0 ? '+' : ''}{formatRate(data.annual.savingsRate - stats.savingsTarget)}%p
               </p>
               <p className="mt-2 t-caption leading-relaxed text-finance-muted">
-                {data.hasPrevious ? <>전년 {formatRate(data.previous.savingsRate)}% → <strong className={deltaTone(data.savingsRateDelta, true)}>{data.savingsRateDelta >= 0 ? '+' : ''}{formatRate(data.savingsRateDelta)}%p</strong><br /></> : <>전년 데이터 없음<br /></>}
-                달성 {dashboard.annual.targetHitMonths}/{dashboard.annual.activeMonths}개월
+                {data.hasPrevious ? <>전년 {formatRate(data.previous.savingsRate)}% → <strong className={deltaTone(data.savingsRateDelta, true)}>{data.savingsRateDelta >= 0 ? '+' : ''}{formatRate(data.savingsRateDelta)}%p</strong><br /></> : <>전년 동일 월 미마감<br /></>}
+                달성 {stats.targetHitMonths}/{completedMonths}개월
                 {data.bestMonth && ` · 최고 ${data.bestMonth.month}월 ${formatRate(data.bestMonth.savingsRate)}%`}
                 {data.worstMonth && ` · 최저 ${data.worstMonth.month}월 ${formatRate(data.worstMonth.savingsRate)}%`}
               </p>
@@ -136,18 +136,18 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
               <p className="t-label text-finance-muted">{item.label}</p>
               <p className={`mt-2 t-kpi tabular-nums ${item.tone}`}>{formatWon(item.value)}<span className="ml-1 t-body font-medium text-finance-muted">원</span></p>
               <p className={`mt-2 t-caption ${data.hasPrevious ? deltaTone(item.comparison.delta, item.good) : 'text-finance-faint'}`}>
-                {data.hasPrevious ? `전년 대비 ${yoyAmountText(item.comparison)}` : '전년 데이터 없음'}
+                {data.hasPrevious ? `전년 대비 ${yoyAmountText(item.comparison)}` : '전년 동일 월 미마감'}
                 {item.label === '연 순저축' && ` · 저축 납입 ${formatWon(data.annual.saving)}원`}
               </p>
             </article>
           ))}
         </section>
 
-        <AnnualFlowOverview annualRate={data.annual.savingsRate} monthly={dashboard.monthly} savingsTarget={dashboard.savingsTarget} />
+        <AnnualFlowOverview annualRate={data.annual.savingsRate} monthly={stats.monthly} savingsTarget={stats.savingsTarget} />
 
         <StatsMonthlySection
-          accountMonthly={dashboard.accountMonthly}
-          details={categoryDetails}
+          accountMonthly={stats.accountMonthly}
+          details={stats.details}
           highlightedMajor={highlightedMajor}
           initialAxis={statsView.axis}
           initialChart={statsView.chart}
@@ -167,7 +167,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
                   </div>
                 <ol>
                   {data.topExpenses.map((item) => {
-                    const deltaPct = expenseDeltaPercent(item.delta, item.previous)
+                    const deltaPct = data.hasPrevious ? expenseDeltaPercent(item.delta, item.previous) : null
                     return (
                       <li className="grid grid-cols-[90px_minmax(0,1fr)_110px_58px_90px] items-center gap-x-3 border-b border-finance-track py-2.5 t-caption" key={item.major}>
                         <span className="truncate font-semibold text-finance-ink">{item.major}</span>
@@ -175,7 +175,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
                         <span className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(item.amount)}</span>
                         <span className="text-right tabular-nums text-finance-muted">{formatRate(item.percent)}%</span>
                         <span className={`text-right tabular-nums ${deltaPct === null ? 'text-finance-faint' : deltaTone(item.delta, false)}`}>
-                          {deltaPct === null ? '–' : `${item.delta > 0 ? '▲' : '▼'} ${formatRate(Math.abs(deltaPct))}%`}
+                          {!data.hasPrevious || item.delta === 0 ? '–' : deltaPct === null ? signedWon(item.delta) : `${item.delta > 0 ? '▲' : '▼'} ${formatRate(Math.abs(deltaPct))}%`}
                         </span>
                       </li>
                     )
@@ -203,8 +203,8 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
                   <span className="truncate font-medium text-finance-ink">{merchant.name}</span>
                   <span className="text-right text-finance-muted">{merchant.count}건</span>
                   <span className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(merchant.amount)}</span>
-                  <span className={`text-right tabular-nums ${merchant.delta === 0 || merchant.previous === 0 ? 'text-finance-faint' : deltaTone(merchant.delta, false)}`}>
-                    {merchant.delta === 0 || merchant.previous === 0 ? '–' : `${merchant.delta > 0 ? '▲' : '▼'} ${formatWon(Math.abs(merchant.delta))}`}
+                  <span className={`text-right tabular-nums ${!data.hasPrevious || merchant.delta === 0 ? 'text-finance-faint' : deltaTone(merchant.delta, false)}`}>
+                    {!data.hasPrevious || merchant.delta === 0 ? '–' : `${merchant.delta > 0 ? '▲' : '▼'} ${formatWon(Math.abs(merchant.delta))}`}
                   </span>
                 </div>
               ))}
@@ -217,6 +217,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
         <section className="grid gap-8 py-6 lg:grid-cols-2 lg:gap-12">
           <div className="min-w-0">
             <h2 className="t-section text-finance-ink">전년 같은 기간과 비교 <span className="ml-1 font-normal text-finance-muted">{data.year} vs {data.previousYear}</span></h2>
+            <p className="mt-2 t-caption text-finance-muted">{data.hasPrevious ? `양쪽 모두 ${monthList} 기준` : '전년 동일 월 미마감 · 대응 월을 모두 마감하면 비교합니다.'}</p>
             <div className="mt-4 overflow-x-auto">
               <div className="min-w-[520px] border-t border-finance-ink">
               <div className="grid grid-cols-[minmax(0,1fr)_130px_130px_130px] border-b border-finance-hairline py-2 t-label text-finance-muted">
@@ -227,7 +228,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
                   <span className="font-semibold text-finance-ink">{row.label}</span>
                   <span className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(row.current)}</span>
                   <span className="text-right tabular-nums text-finance-muted">{data.hasPrevious ? formatWon(row.previous) : '–'}</span>
-                  <span className={`text-right tabular-nums ${data.hasPrevious ? deltaTone(row.delta, row.goodWhenPositive) : 'text-finance-faint'}`}>{data.hasPrevious && row.pct !== null ? `${row.delta > 0 ? '▲' : row.delta < 0 ? '▼' : '–'} ${formatRate(Math.abs(row.pct))}%` : '–'}</span>
+                  <span className={`text-right tabular-nums ${data.hasPrevious ? deltaTone(row.delta, row.goodWhenPositive) : 'text-finance-faint'}`}>{!data.hasPrevious ? '–' : row.pct !== null ? `${row.delta > 0 ? '▲' : row.delta < 0 ? '▼' : '–'} ${formatRate(Math.abs(row.pct))}%` : signedWon(row.delta)}</span>
                 </div>
               ))}
               <div className="grid grid-cols-[minmax(0,1fr)_130px_130px_130px] border-b border-finance-hairline py-2.5 t-caption">
@@ -240,8 +241,9 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
             </div>
           </div>
           <div className="min-w-0">
-            <h2 className="t-section text-finance-ink">앞으로 6개월 <span className="ml-1 font-normal text-finance-muted">완료월 평균 순흐름 누적 · 추정치</span></h2>
-            {data.cashflow.startCash === 0 ? (
+            <h2 className="t-section text-finance-ink">앞으로 6개월 <span className="ml-1 font-normal text-finance-muted">마감 월 평균 순흐름 누적 · 추정치</span></h2>
+            <p className="mt-2 t-caption text-finance-muted">거래 기준 {monthList} · 잔액은 거래 마감과 별개{stats.assetBasisMonth && ` · 계좌별 최신 기록 (최근 ${stats.assetBasisMonth})`}</p>
+            {stats.assetBasisMonth === null ? (
               <div className="mt-4 border-y border-finance-hairline py-10 text-center">
                 <p className="t-body-strong text-finance-ink">자산을 입력하면 예측이 보입니다.</p>
                 <Link className="mt-2 inline-block t-caption font-semibold text-finance-blue" href="/assets">자산 잔고 입력 →</Link>

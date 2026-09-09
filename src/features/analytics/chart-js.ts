@@ -12,6 +12,7 @@ import {
   LineElement,
   PointElement,
   Tooltip,
+  type Plugin,
 } from 'chart.js'
 import { useEffect, useState } from 'react'
 
@@ -41,6 +42,22 @@ export const CHART_LINE_WIDTH_ACTIVE = 2.25
 export const CHART_POINT_RADIUS = 2.5
 export const CHART_POINT_RADIUS_ACTIVE = 4
 export const CHART_ANIMATION = { duration: 400 }
+
+/** Missing calendar slots must not snap the pointer to a neighbouring month. */
+export function monthlyEligibilityBoundary(eligible: boolean[]): Plugin {
+  return {
+    id: 'finance-month-eligibility',
+    beforeEvent(chart, { event, inChartArea }) {
+      const index = event.x == null ? -1 : Number(chart.scales.x?.getValueForPixel(event.x))
+      if (event.type === 'mouseout' || !inChartArea || !eligible[index]) {
+        chart.setActiveElements([])
+        chart.tooltip?.setActiveElements([], { x: event.x ?? 0, y: event.y ?? 0 })
+        chart.draw()
+        if (event.type !== 'mouseout') return false
+      }
+    },
+  }
+}
 
 export type FinanceChartPalette = {
   background: string

@@ -14,6 +14,7 @@ import {
   alpha,
   financeScales,
   financeTooltip,
+  monthlyEligibilityBoundary,
   percentAxis,
   useFinanceChartPalette,
   wonTooltipLabel,
@@ -40,6 +41,7 @@ export function AnnualFlowOverview({
   const palette = useFinanceChartPalette()
   const [hoveredMonth, setHoveredMonth] = useState<number | null>(null)
   const labels = monthly.map((_, index) => `${index + 1}월`)
+  const eligibilityBoundary = useMemo(() => monthlyEligibilityBoundary(monthly.map(row => row.active)), [monthly])
 
   const flowData = useMemo<ChartData<'bar'>>(() => ({
     labels,
@@ -142,12 +144,12 @@ export function AnnualFlowOverview({
       </div>
       <div className="mt-4 min-w-0">
         <div className="relative h-[230px] w-full" onMouseLeave={() => setHoveredMonth(null)}>
-          <Bar aria-label="월별 수입 지출 저축 막대 차트" data={flowData} options={flowOptions} role="img" />
+          <Bar aria-label="월별 수입 지출 저축 막대 차트" data={flowData} options={flowOptions} plugins={[eligibilityBoundary]} role="img" />
         </div>
         <div className="mt-2 grid items-center gap-3 sm:grid-cols-[120px_minmax(0,1fr)_120px]">
           <p className="t-caption text-finance-muted">순저축률 <span className="text-finance-faint">· 목표 {formatRate(savingsTarget)}%</span></p>
           <div className="relative h-[86px] min-w-0" onMouseLeave={() => setHoveredMonth(null)}>
-            <Line aria-label="월별 순저축률 선 차트" data={rateData} options={rateOptions} role="img" />
+            <Line aria-label="월별 순저축률 선 차트" data={rateData} options={rateOptions} plugins={[eligibilityBoundary]} role="img" />
           </div>
           <p className={`text-right t-body-strong ${annualRate >= savingsTarget ? 'text-finance-green' : 'text-finance-ink'}`}>{formatRate(annualRate)}% <span className="font-normal text-finance-muted">연 누적</span></p>
         </div>

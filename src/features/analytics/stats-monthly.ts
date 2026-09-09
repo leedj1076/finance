@@ -53,7 +53,7 @@ export type StatsMonthlySubRow = {
   sub: string
   values: number[]
   total: number
-  average: number
+  average: number | null
 }
 
 export type StatsMonthlyRow = {
@@ -63,7 +63,7 @@ export type StatsMonthlyRow = {
   values: number[]
   displayValues: Array<number | null>
   total: number
-  average: number
+  average: number | null
   folded: string[]
   subs: StatsMonthlySubRow[]
 }
@@ -73,10 +73,11 @@ export type StatsMonthlyModel = {
   rows: StatsMonthlyRow[]
   monthTotals: number[]
   total: number
-  average: number
+  average: number | null
   activeMonths: number
   currentMonthIndex: number | null
   divisor: number
+  eligibleMonths: boolean[]
 }
 
 export type StatsSeriesSelection = {
@@ -126,8 +127,12 @@ function averageFor(values: number[], detail: CategoryDetail) {
   const current = detail.currentMonth ? values[detail.currentMonth - 1] : 0
   return {
     total,
-    average: categoryDetailMonthlyAverage(total, current, detail.divisor),
+    average: detail.divisor > 0 ? categoryDetailMonthlyAverage(total, current, detail.divisor) : null,
   }
+}
+
+function monthEligible(detail: CategoryDetail, month: number) {
+  return detail.closedMonths ? detail.closedMonths.includes(month + 1) : month < (detail.months.at(-1) ?? 0)
 }
 
 function latestActiveMonth(series: Array<Array<number | null>>) {
@@ -151,7 +156,7 @@ function buildCategoryModel({
     .map((group) => ({
       group,
       total: group.subs.reduce(
-        (sum, sub) => sum + sub.months.reduce((monthSum, value) => monthSum + value, 0),
+        (sum, sub) => sum + sub.months.reduce((monthSum, value, month) => monthSum + (monthEligible(detail, month) ? value : 0), 0),
         0,
       ),
     }))
@@ -162,14 +167,14 @@ function buildCategoryModel({
     const name = group.major
     const id = statsSeriesId('category', name)
     const rawDisplay = Array.from({ length: 12 }, (_, month) => (
-      month < activeMonths
+      month < activeMonths && monthEligible(detail, month)
         ? group.subs.reduce((sum, sub) => sum + sub.months[month], 0)
         : null
     ))
     const rawValues = normalizedValues(rawDisplay)
     const subs = group.subs.map((sub) => {
       const values = sub.months.map((value, month) => (
-        excluded.has(statsCellKey({ axis: 'category', label: name, sub: sub.sub, month }))
+        !monthEligible(detail, month) || excluded.has(statsCellKey({ axis: 'category', label: name, sub: sub.sub, month }))
           ? 0
           : value
       ))
@@ -183,7 +188,7 @@ function buildCategoryModel({
       }
     })
     const values = rawValues.map((rawValue, month) => {
-      if (excluded.has(statsCellKey({ axis: 'category', label: name, month }))) return 0
+      if (!monthEligible(detail, month) || excluded.has(statsCellKey({ axis: 'category', label: name, month }))) return 0
       const excludedSubTotal = group.subs.reduce((sum, sub) => (
         excluded.has(statsCellKey({ axis: 'category', label: name, sub: sub.sub, month }))
           ? sum + sub.months[month]
@@ -204,7 +209,7 @@ function buildCategoryModel({
       folded: [],
       subs,
     })
-    series.push({ id, label: name, color, values })
+    series.push({ id, label: name, color, values: detail.closedMonths ? values.map((value, month) => monthEligible(detail, month) ? value : null) : values })
   })
 
   return { rows, series }
@@ -224,7 +229,8 @@ function buildAccountModel({
 
   monthly.accounts.forEach((name, index) => {
     const id = statsSeriesId('account', name)
-    const rawDisplay = monthly.series[name] ?? Array<number | null>(12).fill(null)
+    const rawDisplay = (monthly.series[name] ?? Array<number | null>(12).fill(null))
+      .map((value, month) => detail.closedMonths ? monthEligible(detail, month) ? value ?? 0 : null : value)
     const values = normalizedValues(rawDisplay).map((value, month) => (
       excluded.has(statsCellKey({ axis: 'account', label: name, month })) ? 0 : value
     ))
@@ -245,7 +251,7 @@ function buildAccountModel({
       folded,
       subs: [],
     })
-    series.push({ id, label, color, values })
+    series.push({ id, label, color, values: detail.closedMonths ? values.map((value, month) => monthEligible(detail, month) ? value : null) : values })
   })
 
   return { rows, series }
@@ -283,28 +289,33 @@ export function buildStatsMonthlyModel({
     ...result,
     monthTotals,
     total,
-    average: categoryDetailMonthlyAverage(total, current, detail.divisor),
+    average: detail.divisor > 0 ? categoryDetailMonthlyAverage(total, current, detail.divisor) : null,
     activeMonths,
     currentMonthIndex,
     divisor: detail.divisor,
+    eligibleMonths: Array.from({ length: 12 }, (_, month) => detail.closedMonths ? monthEligible(detail, month) : month < activeMonths),
   }
 }
 
-export function statsSparkline(values: number[], flow: StatsMonthlyFlow, activeMonths = values.length) {
+export function statsSparkline(values: Array<number | null>, flow: StatsMonthlyFlow, activeMonths = values.length) {
   const relevant = values.slice(0, Math.max(0, Math.min(activeMonths, values.length)))
-  const firstValue = relevant.findIndex((value) => value > 0)
+  while (relevant.length && relevant.at(-1) === null) relevant.pop()
+  const firstValue = relevant.findIndex((value) => value !== null && value > 0)
   const active = firstValue < 0 ? [] : relevant.slice(firstValue)
   const points = active.slice(-6)
   if (points.length < 2) return null
-  const max = Math.max(...points, 1)
-  const min = Math.min(...points)
+  const recorded = points.filter((value): value is number => value !== null)
+  if (recorded.length < 2) return null
+  const max = Math.max(...recorded, 1)
+  const min = Math.min(...recorded)
   const range = Math.max(max - min, 1)
   const step = 76 / Math.max(points.length - 1, 1)
-  const yValues = points.map((value) => 3 + ((max - value) / range) * 14)
+  const yValues = points.map((value) => value === null ? null : 3 + ((max - value) / range) * 14)
   const split = Math.max(Math.floor(points.length / 2), 1)
-  const first = points.slice(0, split).reduce((sum, value) => sum + value, 0) / split
-  const lastCount = points.length - split
-  const last = points.slice(split).reduce((sum, value) => sum + value, 0) / Math.max(lastCount, 1)
+  const firstPoints = points.slice(0, split).filter((value): value is number => value !== null)
+  const lastPoints = points.slice(split).filter((value): value is number => value !== null)
+  const first = firstPoints.reduce((sum, value) => sum + value, 0) / Math.max(firstPoints.length, 1)
+  const last = lastPoints.reduce((sum, value) => sum + value, 0) / Math.max(lastPoints.length, 1)
   const change = first > 0 ? (last - first) / first : 0
   const increasing = change > 0.08
   const decreasing = change < -0.08
@@ -315,9 +326,23 @@ export function statsSparkline(values: number[], flow: StatsMonthlyFlow, activeM
       ? goodIncrease ? 'red' : 'green'
       : 'muted'
 
+  const segments: string[] = []
+  let segment: string[] = []
+  let lastX = 2
+  let lastY = 10
+  for (let i = 0; i < yValues.length; i++) {
+    const y = yValues[i]
+    if (y === null) {
+      if (segment.length) segments.push(segment.join(' '))
+      segment = []
+    } else {
+      lastX = 2 + i * step; lastY = y
+      segment.push(`${lastX},${y.toFixed(1)}`)
+    }
+  }
+  if (segment.length) segments.push(segment.join(' '))
   return {
-    points: yValues.map((y, index) => `${2 + index * step},${y.toFixed(1)}`).join(' '),
-    lastY: yValues.at(-1) ?? 10,
+    points: segments.join(' '), segments, lastX, lastY,
     color: tone === 'green'
       ? 'var(--finance-green)'
       : tone === 'red'

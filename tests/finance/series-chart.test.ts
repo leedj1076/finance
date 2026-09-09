@@ -57,6 +57,14 @@ describe('series chart geometry', () => {
 })
 
 describe('series chart hit testing', () => {
+  test('all modes ignore unclosed columns and line geometry breaks instead of connecting through zero', () => {
+    const sparse = [{ id: 'food', label: '식비', color: '#000', values: [100, null, 200] }]
+    for (const kind of ['stacked', 'line', 'area'] as const) {
+      expect(hitTestSeriesChart({ series: sparse, kind, activeMonths: 12, xRatio: 1.5 / 12, yRatio: 0.7 })).toBeNull()
+    }
+    expect(buildSeriesChartGeometry(sparse, 'line', 12).lines.map(line => line.points)).toEqual(['50,113.0', '250,6.0'])
+    expect(applySeriesExclusions(sparse, new Set([seriesCellKey('food', 1)]))[0].values[1]).toBeNull()
+  })
   test('interpolates the two cumulative edges of an area band between months', () => {
     const bands = [
       { id: 'lower', label: 'lower', color: '#000', values: [60, 20] },

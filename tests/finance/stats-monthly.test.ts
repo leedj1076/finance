@@ -49,6 +49,31 @@ const accountMonthly: Record<'expense' | 'income', AccountMonthlyData> = {
 }
 
 describe('stats monthly shared model', () => {
+  test('closed eligibility keeps an intervening open month null and counts a closed zero month', () => {
+    const closed: CategoryDetails = { ...details, expense: { ...details.expense, months: Array.from({ length: 12 }, (_, i) => i + 1), closedMonths: [1, 3], divisor: 2 } }
+    const model = buildStatsMonthlyModel({ flow: 'expense', axis: 'category', details: closed, accountMonthly, excluded: new Set() })
+    expect(model.series[0].values.slice(0, 3)).toEqual([100, null, 0])
+    expect(model.rows[0].average).toBe(50)
+    expect(model.rows[0].subs[0].values.slice(0, 3)).toEqual([40, 0, 0])
+    expect(model.total).toBe(170)
+    expect(model.divisor).toBe(2)
+  })
+
+  test('a sparse trend uses real calendar positions and separate path segments instead of joining the gap', () => {
+    const trend = statsSparkline([100, null, 200], 'expense', 3)
+    expect(trend?.segments).toEqual(['2,17.0', '78,3.0'])
+    expect(trend?.lastX).toBe(78)
+    expect(statsSparkline([100, null, 200, null, null, null, null, null, null, null, null, null], 'expense', 12)?.segments).toEqual(['2,17.0', '78,3.0'])
+    expect(statsSparkline([null, null, null], 'expense', 3)).toBeNull()
+  })
+
+  test('no closed months exposes an unavailable average rather than NaN or a fabricated one-month denominator', () => {
+    const empty: CategoryDetails = { ...details, expense: { ...details.expense, closedMonths: [], divisor: 0 } }
+    const model = buildStatsMonthlyModel({ flow: 'expense', axis: 'category', details: empty, accountMonthly, excluded: new Set() })
+    expect(model.average).toBeNull()
+    expect(model.divisor).toBe(0)
+    expect(model.series).toEqual([])
+  })
   test('keeps only the selected series row and its category details', () => {
     const model = buildStatsMonthlyModel({
       flow: 'expense', axis: 'category', details, accountMonthly, excluded: new Set(),

@@ -63,7 +63,7 @@ export function applySeriesExclusions(
   return series.map((item) => ({
     ...item,
     values: item.values.map((value, month) => (
-      excluded.has(seriesCellKey(item.id, month)) ? 0 : value
+      value !== null && excluded.has(seriesCellKey(item.id, month)) ? 0 : value
     )),
   }))
 }
@@ -118,10 +118,14 @@ export function buildSeriesChartGeometry(
     }
   } else if (kind === 'line') {
     for (const item of series) {
-      const points = Array.from({ length: visibleMonthCount }, (_, month) => (
-        `${month * SERIES_MONTH_SLOT + SERIES_MONTH_SLOT / 2},${seriesY(valueAt(item, month), maxSingle).toFixed(1)}`
-      ))
-      lines.push({ seriesId: item.id, color: item.color, points: points.join(' ') })
+      let points: string[] = []
+      for (let month = 0; month < visibleMonthCount; month++) {
+        if (item.values[month] == null) {
+          if (points.length) lines.push({ seriesId: item.id, color: item.color, points: points.join(' ') })
+          points = []
+        } else points.push(`${month * SERIES_MONTH_SLOT + SERIES_MONTH_SLOT / 2},${seriesY(valueAt(item, month), maxSingle).toFixed(1)}`)
+      }
+      if (points.length) lines.push({ seriesId: item.id, color: item.color, points: points.join(' ') })
     }
   } else {
     const lower = Array<number>(12).fill(0)
@@ -168,6 +172,7 @@ export function hitTestSeriesChart({
   const visibleMonthCount = Math.min(Math.max(activeMonths, 0), 12)
   const month = Math.floor(xRatio * 12)
   if (month < 0 || month >= visibleMonthCount) return null
+  if (series.every(item => item.values[month] == null)) return null
 
   const geometry = buildSeriesChartGeometry(series, kind, visibleMonthCount)
   const y = yRatio * SERIES_PLOT_HEIGHT
@@ -189,6 +194,7 @@ export function hitTestSeriesChart({
   } else if (kind === 'line') {
     let nearest = Number.POSITIVE_INFINITY
     for (const item of series) {
+      if (item.values[month] == null) continue
       const distance = Math.abs(seriesY(valueAt(item, month), geometry.maxValue) - y)
       if (distance < nearest) {
         nearest = distance
@@ -198,7 +204,7 @@ export function hitTestSeriesChart({
   } else {
     return hitTestAreaBands(geometry.areas.map((area) => ({
       seriesId: area.seriesId,
-      points: area.upper.slice(0, visibleMonthCount).map((share, index) => ({
+      points: area.upper.slice(0, visibleMonthCount).map((share, index) => series.find(item => item.id === area.seriesId)?.values[index] == null ? null : ({
         x: (index + 0.5) * SERIES_MONTH_SLOT,
         y: seriesY(share, 1),
       })),

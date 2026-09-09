@@ -12,6 +12,7 @@ import {
   CHART_POINT_RADIUS_ACTIVE,
   alpha,
   resolveChartColor,
+  monthlyEligibilityBoundary,
   useFinanceChartPalette,
 } from './chart-js'
 import { hitTestAreaBands, type SeriesChartKind, type SeriesChartSeries } from './series-chart-geometry'
@@ -22,7 +23,27 @@ declare module 'chart.js' {
   interface InteractionModeMap {
     financeArea: InteractionModeFunction
     financeStacked: InteractionModeFunction
+    financeLine: InteractionModeFunction
   }
+}
+
+Interaction.modes.financeLine = (chart, event, _options, useFinalPosition) => {
+  const position = getRelativePosition(event, chart)
+  const index = Number(chart.scales.x.getValueForPixel(position.x))
+  let selected: { element: PointElement; datasetIndex: number; index: number } | null = null
+  let distance = Infinity
+  for (const meta of chart.getSortedVisibleDatasetMetas()) {
+    if (chart.data.datasets[meta.index].data[index] == null) continue
+    const point = meta.data[index] as PointElement | undefined
+    if (!point || point.skip) continue
+    const y = point.getProps(['y'], useFinalPosition).y
+    if (y === null) continue
+    if (Math.abs(y - position.y) < distance) {
+      selected = { element: point, datasetIndex: meta.index, index }
+      distance = Math.abs(y - position.y)
+    }
+  }
+  return selected ? [selected] : []
 }
 
 // Keep the column under the pointer even when exclusions shrink its bars to
@@ -59,7 +80,9 @@ Interaction.modes.financeArea = (chart, event, _options, useFinalPosition) => {
     }),
   }))
   const hit = hitTestAreaBands(bands, chart.scales.y.getPixelForValue(0), position.x, position.y)
-  if (!hit) return []
+  // An isolated closed month has no adjacent area to fill. Its visible boundary
+  // points remain inspectable, without inventing a band across an open month.
+  if (!hit) return Interaction.modes.point(chart, event, { ..._options, intersect: true }, useFinalPosition)
   const datasetIndex = Number(hit.seriesId)
   return [{ element: chart.getDatasetMeta(datasetIndex).data[hit.month], datasetIndex, index: hit.month }]
 }
@@ -104,8 +127,8 @@ export function SeriesChart({
       const focusedSeries = hoverSeries ?? selectedSeries
       const dimmed = focusedSeries !== null && focusedSeries !== row.id
       const values = Array.from({ length: 12 }, (_, month) => {
-        if (month >= activeMonths) return null
-        return kind === 'area' ? normalizedPercent(series, seriesIndex, month) : row.values[month] ?? 0
+        if (month >= activeMonths || row.values[month] == null) return null
+        return kind === 'area' ? normalizedPercent(series, seriesIndex, month) : row.values[month]
       })
 
       if (isBar) {
@@ -139,10 +162,12 @@ export function SeriesChart({
           if (selectedSeries === row.id && context.dataIndex === selectedMonth) {
             return CHART_POINT_RADIUS_ACTIVE
           }
+          if (values[context.dataIndex] !== null && values[context.dataIndex - 1] == null && values[context.dataIndex + 1] == null) return CHART_POINT_RADIUS
           return 0
         },
         pointHoverRadius: CHART_POINT_RADIUS_ACTIVE,
         tension: kind === 'line' ? 0.22 : 0,
+        spanGaps: false,
       }
     })
     return { labels, datasets } as ChartData<'bar'> | ChartData<'line'>
@@ -152,10 +177,10 @@ export function SeriesChart({
     responsive: true,
     maintainAspectRatio: false,
     animation: { duration: 300 },
-    interaction: { mode: kind === 'area' ? 'financeArea' as const : kind === 'stacked' ? 'financeStacked' as const : 'nearest' as const, intersect: false },
+    interaction: { mode: kind === 'area' ? 'financeArea' as const : kind === 'stacked' ? 'financeStacked' as const : 'financeLine' as const, intersect: false },
     onHover: (_event: unknown, elements: Array<{ datasetIndex: number; index: number }>) => {
       const element = elements[0]
-      if (!pointerInside.current || !element || element.index >= activeMonths) {
+      if (!pointerInside.current || !element || element.index >= activeMonths || series[element.datasetIndex]?.values[element.index] == null) {
         onHover(null, null)
         return
       }
@@ -164,7 +189,7 @@ export function SeriesChart({
     onClick: (_event: unknown, elements: Array<{ datasetIndex: number; index: number }>) => {
       const element = elements[0]
       const seriesId = element ? series[element.datasetIndex]?.id : null
-      if (!element || element.index >= activeMonths || !seriesId) return
+      if (!element || element.index >= activeMonths || !seriesId || series[element.datasetIndex]?.values[element.index] == null) return
       onSelect(seriesId, element.index)
     },
     plugins: { legend: { display: false }, tooltip: { enabled: false } },
@@ -191,15 +216,18 @@ export function SeriesChart({
   const hoverBoundary = useMemo<Plugin<'bar' | 'line'>>(() => ({
     id: 'finance-hover-boundary',
     beforeEvent: (chart, { event, inChartArea, replay }) => {
-      if (event.type === 'mouseout' || !inChartArea || !pointerInside.current) {
+      const month = event.x == null ? -1 : Number(chart.scales.x.getValueForPixel(event.x))
+      const unavailable = series.every(row => row.values[month] == null)
+      if (event.type === 'mouseout' || !inChartArea || !pointerInside.current || unavailable) {
         chart.setActiveElements([])
         onHover(null, null)
         // Suppress stale hovers, but preserve a queued click: Chart.js batches
         // events in animation frames, so the pointer may have already left.
-        if (event.type !== 'mouseout' && (replay || event.type !== 'click')) return false
+        if (event.type !== 'mouseout' && (unavailable || replay || event.type !== 'click')) return false
       }
     },
-  }), [onHover])
+  }), [onHover, series])
+  const eligibilityBoundary = useMemo(() => monthlyEligibilityBoundary(Array.from({ length: 12 }, (_, month) => month < activeMonths && series.some(row => row.values[month] != null))), [activeMonths, series])
 
   return (
     <div
@@ -211,8 +239,8 @@ export function SeriesChart({
       role="img"
     >
       {isBar
-        ? <Bar data={data as ChartData<'bar'>} options={commonOptions as ChartOptions<'bar'>} plugins={[hoverBoundary]} />
-        : <Line data={data as ChartData<'line'>} options={commonOptions as ChartOptions<'line'>} plugins={[hoverBoundary]} />}
+        ? <Bar data={data as ChartData<'bar'>} options={commonOptions as ChartOptions<'bar'>} plugins={[hoverBoundary, eligibilityBoundary]} />
+        : <Line data={data as ChartData<'line'>} options={commonOptions as ChartOptions<'line'>} plugins={[hoverBoundary, eligibilityBoundary]} />}
     </div>
   )
 }
