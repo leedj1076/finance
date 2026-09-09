@@ -72,16 +72,16 @@ function Sparkline({
   values,
   flow,
   activeMonths,
-  closedOnly,
+  preserveRecordedMonths,
   label,
 }: {
   values: Array<number | null>
   flow: StatsMonthlyFlow
   activeMonths: number
-  closedOnly: boolean
+  preserveRecordedMonths: boolean
   label: string
 }) {
-  const spark = statsSparkline(values, flow, activeMonths, closedOnly)
+  const spark = statsSparkline(values, flow, activeMonths, preserveRecordedMonths)
   if (!spark) return <span className="text-finance-faint">–</span>
   return (
     <svg aria-label={`${label} 최근 추세`} className="h-5 w-20" role="img" viewBox="0 0 80 20">
@@ -151,10 +151,11 @@ export function StatsMonthlySection({
   const hoveredValue = hoveredSeries && hoverMonth !== null ? hoveredSeries.values[hoverMonth] ?? 0 : 0
   const hoveredTotal = hoverMonth !== null ? model.monthTotals[hoverMonth] : 0
   const hoveredPrevious = hoveredSeries && hoverMonth !== null && hoverMonth > 0
-    ? model.eligibleMonths[hoverMonth - 1] ? hoveredSeries.values[hoverMonth - 1] ?? 0 : null
+    ? hoveredSeries.values[hoverMonth - 1] ?? null
     : null
   const hoveredDelta = hoveredPrevious === null ? null : hoveredValue - hoveredPrevious
-  const closedOnly = details[flow].closedMonths !== undefined
+  const isProvisional = (month: number) => model.eligibleMonths[month] && !model.closedMonths[month]
+  const comparisonIsProvisional = hoverMonth !== null && (!model.closedMonths[hoverMonth] || !model.closedMonths[hoverMonth - 1])
 
   useEffect(() => {
     cache.current.clear()
@@ -169,7 +170,7 @@ export function StatsMonthlySection({
 
   function cellCacheKey(major: string, sub: string, month: number) {
     const revision = details[flow].monthRevisions?.[month]
-    return `${year}\u0000${closedOnly ? `closed:${revision}` : 'live'}\u0000${flow}\u0000${major}\u0000${sub}\u0000${month}`
+    return `${year}\u0000${model.closedMonths[month - 1] ? `closed:${revision}` : 'live'}\u0000${flow}\u0000${major}\u0000${sub}\u0000${month}`
   }
 
   useEffect(() => {
@@ -228,7 +229,7 @@ export function StatsMonthlySection({
   ) {
     clearTimer(showTimer)
     clearTimer(hideTimer)
-    if (!model.eligibleMonths[month - 1]) return
+    if (!model.availableMonths[month - 1]) return
     const key = cellCacheKey(major, sub, month)
     activeCell.current = key
     showTimer.current = setTimeout(async () => {
@@ -240,9 +241,11 @@ export function StatsMonthlySection({
         return
       }
       const params = new URLSearchParams({ flow, year: String(year), month: String(month), major, sub })
-      if (closedOnly) {
+      if (model.closedMonths[month - 1]) {
         params.set('scope', 'closed')
         params.set('revision', String(details[flow].monthRevisions?.[month]))
+      } else {
+        params.set('scope', 'live')
       }
       try {
         const response = await fetch(`/api/cell-tx?${params}`)
@@ -375,6 +378,15 @@ export function StatsMonthlySection({
       ) : (
         <div aria-label="월별 그래프와 항목별 표" className="mt-4 overflow-x-auto overscroll-x-contain">
           <div className="min-w-[1200px]">
+            <div className="mb-2 grid items-end gap-x-1.5 t-label" style={{ gridTemplateColumns: GRID_COLUMNS }}>
+              <div />
+              {model.monthStates.map((state, month) => (
+                <div key={month} className={`text-center ${state === 'current' ? 'italic text-finance-faint' : state === 'future' ? 'text-finance-faint' : isProvisional(month) ? 'text-finance-amber' : 'text-finance-ink'}`}>
+                  {month + 1}월{state === 'current' ? '·진행 중' : isProvisional(month) ? '·잠정' : ''}
+                </div>
+              ))}
+              <div className="col-span-3" />
+            </div>
             <div className="grid items-stretch gap-x-1.5" style={{ gridTemplateColumns: GRID_COLUMNS }}>
               <div className="relative t-axis text-finance-faint">
                 <span className="absolute right-2 top-[6px] -translate-y-1/2">{axisLabels[0]}</span>
@@ -385,6 +397,7 @@ export function StatsMonthlySection({
                 <SeriesChart
                   activeMonths={model.activeMonths}
                   currentMonthIndex={model.currentMonthIndex}
+                  monthStates={model.monthStates}
                   hoverMonth={hoverMonth}
                   hoverSeries={hoverSeries}
                   kind={chart}
@@ -406,12 +419,13 @@ export function StatsMonthlySection({
                       <p className="flex items-center gap-1.5 t-body-strong">
                         <span className="inline-block h-[9px] w-[9px]" style={{ background: hoveredSeries.color }} />
                         {hoveredSeries.label}
-                        <span className="font-normal text-finance-faint">· {hoverMonth + 1}월{hoverMonth === model.currentMonthIndex ? ' (진행)' : ''}</span>
+                        <span className="font-normal text-finance-faint">· {hoverMonth + 1}월{hoverMonth === model.currentMonthIndex ? ' (진행 중)' : isProvisional(hoverMonth) ? ' (잠정)' : ''}</span>
                       </p>
-                      <p className="mt-1.5 t-kpi-sm">{formatWon(hoveredValue)}<span className="ml-1 t-caption font-medium text-finance-faint">원</span></p>
+                      <p className={`mt-1.5 t-kpi-sm ${isProvisional(hoverMonth) ? 'text-finance-faint' : ''}`}>{formatWon(hoveredValue)}<span className="ml-1 t-caption font-medium text-finance-faint">원</span></p>
                       <p className="mt-1 t-caption text-finance-faint">
                         월 합계 {formatWon(hoveredTotal)}원의 <strong className="text-white">{hoveredTotal > 0 ? ((hoveredValue / hoveredTotal) * 100).toFixed(1) : '0.0'}%</strong>
-                        {' · '}전월 대비 <strong className={trendDeltaColor(hoveredDelta, flow)}>{hoveredDelta === null ? '–' : hoveredDelta === 0 ? '변동 없음' : `${hoveredDelta > 0 ? '▲' : '▼'} ${formatWon(Math.abs(hoveredDelta))}`}</strong>
+                        {' · '}전월 대비 <strong className={comparisonIsProvisional ? 'text-finance-faint' : trendDeltaColor(hoveredDelta, flow)}>{hoveredDelta === null ? '–' : hoveredDelta === 0 ? '변동 없음' : `${hoveredDelta > 0 ? '▲' : '▼'} ${formatWon(Math.abs(hoveredDelta))}`}</strong>
+                        {hoveredDelta !== null && <span className={`ml-1.5 border px-1 t-label ${comparisonIsProvisional ? 'border-finance-faint text-finance-faint' : 'border-finance-green text-finance-green'}`}>{comparisonIsProvisional ? '잠정' : '확정'}</span>}
                       </p>
                     </div>
                   </div>
@@ -440,12 +454,12 @@ export function StatsMonthlySection({
               <div className="grid items-center gap-x-1.5 border-b border-finance-hairline py-[9px] t-label text-finance-muted" style={{ gridTemplateColumns: GRID_COLUMNS }}>
                 <div>{effectiveAxis === 'account' ? '결제수단' : '항목'}</div>
                 {Array.from({ length: 12 }, (_, month) => (
-                  <div className={`text-right ${month === highlightedMonth ? 'font-bold text-finance-ink' : month === model.currentMonthIndex ? 'text-finance-blue' : month >= model.activeMonths ? 'text-finance-faint' : ''}`} key={month}>
-                    {month + 1}월{month === model.currentMonthIndex ? '·진행' : closedOnly && !model.eligibleMonths[month] ? '·—' : ''}
+                  <div className={`text-right ${month === model.currentMonthIndex ? 'italic text-finance-faint' : !model.eligibleMonths[month] ? 'text-finance-faint' : isProvisional(month) ? 'text-finance-amber' : month === highlightedMonth ? 'font-bold text-finance-ink' : ''}`} key={month}>
+                    {month + 1}월{month === model.currentMonthIndex ? '·진행 중' : isProvisional(month) ? '·잠정' : ''}
                   </div>
                 ))}
-                <div className="text-right">합계</div>
-                <div className="text-right">월평균</div>
+                <div className="text-right">합계<span className="block font-normal text-finance-faint">{model.divisor > 0 ? `마감 ${model.divisor}개월` : '잠정'}</span></div>
+                <div className="text-right">월평균<span className="block font-normal text-finance-faint">{model.divisor > 0 ? `마감 ${model.divisor}개월` : '잠정'}</span></div>
                 <div className="text-center">추세</div>
               </div>
 
@@ -471,9 +485,9 @@ export function StatsMonthlySection({
                         const isExcluded = excluded.has(key)
                         return (
                           <button
-                            aria-label={rawValue === null ? `${row.label} ${month + 1}월 미마감` : `${row.label} ${month + 1}월 ${formatWon(rawValue)}원, ${isExcluded ? '합계에 다시 포함' : '합계에서 제외'}`}
+                            aria-label={rawValue === null ? `${row.label} ${month + 1}월 ${model.monthStates[month] === 'future' ? '예정' : '기록 없음'}` : `${row.label} ${month + 1}월 ${formatWon(rawValue)}원, ${isExcluded ? '합계에 다시 포함' : '합계에서 제외'}`}
                             aria-pressed={isExcluded}
-                            className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${isExcluded ? 'text-finance-faint line-through' : month === model.currentMonthIndex ? 'text-finance-muted' : rawValue === null ? 'cursor-default text-finance-faint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
+                            className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${month === model.currentMonthIndex ? 'italic' : ''} ${isExcluded ? 'text-finance-faint line-through' : rawValue === null ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
                             disabled={rawValue === null}
                             key={month}
                             onClick={() => toggleCell(key)}
@@ -481,13 +495,13 @@ export function StatsMonthlySection({
                             title={rawValue === null ? undefined : isExcluded ? '합계에 다시 포함' : '합계와 그래프에서 제외'}
                             type="button"
                           >
-                            {rawValue === null ? '—' : rawValue === 0 ? closedOnly ? '0' : '–' : formatWon(rawValue)}
+                            {rawValue === null ? model.monthStates[month] === 'future' ? '—' : '–' : rawValue === 0 ? model.closedMonths[month] ? '0' : '–' : formatWon(rawValue)}
                           </button>
                         )
                       })}
-                      <div className="text-right font-bold tabular-nums text-finance-ink">{formatWon(row.total)}</div>
-                      <div className="text-right tabular-nums text-finance-muted">{row.average === null ? '—' : formatWon(row.average)}</div>
-                      <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} closedOnly={details[flow].closedMonths !== undefined} flow={flow} label={row.label} values={row.values.map((value, month) => model.availableMonths[month] ? value : null)} /></div>
+                      <div className={`text-right font-bold tabular-nums ${model.divisor > 0 ? 'text-finance-ink' : 'text-finance-faint'}`}>{formatWon(model.divisor > 0 ? row.closedTotal : row.provisionalTotal)}</div>
+                      <div className={`text-right tabular-nums ${row.average === null ? 'text-finance-faint' : 'text-finance-muted'}`}>{row.average !== null ? formatWon(row.average) : row.provisionalAverage !== null ? formatWon(row.provisionalAverage) : '—'}</div>
+                      <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} preserveRecordedMonths flow={flow} label={row.label} values={row.values.map((value, month) => model.availableMonths[month] ? value : null)} /></div>
                     </div>
 
                     {isExpanded && row.subs.map((sub) => (
@@ -508,30 +522,30 @@ export function StatsMonthlySection({
                           return (
                             <button
                               aria-describedby={cellTooltip?.key === tooltipKey ? tooltipId : undefined}
-                              aria-label={!available ? `${sub.major} ${sub.sub} ${month + 1}월 미마감` : `${sub.major} ${sub.sub} ${month + 1}월 ${formatWon(rawValue)}원, ${isExcluded ? '합계에 다시 포함' : '합계에서 제외'}`}
+                              aria-label={!available ? `${sub.major} ${sub.sub} ${month + 1}월 ${model.monthStates[month] === 'future' ? '예정' : '기록 없음'}` : `${sub.major} ${sub.sub} ${month + 1}월 ${formatWon(rawValue)}원, ${isExcluded ? '합계에 다시 포함' : '합계에서 제외'}`}
                               aria-pressed={isExcluded}
-                              className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${isExcluded ? 'text-finance-faint line-through' : month === model.currentMonthIndex ? 'text-finance-muted' : month >= model.activeMonths ? 'cursor-default text-finance-faint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
+                              className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${month === model.currentMonthIndex ? 'italic' : ''} ${isExcluded ? 'text-finance-faint line-through' : !available ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
                               disabled={!available}
                               key={month}
                               onBlur={scheduleHide}
                               onClick={() => toggleCell(key)}
-                              onFocus={(event) => rawValue > 0 && requestCellTransactions(event.currentTarget, sub.major, sub.sub, month + 1, 0)}
+                              onFocus={(event) => available && requestCellTransactions(event.currentTarget, sub.major, sub.sub, month + 1, 0)}
                               onKeyDown={(event) => { if (event.key === 'Escape') closeCellTooltip() }}
                               onMouseEnter={(event) => {
                                 updateHover(row.id, month)
-                                if (rawValue > 0) requestCellTransactions(event.currentTarget, sub.major, sub.sub, month + 1, 180)
+                                if (available) requestCellTransactions(event.currentTarget, sub.major, sub.sub, month + 1, 180)
                               }}
                               onMouseLeave={scheduleHide}
-                              title={!available ? '미마감 월은 통계에서 제외됩니다' : isExcluded ? '합계에 다시 포함' : '합계와 그래프에서 제외'}
+                              title={!available ? model.monthStates[month] === 'future' ? '아직 오지 않은 달입니다' : '거래 기록이 없습니다' : isExcluded ? '합계에 다시 포함' : '합계와 그래프에서 제외'}
                               type="button"
                             >
-                              {!available ? '—' : rawValue === 0 ? closedOnly ? '0' : '–' : formatWon(rawValue)}
+                              {!available ? model.monthStates[month] === 'future' ? '—' : '–' : rawValue === 0 ? model.closedMonths[month] ? '0' : '–' : formatWon(rawValue)}
                             </button>
                           )
                         })}
-                        <div className="text-right font-semibold tabular-nums text-finance-ink">{formatWon(sub.total)}</div>
-                        <div className="text-right tabular-nums text-finance-muted">{sub.average === null ? '—' : formatWon(sub.average)}</div>
-                        <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} closedOnly={details[flow].closedMonths !== undefined} flow={flow} label={`${sub.major} ${sub.label}`} values={sub.values.map((value, month) => model.availableMonths[month] ? value : null)} /></div>
+                        <div className={`text-right font-semibold tabular-nums ${model.divisor > 0 ? 'text-finance-ink' : 'text-finance-faint'}`}>{formatWon(model.divisor > 0 ? sub.closedTotal : sub.provisionalTotal)}</div>
+                        <div className={`text-right tabular-nums ${sub.average === null ? 'text-finance-faint' : 'text-finance-muted'}`}>{sub.average !== null ? formatWon(sub.average) : sub.provisionalAverage !== null ? formatWon(sub.provisionalAverage) : '—'}</div>
+                        <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} preserveRecordedMonths flow={flow} label={`${sub.major} ${sub.label}`} values={sub.values.map((value, month) => model.availableMonths[month] ? value : null)} /></div>
                       </div>
                     ))}
                   </div>
@@ -548,7 +562,6 @@ export function StatsMonthlySection({
 
       <p className="mt-2.5 t-caption text-finance-faint">
         {excluded.size > 0 && <>제외된 셀 {excluded.size}개 · 표와 그래프 모두에서 빠집니다. 취소선 셀을 다시 클릭하면 복원. </>}
-        {closedOnly ? `마감 ${model.divisor}개월 기준 · 미마감은 —, 마감한 0원은 0으로 표시합니다 · ` : model.currentMonthIndex !== null && `${model.currentMonthIndex + 1}월은 진행 중이라 합계에는 넣고 월평균에서 뺍니다 · `}
         추세는 최근 6개월 · {flow === 'expense' ? '결제수단 축은 같은 지출을 결제수단별로 나눈 값입니다.' : '수입·저축은 카테고리 축만 제공합니다.'}
       </p>
 

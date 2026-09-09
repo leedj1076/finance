@@ -11,11 +11,14 @@ import {
   CHART_POINT_RADIUS,
   CHART_POINT_RADIUS_ACTIVE,
   alpha,
+  PROVISIONAL_DASH,
+  provisionalPattern,
   resolveChartColor,
   monthlyEligibilityBoundary,
   useFinanceChartPalette,
 } from './chart-js'
 import { hitTestAreaBands, type SeriesChartKind, type SeriesChartSeries } from './series-chart-geometry'
+import type { StatsMonthState } from './category-detail'
 
 export * from './series-chart-geometry'
 
@@ -96,7 +99,7 @@ function normalizedPercent(series: SeriesChartSeries[], seriesIndex: number, mon
 export function SeriesChart({
   series,
   kind,
-  currentMonthIndex,
+  monthStates,
   activeMonths,
   hoverSeries,
   hoverMonth,
@@ -108,6 +111,7 @@ export function SeriesChart({
   series: SeriesChartSeries[]
   kind: SeriesChartKind
   currentMonthIndex: number | null
+  monthStates: StatsMonthState[]
   activeMonths: number
   hoverSeries: string | null
   hoverMonth: number | null
@@ -122,6 +126,8 @@ export function SeriesChart({
   const isBar = kind === 'stacked'
 
   const data = useMemo<ChartData<'bar'> | ChartData<'line'>>(() => {
+    const hatch = provisionalPattern(palette)
+    const provisional = (month: number) => ['open', 'needs_review', 'current'].includes(monthStates[month])
     const datasets = series.map((row, seriesIndex) => {
       const color = resolveChartColor(row.color, palette)
       const focusedSeries = hoverSeries ?? selectedSeries
@@ -136,9 +142,9 @@ export function SeriesChart({
           id: row.id,
           label: row.label,
           data: values,
-          backgroundColor: values.map((_, month) => alpha(color, dimmed ? 0.16 : month === currentMonthIndex ? 0.58 : 1)),
-          borderColor: palette.background,
-          borderWidth: 0.5,
+          backgroundColor: values.map((_, month) => provisional(month) ? hatch : alpha(color, dimmed ? 0.16 : 1)),
+          borderColor: values.map((_, month) => provisional(month) ? palette.faint : palette.background),
+          borderWidth: 1,
           barPercentage: 0.72,
           categoryPercentage: 0.82,
         }
@@ -152,8 +158,11 @@ export function SeriesChart({
         borderColor: alpha(color, dimmed ? 0.16 : 1),
         borderWidth: focusedSeries === row.id ? CHART_LINE_WIDTH_ACTIVE : CHART_LINE_WIDTH,
         fill: kind === 'area' ? (seriesIndex === 0 ? 'origin' : '-1') : false,
-        pointBackgroundColor: color,
-        pointBorderColor: palette.background,
+        segment: {
+          borderDash: (context: { p0DataIndex: number; p1DataIndex: number }) => provisional(context.p0DataIndex) || provisional(context.p1DataIndex) ? PROVISIONAL_DASH : undefined,
+        },
+        pointBackgroundColor: values.map((_, month) => provisional(month) ? palette.background : color),
+        pointBorderColor: values.map((_, month) => provisional(month) ? color : palette.background),
         pointBorderWidth: 1.5,
         pointRadius: (context: { dataIndex: number }) => {
           if (hoverSeries === row.id) {
@@ -171,7 +180,7 @@ export function SeriesChart({
       }
     })
     return { labels, datasets } as ChartData<'bar'> | ChartData<'line'>
-  }, [activeMonths, currentMonthIndex, hoverMonth, hoverSeries, isBar, kind, labels, palette, selectedMonth, selectedSeries, series])
+  }, [activeMonths, monthStates, hoverMonth, hoverSeries, isBar, kind, labels, palette, selectedMonth, selectedSeries, series])
 
   const commonOptions = useMemo(() => ({
     responsive: true,
