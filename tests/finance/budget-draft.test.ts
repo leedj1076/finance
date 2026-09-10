@@ -11,6 +11,7 @@ import {
 import { makeBudgetReport, makeBudgetSnapshot } from '../fixtures/budget-recommendation'
 
 const jobId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+const otherJobId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
 
 function baseline(): BudgetBaseline[] {
   return [
@@ -80,6 +81,74 @@ describe('draft selection and immutable row transitions', () => {
     expect(state.rows).toEqual(appliedRows)
     expect(state.rows[0].recommendationJobId).toBe(jobId)
     expect(state.undoRows).toBeNull()
+  })
+
+  test('conflict rebase retains only dirty amount or provenance and adopts every clean fresh row', () => {
+    const initial = [
+      { major: '식비', amount: 350_000, recommendationJobId: null, version: 'food-v1' },
+      { major: '교통', amount: 90_000, recommendationJobId: jobId, version: 'travel-v1' },
+      { major: '보험', amount: 100_000, recommendationJobId: null, version: 'insurance-v1' },
+      { major: '삭제됨', amount: 50_000, recommendationJobId: null, version: 'removed-v1' },
+    ]
+    let state = createBudgetDraft(initial)
+    state = budgetDraftReducer(state, { type: 'edit', major: '식비', amount: '330000' })
+    state = budgetDraftReducer(state, { type: 'manual', majors: ['교통'] })
+    state = budgetDraftReducer(state, { type: 'select', majors: ['식비', '교통', '보험', '삭제됨'] })
+    const fresh = [
+      { major: '식비', amount: 360_000, recommendationJobId: otherJobId, version: 'food-v2' },
+      { major: '교통', amount: 95_000, recommendationJobId: otherJobId, version: 'travel-v2' },
+      { major: '보험', amount: 120_000, recommendationJobId: otherJobId, version: 'insurance-v2' },
+      { major: '주거', amount: 500_000, recommendationJobId: null, version: 'housing-v1' },
+    ]
+
+    state = budgetDraftReducer(state, { type: 'rebase', rows: fresh })
+    fresh[0].amount = 1
+
+    expect(state.rows).toEqual([
+      { major: '식비', amount: '330000', recommendationJobId: null },
+      { major: '교통', amount: '90000', recommendationJobId: null },
+      { major: '보험', amount: '120000', recommendationJobId: otherJobId },
+      { major: '주거', amount: '500000', recommendationJobId: null },
+    ])
+    expect(state.baseline).toEqual([
+      { major: '식비', amount: 360_000, recommendationJobId: otherJobId, version: 'food-v2' },
+      { major: '교통', amount: 95_000, recommendationJobId: otherJobId, version: 'travel-v2' },
+      { major: '보험', amount: 120_000, recommendationJobId: otherJobId, version: 'insurance-v2' },
+      { major: '주거', amount: 500_000, recommendationJobId: null, version: 'housing-v1' },
+    ])
+    expect(state.selected).toEqual(['식비', '교통', '보험'])
+    expect(state.undoRows).toBeNull()
+    expect(draftBudgetChanges(state)).toEqual([
+      { major: '식비', amount: 330_000, recommendationJobId: null, expectedVersion: 'food-v2' },
+      { major: '교통', amount: 90_000, recommendationJobId: null, expectedVersion: 'travel-v2' },
+    ])
+  })
+
+  test.each(['350000', '0350000', ' 350000 '])('conflict rebase treats equivalent prior amount %j and provenance as clean', (equivalent) => {
+    let state = createBudgetDraft(baseline())
+    state = budgetDraftReducer(state, { type: 'edit', major: '식비', amount: '1' })
+    state = budgetDraftReducer(state, { type: 'edit', major: '식비', amount: equivalent })
+
+    state = budgetDraftReducer(state, { type: 'rebase', rows: [
+      { major: '식비', amount: 360_000, recommendationJobId: otherJobId, version: 'food-v2' },
+      { major: '교통', amount: 90_000, recommendationJobId: null, version: 'travel-v2' },
+    ] })
+
+    expect(state.rows[0]).toEqual({ major: '식비', amount: '360000', recommendationJobId: otherJobId })
+    expect(draftBudgetChanges(state)).toEqual([])
+  })
+
+  test('conflict rebase retains invalid in-progress input as dirty without coercing it', () => {
+    let state = createBudgetDraft(baseline())
+    state = budgetDraftReducer(state, { type: 'edit', major: '식비', amount: '' })
+
+    state = budgetDraftReducer(state, { type: 'rebase', rows: [
+      { major: '식비', amount: 360_000, recommendationJobId: null, version: 'food-v2' },
+      { major: '교통', amount: 90_000, recommendationJobId: null, version: 'travel-v2' },
+    ] })
+
+    expect(state.rows[0]).toEqual({ major: '식비', amount: '', recommendationJobId: null })
+    expect(() => draftBudgetChanges(state)).toThrow('invalid_amount')
   })
 })
 

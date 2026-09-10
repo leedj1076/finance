@@ -22,6 +22,7 @@ export type BudgetDraftAction =
   | { type: 'fill'; amounts: { major: string; amount: number }[] }
   | { type: 'manual'; majors: string[] }
   | { type: 'undo' }
+  | { type: 'rebase'; rows: BudgetBaseline[] }
   | { type: 'saved'; rows: BudgetBaseline[] }
 
 function copyRows(rows: BudgetDraftRow[]): BudgetDraftRow[] {
@@ -92,6 +93,26 @@ export function budgetDraftReducer(state: BudgetDraft, action: BudgetDraftAction
     }
     case 'undo':
       return state.undoRows ? { ...state, rows: copyRows(state.undoRows), undoRows: null } : state
+    case 'rebase': {
+      const previousRows = new Map(state.rows.map((row) => [row.major, row]))
+      const previousBaseline = new Map(state.baseline.map((row) => [row.major, row]))
+      const nextBaseline = action.rows.map((row) => ({ ...row }))
+      const activeMajors = new Set(nextBaseline.map((row) => row.major))
+      return {
+        rows: nextBaseline.map((baseline) => {
+          const row = previousRows.get(baseline.major)
+          const previous = previousBaseline.get(baseline.major)
+          if (!row || !previous) return rowsFromBaseline([baseline])[0]
+          let amountDirty = true
+          try { amountDirty = parseDraftAmount(row.amount) !== previous.amount } catch { /* Invalid in-progress input is dirty. */ }
+          const provenanceDirty = row.recommendationJobId !== previous.recommendationJobId
+          return amountDirty || provenanceDirty ? { ...row } : rowsFromBaseline([baseline])[0]
+        }),
+        baseline: nextBaseline,
+        selected: state.selected.filter((major) => activeMajors.has(major)),
+        undoRows: null,
+      }
+    }
     case 'saved':
       return createBudgetDraft(action.rows)
   }
