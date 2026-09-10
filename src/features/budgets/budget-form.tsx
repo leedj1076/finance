@@ -1,17 +1,23 @@
 'use client'
 
-import { useActionState, useMemo, useState } from 'react'
+import { useActionState, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
+import { useRouter } from 'next/navigation'
 
-import { formatRate, formatWon, savingsRate } from '@/lib/finance'
+import { checkRecommendationForApply } from '@/features/budget-recommendations/client'
+import { BudgetRecommendationPanel } from '@/features/budget-recommendations/panel'
+import type { BudgetRecommendationData, BudgetRecommendationSnapshot, CompletedBudgetRecommendation } from '@/features/budget-recommendations/types'
+import { currentMonthInKorea, formatRate, formatWon, savingsRate } from '@/lib/finance'
 
 import { saveBudgetPlan, type BudgetActionState } from './actions'
+import { BudgetRow, type RecommendationRowContext } from './budget-row'
+import { budgetDraftReducer, createBudgetDraft, draftBudgetAmounts, draftBudgetChanges } from './draft'
 import { spendingCeilingForTarget } from './simulator-calculations'
 import { VariableSpendSimulator } from './simulator'
 import type { getBudgetReviewData } from './review-queries'
 import type { BudgetBaseline, BudgetSaveRequest } from './save-contract'
 
-type BudgetRow = {
+type CanonicalBudgetRow = {
   major: string
   group: string
   budget: number
@@ -28,11 +34,13 @@ type BudgetFormProps = {
   baselines: BudgetBaseline[]
   currentSavingsRate: number
   month: string
-  rows: BudgetRow[]
+  rows: CanonicalBudgetRow[]
   review: Awaited<ReturnType<typeof getBudgetReviewData>>
   savingsTarget: number
   targetVersion: string
   spendCeiling: number
+  basis: BudgetRecommendationSnapshot['basis']
+  savedRecommendations: CompletedBudgetRecommendation[]
 }
 
 const groups = [
@@ -43,14 +51,14 @@ const groups = [
 
 const initialState: BudgetActionState = {}
 
-function SaveButton({ dirty }: { dirty: boolean }) {
+function SaveButton({ dirty, disabled = false }: { dirty: boolean; disabled?: boolean }) {
   const { pending } = useFormStatus()
   return (
     <button
       className={`h-[34px] px-4 t-body-strong transition-colors disabled:cursor-not-allowed ${dirty
         ? 'bg-finance-ink text-white hover:opacity-80 disabled:opacity-60'
         : 'border border-finance-hairline bg-finance-panel text-finance-muted'}`}
-      disabled={pending || !dirty}
+      disabled={pending || !dirty || disabled}
       type="submit"
     >
       {pending ? '저장 중…' : dirty ? '변경사항 저장' : '저장됨'}
@@ -69,24 +77,30 @@ export function BudgetForm({
   savingsTarget,
   targetVersion,
   spendCeiling,
+  basis,
+  savedRecommendations,
 }: BudgetFormProps) {
-  const [baseline, setBaseline] = useState({ rows: baselines, savingsTarget, targetVersion })
+  const router = useRouter()
+  const [draft, dispatch] = useReducer(budgetDraftReducer, baselines, createBudgetDraft)
+  const [targetBaseline, setTargetBaseline] = useState({ savingsTarget, targetVersion })
   const [target, setTarget] = useState(savingsTarget)
-  const [amounts, setAmounts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(baselines.map((row) => [row.major, String(row.amount || '')])),
-  )
-  const [origins, setOrigins] = useState<Record<string, string | null>>(() =>
-    Object.fromEntries(baselines.map(row => [row.major, row.recommendationJobId])),
-  )
   const [acknowledgeOverage, setAcknowledgeOverage] = useState(false)
+  const compareRequested = useRef(false)
+  const compareTargetDirty = useRef(false)
+  const [compareWaiting, setCompareWaiting] = useState(false)
+  const [recommendationData, setRecommendationData] = useState<BudgetRecommendationData | null>(null)
+  const completedJobId = useRef<string | null>(null)
+  const draftRef = useRef(draft)
+  const applyRequest = useRef<AbortController | null>(null)
+  const [applyBusy, setApplyBusy] = useState(false)
+  const [applyError, setApplyError] = useState<string | null>(null)
   const [state, action, pending] = useActionState(async (previous: BudgetActionState, formData: FormData) => {
     const result = await saveBudgetPlan(previous, formData)
     if (result.saved) {
       // Editing is disabled for this short transaction, so an old acknowledgement
       // cannot overwrite a newer local draft. Keep the mounted form/details intact.
-      setBaseline(result.saved)
-      setAmounts(Object.fromEntries(result.saved.rows.map(row => [row.major, String(row.amount || '')])))
-      setOrigins(Object.fromEntries(result.saved.rows.map(row => [row.major, row.recommendationJobId])))
+      dispatch({ type: 'saved', rows: result.saved.rows })
+      setTargetBaseline({ savingsTarget: result.saved.savingsTarget, targetVersion: result.saved.targetVersion })
       setTarget(result.saved.savingsTarget)
       setAcknowledgeOverage(false)
     }
@@ -94,10 +108,11 @@ export function BudgetForm({
   }, initialState)
   const [reduction, setReduction] = useState(10)
   const [preview, setPreview] = useState<{ label: string; amounts: Record<string, string>; manualMajors: string[] } | null>(null)
-  const totalBudget = useMemo(
-    () => Object.values(amounts).reduce((sum, value) => sum + (Number(value) || 0), 0),
-    [amounts],
-  )
+  const amounts = useMemo(() => Object.fromEntries(draft.rows.map(row => [row.major, row.amount])), [draft.rows])
+  const parsedDraftAmounts = useMemo(() => {
+    try { return draftBudgetAmounts(draft) } catch { return null }
+  }, [draft])
+  const totalBudget = parsedDraftAmounts?.reduce((sum, row) => sum + row.amount, 0) ?? null
   const targetSpendCeiling = spendingCeilingForTarget({
     averageIncome,
     initialSavingsTarget: savingsTarget,
@@ -105,13 +120,89 @@ export function BudgetForm({
     serverSpendCeiling: spendCeiling,
   })
   const targetGap = Math.max(averageExpense - targetSpendCeiling, 0)
-  const allocationGap = targetSpendCeiling - totalBudget
-  const expectedSavingsRate = savingsRate(averageIncome, totalBudget)
-  const changes = baseline.rows.filter(row => Number(amounts[row.major]) !== row.amount || origins[row.major] !== row.recommendationJobId)
-    .map(row => ({ major: row.major, amount: Number(amounts[row.major]), recommendationJobId: origins[row.major], expectedVersion: row.version }))
+  const allocationGap = totalBudget === null ? null : targetSpendCeiling - totalBudget
+  const expectedSavingsRate = totalBudget === null ? null : savingsRate(averageIncome, totalBudget)
+  let changes: BudgetSaveRequest['changes'] = []
+  let invalidDraft = false
+  try { changes = draftBudgetChanges(draft) } catch { invalidDraft = true }
   const payload: BudgetSaveRequest = { month, changes,
-    targetChange: target === baseline.savingsTarget ? null : { value: target, expectedVersion: baseline.targetVersion }, acknowledgeOverage }
-  const isDirty = payload.targetChange !== null || changes.length > 0
+    targetChange: target === targetBaseline.savingsTarget ? null : { value: target, expectedVersion: targetBaseline.targetVersion }, acknowledgeOverage }
+  const isDirty = invalidDraft || payload.targetChange !== null || changes.length > 0
+  const baselineByMajor = new Map(draft.baseline.map(row => [row.major, row]))
+  const activeMajors = useMemo(() => rows.map(row => row.major), [rows])
+  draftRef.current = draft
+  const currentCompleted = recommendationData?.completed ?? null
+  const recommendationsById = new Map(savedRecommendations.map(item => [item.id, item]))
+  if (currentCompleted) recommendationsById.set(currentCompleted.id, currentCompleted)
+  const recommendedMajors = currentCompleted
+    ? currentCompleted.report.rows.map(row => row.major).filter(major => baselineByMajor.has(major))
+    : []
+  const recommendationActive = recommendationData?.latestJob?.status === 'queued'
+    || recommendationData?.latestJob?.status === 'running'
+  const period = month < currentMonthInKorea() ? 'past' : month > currentMonthInKorea() ? 'future' : 'current'
+
+  const getDraftAmounts = useCallback(() => draftBudgetAmounts(draftRef.current), [])
+  const onRecommendationData = useCallback((next: BudgetRecommendationData) => {
+    const nextCompletedId = next.completed?.id ?? null
+    if (completedJobId.current !== nextCompletedId) dispatch({ type: 'select', majors: [] })
+    completedJobId.current = nextCompletedId
+    setRecommendationData(next)
+    setApplyError(null)
+  }, [])
+
+  useEffect(() => () => applyRequest.current?.abort(), [])
+
+  useEffect(() => {
+    if (!compareRequested.current) return
+    compareRequested.current = false
+    dispatch({ type: 'rebase', rows: baselines })
+    if (!compareTargetDirty.current) setTarget(savingsTarget)
+    setTargetBaseline({ savingsTarget, targetVersion })
+    setAcknowledgeOverage(false)
+    setCompareWaiting(false)
+  }, [baselines, savingsTarget, targetVersion])
+
+  function recommendationContext(completed: CompletedBudgetRecommendation | undefined, major: string): RecommendationRowContext | null {
+    const recommendation = completed?.report.rows.find(row => row.major === major)
+    if (!completed || !recommendation) return null
+    return {
+      jobId: completed.id,
+      recommendation,
+      snapshot: completed.snapshot,
+      promptInput: completed.promptInput,
+    }
+  }
+
+  async function applySelectedRecommendations() {
+    if (!currentCompleted || draft.selected.length === 0 || applyBusy || recommendationActive
+      || payload.targetChange !== null
+      || recommendationData?.freshness === 'source_changed'
+      || recommendationData?.freshness === 'budgets_changed') return
+    applyRequest.current?.abort()
+    const controller = new AbortController()
+    applyRequest.current = controller
+    setApplyBusy(true)
+    setApplyError(null)
+    try {
+      const verified = await checkRecommendationForApply(month, currentCompleted.id, controller.signal)
+      if (applyRequest.current !== controller || controller.signal.aborted) return
+      dispatch({ type: 'apply', completed: verified })
+      setRecommendationData(current => current ? { ...current, completed: verified } : current)
+      setAcknowledgeOverage(false)
+    } catch (error) {
+      if (applyRequest.current !== controller || controller.signal.aborted) return
+      const code = error instanceof Error ? error.message : 'request_failed'
+      setApplyError(code === 'source_changed' ? '기록이 변경되어 재추천이 필요합니다.'
+        : code === 'budgets_changed' ? '예산이 변경되어 재추천이 필요합니다.'
+          : code === 'invalid_result' ? '추천 결과를 안전하게 확인하지 못했습니다.'
+            : '추천 결과를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      if (applyRequest.current === controller) {
+        applyRequest.current = null
+        setApplyBusy(false)
+      }
+    }
+  }
 
   function previewFill(label: string, proposed: Record<string, string>, manualMajors = Object.keys(proposed)) {
     setPreview({ label, amounts: proposed, manualMajors })
@@ -151,7 +242,7 @@ export function BudgetForm({
     <form action={action} className="mt-6 space-y-6">
       <input name="payload" type="hidden" value={JSON.stringify(payload)} />
       <input name="month" type="hidden" value={month} />
-      <fieldset className="min-w-0 space-y-6 border-0 p-0" disabled={pending}>
+      <fieldset className="min-w-0 space-y-6 border-0 p-0" disabled={pending || applyBusy}>
 
       <section className="border-y border-finance-ink py-5">
         <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
@@ -159,8 +250,8 @@ export function BudgetForm({
             <p className="t-label uppercase text-finance-blue">지출 상한 배분</p>
             <h2 className="mt-1 t-section text-finance-ink">저축 목표 안에서 카테고리 예산을 나눕니다</h2>
           </div>
-          <p className={`t-body-strong tabular-nums ${allocationGap < 0 ? 'text-finance-red' : 'text-finance-green'}`} aria-live="polite">
-            {allocationGap < 0
+          <p className={`t-body-strong tabular-nums ${allocationGap === null ? 'text-finance-amber' : allocationGap < 0 ? 'text-finance-red' : 'text-finance-green'}`} aria-live="polite">
+            {allocationGap === null ? '예산 금액을 확인해 주세요.' : allocationGap < 0
               ? `상한보다 ${formatWon(Math.abs(allocationGap))}원 초과`
               : `상한 안에서 ${formatWon(allocationGap)}원 여유`}
           </p>
@@ -191,10 +282,11 @@ export function BudgetForm({
             <div className="p-4">
               <p className="t-caption text-finance-muted">월평균 수입</p>
               <p className="mt-1 t-kpi-sm text-finance-ink">{formatWon(averageIncome)}원</p>
+              <p className="mt-1 t-caption text-finance-faint">{basis.incomeMonthCount}개월 기록 기준</p>
             </div>
             <div className="p-4">
               <p className="t-caption text-finance-muted">카테고리 합계</p>
-              <p className="mt-1 t-kpi-sm text-finance-ink">{formatWon(totalBudget)}원</p>
+              <p className="mt-1 t-kpi-sm text-finance-ink">{totalBudget === null ? '입력 확인 필요' : `${formatWon(totalBudget)}원`}</p>
             </div>
             <div className="p-4">
               <p className="t-caption text-finance-green">목표 지출 상한</p>
@@ -202,8 +294,8 @@ export function BudgetForm({
             </div>
             <div className="p-4">
               <p className="t-caption text-finance-muted">예상 순저축률</p>
-              <p className={`mt-1 t-kpi-sm ${expectedSavingsRate >= target ? 'text-finance-green' : 'text-finance-red'}`}>
-                {formatRate(expectedSavingsRate)}%
+              <p className={`mt-1 t-kpi-sm ${expectedSavingsRate === null ? 'text-finance-amber' : expectedSavingsRate >= target ? 'text-finance-green' : 'text-finance-red'}`}>
+                {expectedSavingsRate === null ? '-' : `${formatRate(expectedSavingsRate)}%`}
               </p>
               <p className="mt-1 t-caption text-finance-muted">현재 실적 {formatRate(currentSavingsRate)}%</p>
             </div>
@@ -216,6 +308,56 @@ export function BudgetForm({
         </p>
       </section>
 
+      <BudgetRecommendationPanel
+        basis={basis}
+        getDraftAmounts={getDraftAmounts}
+        key={`budget-recommendation:${month}`}
+        majors={activeMajors}
+        month={month}
+        onData={onRecommendationData}
+        targetDirty={payload.targetChange !== null}
+      />
+
+      {currentCompleted && <section aria-label="AI 추천 검토" className="border-t border-finance-ink py-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 max-w-3xl">
+            <p className="t-label uppercase text-finance-violet">추천안 검토</p>
+            <h2 className="mt-1 t-section text-finance-ink">{currentCompleted.report.summary}</h2>
+            {currentCompleted.report.limitations.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5 t-caption text-finance-muted">{currentCompleted.report.limitations.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul>}
+          </div>
+          <div className="grid min-w-0 gap-px bg-finance-hairline sm:grid-cols-2 lg:min-w-[28rem]">
+            <div className="bg-white p-3"><p className="t-caption text-finance-muted">AI 전체 제안 합계</p><p className="mt-1 t-kpi-sm text-finance-violet">{formatWon(currentCompleted.evaluation.total)}원</p></div>
+            <div className="bg-white p-3"><p className="t-caption text-finance-muted">현재 편집안 카테고리 합계</p><p className="mt-1 t-kpi-sm text-finance-ink">{totalBudget === null ? '입력 확인 필요' : `${formatWon(totalBudget)}원`}</p></div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 t-caption text-finance-muted sm:grid-cols-2 lg:grid-cols-4">
+          <p>미분류 실제 지출 {formatWon(currentCompleted.snapshot.current.unallocatedActual)}원</p>
+          <p>미배정 정기 지출 {formatWon(currentCompleted.snapshot.current.unallocatedRecurring)}원</p>
+          <p>근거 제공 {currentCompleted.snapshot.evidenceCount.provided}/{currentCompleted.snapshot.evidenceCount.total}건</p>
+          <p>처리 대기 {currentCompleted.snapshot.pendingCount}건 · 미분류 {currentCompleted.snapshot.unclassifiedCount}건</p>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-3 t-body">
+          <span className={currentCompleted.evaluation.overage > 0 ? 'text-finance-red' : 'text-finance-green'}>상한 초과 {formatWon(currentCompleted.evaluation.overage)}원</span>
+          <span className="text-finance-muted">제안 예상 저축률 {formatRate(currentCompleted.evaluation.savingsRate)}%</span>
+        </div>
+        {currentCompleted.report.overCeilingReason && <p className="mt-2 t-caption text-finance-red">{currentCompleted.report.overCeilingReason}</p>}
+        {currentCompleted.report.adjustments.length > 0 && <details className="mt-3 border-t border-finance-hairline py-2">
+          <summary className="cursor-pointer t-body-strong text-finance-blue">상한 조정 후보</summary>
+          <ul className="mt-2 space-y-2 t-caption text-finance-muted">{currentCompleted.report.adjustments.map((adjustment, index) => <li key={index}><strong className="text-finance-ink">{adjustment.certainty === 'hypothesis' ? '추정 · 확인 필요' : adjustment.certainty === 'user_provided' ? '사용자 제공' : '기록 확인'}</strong> {adjustment.text}</li>)}</ul>
+        </details>}
+
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <button className="h-[30px] border border-finance-hairline px-3 t-body-strong" onClick={() => dispatch({ type: 'select', majors: recommendedMajors })} type="button">추천 전체 선택</button>
+          <button className="h-[30px] border border-finance-hairline px-3 t-body-strong" onClick={() => dispatch({ type: 'select', majors: [] })} type="button">추천 선택 해제</button>
+          <button className="h-[34px] bg-finance-violet px-4 t-body-strong text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={draft.selected.length === 0 || applyBusy || recommendationActive || payload.targetChange !== null || recommendationData?.freshness === 'source_changed' || recommendationData?.freshness === 'budgets_changed'} onClick={() => void applySelectedRecommendations()} type="button">
+            {applyBusy ? '추천 확인 중…' : '선택한 추천 가져오기'}
+          </button>
+          {draft.undoRows && <button className="h-[30px] border border-finance-hairline px-3 t-body-strong text-finance-muted" onClick={() => { dispatch({ type: 'undo' }); setAcknowledgeOverage(false) }} type="button">추천 가져오기 실행 취소</button>}
+        </div>
+        {applyError && <p className="mt-3 t-body text-finance-red" role="alert">{applyError}</p>}
+      </section>}
+
       <section
         className="overflow-hidden border-t border-finance-ink"
         id="budget-list"
@@ -223,7 +365,7 @@ export function BudgetForm({
         <div className="flex flex-col justify-between gap-4 border-b border-finance-hairline py-4 sm:flex-row sm:items-center">
           <div>
             <h2 className="t-section text-finance-ink">분류별 월 예산</h2>
-            <p className="mt-1 t-caption text-finance-muted">입력 합계 {formatWon(totalBudget)}원</p>
+            <p className="mt-1 t-caption text-finance-muted">입력 합계 {totalBudget === null ? '확인 필요' : `${formatWon(totalBudget)}원`}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -247,7 +389,7 @@ export function BudgetForm({
             >
               월평균으로 채우기
             </button>
-            <SaveButton dirty={isDirty} />
+            <SaveButton disabled={invalidDraft} dirty={isDirty} />
           </div>
         </div>
 
@@ -262,7 +404,7 @@ export function BudgetForm({
 
         {preview && (
           <section aria-label="예산 채우기 미리보기" className="border-b border-finance-hairline bg-finance-panel p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="t-body-strong text-finance-ink">{preview.label} 미리보기</p><p className="t-caption text-finance-muted">확인 전에는 편집안과 저장된 예산이 바뀌지 않습니다. 가져온 항목은 수동 초안으로 전환됩니다.</p></div><div className="flex gap-2"><button className="h-[30px] border border-finance-hairline bg-white px-3 t-body-strong text-finance-muted" onClick={() => setPreview(null)} type="button">취소</button><button className="h-[30px] bg-finance-ink px-3 t-body-strong text-white" onClick={() => { setAmounts(preview.amounts); setOrigins(current => ({ ...current, ...Object.fromEntries(preview.manualMajors.map(major => [major, null])) })); setAcknowledgeOverage(false); setPreview(null); document.getElementById('budget-list')?.scrollIntoView({ behavior: 'smooth' }) }} type="button">초안에 가져오기</button></div></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="t-body-strong text-finance-ink">{preview.label} 미리보기</p><p className="t-caption text-finance-muted">확인 전에는 편집안과 저장된 예산이 바뀌지 않습니다. 가져온 항목은 수동 초안으로 전환됩니다.</p></div><div className="flex gap-2"><button className="h-[30px] border border-finance-hairline bg-white px-3 t-body-strong text-finance-muted" onClick={() => setPreview(null)} type="button">취소</button><button className="h-[30px] bg-finance-ink px-3 t-body-strong text-white" onClick={() => { const changed = new Set(preview.manualMajors); dispatch({ type: 'fill', amounts: Object.entries(preview.amounts).filter(([major]) => changed.has(major)).map(([major, amount]) => ({ major, amount: Number(amount) })) }); setAcknowledgeOverage(false); setPreview(null); document.getElementById('budget-list')?.scrollIntoView({ behavior: 'smooth' }) }} type="button">초안에 가져오기</button></div></div>
             <ul className="mt-3 divide-y divide-finance-hairline">{rows.filter((row) => amounts[row.major] !== preview.amounts[row.major]).map((row) => <li className="grid grid-cols-[1fr_auto_auto] gap-3 py-2 t-caption" key={row.major}><span className="font-medium text-finance-ink">{row.major}</span><span className="text-finance-muted">현재 {formatWon(Number(amounts[row.major]) || 0)}원</span><span className="text-finance-blue">제안 {formatWon(Number(preview.amounts[row.major]) || 0)}원</span></li>)}</ul>
           </section>
         )}
@@ -278,63 +420,28 @@ export function BudgetForm({
                   <span className="t-caption text-finance-faint">{group.note}</span>
                 </div>
                 <div className="space-y-3">
-                  {groupRows.map((row) => {
-                    const currentBudget = Number(amounts[row.major]) || 0
-                    const percent = currentBudget > 0 ? (row.actual / currentBudget) * 100 : null
-                    return (
-                      <div
-                        className="grid items-center gap-3 border-b border-finance-hairline py-3 md:grid-cols-[minmax(120px,1fr)_150px_130px_minmax(140px,0.8fr)]"
-                        key={row.major}
-                      >
-                        <div>
-                          <p className="t-body font-medium text-finance-ink">{row.major}</p>
-                          <p className="mt-1 t-caption text-finance-faint">평균 {formatWon(row.average)}원</p>
-                          {origins[row.major] && <p className="mt-1 t-caption text-finance-muted">AI 출처 유지 · 수정한 금액은 사용자 조정으로 저장됩니다.</p>}
-                          {origins[row.major] && <button className="mt-1 t-caption text-finance-blue" type="button" onClick={() => {
-                            setOrigins(current => ({ ...current, [row.major]: null })); setAcknowledgeOverage(false)
-                          }}>수동 초안으로 전환</button>}
-                        </div>
-                        <label className="t-caption text-finance-muted">
-                          <span className="sr-only">{row.major} 예산</span>
-                          <input
-                            aria-label={`${row.major} 예산`}
-                            className="h-[34px] w-full border border-finance-hairline bg-white px-3 text-right t-body tabular-nums text-finance-ink outline-none focus:border-finance-blue"
-                            min={0}
-                            name={`budget:${row.major}`}
-                            onChange={(event) => {
-                              setAcknowledgeOverage(false)
-                              setAmounts((current) => ({
-                                ...current,
-                                [row.major]: event.target.value,
-                              }))
-                            }}
-                            placeholder="0"
-                            step={1}
-                            type="number"
-                            value={amounts[row.major]}
-                          />
-                        </label>
-                        <div className="text-right t-body">
-                          <p className="font-medium text-finance-ink">{formatWon(row.actual)}원 사용</p>
-                          <p className={currentBudget - row.actual < 0 ? 'text-finance-red' : 'text-finance-faint'}>
-                            {currentBudget > 0
-                              ? `${formatWon(Math.abs(currentBudget - row.actual))}원 ${currentBudget - row.actual < 0 ? '초과' : '남음'}`
-                              : '미설정'}
-                          </p>
-                        </div>
-                        <div>
-                          <div className="h-[5px] overflow-hidden bg-finance-track">
-                            <div
-                              className={`h-full ${percent !== null && percent > 100 ? 'bg-finance-red' : 'bg-finance-green'}`}
-                              style={{ width: `${Math.min(percent ?? 0, 100)}%` }}
-                            />
-                          </div>
-                          <p className="mt-1 text-right t-caption text-finance-faint">
-                            {percent === null ? '-' : `${formatRate(percent)}%`}
-                          </p>
-                        </div>
-                      </div>
-                    )
+                  {groupRows.map((canonicalRow) => {
+                    const row = draft.rows.find(item => item.major === canonicalRow.major)
+                    const baseline = baselineByMajor.get(canonicalRow.major)
+                    if (!row || !baseline) return null
+                    const saved = row.recommendationJobId ? recommendationsById.get(row.recommendationJobId) : undefined
+                    const source = currentCompleted?.snapshot.rows.find(item => item.major === row.major) ?? null
+                    return <BudgetRow
+                      actual={canonicalRow.actual}
+                      baseline={baseline}
+                      key={canonicalRow.major}
+                      month={month}
+                      onEdit={(amount) => { dispatch({ type: 'edit', major: row.major, amount }); setAcknowledgeOverage(false) }}
+                      onManual={() => { dispatch({ type: 'manual', majors: [row.major] }); setAcknowledgeOverage(false) }}
+                      onSelect={(selected) => dispatch({ type: 'select', majors: selected
+                        ? [...draft.selected, row.major] : draft.selected.filter(major => major !== row.major) })}
+                      origin={recommendationContext(saved, row.major)}
+                      period={period}
+                      recommendation={recommendationContext(currentCompleted ?? undefined, row.major)}
+                      row={row}
+                      selected={draft.selected.includes(row.major)}
+                      source={source}
+                    />
                   })}
                 </div>
               </section>
@@ -360,11 +467,26 @@ export function BudgetForm({
         />
       </details>
 
-      {(allocationGap < 0 || state.code === 'overage_confirmation_required') && <label className="flex items-center gap-2 t-body text-finance-red">
+      {((allocationGap !== null && allocationGap < 0) || state.code === 'overage_confirmation_required') && <label className="flex items-center gap-2 t-body text-finance-red">
         <input checked={acknowledgeOverage} onChange={event => setAcknowledgeOverage(event.target.checked)} type="checkbox" />
         미분류·정기 지출을 포함한 전체 예산의 상한 초과를 확인하고 저장합니다.
       </label>}
 
+      {invalidDraft && <p className="t-body text-finance-red">원 단위의 0 이상 정수를 입력해 주세요.</p>}
+      {isDirty && !invalidDraft && <p aria-live="polite" className="t-body text-finance-amber">아직 저장하지 않은 편집안입니다.</p>}
+      {state.saved && <p aria-live="polite" className="t-body text-finance-green">{state.saved.rows.some(row => row.recommendationJobId !== null) ? '적용됨' : '저장됨'}</p>}
+      {state.code === 'budget_conflict' && <section aria-label="예산 충돌 비교" className="border-l-2 border-finance-amber bg-finance-amber-tint p-4">
+        <p className="t-body-strong text-finance-ink">다른 창의 저장값과 내 편집안을 비교해 주세요.</p>
+        <ul className="mt-2 space-y-1 t-caption text-finance-muted">
+          {draft.rows.filter(row => {
+            const saved = baselineByMajor.get(row.major)
+            return saved && (row.amount.trim() !== String(saved.amount) || row.recommendationJobId !== saved.recommendationJobId)
+          }).map(row => <li key={row.major}>{row.major} · 현재 화면의 저장값 {formatWon(baselineByMajor.get(row.major)!.amount)}원 / 내 초안 {row.amount || '입력 중'}원</li>)}
+        </ul>
+        <button className="mt-3 h-[30px] border border-finance-amber px-3 t-body-strong text-finance-ink" disabled={compareWaiting} onClick={() => { compareTargetDirty.current = target !== targetBaseline.savingsTarget; compareRequested.current = true; setCompareWaiting(true); router.refresh() }} type="button">
+          {compareWaiting ? '최신 예산 불러오는 중…' : '최신 예산 불러와 비교'}
+        </button>
+      </section>}
       {state.error && <p className="t-body text-finance-red">{state.error}</p>}
       </fieldset>
     </form>

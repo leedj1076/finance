@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest'
 import { db } from '@/db/client'
-import { getBudgetRecommendationData, readApplicableBudgetRecommendation, requestBudgetRecommendation } from '@/features/budget-recommendations/service'
+import { getBudgetRecommendationData, readApplicableBudgetRecommendation, readSavedBudgetRecommendations, requestBudgetRecommendation } from '@/features/budget-recommendations/service'
 import type { BudgetRequest, BudgetRecommendationSnapshot } from '@/features/budget-recommendations/types'
 import { hashBudgetPayload } from '@/features/budget-recommendations/snapshot'
 import { createBudgetQueueFixture, type BudgetQueueHousehold } from '../fixtures/budget-queue'
@@ -19,9 +19,9 @@ beforeAll(async () => { ({ a, b } = await fixture.setup()) })
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-09-10T03:00:00Z'))
   await fixture.reset()
-  await raw`delete from transactions where household_id = ${a.householdId}`
-  await raw`delete from categories where household_id = ${a.householdId}`
-  await raw`delete from ai_diagnosis_settings where household_id = ${a.householdId}`
+  await raw`delete from transactions where household_id in (${a.householdId}, ${b.householdId})`
+  await raw`delete from categories where household_id in (${a.householdId}, ${b.householdId})`
+  await raw`delete from ai_diagnosis_settings where household_id in (${a.householdId}, ${b.householdId})`
   const [category] = await raw`insert into categories (household_id, kind, major, sub) values (${a.householdId}, 'expense', '식비', '외식') returning id`
   food = Number(category.id)
   await raw`insert into transactions (household_id, date, flow, amount, category_id) values (${a.householdId}, '2026-01-01', 'income', 1000000, null), (${a.householdId}, '2026-09-01', 'expense', 10000, ${food})`
@@ -37,6 +37,15 @@ async function complete(input = request()) {
   const report = { version: 1, summary: '월 전체 예산', limitations: [], overCeilingReason: '', adjustments: [], rows: snapshot.rows.map(row => ({ major: row.major, amount: 30000, reason: '계획', references: [], exceptional: [], reducible: [] })) }
   expect(await fixture.finish(job, a, report)).toBe(true)
   return { input, job }
+}
+async function completeFor(owner: BudgetQueueHousehold, input: BudgetRequest) {
+  const state = await requestBudgetRecommendation(owner.householdId, owner.userId, input)
+  const job = await fixture.claim(owner)
+  expect(job.id).toBe(state.latestJob?.id)
+  const snapshot: BudgetRecommendationSnapshot = job.snapshot
+  const report = { version: 1, summary: '월 전체 예산', limitations: [], overCeilingReason: '', adjustments: [], rows: snapshot.rows.map(row => ({ major: row.major, amount: 30000, reason: '계획', references: [], exceptional: [], reducible: [] })) }
+  expect(await fixture.finish(job, owner, report)).toBe(true)
+  return job
 }
 test('freezes settings and recovers exact completed request A after newer B', async () => {
   await raw`insert into ai_diagnosis_settings (household_id, common_instructions, revision, updated_by) values (${a.householdId}, 'instruction A', 1, ${a.userId})`
@@ -108,6 +117,48 @@ test('invalid stored output preserves previous success and never becomes applica
   expect(state.latestJob).toMatchObject({ id: second.job.id, status: 'failed', errorCode: 'invalid_output' })
   expect(state.completed?.id).toBe(first.job.id)
   await expect(readApplicableBudgetRecommendation(db, a.householdId, month, second.job.id)).rejects.toMatchObject({ code: 'invalid_result' })
+})
+test('loads only valid saved provenance across historical, invalid and foreign references', async () => {
+  await raw`insert into categories (household_id, kind, major, sub) values (${a.householdId}, 'expense', '건강', '병원')`
+  const historical = await complete()
+  await raw`insert into budgets (household_id, month, major, amount, recommendation_job_id)
+    values (${a.householdId}, ${month}, '식비', 30000, ${historical.job.id})`
+
+  await raw`update transactions set memo = 'source changed after save' where household_id = ${a.householdId} and flow = 'expense'`
+  const newer = await complete()
+  expect(newer.job.id).not.toBe(historical.job.id)
+
+  await create()
+  const invalid = await fixture.claim(a)
+  expect(await fixture.finish(invalid, a, { version: 1, rows: [{ major: '건강', amount: 30000 }] })).toBe(true)
+  await raw`insert into budgets (household_id, month, major, amount, recommendation_job_id)
+    values (${a.householdId}, ${month}, '건강', 30000, ${invalid.id})`
+
+  const otherMonth = await completeFor(a, request({ month: '2026-10' }))
+  await raw`insert into budgets (household_id, month, major, amount, recommendation_job_id)
+    values (${a.householdId}, '2026-10', '식비', 30000, ${otherMonth.id})`
+
+  const [bCategory] = await raw`insert into categories (household_id, kind, major, sub)
+    values (${b.householdId}, 'expense', '식비', '외식') returning id`
+  await raw`insert into transactions (household_id, date, flow, amount, category_id)
+    values (${b.householdId}, '2026-01-01', 'income', 1000000, null), (${b.householdId}, '2026-09-01', 'expense', 10000, ${Number(bCategory.id)})`
+  await raw`update diagnosis_workers set budget_protocol_version = 1, prompt_protocol_version = 1,
+    budget_last_seen_at = now(), prompt_last_seen_at = now() where id = ${b.workerId}`
+  const foreign = await completeFor(b, request())
+  await raw`insert into budgets (household_id, month, major, amount, recommendation_job_id)
+    values (${b.householdId}, ${month}, '식비', 30000, ${foreign.id})`
+
+  const saved = await readSavedBudgetRecommendations(db, a.householdId, month)
+  expect(saved.map(item => item.id)).toEqual([historical.job.id])
+  expect(saved[0].report.rows.find(row => row.major === '식비')?.reason).toBe('계획')
+  expect(saved.map(item => item.id)).not.toContain(newer.job.id)
+  expect(saved.map(item => item.id)).not.toContain(invalid.id)
+  expect(saved.map(item => item.id)).not.toContain(otherMonth.id)
+  expect(saved.map(item => item.id)).not.toContain(foreign.id)
+  expect(await raw`select major, recommendation_job_id from budgets where household_id = ${a.householdId} and month = ${month} order by major`).toEqual([
+    { major: '건강', recommendation_job_id: invalid.id },
+    { major: '식비', recommendation_job_id: historical.job.id },
+  ])
 })
 test('snapshot failure rolls back expiration and creates no new job', async () => {
   await create()

@@ -2,7 +2,7 @@ import 'server-only'
 
 import { and, desc, eq, inArray, isNull, lt, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
-import { budgetRecommendationJobs as jobs, diagnosisWorkers } from '@/db/schema'
+import { budgetRecommendationJobs as jobs, budgets, diagnosisWorkers } from '@/db/schema'
 import { aiInstructionsHash, canonicalAiJson, parseAiPromptInput, resolveAiInstructions } from '@/features/ai-settings/prompt'
 import { readAiSettings } from '@/features/ai-settings/service'
 import { readBudgetData, type BudgetReader } from '@/features/budgets/queries'
@@ -192,4 +192,21 @@ export async function readApplicableBudgetRecommendation(reader: BudgetReader, h
   const state = await readFreshness(reader, householdId, completed, now)
   if (state === 'source_changed' || state === 'budgets_changed') throw new BudgetRecommendationError(state, 409)
   return completed
+}
+
+export async function readSavedBudgetRecommendations(reader: BudgetReader, householdId: string, month: string): Promise<CompletedBudgetRecommendation[]> {
+  const rows = await reader.select({ job: jobs }).from(budgets)
+    .innerJoin(jobs, and(eq(jobs.id, budgets.recommendationJobId), eq(jobs.householdId, budgets.householdId), eq(jobs.month, budgets.month)))
+    .where(and(eq(budgets.householdId, householdId), eq(budgets.month, month), scope(householdId, month), eq(jobs.status, 'completed')))
+    .groupBy(jobs.id)
+    .orderBy(desc(jobs.completedAt), desc(jobs.id))
+  const completed: CompletedBudgetRecommendation[] = []
+  for (const row of rows) {
+    try { completed.push(completedResult(row.job, month)) } catch { /* Invalid saved evidence must not block manual budget editing. */ }
+  }
+  return completed
+}
+
+export function getSavedBudgetRecommendations(householdId: string, month: string): Promise<CompletedBudgetRecommendation[]> {
+  return readSavedBudgetRecommendations(db, householdId, month)
 }
