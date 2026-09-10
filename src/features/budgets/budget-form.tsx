@@ -84,11 +84,13 @@ export function BudgetForm({
   const [draft, dispatch] = useReducer(budgetDraftReducer, baselines, createBudgetDraft)
   const [targetBaseline, setTargetBaseline] = useState({ savingsTarget, targetVersion })
   const [target, setTarget] = useState(savingsTarget)
+  const targetBaselineRef = useRef(targetBaseline)
+  const targetRef = useRef(target)
   const [acknowledgeOverage, setAcknowledgeOverage] = useState(false)
   const compareRequested = useRef(false)
-  const compareTargetDirty = useRef(false)
   const [compareWaiting, setCompareWaiting] = useState(false)
-  const [recommendationData, setRecommendationData] = useState<BudgetRecommendationData | null>(null)
+  const [recommendationState, setRecommendationState] = useState<{ month: string; data: BudgetRecommendationData } | null>(null)
+  const recommendationContexts = useRef({ month, items: new Map<string, CompletedBudgetRecommendation>() })
   const completedJobId = useRef<string | null>(null)
   const draftRef = useRef(draft)
   const applyRequest = useRef<AbortController | null>(null)
@@ -131,9 +133,26 @@ export function BudgetForm({
   const baselineByMajor = new Map(draft.baseline.map(row => [row.major, row]))
   const activeMajors = useMemo(() => rows.map(row => row.major), [rows])
   draftRef.current = draft
+  targetRef.current = target
+  targetBaselineRef.current = targetBaseline
+  const recommendationData = recommendationState?.month === month ? recommendationState.data : null
   const currentCompleted = recommendationData?.completed ?? null
-  const recommendationsById = new Map(savedRecommendations.map(item => [item.id, item]))
-  if (currentCompleted) recommendationsById.set(currentCompleted.id, currentCompleted)
+  if (recommendationContexts.current.month !== month) {
+    recommendationContexts.current = { month, items: new Map() }
+  }
+  const referencedRecommendationIds = new Set([
+    ...draft.rows.map(row => row.recommendationJobId),
+    ...(draft.undoRows?.map(row => row.recommendationJobId) ?? []),
+    currentCompleted?.id ?? null,
+  ].filter((id): id is string => id !== null))
+  for (const saved of savedRecommendations) {
+    if (referencedRecommendationIds.has(saved.id)) recommendationContexts.current.items.set(saved.id, saved)
+  }
+  if (currentCompleted) recommendationContexts.current.items.set(currentCompleted.id, currentCompleted)
+  for (const id of recommendationContexts.current.items.keys()) {
+    if (!referencedRecommendationIds.has(id)) recommendationContexts.current.items.delete(id)
+  }
+  const recommendationsById = recommendationContexts.current.items
   const recommendedMajors = currentCompleted
     ? currentCompleted.report.rows.map(row => row.major).filter(major => baselineByMajor.has(major))
     : []
@@ -146,9 +165,9 @@ export function BudgetForm({
     const nextCompletedId = next.completed?.id ?? null
     if (completedJobId.current !== nextCompletedId) dispatch({ type: 'select', majors: [] })
     completedJobId.current = nextCompletedId
-    setRecommendationData(next)
+    setRecommendationState({ month, data: next })
     setApplyError(null)
-  }, [])
+  }, [month])
 
   useEffect(() => () => applyRequest.current?.abort(), [])
 
@@ -156,7 +175,7 @@ export function BudgetForm({
     if (!compareRequested.current) return
     compareRequested.current = false
     dispatch({ type: 'rebase', rows: baselines })
-    if (!compareTargetDirty.current) setTarget(savingsTarget)
+    if (targetRef.current === targetBaselineRef.current.savingsTarget) setTarget(savingsTarget)
     setTargetBaseline({ savingsTarget, targetVersion })
     setAcknowledgeOverage(false)
     setCompareWaiting(false)
@@ -187,7 +206,9 @@ export function BudgetForm({
       const verified = await checkRecommendationForApply(month, currentCompleted.id, controller.signal)
       if (applyRequest.current !== controller || controller.signal.aborted) return
       dispatch({ type: 'apply', completed: verified })
-      setRecommendationData(current => current ? { ...current, completed: verified } : current)
+      setRecommendationState(current => current?.month === month
+        ? { month, data: { ...current.data, completed: verified } }
+        : current)
       setAcknowledgeOverage(false)
     } catch (error) {
       if (applyRequest.current !== controller || controller.signal.aborted) return
@@ -353,7 +374,6 @@ export function BudgetForm({
           <button className="h-[34px] bg-finance-violet px-4 t-body-strong text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={draft.selected.length === 0 || applyBusy || recommendationActive || payload.targetChange !== null || recommendationData?.freshness === 'source_changed' || recommendationData?.freshness === 'budgets_changed'} onClick={() => void applySelectedRecommendations()} type="button">
             {applyBusy ? '추천 확인 중…' : '선택한 추천 가져오기'}
           </button>
-          {draft.undoRows && <button className="h-[30px] border border-finance-hairline px-3 t-body-strong text-finance-muted" onClick={() => { dispatch({ type: 'undo' }); setAcknowledgeOverage(false) }} type="button">추천 가져오기 실행 취소</button>}
         </div>
         {applyError && <p className="mt-3 t-body text-finance-red" role="alert">{applyError}</p>}
       </section>}
@@ -448,6 +468,9 @@ export function BudgetForm({
             )
           })}
         </div>
+        {draft.undoRows && <div className="border-t border-finance-hairline py-4">
+          <button className="h-[30px] border border-finance-hairline px-3 t-body-strong text-finance-muted" onClick={() => { dispatch({ type: 'undo' }); setAcknowledgeOverage(false) }} type="button">최근 초안 변경 실행 취소</button>
+        </div>}
       </section>
 
       <details className="group border-t border-finance-ink">
@@ -474,7 +497,7 @@ export function BudgetForm({
 
       {invalidDraft && <p className="t-body text-finance-red">원 단위의 0 이상 정수를 입력해 주세요.</p>}
       {isDirty && !invalidDraft && <p aria-live="polite" className="t-body text-finance-amber">아직 저장하지 않은 편집안입니다.</p>}
-      {state.saved && <p aria-live="polite" className="t-body text-finance-green">{state.saved.rows.some(row => row.recommendationJobId !== null) ? '적용됨' : '저장됨'}</p>}
+      {state.saved && !isDirty && <p aria-live="polite" className="t-body text-finance-green">{state.saved.rows.some(row => row.recommendationJobId !== null) ? '적용됨' : '저장됨'}</p>}
       {state.code === 'budget_conflict' && <section aria-label="예산 충돌 비교" className="border-l-2 border-finance-amber bg-finance-amber-tint p-4">
         <p className="t-body-strong text-finance-ink">다른 창의 저장값과 내 편집안을 비교해 주세요.</p>
         <ul className="mt-2 space-y-1 t-caption text-finance-muted">
@@ -483,7 +506,7 @@ export function BudgetForm({
             return saved && (row.amount.trim() !== String(saved.amount) || row.recommendationJobId !== saved.recommendationJobId)
           }).map(row => <li key={row.major}>{row.major} · 현재 화면의 저장값 {formatWon(baselineByMajor.get(row.major)!.amount)}원 / 내 초안 {row.amount || '입력 중'}원</li>)}
         </ul>
-        <button className="mt-3 h-[30px] border border-finance-amber px-3 t-body-strong text-finance-ink" disabled={compareWaiting} onClick={() => { compareTargetDirty.current = target !== targetBaseline.savingsTarget; compareRequested.current = true; setCompareWaiting(true); router.refresh() }} type="button">
+        <button className="mt-3 h-[30px] border border-finance-amber px-3 t-body-strong text-finance-ink" disabled={compareWaiting} onClick={() => { compareRequested.current = true; setCompareWaiting(true); router.refresh() }} type="button">
           {compareWaiting ? '최신 예산 불러오는 중…' : '최신 예산 불러와 비교'}
         </button>
       </section>}
