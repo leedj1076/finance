@@ -39,13 +39,20 @@ export function boundBudgetEvidence(snapshot: BudgetRecommendationSnapshot): Bud
       }
     }
   }
-  const result = { ...snapshot, evidence, evidenceCount: { total: snapshot.evidenceCount.total, provided: evidence.length } }
+  const result = { ...snapshot, evidence: [] as BudgetEvidence[], evidenceCount: { total: snapshot.evidenceCount.total, provided: 0 } }
+  const aggregateBytes = Buffer.byteLength(JSON.stringify(result), 'utf8')
+  if (aggregateBytes > SNAPSHOT_BYTE_LIMIT) throw new Error('input_too_large')
+  const entryBytes = evidence.map(row => Buffer.byteLength(JSON.stringify(row), 'utf8'))
+  let evidenceBytes = entryBytes.reduce((sum, bytes) => sum + bytes, 0)
   // Remove entire entries: titles and notes remain exact evidence, even at the byte limit.
-  while (Buffer.byteLength(JSON.stringify(result), 'utf8') > SNAPSHOT_BYTE_LIMIT) {
-    if (!result.evidence.length) throw new Error('input_too_large')
-    result.evidence.pop()
-    result.evidenceCount.provided = result.evidence.length
+  // Account for commas and the provided-count digits without reserializing the payload.
+  while (aggregateBytes + evidenceBytes + Math.max(0, evidence.length - 1)
+    + String(evidence.length).length - 1 > SNAPSHOT_BYTE_LIMIT) {
+    evidenceBytes -= entryBytes.pop()!
+    evidence.pop()
   }
+  result.evidence = evidence
+  result.evidenceCount.provided = evidence.length
   return result
 }
 
