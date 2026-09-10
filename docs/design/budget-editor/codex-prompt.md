@@ -8,14 +8,14 @@
 
 ## 먼저 읽을 것 (순서대로)
 
-1. `docs/superpowers/specs/2026-09-11-budget-editor-redesign-design.md` — 유일한 기준. §2 결정 기록, §4 표 동작, §5 AI 열, §8 읽기 모델, §11 유지 원칙, §12 검증을 그대로 따른다.
+1. `docs/superpowers/specs/2026-09-11-budget-editor-redesign-design.md` — 유일한 기준. §2 결정 기록, §4 편집 목록, §5 AI, §8 읽기 모델, §11 유지 원칙, §12 검증을 그대로 따른다.
 2. `docs/design/budget-editor/README.md` 와 PNG 다섯 장, `mockups/*.html`(브라우저로 열어 간격·정렬·상태를 확인).
 3. 현재 코드: `src/app/budgets/page.tsx`, `src/features/budgets/{budget-form.tsx,budget-row.tsx,draft.ts,queries.ts,planning-queries.ts,review-queries.ts,save-contract.ts,save-service.ts}`, `src/features/budget-recommendations/{panel.tsx,client.ts,types.ts}`, `src/features/month-close/{month-status-label.tsx,queries.ts}`, `src/app/globals.css`.
 4. 원칙 문서: `docs/superpowers/specs/2026-09-10-ai-budget-planning-design.md` §1·§8·§9, `docs/superpowers/specs/2026-09-09-month-close-ux-design.md` §3.4·§5.
 
 ## 무엇을 만드나
 
-한 표에서 항목별로 `지난달 예산 · 지난달 실적 · 3개월 평균 · AI 추천` 중 골라 넣는 편집기. 상한 줄은 표 위에 고정, AI 요청은 열 머리 버튼 + 대화상자, 모바일은 카드 + 칩. 채우기 버튼·미리보기·추천안 검토·시뮬레이션·돌아보기 표는 삭제. 자세한 것은 스펙.
+`항목 | 예산 | 참고` 목록. 참고의 네 줄(`지난달 예산 · 지난달 실적 · 3개월 평균 · AI 추천`)은 줄을 누르면 그 금액이 예산에 들어간다. AI 줄 아래 근거 한 줄. 상한 줄은 표 위에 고정, 전체 채우기와 AI 상태는 표 위 도구 줄, AI 요청은 대화상자, 모바일은 같은 목록 구조. 출처 지우기 없음. 채우기 버튼·미리보기·추천안 검토·시뮬레이션·돌아보기 표는 삭제. 자세한 것은 스펙.
 
 ## 지켜야 할 것
 
@@ -31,7 +31,7 @@
 ## 진행 방식
 
 1. 스펙 §8.3의 파일 경계대로 작업을 8~10개로 나누고, 각 작업의 파일·테스트·완료 조건을 `docs/superpowers/plans/2026-09-11-budget-editor-redesign.md`에 먼저 적어라(superpowers writing-plans 형식: 실패 테스트 → 구현 → 통과 → 커밋).
-2. 순서: (a) `plan-calculations.ts`·`plan-sources.ts` 읽기 모델 + 단위·통합 테스트 → (b) `draft.ts` 정리(select 삭제, fill 확장) + 테스트 → (c) `ceiling-bar.tsx` → (d) `plan-table.tsx`·`plan-row.tsx` 선택 표시·클릭·열 채우기·확인 팝오버 → (e) `use-recommendation.ts` 훅 + `ai-request-dialog.tsx` + `ai-column.tsx` + `ai-evidence.tsx` → (f) `plan-cards.tsx` 모바일 → (g) `budget-form.tsx`·`page.tsx` 조립과 삭제 → (h) E2E 네 개 갱신 → (i) 문서(`docs/ai-budget-planning-runbook.md`의 UI 설명 갱신).
+2. 순서: (a) `plan-calculations.ts`·`plan-sources.ts` 읽기 모델 + 단위·통합 테스트 → (b) `draft.ts` 정리(select·apply·manual 삭제, `source` 필드와 `choose` 추가) + 테스트 → (c) `ceiling-bar.tsx` → (d) `plan-toolbar.tsx`·`plan-list.tsx`·`plan-item.tsx` 줄 선택·직접 입력 캡션·전체 채우기·확인 팝오버 → (e) `use-recommendation.ts` 훅 + `ai-request-dialog.tsx` + `ai-evidence.tsx` → (f) 390px 폭 점검(같은 컴포넌트) → (g) `budget-form.tsx`·`page.tsx` 조립과 삭제 → (h) E2E 네 개 갱신 → (i) 문서(`docs/ai-budget-planning-runbook.md`의 UI 설명 갱신).
 3. 각 작업 뒤 `NODE_OPTIONS= pnpm exec tsc --noEmit && NODE_OPTIONS= pnpm lint && NODE_OPTIONS= pnpm test`. 통합은 `NODE_OPTIONS= pnpm test:db`(로컬 Supabase 필요, `supabase status`로 확인). 마지막에 `NODE_OPTIONS= pnpm e2e`와 `NODE_OPTIONS= pnpm build`.
 4. E2E가 도는 환경이면 데스크톱 1440과 모바일 390 스크린샷을 `docs/design/budget-editor/result/`에 저장해 목업과 나란히 비교할 수 있게 하라.
 

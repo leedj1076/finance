@@ -58,6 +58,42 @@
     .sel { display: inline-flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 10px; border: 1px solid #e4e4e7; font-size: 13px; background: #fff; }
     .textarea { min-height: 96px; padding: 10px; border: 1px solid #e4e4e7; font-size: 13px; color: #18181b; }
 
+    .ref { display: grid; grid-template-columns: 16px 96px 110px minmax(0, 1fr); gap: 12px; align-items: center; min-height: 28px; cursor: pointer; }
+    .ref:hover .lab { color: #18181b; }
+    .ref.off { cursor: default; } .ref.off .lab, .ref.off .amt { color: #a1a1aa; text-decoration: line-through; }
+    .ref .lab { font-size: 12px; color: #71717a; }
+    .ref .amt { font-size: 13px; text-align: right; }
+    .ref .capt { font-size: 11px; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ref.on .lab { color: #18181b; font-weight: 600; } .ref.on .amt { font-weight: 600; } .ref.on .lab.ai { color: #7c3aed; }
+    .apply { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 26px; padding: 0 10px; border: 1px solid #e4e4e7; font-size: 11px; font-weight: 600; color: #18181b; background: #fff; white-space: nowrap; justify-self: start; }
+    .apply.done { background: #f4f4f5; border-color: #f4f4f5; color: #71717a; }
+    .apply.ai.done { background: #f5f3ff; border-color: #f5f3ff; color: #7c3aed; }
+    .apply.off { color: #a1a1aa; border-color: #f4f4f5; }
+    .evid { grid-column: 1 / -1; display: flex; gap: 8px; align-items: baseline; padding-left: 28px; font-size: 11px; color: #71717a; }
+    .evid .tree { color: #a1a1aa; }
+    .toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid #e4e4e7; }
+
+    .tiles { display: flex; gap: 8px; }
+    .tile { flex: 1 1 0; min-width: 0; height: 48px; padding: 6px 12px; box-sizing: border-box; border: 1px solid #e4e4e7; background: #fff; display: flex; flex-direction: column; justify-content: center; gap: 2px; cursor: pointer; }
+    .tile:hover { border-color: #71717a; }
+    .tile .l1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 11px; color: #71717a; white-space: nowrap; }
+    .tile .l1 .c { color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; }
+    .tile .l2 { font-size: 13px; font-weight: 500; text-align: right; }
+    .tile.on { border-color: #18181b; background: #f4f4f5; } .tile.on .l1 { color: #18181b; } .tile.on .l2 { font-weight: 700; }
+    .tile.ai.on { border-color: #7c3aed; background: #f5f3ff; } .tile.ai.on .l1 { color: #7c3aed; }
+    .tile.off { cursor: default; border-color: #f4f4f5; } .tile.off .l1, .tile.off .l2 { color: #a1a1aa; } .tile.off:hover { border-color: #f4f4f5; }
+    .opt { display: grid; grid-template-columns: 110px 110px minmax(0, 1fr) 20px; gap: 14px; align-items: center; height: 32px; padding: 0 10px; margin: 0 -10px; cursor: pointer; }
+    .opt:hover { background: #fafafa; }
+    .opt .lab { font-size: 12px; color: #71717a; } .opt .amt { font-size: 13px; text-align: right; } .opt .capt { font-size: 11px; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .opt.on { background: #f4f4f5; } .opt.on .lab { color: #18181b; font-weight: 600; } .opt.on .amt { font-weight: 700; }
+    .opt.ai.on { background: #f5f3ff; } .opt.ai.on .lab { color: #7c3aed; }
+
+    .opt.off { cursor: default; } .opt.off .lab, .opt.off .amt { color: #a1a1aa; text-decoration: line-through; } .opt.off:hover { background: transparent; }
+    .m-opt { display: grid; grid-template-columns: 84px 84px minmax(0, 1fr) 16px; gap: 8px; align-items: center; height: 36px; padding: 0 8px; margin: 0 -8px; }
+    .m-opt .lab { font-size: 12px; color: #71717a; } .m-opt .amt { font-size: 13px; text-align: right; } .m-opt .capt { font-size: 11px; color: #a1a1aa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .m-opt.on { background: #f4f4f5; } .m-opt.on .lab { color: #18181b; font-weight: 600; } .m-opt.on .amt { font-weight: 700; }
+    .m-opt.ai.on { background: #f5f3ff; } .m-opt.ai.on .lab { color: #7c3aed; }
+
   </style>
 <div style="width: 390px; box-sizing: border-box; background: #ffffff;">
 <div style="width: 390px; padding: 20px 20px 28px; box-sizing: border-box;">
@@ -65,39 +101,37 @@
   <div style="margin-top: 8px;"><span class="chip"><i style="background: #a1a1aa;"></i>2026년 10월 · 예정</span></div>
   <div style="margin-top: 14px;"><span class="nav"><span>←</span><span style="font-weight: 600;">2026-10</span><span class="go">보기</span><span>→</span></span></div>
   <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 48px; margin-top: 16px; border-top: 1px solid #18181b; border-bottom: 1px solid #18181b;">
-    <span class="t-caption muted" style="line-height: 1.4;">상한 <b class="ink">428만</b> · 합계 <b class="ink">184만</b> · 여유 <b class="green">244만</b><br><span class="faint">목표 저축률 30% ▾</span></span>
+    <span class="t-caption muted" style="line-height: 1.4;">상한 <b class="ink">428만</b> · 합계 <b class="ink">185만</b> · 여유 <b class="green">243만</b><br><span class="faint">목표 저축률 30% ▾</span></span>
     <span class="btn h30">저장</span>
   </div>
-  <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 0 4px;"><span><span class="major">고정비</span> <span class="t-caption faint" style="margin-left: 6px;">조절이 어려운 비용</span></span><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.4" fill="#18181b"/><circle cx="8" cy="8" r="1.4" fill="#18181b"/><circle cx="13" cy="8" r="1.4" fill="#18181b"/></svg></div>
-  <div style="padding: 14px 0; border-bottom: 1px solid #e4e4e7;">
-  <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;"><span class="major">주거</span><span class="input" style="width: 150px;"><span class="box">380,000</span><span class="t-caption muted">원</span></span></div>
-  
-  <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;"><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #f4f4f5; font-size: 12px; white-space: nowrap;"><span class="muted">지난달 예산</span><b style="font-weight: 600;">380,000</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #f4f4f5; font-size: 12px; white-space: nowrap;"><span class="muted">지난달 실적</span><b style="font-weight: 600;">380,000</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">3개월</span><b style="font-weight: 500;">380,812</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">AI</span><b style="font-weight: 500;">380,000</b><a class="t-small" href="#">근거</a></span></div>
-</div>
-  <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 0 4px;"><span><span class="major">변동비</span> <span class="t-caption faint" style="margin-left: 6px;">생활하면서 조절할 비용</span></span><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r="1.4" fill="#18181b"/><circle cx="8" cy="8" r="1.4" fill="#18181b"/><circle cx="13" cy="8" r="1.4" fill="#18181b"/></svg></div>
+  <div style="display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid #e4e4e7;" class="t-caption"><span class="muted">AI 추천 · 9월 27일 14:02 · 상한 안</span><a href="#" style="font-weight: 600;">요약</a><a href="#" style="font-weight: 600; margin-left: auto;">전체 채우기 ▾</a></div>
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 0 2px;"><span><span class="major">변동비</span> <span class="t-caption faint" style="margin-left: 6px;">생활하면서 조절할 비용</span></span></div>
   <div style="padding: 14px 0; border-bottom: 1px solid #e4e4e7;">
   <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;"><span class="major">식비</span><span class="input" style="width: 150px;"><span class="box">600,000</span><span class="t-caption muted">원</span></span></div>
-  <span class="cap l" style="margin-top: 6px;"><span class="violet" style="font-weight: 600;">AI 650,000 → 조정</span> · <a href="#">출처 지우기</a></span>
-  <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;"><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">지난달 예산</span><b style="font-weight: 500;">1,100,000</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">지난달 실적</span><b style="font-weight: 500;">612,400</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">3개월</span><b style="font-weight: 500;">656,262</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #ddd6fe; background: #f5f3ff; font-size: 12px; white-space: nowrap;"><span class="muted">AI</span><b style="font-weight: 600;">650,000</b><a class="t-small" href="#">근거</a></span></div>
+  <span class="cap l" style="margin-top: 6px;"><span class="violet" style="font-weight: 600;">AI 추천 650,000에서 조정</span></span>
+  <div style="display: flex; flex-direction: column; margin-top: 8px;"><div class="m-opt"><span class="lab">지난달 예산</span><span class="amt">1,100,000</span><span class="capt">9월</span><span></span></div><div class="m-opt"><span class="lab">지난달 실적</span><span class="amt">612,400</span><span class="capt">−487,600</span><span></span></div><div class="m-opt"><span class="lab">3개월 평균</span><span class="amt">656,262</span><span class="capt">6·7·8월</span><span></span></div><div class="m-opt ai"><span class="lab">AI 추천</span><span class="amt">650,000</span><span class="capt"></span><span></span></div></div>
+  <div class="t-small muted" style="margin-top: 6px; line-height: 1.6;"><b style="color: #18181b; font-weight: 600;">AI 근거</b> 3개월 평균 656,262원에서 코스트코 248,000원(일회성)을 빼면 61만 원대. 추석 장보기를 감안해 65만 원. <a href="#">더 보기</a></div>
 </div>
   <div style="padding: 14px 0; border-bottom: 1px solid #e4e4e7;">
   <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;"><span class="major">교통비</span><span class="input" style="width: 150px;"><span class="box">110,000</span><span class="t-caption muted">원</span></span></div>
   
-  <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;"><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">지난달 예산</span><b style="font-weight: 500;">160,000</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">지난달 실적</span><b style="font-weight: 500;">96,300</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #f4f4f5; font-size: 12px; white-space: nowrap;"><span class="muted">3개월</span><b style="font-weight: 600;">110,000</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">AI</span><b style="font-weight: 500;">105,000</b><a class="t-small" href="#">근거</a></span></div>
+  <div style="display: flex; flex-direction: column; margin-top: 8px;"><div class="m-opt"><span class="lab">지난달 예산</span><span class="amt">160,000</span><span class="capt">9월</span><span></span></div><div class="m-opt"><span class="lab">지난달 실적</span><span class="amt">96,300</span><span class="capt">−63,700</span><span></span></div><div class="m-opt on"><span class="lab">3개월 평균</span><span class="amt">110,000</span><span class="capt">6·7·8월</span><span><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5 5.5 10.5 11.5 4" fill="none" stroke="#18181b" stroke-width="1.6"/></svg></span></div><div class="m-opt ai"><span class="lab">AI 추천</span><span class="amt">105,000</span><span class="capt"></span><span></span></div></div>
+  <div class="t-small muted" style="margin-top: 6px; line-height: 1.6;"><b style="color: #18181b; font-weight: 600;">AI 근거</b> 출근 교통비가 월 9~10만 원으로 안정적입니다. 10월 연휴로 이틀 줄어 105,000원. <a href="#">더 보기</a></div>
 </div>
   <div style="padding: 14px 0; border-bottom: 1px solid #e4e4e7;">
   <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;"><span class="major">생활용품</span><span class="input" style="width: 150px;"><span class="box">130,000</span><span class="t-caption muted">원</span></span></div>
-  
-  <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;"><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">지난달 예산</span><b style="font-weight: 500;">200,000</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">지난달 실적</span><b style="font-weight: 500;">84,900</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">3개월</span><b style="font-weight: 500;">130,838</b></span><span style="display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 12px; white-space: nowrap;"><span class="muted">AI</span><b style="font-weight: 500;">120,000</b><a class="t-small" href="#">근거</a></span></div>
+  <span class="cap l" style="margin-top: 6px;"><span class="muted">직접 입력</span></span>
+  <div style="display: flex; flex-direction: column; margin-top: 8px;"><div class="m-opt"><span class="lab">지난달 예산</span><span class="amt">200,000</span><span class="capt">9월</span><span></span></div><div class="m-opt"><span class="lab">지난달 실적</span><span class="amt">84,900</span><span class="capt">−115,100</span><span></span></div><div class="m-opt"><span class="lab">3개월 평균</span><span class="amt">130,838</span><span class="capt">6·7·8월</span><span></span></div><div class="m-opt ai"><span class="lab">AI 추천</span><span class="amt">120,000</span><span class="capt"></span><span></span></div></div>
+  <div class="t-small muted" style="margin-top: 6px; line-height: 1.6;"><b style="color: #18181b; font-weight: 600;">AI 근거</b> 8월 대량 구매 이후 9월이 낮았습니다. 평균보다 조금 낮은 12만 원. <a href="#">더 보기</a></div>
 </div>
   <div class="pop" style="margin-top: 20px; padding: 6px 0; width: 220px;">
-    <div class="t-small faint" style="padding: 6px 14px;">변동비 묶음 채우기</div>
+    <div class="t-small faint" style="padding: 6px 14px;">전체 채우기</div>
     <div class="t-body" style="padding: 9px 14px;">지난달 예산으로</div>
     <div class="t-body" style="padding: 9px 14px;">지난달 실적으로</div>
     <div class="t-body" style="padding: 9px 14px;">3개월 평균으로</div>
     <div class="t-body" style="padding: 9px 14px;">AI 추천으로</div>
   </div>
-  <div class="t-small faint" style="margin-top: 8px;">묶음 머리의 ⋯ 메뉴. 데스크톱의 ‘이 열로 채우기’에 해당합니다.</div>
+  <div class="t-small faint" style="margin-top: 8px;">도구 줄의 ‘전체 채우기 ▾’ 메뉴. 데스크톱의 도구 줄 버튼 넷에 해당합니다.</div>
 </div>
 </div>
 </body>
