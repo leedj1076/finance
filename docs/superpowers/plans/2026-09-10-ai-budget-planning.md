@@ -325,7 +325,7 @@ test('frozen text survives settings edits and JSONB key reordering', () => {
 })
 ```
 
-Integration fixture creates two test households/users using `tests/integration/diagnosis-queue.test.ts`'s local-only auth/member setup; clean up only those generated IDs. Assert first save revision1, stale expectedRevision0 rejected, identical submitted values no-op, empty/null distinction persisted, foreign SELECT invisible and authenticated/anon table writes denied.
+Integration fixture creates two test households/users using `tests/integration/diagnosis-queue.test.ts`'s local-only auth/member setup; clean up only those generated IDs. Assert first changed save revision1, stale expectedRevision0 with different values rejected, identical submitted values no-op, empty/null distinction persisted, foreign SELECT invisible and authenticated/anon table writes denied. An all-null save against the absent logical all-null revision0 state is unchanged and remains revision0 without inserting; this follows the approved no-op rule. Exercise overlapping first inserts, not only sequential stale writes.
 
 - [ ] **2. Red gate:** `pnpm test tests/finance/ai-settings.test.ts tests/finance/ai-prompt.test.ts`, then `pnpm test:db tests/integration/ai-settings.test.ts` — modules/table missing.
 - [ ] **3. Implement defaults and strict composition.** Use these initial editable defaults; leave the legacy diagnosis prompt function unchanged until its versioned adapter is added in Task 8.

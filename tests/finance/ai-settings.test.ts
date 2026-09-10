@@ -42,19 +42,15 @@ describe('AI settings input', () => {
     expect(() => parseAiSettingsSave(input)).toThrow('invalid_ai_settings')
   })
 
-  test('rejects a multibyte settings body over 128 KiB even within individual character limits', () => {
-    expect(() => parseAiSettingsSave({
+  test('maximum valid settings remain within the downstream 128 KiB body cap', () => {
+    const maximum = {
       commonInstructions: '한'.repeat(4_000),
       ledgerInstructions: '나'.repeat(6_000),
       budgetInstructions: '다'.repeat(6_000),
       expectedRevision: 0,
-    })).not.toThrow()
-    expect(() => parseAiSettingsValues({
-      commonInstructions: '한'.repeat(4_000),
-      ledgerInstructions: '한'.repeat(6_000),
-      budgetInstructions: '한'.repeat(6_000),
-      padding: 'x'.repeat(90_000),
-    })).toThrow('invalid_ai_settings')
+    }
+    expect(Buffer.byteLength(JSON.stringify(maximum), 'utf8')).toBeLessThanOrEqual(128 * 1024)
+    expect(() => parseAiSettingsSave(maximum)).not.toThrow()
   })
 
   test('counts Unicode characters rather than UTF-16 code units', () => {

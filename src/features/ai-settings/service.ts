@@ -33,6 +33,13 @@ function sameValues(current: AiSettingsState, input: AiSettingsValues) {
     && current.budgetInstructions === input.budgetInstructions
 }
 
+function hasDatabaseCode(error: unknown, code: string, seen = new Set<object>()): boolean {
+  if (!error || typeof error !== 'object' || seen.has(error)) return false
+  seen.add(error)
+  const item = error as { code?: unknown; cause?: unknown }
+  return item.code === code || hasDatabaseCode(item.cause, code, seen)
+}
+
 export async function readAiSettings(reader: AiSettingsReader, householdId: string): Promise<AiSettingsState> {
   const rows = await reader.select().from(aiDiagnosisSettings)
     .where(eq(aiDiagnosisSettings.householdId, householdId)).limit(1)
@@ -79,7 +86,7 @@ export async function saveAiSettings(
     })
   } catch (error) {
     if (error instanceof Error && error.message === 'ai_settings_conflict') throw error
-    if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+    if (hasDatabaseCode(error, '23505')) {
       const current = await getAiSettings(householdId)
       if (sameValues(current, input)) return current
       throw new Error('ai_settings_conflict')

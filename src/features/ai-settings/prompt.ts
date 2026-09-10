@@ -12,6 +12,10 @@ function invalid(): never {
   throw new Error('invalid_ai_prompt')
 }
 
+function isAiKind(value: unknown): value is AiKind {
+  return value === 'ledger' || value === 'budget'
+}
+
 function plainRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.getPrototypeOf(value) !== Object.prototype) invalid()
   return value as Record<string, unknown>
@@ -85,13 +89,14 @@ function validatePolicy(policy: AiPromptPolicy) {
   exactKeys(input, ['version', 'before', 'after', 'dataTag'])
   if (typeof policy.version !== 'string' || !VERSION.test(policy.version)) invalid()
   if (typeof policy.before !== 'string' || typeof policy.after !== 'string') invalid()
-  if (!IDENTIFIER.test(policy.dataTag)) invalid()
+  if (typeof policy.dataTag !== 'string' || !IDENTIFIER.test(policy.dataTag)) invalid()
 }
 
 function validateInstructions(value: unknown, kind: AiKind): ResolvedAiInstructions {
   const input = plainRecord(value)
   exactKeys(input, ['kind', 'settingsRevision', 'defaultsVersion', 'common', 'task', 'commonSource', 'taskSource'])
-  if (input.kind !== kind || !Number.isInteger(input.settingsRevision) || (input.settingsRevision as number) < 0) invalid()
+  if (!isAiKind(kind) || !isAiKind(input.kind) || input.kind !== kind) invalid()
+  if (!Number.isInteger(input.settingsRevision) || (input.settingsRevision as number) < 0) invalid()
   if (typeof input.defaultsVersion !== 'string' || !VERSION.test(input.defaultsVersion)) invalid()
   if (typeof input.common !== 'string' || typeof input.task !== 'string') invalid()
   if ([...input.common].length > 4_000 || [...input.task].length > 6_000) invalid()
@@ -130,7 +135,7 @@ export function freezeAiPromptInput(
 export function parseAiPromptInput(value: unknown, kind: AiKind, snapshot: unknown): AiPromptInput {
   const input = plainRecord(value)
   exactKeys(input, ['version', 'kind', 'instructions', 'policyVersion', 'instructionsHash', 'prefix', 'suffix', 'promptHash'])
-  if (input.version !== 1 || input.kind !== kind) invalid()
+  if (!isAiKind(kind) || input.version !== 1 || !isAiKind(input.kind) || input.kind !== kind) invalid()
   if (typeof input.policyVersion !== 'string' || !VERSION.test(input.policyVersion)) invalid()
   if (typeof input.prefix !== 'string' || typeof input.suffix !== 'string') invalid()
   if (typeof input.instructionsHash !== 'string' || !HASH.test(input.instructionsHash)) invalid()

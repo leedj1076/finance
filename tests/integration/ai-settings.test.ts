@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
 
 import { db } from '@/db/client'
 import { getAiSettings, saveAiSettings } from '@/features/ai-settings/service'
+import type { AiSettingsState } from '@/features/ai-settings/types'
 
 const databaseUrl = process.env.DATABASE_URL!
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -41,6 +42,28 @@ async function fixture(label: string): Promise<Fixture> {
   return { householdId: household.id, userId: data.user.id, client }
 }
 
+async function overlappingFirstSaves(
+  first: Parameters<typeof saveAiSettings>,
+  second: Parameters<typeof saveAiSettings>,
+): Promise<PromiseSettledResult<AiSettingsState>[]> {
+  let pending!: Promise<PromiseSettledResult<AiSettingsState>[]>
+  await raw.begin(async (lock) => {
+    await lock`lock table ai_diagnosis_settings in share mode`
+    pending = Promise.allSettled([saveAiSettings(...first), saveAiSettings(...second)])
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const [waiting] = await raw`
+        select count(distinct pid)::int as count
+        from pg_locks
+        where relation = 'ai_diagnosis_settings'::regclass and not granted
+      `
+      if (waiting.count >= 2) return
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    throw new Error('first saves did not overlap at the insert lock')
+  })
+  return pending
+}
+
 afterAll(async () => {
   if (householdIds.length) await raw`delete from households where id in ${raw(householdIds)}`
   for (const id of userIds) await admin.auth.admin.deleteUser(id)
@@ -69,6 +92,17 @@ describe('household AI settings', () => {
     expect(count.value).toBe(0)
   })
 
+  test('an all-null save against the absent logical state is a revision-zero no-op', async () => {
+    expect(await saveAiSettings(a.householdId, a.userId, {
+      commonInstructions: null, ledgerInstructions: null, budgetInstructions: null, expectedRevision: 0,
+    })).toEqual({
+      commonInstructions: null, ledgerInstructions: null, budgetInstructions: null,
+      revision: 0, updatedAt: null,
+    })
+    const [count] = await raw`select count(*)::int as value from ai_diagnosis_settings where household_id = ${a.householdId}`
+    expect(count.value).toBe(0)
+  })
+
   test('first save is revision one and preserves the empty/null distinction', async () => {
     const saved = await saveAiSettings(a.householdId, a.userId, {
       commonInstructions: '', ledgerInstructions: null, budgetInstructions: '여행 없음', expectedRevision: 0,
@@ -84,6 +118,31 @@ describe('household AI settings', () => {
     await expect(saveAiSettings(a.householdId, a.userId, { commonInstructions: 'B', ledgerInstructions: null, budgetInstructions: null, expectedRevision: 0 }))
       .rejects.toThrow('ai_settings_conflict')
     expect(await getAiSettings(a.householdId)).toMatchObject({ commonInstructions: 'A', revision: 1 })
+  })
+
+  test('overlapping different first changes map the losing wrapped unique violation to a conflict', async () => {
+    const results = await overlappingFirstSaves(
+      [a.householdId, a.userId, { commonInstructions: 'A', ledgerInstructions: null, budgetInstructions: null, expectedRevision: 0 }],
+      [a.householdId, b.userId, { commonInstructions: 'B', ledgerInstructions: null, budgetInstructions: null, expectedRevision: 0 }],
+    )
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    const rejected = results.find((result) => result.status === 'rejected') as PromiseRejectedResult
+    expect(rejected.reason).toMatchObject({ message: 'ai_settings_conflict' })
+    expect(await getAiSettings(a.householdId)).toMatchObject({ revision: 1 })
+  })
+
+  test('overlapping identical first changes recover as the same no-op result', async () => {
+    const values = { commonInstructions: 'same', ledgerInstructions: '', budgetInstructions: null, expectedRevision: 0 }
+    const results = await overlappingFirstSaves(
+      [a.householdId, a.userId, values],
+      [a.householdId, b.userId, values],
+    )
+    expect(results.every((result) => result.status === 'fulfilled')).toBe(true)
+    const states = results.map((result) => (result as PromiseFulfilledResult<AiSettingsState>).value)
+    expect(states[0]).toEqual(states[1])
+    expect(states[0]).toMatchObject({ commonInstructions: 'same', revision: 1 })
+    const [count] = await raw`select count(*)::int as value from ai_diagnosis_settings where household_id = ${a.householdId}`
+    expect(count.value).toBe(1)
   })
 
   test('saving null restores each default-backed field and advances the revision', async () => {

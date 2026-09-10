@@ -8,7 +8,7 @@ import {
   renderAiPrompt,
   resolveAiInstructions,
 } from '@/features/ai-settings/prompt'
-import type { AiPromptPolicy, AiSettingsState } from '@/features/ai-settings/types'
+import type { AiKind, AiPromptInput, AiPromptPolicy, AiSettingsState } from '@/features/ai-settings/types'
 
 const empty: AiSettingsState = {
   revision: 0,
@@ -95,6 +95,30 @@ describe('immutable AI prompt composition', () => {
     }, {})).toThrow('invalid_ai_prompt')
   })
 
+  test.each([null, undefined, 42])('freezing rejects a non-string application data tag', (dataTag) => {
+    expect(() => freezeAiPromptInput(resolveAiInstructions(empty, 'ledger'), {
+      ...policy,
+      dataTag,
+    } as unknown as AiPromptPolicy, {})).toThrow('invalid_ai_prompt')
+  })
+
+  test('freeze, parse, and render reject an unknown diagnosis kind even when outer and inner kinds agree', () => {
+    const snapshot = { month: '2026-08' }
+    const invalidKind = 'forecast' as AiKind
+    const instructions = { ...resolveAiInstructions(empty, 'ledger'), kind: invalidKind }
+    expect(() => freezeAiPromptInput(instructions, policy, snapshot)).toThrow('invalid_ai_prompt')
+
+    const valid = freezeAiPromptInput(resolveAiInstructions(empty, 'ledger'), policy, snapshot)
+    const forged: AiPromptInput = {
+      ...valid,
+      kind: invalidKind,
+      instructions,
+      instructionsHash: aiInstructionsHash(instructions, valid.policyVersion),
+    }
+    expect(() => parseAiPromptInput(forged, invalidKind, snapshot)).toThrow('invalid_ai_prompt')
+    expect(() => renderAiPrompt(forged, snapshot)).toThrow('invalid_ai_prompt')
+  })
+
   test('resolved prompt instructions enforce common and task character limits', () => {
     const base = resolveAiInstructions(empty, 'ledger')
     expect(() => freezeAiPromptInput({ ...base, common: '😀'.repeat(4_001) }, policy, {})).toThrow('invalid_ai_prompt')
@@ -106,21 +130,23 @@ describe('immutable AI prompt composition', () => {
     expect(() => renderAiPrompt(input, { a: 2 })).toThrow('invalid_ai_prompt')
   })
 
-  test('serialized frozen input enforces the 128 KiB UTF-8 boundary with escape-heavy text', () => {
+  test('serialized frozen input enforces the actual 128 KiB UTF-8 boundary with valid instructions', () => {
     const base = resolveAiInstructions(empty, 'ledger')
     let low = 0
     let high = 131_073
     while (low + 1 < high) {
       const middle = Math.floor((low + high) / 2)
       try {
-        freezeAiPromptInput({ ...base, common: '\\"\ud55c'.repeat(middle) }, policy, {})
+        freezeAiPromptInput(base, { ...policy, before: '\\"\ud55c'.repeat(middle) }, {})
         low = middle
       } catch {
         high = middle
       }
     }
     expect(low).toBeGreaterThan(0)
-    expect(() => freezeAiPromptInput({ ...base, common: '\\"\ud55c'.repeat(low) }, policy, {})).not.toThrow()
-    expect(() => freezeAiPromptInput({ ...base, common: '\\"\ud55c'.repeat(high) }, policy, {})).toThrow('invalid_ai_prompt')
+    const accepted = freezeAiPromptInput(base, { ...policy, before: '\\"\ud55c'.repeat(low) }, {})
+    expect(Buffer.byteLength(JSON.stringify(accepted), 'utf8')).toBeLessThanOrEqual(128 * 1024)
+    expect(Buffer.byteLength(JSON.stringify({ ...accepted, prefix: `${accepted.prefix}\\"\ud55c` }), 'utf8')).toBeGreaterThan(128 * 1024)
+    expect(() => freezeAiPromptInput(base, { ...policy, before: '\\"\ud55c'.repeat(high) }, {})).toThrow('invalid_ai_prompt')
   })
 })
