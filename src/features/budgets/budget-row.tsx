@@ -52,7 +52,7 @@ function signedExpense(value: number) {
 function ledgerLink(context: RecommendationRowContext, reference: Extract<BudgetReference, { kind: 'transaction' }>) {
   const evidence = context.snapshot.evidence.find((row) => row.id === reference.id)
   if (!evidence) return null
-  const params = new URLSearchParams({ month: context.snapshot.month, tab: 'list', flow: evidence.flow })
+  const params = new URLSearchParams({ month: evidence.date.slice(0, 7), tab: 'list', flow: evidence.flow })
   if (evidence.major) params.set('major', evidence.major)
   return {
     href: `/ledger?${params.toString()}`,

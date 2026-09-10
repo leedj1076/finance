@@ -36,7 +36,7 @@ function frozenPrompt(marker: string): AiPromptInput {
   }
 }
 
-function frozenSnapshot(marker: string): Pick<BudgetRecommendationSnapshot, 'month' | 'input' | 'evidence' | 'recurring'> {
+function frozenSnapshot(marker: string, evidenceDate = '2026-09-01'): Pick<BudgetRecommendationSnapshot, 'month' | 'input' | 'evidence' | 'recurring'> {
   return {
     month: '2026-09',
     input: {
@@ -48,14 +48,14 @@ function frozenSnapshot(marker: string): Pick<BudgetRecommendationSnapshot, 'mon
       draftAmounts: [{ major: '식비', amount: 350_000 }],
     },
     evidence: [{
-      id: 11, date: '2026-09-01', flow: 'expense', amount: 120_000,
+      id: 11, date: evidenceDate, flow: 'expense', amount: 120_000,
       major: '식비', sub: '장보기', merchant: `${marker} 마트`,
     }],
     recurring: [{ id: 7, major: '식비', amount: 30_000, date: '2026-09-25', posted: false, memo: `${marker} 정기 식재료` }],
   }
 }
 
-function context(jobId: string, amount: number, reason: string, marker: string): RecommendationRowContext {
+function context(jobId: string, amount: number, reason: string, marker: string, evidenceDate?: string): RecommendationRowContext {
   const reportRow = makeBudgetReport().rows[0]
   return {
     jobId,
@@ -73,7 +73,7 @@ function context(jobId: string, amount: number, reason: string, marker: string):
       exceptional: [{ text: `${marker} 외식은 일회성일 수 있습니다.`, certainty: 'hypothesis', references: [] }],
       reducible: [{ text: `${marker} 배달비를 확인해 주세요.`, certainty: 'recorded', references: [{ kind: 'transaction', id: 11 }] }],
     },
-    snapshot: frozenSnapshot(marker),
+    snapshot: frozenSnapshot(marker, evidenceDate),
     promptInput: frozenPrompt(marker),
   }
 }
@@ -139,6 +139,19 @@ describe('budget recommendation row', () => {
     expect(html).toContain('월 전체 예산 310,000원')
     expect(html).not.toContain('앞으로 배정한 금액')
     expect(html).not.toContain('실제 지출')
+  })
+
+  test('links current and saved-origin transaction evidence to each frozen evidence month', () => {
+    const html = render(
+      { major: '식비', amount: '310000', recommendationJobId: savedJobId },
+      {
+        recommendation: context(latestJobId, 300_000, '현재 추천 이유', '현재', '2026-09-05'),
+        origin: context(savedJobId, 320_000, '저장된 추천 이유', '저장', '2026-08-31'),
+      },
+    )
+
+    expect(html).toContain('href="/ledger?month=2026-09&amp;tab=list&amp;flow=expense&amp;major=%EC%8B%9D%EB%B9%84">2026-09-05 · 현재 마트')
+    expect(html).toContain('href="/ledger?month=2026-08&amp;tab=list&amp;flow=expense&amp;major=%EC%8B%9D%EB%B9%84">2026-08-31 · 저장 마트')
   })
 
   test('shows a net expense refund with a positive sign and adds it back to remaining allocation', () => {

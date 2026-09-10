@@ -63,8 +63,9 @@ async function refreshCapabilities(fixture: BudgetAcceptanceFixture) {
 function reportFor(job: ClaimedBudgetJob): BudgetRecommendationReport {
   expect(job.snapshot.rows).toHaveLength(1)
   const source = job.snapshot.rows[0]
-  const evidence = job.snapshot.evidence.find(row => row.major === source.major)
-  expect(evidence, `real transaction evidence for ${source.major}`).toBeDefined()
+  const evidence = job.snapshot.evidence.find(row => row.major === source.major
+    && row.date.slice(0, 7) === shiftMonth(job.snapshot.month, -1))
+  expect(evidence, `real prior-month transaction evidence for ${source.major}`).toBeDefined()
   const report = makeBudgetReport()
   report.rows = [{
     ...report.rows[0],
@@ -180,6 +181,7 @@ const suite = test.extend<{ budgetFixture: BudgetAcceptanceFixture }>({
         insert into transactions (household_id, date, flow, amount, category_id, raw_merchant, source)
         values
           (${fixtureHouseholdId}, ${`${month.slice(0, 4)}-01-02`}, 'income', 1000000, null, 'E2E 수입', 'e2e'),
+          (${fixtureHouseholdId}, ${`${shiftMonth(month, -1)}-15`}, 'expense', 90000, ${food.id}, 'E2E 지난달 장보기', 'e2e'),
           (${fixtureHouseholdId}, ${`${month}-03`}, 'expense', 100000, ${food.id}, 'E2E 장보기', 'e2e')
       `
       await database`
@@ -321,7 +323,17 @@ suite('persists a real completed recommendation with its adjusted amount and fro
   await expect(page.getByText('사용자 조정 310,000원', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: '식비 추천 이유', exact: true }).click()
   await expect(page.getByText('기록된 장보기 비용을 포함해 배정했습니다.', { exact: true })).toBeVisible()
-  await expect(page.getByRole('link', { name: /E2E 장보기/ })).toBeVisible()
+  const historicalEvidence = page.getByRole('link', { name: /E2E 지난달 장보기/ }).first()
+  await expect(historicalEvidence).toBeVisible()
+  await historicalEvidence.click()
+  await expect(page).toHaveURL((url) => url.pathname === '/ledger'
+    && url.searchParams.get('month') === shiftMonth(fixture.month, -1)
+    && url.searchParams.get('tab') === 'list'
+    && url.searchParams.get('flow') === 'expense'
+    && url.searchParams.get('major') === '식비')
+  await expect(page.getByRole('row', { name: /E2E 지난달 장보기/ })).toBeVisible()
+  await page.goBack()
+  await expect(page.getByLabel('식비 예산', { exact: true })).toHaveValue('310000')
   expect(await page.locator('[aria-label="식비 예산"]').count()).toBe(1)
   expect(await page.locator(`#budget-recommendation-title-${fixture.month}`).count()).toBe(1)
   await expect(page.getByRole('region', { name: 'AI 추천 검토', exact: true })).toHaveCount(1)

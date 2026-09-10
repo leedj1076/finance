@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { createHash, randomBytes } from 'node:crypto'
 import postgres from 'postgres'
 
+import { shiftMonth } from '@/lib/finance'
+
 test('AI settings preview, save, conflict and responsive dark layout', async ({ page, context }, testInfo) => {
   test.setTimeout(180_000)
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -47,6 +49,95 @@ test('AI settings preview, save, conflict and responsive dark layout', async ({ 
     const ledger = page.getByLabel('내역 진단 지침', { exact: true })
     const budget = page.getByLabel('예산 추천 지침', { exact: true })
     await expect(common).toHaveValue(/한국어로/)
+
+    await page.evaluate(() => {
+      type PreviewRequest = { kind: 'ledger' | 'budget'; month: string }
+      type PendingPreview = { request: PreviewRequest; resolve: (response: Response) => void }
+      const originalFetch = window.fetch.bind(window)
+      const pending: PendingPreview[] = []
+      const resolve = (index: number, marker: string) => {
+        const entry = pending[index]
+        if (!entry) throw new Error(`Missing preview request ${index}`)
+        entry.resolve(new Response(JSON.stringify({
+          kind: entry.request.kind,
+          month: entry.request.month,
+          prefix: marker,
+          dataJson: JSON.stringify({ marker }),
+          suffix: `suffix-${marker}`,
+          promptHash: String(index + 1).repeat(64),
+          instructions: {
+            kind: entry.request.kind,
+            settingsRevision: 0,
+            defaultsVersion: 'e2e',
+            common: marker,
+            task: marker,
+            commonSource: 'custom',
+            taskSource: 'custom',
+          },
+          generatedAt: '2026-09-10T00:00:00.000Z',
+          unsaved: true,
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      }
+      Reflect.set(window, '__aiPreviewHarness', {
+        count: () => pending.length,
+        resolve,
+        restore: () => {
+          window.fetch = originalFetch
+          Reflect.deleteProperty(window, '__aiPreviewHarness')
+        },
+      })
+      window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        const body = typeof init?.body === 'string' ? JSON.parse(init.body) as { action?: string } & PreviewRequest : null
+        if (url.endsWith('/api/ai-settings') && init?.method === 'POST' && body?.action === 'preview') {
+          return await new Promise<Response>((resolveResponse) => {
+            pending.push({ request: body, resolve: resolveResponse })
+          })
+        }
+        return await originalFetch(input, init)
+      }) as typeof window.fetch
+    })
+    const previewButton = page.getByRole('button', { name: '프롬프트 미리보기', exact: true })
+    const pendingPreviewCount = () => page.evaluate(() => {
+      const harness = Reflect.get(window, '__aiPreviewHarness') as { count: () => number }
+      return harness.count()
+    })
+    const resolvePreview = (index: number, marker: string) => page.evaluate(({ index, marker }) => {
+      const harness = Reflect.get(window, '__aiPreviewHarness') as { resolve: (requestIndex: number, responseMarker: string) => void }
+      harness.resolve(index, marker)
+    }, { index, marker })
+
+    const nextPreviewMonth = shiftMonth(budgetMonth, 1)
+    const previewCancellationCases = [
+      { field: 'kind', value: 'budget', heading: `${budgetMonth} 예산 추천 프롬프트` },
+      { field: 'month', value: nextPreviewMonth, heading: `${nextPreviewMonth} 예산 추천 프롬프트` },
+    ] as const
+    for (const [caseIndex, previewCase] of previewCancellationCases.entries()) {
+      const oldIndex = caseIndex * 2
+      const newIndex = oldIndex + 1
+      const marker = previewCase.field.toUpperCase()
+      await previewButton.click()
+      await expect.poll(pendingPreviewCount).toBe(oldIndex + 1)
+      if (previewCase.field === 'kind') {
+        await page.getByRole('combobox', { name: '진단 종류', exact: true }).selectOption(previewCase.value)
+      } else {
+        await page.getByLabel('대상 월', { exact: true }).fill(previewCase.value)
+      }
+      await expect(previewButton).toBeEnabled()
+      await previewButton.click()
+      await expect.poll(pendingPreviewCount).toBe(newIndex + 1)
+      await resolvePreview(oldIndex, `${marker}-OLD-PREVIEW`)
+      await expect(page.getByRole('button', { name: '미리보기 구성 중…', exact: true })).toBeDisabled()
+      await expect(page.getByText(`${marker}-OLD-PREVIEW`, { exact: true })).toHaveCount(0)
+      await resolvePreview(newIndex, `${marker}-NEW-PREVIEW`)
+      await expect(page.getByRole('heading', { name: previewCase.heading, exact: true })).toBeVisible()
+      await expect(page.getByText(`${marker}-NEW-PREVIEW`, { exact: true }).first()).toBeVisible()
+    }
+    await page.evaluate(() => {
+      const harness = Reflect.get(window, '__aiPreviewHarness') as { restore: () => void }
+      harness.restore()
+    })
+    await page.getByRole('combobox', { name: '진단 종류', exact: true }).selectOption('ledger')
 
     const budgetDefault = await budget.inputValue()
     await budget.fill('')
