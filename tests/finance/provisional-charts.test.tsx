@@ -78,8 +78,8 @@ test.each(['stacked', 'line', 'area'] as const)('series %s preserves nulls and a
   const dataset = data.datasets[0]
   expect(dataset.data.slice(3)).toEqual([0, null, kind === 'area' ? 100 : 10, null, null, null, null, null, null])
   if (kind === 'stacked') {
-    expect((dataset.backgroundColor as string[])[1]).toBe('#a1a1aa')
-    expect((dataset.borderColor as string[])[1]).toBe('#a1a1aa')
+    expect((dataset.backgroundColor as string[])[1]).toBe('rgba(37, 99, 235, 0.2)')
+    expect((dataset.borderColor as string[])[1]).toBe('rgba(37, 99, 235, 0.45)')
   } else {
     const line = captured.lines[0].datasets[0]
     expect((line.pointBackgroundColor as string[])[1]).toBe('#ffffff')
