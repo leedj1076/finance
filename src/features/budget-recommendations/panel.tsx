@@ -34,7 +34,11 @@ const REQUEST_ERROR_MESSAGES: Record<string, string> = {
   request_timeout: '요청 결과를 확인하지 못했어요. 같은 요청으로 다시 확인해 주세요.',
   request_failed: '요청 상태를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
   invalid_input: '입력한 예정 지출과 예산 금액을 확인해 주세요.',
+  unauthorized: '로그인이 필요합니다. 다시 로그인해 주세요.',
+  forbidden: '이 가계부의 AI 예산 추천을 사용할 권한이 없습니다.',
+  body_too_large: '입력 내용이 너무 큽니다. 참고 메모나 예정 지출을 줄여 주세요.',
   active_job_exists: '이미 진행 중인 추천 요청이 있어요. 상태를 다시 확인해 주세요.',
+  request_conflict: '같은 요청 ID의 입력이 달라 다시 보낼 수 없어요. 상태를 확인한 뒤 새로 추천해 주세요.',
   past_or_distant_month: 'AI 예산 추천은 이번 달과 다음 달에서만 사용할 수 있어요.',
   missing_income: '기준 수입이 있어야 AI 예산 추천을 시작할 수 있어요.',
   setup_required: 'AI 작업기 설정을 확인한 뒤 다시 시도해 주세요.',
@@ -65,7 +69,11 @@ function exactWon(value: string): number | null {
   return Number.isSafeInteger(amount) ? amount : null
 }
 
-function safeRequestError(error: unknown): { code: string; message: string; ambiguous: boolean } {
+export function classifyBudgetRecommendationRequestError(error: unknown): {
+  code: string
+  message: string
+  ambiguous: boolean
+} {
   const code = error instanceof Error ? error.message : 'request_failed'
   const safeCode = Object.hasOwn(REQUEST_ERROR_MESSAGES, code) ? code : 'request_failed'
   return {
@@ -160,7 +168,7 @@ export function BudgetRecommendationPanel({
       acceptData(next)
     } catch (error) {
       if (manualRequestRef.current !== controller || controller.signal.aborted) return
-      setNetworkError(safeRequestError(error).message)
+      setNetworkError(classifyBudgetRecommendationRequestError(error).message)
     } finally {
       if (manualRequestRef.current === controller) {
         manualRequestRef.current = null
@@ -320,7 +328,7 @@ export function BudgetRecommendationPanel({
       acceptData(next)
     } catch (error) {
       if (manualRequestRef.current !== controller || controller.signal.aborted) return
-      const safe = safeRequestError(error)
+      const safe = classifyBudgetRecommendationRequestError(error)
       setNetworkError(safe.message)
       setHasAmbiguousRequest(safe.ambiguous)
       if (!safe.ambiguous) pendingRequestRef.current = null
