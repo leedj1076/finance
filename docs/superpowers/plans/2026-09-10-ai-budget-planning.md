@@ -611,7 +611,7 @@ git commit -m "feat: validate budget recommendations and evidence"
 **Files:**
 - Create: `src/db/schema/budget-recommendations.ts`, `drizzle/0009_budget_recommendations.sql`, `drizzle/meta/0009_snapshot.json`
 - Modify: `src/db/schema/budget.ts`, `src/db/schema/diagnosis.ts`, `src/db/schema/index.ts`, `drizzle/meta/_journal.json`, `src/features/budget-recommendations/snapshot.ts`
-- Tests: `tests/integration/budget-recommendation-queue.test.ts`, `tests/integration/budget-recommendation-provenance.test.ts`, `tests/integration/ai-prompt-queue.test.ts`
+- Tests: `tests/integration/budget-recommendation-queue.test.ts`, `tests/integration/budget-recommendation-provenance.test.ts`, `tests/integration/ai-prompt-queue.test.ts`; shared suite-local lifecycle helper `tests/fixtures/budget-queue.ts` (local-only connection guard, independently owned fixtures and cleanup).
 
 **Interfaces:**
 - `budgetRecommendationJobs` table export with SQL fields below and camelCase Drizzle properties.
@@ -712,7 +712,7 @@ The trigger function is not executable by anon/authenticated directly. Test forg
 - [ ] **6. Commit.**
 
 ```bash
-git add src/db/schema/budget-recommendations.ts src/db/schema/budget.ts src/db/schema/diagnosis.ts src/db/schema/index.ts drizzle/0009_budget_recommendations.sql drizzle/meta/0009_snapshot.json drizzle/meta/_journal.json src/features/budget-recommendations/snapshot.ts tests/integration/budget-recommendation-queue.test.ts tests/integration/budget-recommendation-provenance.test.ts tests/integration/ai-prompt-queue.test.ts
+git add src/db/schema/budget-recommendations.ts src/db/schema/budget.ts src/db/schema/diagnosis.ts src/db/schema/index.ts drizzle/0009_budget_recommendations.sql drizzle/meta/0009_snapshot.json drizzle/meta/_journal.json src/features/budget-recommendations/snapshot.ts tests/integration/budget-recommendation-queue.test.ts tests/integration/budget-recommendation-provenance.test.ts tests/integration/ai-prompt-queue.test.ts tests/fixtures/budget-queue.ts
 git commit -m "feat: add isolated budget recommendation queue and provenance"
 ```
 
