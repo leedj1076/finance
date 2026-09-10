@@ -549,6 +549,7 @@ Prompt ownership clarification: the sections below describe the complete resolve
 
 **Interfaces:**
 - `budgetRecommendationReportSchema` is an exact JSON schema for `BudgetRecommendationReport`.
+- The generation schema must use the Structured Outputs supported subset. Encode nested discriminated reference unions with `anyOf` (not `oneOf`); each branch retains a distinct required `kind`, required fields, and `additionalProperties:false`. Runtime evidence/amount validation remains authoritative and unchanged. Test the actual emitted schema as well as the parser.
 - `parseBudgetRecommendationReport(value: unknown, snapshot: BudgetRecommendationSnapshot, promptInput?: AiPromptInput | null): BudgetRecommendationReport` throws safe `invalid_output` on any contract failure; instruction references require a valid matching promptInput.
 - `budgetPromptPolicy: AiPromptPolicy` and `buildBudgetPromptInput(snapshot: BudgetRecommendationSnapshot, settings: AiSettingsState): AiPromptInput` use Task 2's resolver/freeze function. The policy owns fixed money/evidence/schema restrictions; editable default analysis prose comes from AI_DEFAULTS.
 - Consume `evaluateBudget`, `safeBudgetSum`; produce a canonical-order report, not a clamped report.

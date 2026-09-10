@@ -45,7 +45,7 @@ const instructionsReferenceSchema = objectSchema({
   quote: textSchema(200),
 })
 const referenceSchema = {
-  oneOf: [
+  anyOf: [
     transactionReferenceSchema,
     recurringReferenceSchema,
     plannedReferenceSchema,
