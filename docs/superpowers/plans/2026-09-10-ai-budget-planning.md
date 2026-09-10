@@ -1066,10 +1066,12 @@ git commit -m "feat: keep AI budget selection separate from saved budgets"
 
 ### Task 12: Integrate recommendations, reasons and safe apply into the single editor
 
+Parallel execution refinement: after the reviewed settings APIs land, the panel producer may implement only `panel.tsx` and `tests/finance/budget-recommendation-panel-controls.test.tsx` in an isolated worktree, while the editor consumer owns form/planning/service/page and the existing row/E2E tests. The producer emits every accepted recovery/request/poll response through stable `onData`, retains the previous completion during reruns, and never owns row selection/apply/save. The consumer treats callbacks as asynchronous and repeatable. Review each independent diff, then integrate and run the shared browser acceptance before marking this task complete. The existing prepared row/reducer tests remain intact.
+
 **Files:**
 - Create: `src/features/budget-recommendations/panel.tsx`, `src/features/budgets/budget-row.tsx`
 - Modify: `src/features/budgets/budget-form.tsx`, `src/features/budgets/planning-queries.ts`, `src/features/budgets/draft.ts`, `src/features/budget-recommendations/service.ts`, `src/app/budgets/page.tsx`
-- Tests: `tests/finance/budget-recommendation-panel.test.tsx`, `tests/finance/budget-draft.test.ts`, `tests/finance/budget-planning.test.ts`, `tests/finance/month-status-pages.test.tsx`, `tests/e2e/budget-recommendations.spec.ts`
+- Tests: `tests/finance/budget-recommendation-panel.test.tsx`, `tests/finance/budget-recommendation-panel-controls.test.tsx`, `tests/finance/budget-draft.test.ts`, `tests/finance/budget-planning.test.ts`, `tests/finance/month-status-pages.test.tsx`, `tests/e2e/budget-recommendations.spec.ts`
 
 **Interfaces:**
 - `getSavedBudgetRecommendations(householdId: string, month: string): Promise<CompletedBudgetRecommendation[]>` loads all distinct referenced jobs for this month's saved rows with one scoped join/query, validates reports, and returns reasons even if a newer result exists. It does not require a past saved result to be freshly applicable. Skip invalid reports in this returned list; the form identifies a missing saved job ID and displays unavailable-evidence copy without dropping the budget or breaking manual editing.
@@ -1115,7 +1117,7 @@ Save presents confirmation when the actual mixed draft exceeds ceiling; acknowle
 - [ ] **7. Commit.**
 
 ```bash
-git add src/features/budget-recommendations/panel.tsx src/features/budgets/budget-row.tsx src/features/budgets/budget-form.tsx src/features/budgets/planning-queries.ts src/features/budgets/draft.ts src/features/budget-recommendations/service.ts src/app/budgets/page.tsx tests/finance/budget-recommendation-panel.test.tsx tests/finance/budget-draft.test.ts tests/finance/budget-planning.test.ts tests/finance/month-status-pages.test.tsx tests/e2e/budget-recommendations.spec.ts
+git add src/features/budget-recommendations/panel.tsx src/features/budgets/budget-row.tsx src/features/budgets/budget-form.tsx src/features/budgets/planning-queries.ts src/features/budgets/draft.ts src/features/budget-recommendations/service.ts src/app/budgets/page.tsx tests/finance/budget-recommendation-panel.test.tsx tests/finance/budget-recommendation-panel-controls.test.tsx tests/finance/budget-draft.test.ts tests/finance/budget-planning.test.ts tests/finance/month-status-pages.test.tsx tests/e2e/budget-recommendations.spec.ts
 git commit -m "feat: review and apply AI recommendations in the budget editor"
 ```
 
