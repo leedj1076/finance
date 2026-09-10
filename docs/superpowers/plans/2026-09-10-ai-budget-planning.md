@@ -790,8 +790,15 @@ git commit -m "feat: process budget and ledger AI jobs with one worker"
 
 ### Task 8: Bind both diagnosis APIs to frozen settings and recoverable requests
 
+Preflight clarification: an expired running budget lease is projected as `failed/lease_expired` on GET using the read transaction's database clock, with no mutation. POST first resolves exact `(householdId,requestId)` and compares normalized input before any expiration or rebuild. Same-ID expired jobs may be terminalized and returned, never requeued. For a new UUID, expire scoped old running jobs transactionally before checking active uniqueness. Changed input/month rejects409 without writes. An intentional retry after terminal failure creates a new UUID.
+
+Preserve the effective budget payload already hashed by Task4 as immutable `snapshot.budgetState: {month:string,current:EffectiveBudgetState[],previous:EffectiveBudgetState[]}`, where each tuple is `{major,amount,sourceMonth,recommendationJobId}`. Keep `hashBudgetPayload(budgetState)` identical to the prior hash payload and include baseline amounts in scalar checks/byte bounds. This additive JSON contract closes the otherwise opaque own-save freshness test; no new table/column or calculation change. Historical snapshots without it can display validated reports, but differing hashes cannot receive an optimistic `applied` exemption. Never retrofit immutable jobs.
+
+Explicit requestId POST responses identify the addressed job even after a newer month job exists: latestJob is the matched/created job; completed is that exact valid completion, or a valid completion preceding that request. Normal GET remains newest job plus most recent valid completion. Unique-race recovery follows the same addressed-job rule; transport retries never rebuild frozen inputs.
+
 **Files:**
 - Create: `src/features/budget-recommendations/service.ts`, `src/app/api/budget-recommendations/route.ts`
+- Supporting snapshot contract: `src/features/budget-recommendations/types.ts`, `src/features/budget-recommendations/snapshot.ts`, `tests/fixtures/budget-recommendation.ts`, `tests/finance/budget-recommendation-snapshot.test.ts`, `tests/integration/budget-recommendation-snapshot.test.ts`
 - Modify: `src/features/diagnosis/queries.ts`, `src/features/diagnosis/prompt.ts`, `src/features/diagnosis/types.ts`, `src/features/diagnosis/client.ts`, `src/app/api/diagnosis/route.ts`
 - Tests: `tests/finance/budget-recommendation-route.test.ts`, `tests/integration/budget-recommendation-service.test.ts`, `tests/finance/diagnosis-route.test.ts`, `tests/finance/diagnosis-client.test.ts`, `tests/integration/diagnosis-service.test.ts`, `tests/finance/diagnosis-panel.test.ts`, `tests/finance/diagnosis-ledger-page.test.ts` (last two keep existing behavior assertions and update additive response fixtures)
 
@@ -829,7 +836,7 @@ For ledger creation, extract scoped readDiagnosisSnapshot without changing its m
 
 New requests require prompt capability; previously capable offline workers may queue with connection-wait copy, never-capable workers require an update. A new web server must not silently enqueue a legacy job when customized execution is unavailable. Old already-queued jobs remain processable. The ledger POST1KiB cap still accommodates month+UUID and remains unchanged; arbitrary prompt/model/household keys are still rejected.
 
-Freshness ordering: source changed → `source_changed`; else all current budget amounts/provenance equal snapshot baseline → `current`; else every changed row points to this completed job (possibly user-adjusted), unchanged rows still match baseline, and at least one such row exists → `applied`; otherwise `budgets_changed`. Source changes disable AI apply/save, but do not disable ordinary manual editing. Applying an already-applied row does not happen implicitly. Existing budget mismatch is presented as a conflict/reload choice, not a demand to alter the savings goal.
+Freshness ordering: source changed → `source_changed`; else the full current AND previous effective budget tuples equal snapshot baseline → `current`; else previous tuples are unchanged, every changed current tuple explicitly comes from the target month and points to this completed job (possibly user-adjusted), unchanged tuples match exactly, and at least one such row exists → `applied`; otherwise `budgets_changed`. Own saves mixed with previous-budget/fallback/provenance/manual drift are not exempt. The applicable reader accepts current/applied only. Source changes disable AI apply/save, but do not disable ordinary manual editing. Applying an already-applied row does not happen implicitly. Existing budget mismatch is presented as a conflict/reload choice, not a demand to alter the savings goal.
 
 - [ ] **4. Capability gate and API security.** Budget worker `ready` means one unrevoked worker supports both budget and prompt protocols≥1 and both last-seen values are within90 seconds; do not combine capabilities from two different workers. Old worker is `upgrade_required`, previously capable stale worker is `offline`, no valid registration is `not_registered`. Offline capable workers may queue with explicit connection-wait copy; old/unregistered workers expose setup guidance and disable new generation. Missing relation/column/RPC during rollout maps to setup_required only for known new schema identifiers, preserving manual budgets and legacy diagnosis access. Other DB errors are not misreported as setup missing.
 
@@ -839,7 +846,7 @@ POST checks exact Origin against request URL, JSON content type, streaming body 
 - [ ] **6. Commit.**
 
 ```bash
-git add src/features/budget-recommendations/service.ts src/app/api/budget-recommendations/route.ts src/features/diagnosis/queries.ts src/features/diagnosis/prompt.ts src/features/diagnosis/types.ts src/features/diagnosis/client.ts src/app/api/diagnosis/route.ts tests/finance/budget-recommendation-route.test.ts tests/integration/budget-recommendation-service.test.ts tests/finance/diagnosis-route.test.ts tests/finance/diagnosis-client.test.ts tests/integration/diagnosis-service.test.ts tests/finance/diagnosis-panel.test.ts tests/finance/diagnosis-ledger-page.test.ts
+git add src/features/budget-recommendations/service.ts src/app/api/budget-recommendations/route.ts src/features/diagnosis/queries.ts src/features/diagnosis/prompt.ts src/features/diagnosis/types.ts src/features/diagnosis/client.ts src/app/api/diagnosis/route.ts tests/finance/budget-recommendation-route.test.ts tests/integration/budget-recommendation-service.test.ts tests/finance/diagnosis-route.test.ts tests/finance/diagnosis-client.test.ts tests/integration/diagnosis-service.test.ts tests/finance/diagnosis-panel.test.ts tests/finance/diagnosis-ledger-page.test.ts src/features/budget-recommendations/types.ts src/features/budget-recommendations/snapshot.ts tests/fixtures/budget-recommendation.ts tests/finance/budget-recommendation-snapshot.test.ts tests/integration/budget-recommendation-snapshot.test.ts
 git commit -m "feat: expose recoverable budget recommendation requests"
 ```
 
@@ -895,6 +902,8 @@ git commit -m "feat: edit AI instructions and preview frozen diagnosis prompts"
 ```
 
 ### Task 10: One safe save path with optimistic concurrency and AI provenance
+
+Parallel execution refinement: implement/review the pure `save-contract.ts` and its unit tests ahead of server work in a separate `feat/ai-budget-draft` worktree, commit `feat: define budget save patch contract`, then let Task11 consume that real contract. This does not complete Task10: its transaction/CAS/actions/UI/integration work remains gated on Task8. No temporary stubs or concurrent owners for the contract file.
 
 **Files:**
 - Create: `src/features/budgets/save-contract.ts`, `src/features/budgets/save-service.ts`
@@ -960,6 +969,8 @@ git commit -m "feat: save budget changes with conflict and provenance checks"
 ```
 
 ### Task 11: Draft-only selection and abortable recommendation recovery
+
+May run in parallel with Tasks6–8 in an isolated worktree after the Task10 pure patch contract above. API transport is exercised with deterministic mocks against the fixed response interface; combined server/UI integration remains a later gate. Its four paths do not overlap the SQL, worker, or API implementation paths.
 
 **Files:**
 - Create: `src/features/budgets/draft.ts`, `src/features/budget-recommendations/client.ts`
