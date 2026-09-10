@@ -154,7 +154,7 @@ export async function readBudgetSnapshot(
       .from(transactions).leftJoin(categories, categoryJoin).where(and(eq(transactions.householdId, householdId),
         gte(transactions.date, currentStart), lt(transactions.date, end))),
     transactionDigest(reader, householdId, start, end),
-    reader.select({ month: budgets.month, major: budgets.major, amount: budgets.amount }).from(budgets)
+    reader.select({ month: budgets.month, major: budgets.major, amount: budgets.amount, recommendationJobId: budgets.recommendationJobId }).from(budgets)
       .where(and(eq(budgets.householdId, householdId), sql`${budgets.month} in ('*', ${month}, ${shiftMonth(month, -1)})`))
       .orderBy(budgets.major, budgets.month),
   ])
@@ -202,7 +202,9 @@ export async function readBudgetSnapshot(
     const unpostedRecurring = amountSum(recurringRows.filter(value => value.major === row.major && !value.posted))
     const planned = amountSum(input.plannedExpenses.filter(value => value.major === row.major))
     return {
-      major: row.major, group: row.group as 'fixed' | 'variable' | 'irregular', savedAmount: row.budget, savedRecommendationJobId: null,
+      major: row.major, group: row.group as 'fixed' | 'variable' | 'irregular', savedAmount: row.budget,
+      savedRecommendationJobId: (budgetRows.find(value => value.month === month && value.major === row.major)
+        ?? budgetRows.find(value => value.month === '*' && value.major === row.major))?.recommendationJobId ?? null,
       actual, unpostedRecurring, planned, floor: recommendationFloor(actual, unpostedRecurring, planned),
       previousBudget: historical.previousBudget, previousActual: historical.previousActual, average: row.average, median: historical.median,
       subcategories: aggregates.filter(value => value.flow === 'expense' && allocated(value) && value.major === row.major)
@@ -232,7 +234,7 @@ export async function readBudgetSnapshot(
   const effectiveBudget = (target: string, major: string) => {
     const saved = budgetRows.find(row => row.month === target && row.major === major)
       ?? budgetRows.find(row => row.month === '*' && row.major === major)
-    return { major, amount: saved?.amount ?? 0, sourceMonth: saved?.month ?? null, recommendationJobId: null }
+    return { major, amount: saved?.amount ?? 0, sourceMonth: saved?.month ?? null, recommendationJobId: saved?.recommendationJobId ?? null }
   }
   const budgetHash = hashBudgetPayload({ month,
     current: rows.map(row => effectiveBudget(month, row.major)),

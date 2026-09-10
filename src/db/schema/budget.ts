@@ -1,6 +1,7 @@
 import { bigint, pgTable, primaryKey, text, unique, uuid } from 'drizzle-orm/pg-core'
 
 import { households } from './auth'
+import { budgetRecommendationJobs } from './budget-recommendations'
 
 export const budgets = pgTable(
   'budgets',
@@ -12,6 +13,7 @@ export const budgets = pgTable(
     major: text('major').notNull(),
     month: text('month').notNull().default('*'),
     amount: bigint('amount', { mode: 'number' }).notNull(),
+    recommendationJobId: uuid('recommendation_job_id').references(() => budgetRecommendationJobs.id, { onDelete: 'no action' }),
   },
   (table) => [unique('budgets_household_major_month').on(table.householdId, table.major, table.month)],
 )

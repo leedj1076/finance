@@ -64,6 +64,13 @@
       "when": 1789018024635,
       "tag": "0008_ai_diagnosis_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789023327400,
+      "tag": "0009_budget_recommendations",
+      "breakpoints": true
     }
   ]
 }
