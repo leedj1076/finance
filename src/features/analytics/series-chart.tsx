@@ -1,8 +1,8 @@
 'use client'
 
-import { Interaction, type BarElement, type ChartData, type ChartOptions, type InteractionModeFunction, type Plugin, type PointElement } from 'chart.js'
+import { Interaction, type BarElement, type Chart, type ChartEvent, type ChartData, type ChartOptions, type InteractionModeFunction, type Plugin, type PointElement } from 'chart.js'
 import { getRelativePosition } from 'chart.js/helpers'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Bar, Line } from 'react-chartjs-2'
 
 import {
@@ -19,6 +19,7 @@ import {
 } from './chart-js'
 import { hitTestAreaBands, type SeriesChartKind, type SeriesChartSeries } from './series-chart-geometry'
 import type { StatsMonthState } from './category-detail'
+import type { ChartHoverAnchor } from './chart-tooltip-position'
 
 export * from './series-chart-geometry'
 
@@ -117,13 +118,37 @@ export function SeriesChart({
   hoverMonth: number | null
   selectedSeries: string | null
   selectedMonth: number | null
-  onHover: (seriesId: string | null, month: number | null) => void
+  onHover: (seriesId: string | null, month: number | null, anchor?: ChartHoverAnchor) => void
   onSelect: (seriesId: string, month: number) => void
 }) {
   const palette = useFinanceChartPalette()
   const pointerInside = useRef(false)
+  const container = useRef<HTMLDivElement>(null)
+  const pointerBounds = useRef<DOMRect | null>(null)
   const labels = useMemo(() => Array.from({ length: 12 }, (_, month) => `${month + 1}월`), [])
   const isBar = kind === 'stacked'
+
+  useEffect(() => {
+    const clear = (event: Event) => {
+      if (!pointerInside.current) return
+      if (event.type === 'focusin' && event.target instanceof Node && container.current?.contains(event.target)) return
+      const before = pointerBounds.current
+      const after = container.current?.getBoundingClientRect()
+      // A queued scroll notification can arrive after the pointer has already
+      // entered the newly positioned chart. Only dismiss for a real movement.
+      if (event.type === 'scroll' && before && after && before.left === after.left && before.top === after.top) return
+      pointerInside.current = false
+      onHover(null, null)
+    }
+    window.addEventListener('scroll', clear, true)
+    window.addEventListener('resize', clear)
+    window.addEventListener('focusin', clear)
+    return () => {
+      window.removeEventListener('scroll', clear, true)
+      window.removeEventListener('resize', clear)
+      window.removeEventListener('focusin', clear)
+    }
+  }, [onHover])
 
   const data = useMemo<ChartData<'bar'> | ChartData<'line'>>(() => {
     const hatch = provisionalPattern(palette)
@@ -160,9 +185,11 @@ export function SeriesChart({
         fill: kind === 'area' ? (seriesIndex === 0 ? 'origin' : '-1') : false,
         segment: {
           borderDash: (context: { p0DataIndex: number; p1DataIndex: number }) => provisional(context.p0DataIndex) || provisional(context.p1DataIndex) ? PROVISIONAL_DASH : undefined,
+          borderColor: (context: { p0DataIndex: number; p1DataIndex: number }) => alpha(color, (dimmed ? 0.16 : 1) * (provisional(context.p0DataIndex) || provisional(context.p1DataIndex) ? 0.45 : 1)),
+          backgroundColor: (context: { p0DataIndex: number; p1DataIndex: number }) => alpha(color, (dimmed ? 0.08 / 0.72 : 1) * (provisional(context.p0DataIndex) || provisional(context.p1DataIndex) ? 0.2 : 0.72)),
         },
-        pointBackgroundColor: values.map((_, month) => provisional(month) ? palette.background : color),
-        pointBorderColor: values.map((_, month) => provisional(month) ? color : palette.background),
+        pointBackgroundColor: values.map((_, month) => provisional(month) ? palette.background : alpha(color, dimmed ? 0.16 : 1)),
+        pointBorderColor: values.map((_, month) => provisional(month) ? alpha(color, (dimmed ? 0.16 : 1) * 0.45) : palette.background),
         pointBorderWidth: 1.5,
         pointRadius: (context: { dataIndex: number }) => {
           if (hoverSeries === row.id) {
@@ -187,13 +214,19 @@ export function SeriesChart({
     maintainAspectRatio: false,
     animation: { duration: 300 },
     interaction: { mode: kind === 'area' ? 'financeArea' as const : kind === 'stacked' ? 'financeStacked' as const : 'financeLine' as const, intersect: false },
-    onHover: (_event: unknown, elements: Array<{ datasetIndex: number; index: number }>) => {
+    onHover: (event: ChartEvent, elements: Array<{ datasetIndex: number; index: number }>, chart: Chart) => {
       const element = elements[0]
       if (!pointerInside.current || !element || element.index >= activeMonths || series[element.datasetIndex]?.values[element.index] == null) {
         onHover(null, null)
         return
       }
-      onHover(series[element.datasetIndex]?.id ?? null, element.index)
+      const bounds = chart.canvas.getBoundingClientRect()
+      const x = (value: number) => bounds.left + value * bounds.width / chart.width
+      const y = (value: number) => bounds.top + value * bounds.height / chart.height
+      onHover(series[element.datasetIndex]?.id ?? null, element.index, {
+        x: x(event.x ?? 0), y: y(event.y ?? 0),
+        plot: { left: x(chart.chartArea.left), right: x(chart.chartArea.right), top: y(chart.chartArea.top), bottom: y(chart.chartArea.bottom) },
+      })
     },
     onClick: (_event: unknown, elements: Array<{ datasetIndex: number; index: number }>) => {
       const element = elements[0]
@@ -242,10 +275,11 @@ export function SeriesChart({
 
   return (
     <div
+      ref={container}
       aria-label={`${kind === 'stacked' ? '누적 막대' : kind === 'line' ? '선' : '100% 누적 영역'} 월별 차트`}
       className="relative block h-[220px] w-full cursor-crosshair"
-      onMouseMoveCapture={() => { pointerInside.current = true }}
-      onTouchStartCapture={() => { pointerInside.current = true }}
+      onMouseMoveCapture={event => { pointerInside.current = true; pointerBounds.current = event.currentTarget.getBoundingClientRect() }}
+      onTouchStartCapture={event => { pointerInside.current = true; pointerBounds.current = event.currentTarget.getBoundingClientRect() }}
       onMouseLeave={() => { pointerInside.current = false; onHover(null, null) }}
       role="img"
     >

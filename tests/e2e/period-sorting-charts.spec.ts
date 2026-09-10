@@ -290,7 +290,7 @@ suite('stacked area selects the visible band, and leaving the chart clears only 
   const bounds = (await canvas.boundingBox())!
   const x = bounds.x + bounds.width * 0.75 / 12
   const y = bounds.y + bounds.height * 0.35
-  const popup = section.locator('.pointer-events-none.absolute.top-2')
+  const popup = page.getByRole('tooltip', { name: '월별 차트 상세' })
   // Move within the painted interval, rather than the rounded edge of Jan's
   // center. Poll movement while Chart.js completes its initial animation.
   await expect(async () => {

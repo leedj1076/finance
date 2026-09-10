@@ -775,6 +775,110 @@ test('NH PDF upload retries its password, keeps the chosen card and stages signe
   }
 })
 
+test('statistics calendar slots align and chart popups avoid the plot in desktop, mobile and dark mode', async ({ page }, info) => {
+  // Observe real Canvas draws, without replacing Chart.js or exposing app test hooks.
+  await page.addInitScript(() => {
+    type RecordedCanvas = HTMLCanvasElement & { marks?: { bars: number[]; points: number[] } }
+    const context = CanvasRenderingContext2D.prototype
+    const clear = context.clearRect
+    const rect = context.rect
+    const arc = context.arc
+    context.clearRect = function (...args) {
+      ;(this.canvas as RecordedCanvas).marks = { bars: [], points: [] }
+      return clear.apply(this, args)
+    }
+    context.rect = function (x, y, width, height) {
+      // Three bar series per month; exclude broad axis/plot clipping rectangles.
+      if (width > 0 && width < this.canvas.clientWidth / 36 && height > 1) (this.canvas as RecordedCanvas).marks?.bars.push(x + width / 2)
+      return rect.call(this, x, y, width, height)
+    }
+    context.arc = function (x, y, radius, start, end, counterclockwise) {
+      if (radius > 0) (this.canvas as RecordedCanvas).marks?.points.push(x)
+      return arc.call(this, x, y, radius, start, end, counterclockwise)
+    }
+  })
+  const email = `chart-presentation-${crypto.randomUUID()}@example.com`
+  const year = Number(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }).slice(0, 4)) - 1
+  const screenshotWhenPainted = async (path: string) => {
+    await page.evaluate(() => document.fonts.ready.then(() => undefined))
+    let previous = ''
+    let stable = 0
+    await expect.poll(async () => {
+      const current = await page.locator('canvas').evaluateAll(elements => elements.map(element => (element as HTMLCanvasElement).toDataURL()).join('\n'))
+      stable = current === previous ? stable + 1 : 0
+      previous = current
+      return stable
+    }, { intervals: [100, 100, 100, 100] }).toBeGreaterThanOrEqual(2)
+    await page.screenshot({ path: info.outputPath(path) })
+  }
+  let householdId: string | undefined
+  try {
+    const setup = await createTestUser(email, 'passw0rd!', { seedDashboard: true, dashboardYear: year })
+    householdId = setup.householdId
+    const { error } = await createAdminClient().from('transactions').insert([
+      { household_id: householdId, date: `${year}-03-10`, amount: 1_000_000, flow: 'income', source: 'e2e' },
+      { household_id: householdId, date: `${year}-03-11`, amount: 100_000, flow: 'expense', category_id: setup.categoryId, source: 'e2e' },
+    ])
+    if (error) throw error
+    await loginAs(page, email, 'passw0rd!')
+    await page.goto(`/report?year=${year}`)
+    const money = page.getByRole('img', { name: '월별 수입 지출 저축 막대 차트' })
+    const rate = page.getByRole('img', { name: '월별 순저축률 선 차트' })
+    const section = page.locator('#category-detail')
+    const popup = page.getByRole('tooltip', { name: '월별 차트 상세' })
+    for (const mobile of [false, true]) {
+      await page.setViewportSize({ width: mobile ? 390 : 1280, height: 900 })
+      if (mobile) await page.evaluate(() => {
+        document.documentElement.dataset.theme = 'dark'
+        window.dispatchEvent(new Event('finance-theme-change'))
+      })
+      await expect.poll(async () => {
+        const [a, b] = await Promise.all([money.boundingBox(), rate.boundingBox()])
+        return a && b ? Math.max(Math.abs(a.x - b.x), Math.abs(a.width - b.width)) : Infinity
+      }).toBeLessThan(1)
+      await expect.poll(async () => {
+        const marks = await page.locator('canvas[aria-label]').evaluateAll(canvases => canvases
+          .filter(canvas => ['월별 수입 지출 저축 막대 차트', '월별 순저축률 선 차트'].includes(canvas.getAttribute('aria-label')!))
+          .map(canvas => (canvas as HTMLCanvasElement & { marks: { bars: number[]; points: number[] } }).marks))
+        if (marks.length !== 2 || !marks[0] || !marks[1]) return Infinity
+        const centers = [...new Set(marks[0].bars.map(x => Math.round(x * 1000) / 1000))].sort((a, b) => a - b)
+        const points = [...new Set(marks[1].points.map(x => Math.round(x * 1000) / 1000))].sort((a, b) => a - b)
+        // Expense is the middle bar in each three-series group, so its actual
+        // painted center must equal the rate point. Savings has no amount here.
+        if (centers.length !== 6 || points.length !== 3) return Infinity
+        return Math.max(...points.map((x, month) => Math.abs(x - centers[month * 2 + 1])))
+      }).toBeLessThan(1)
+      await money.scrollIntoViewIfNeeded()
+      await screenshotWhenPainted(mobile ? 'aligned-calendar-mobile-dark.png' : 'aligned-calendar-desktop.png')
+      await section.scrollIntoViewIfNeeded()
+      const scroller = section.getByLabel('월별 그래프와 항목별 표')
+      if (mobile) await scroller.evaluate(element => { element.scrollLeft = 150 })
+      for (const kind of ['누적 막대', '선', '100% 누적 영역']) {
+        await section.getByRole('button', { name: kind, exact: true }).click()
+        const canvas = section.getByRole('img', { name: `${kind} 월별 차트`, exact: true }).locator('canvas')
+        await canvas.scrollIntoViewIfNeeded()
+        const bounds = (await canvas.boundingBox())!
+        await canvas.hover({ position: { x: bounds.width * 0.75 / 12, y: bounds.height / 2 } })
+        await expect(popup).toContainText('500,000')
+        const first = (await popup.boundingBox())!
+        expect(first.y + first.height <= bounds.y || first.y >= bounds.y + bounds.height
+          || first.x + first.width <= bounds.x || first.x >= bounds.x + bounds.width).toBe(true)
+        await canvas.hover({ position: { x: bounds.width * 1.5 / 12, y: bounds.height / 2 } })
+        await expect(popup).toContainText('300,000')
+        const second = (await popup.boundingBox())!
+        if (!mobile) expect(Math.abs(second.x - first.x)).toBeGreaterThan(1)
+        expect(second.x).toBeGreaterThanOrEqual(8)
+        expect(second.x + second.width).toBeLessThanOrEqual((mobile ? 390 : 1280) - 8)
+        if (kind === '100% 누적 영역') await screenshotWhenPainted(mobile ? 'chart-hover-mobile-dark.png' : 'chart-hover-desktop.png')
+        await page.mouse.move(bounds.x + 20, bounds.y - 5)
+        await expect(popup).not.toBeVisible()
+      }
+    }
+  } finally {
+    await deleteTestState(email, householdId)
+  }
+})
+
 test('annual chart hover and selection show values, and cell exclusion updates the chart', async ({ page }) => {
   const email = `finance-parity-dashboard-${Date.now()}-${crypto.randomUUID()}@example.com`
   const password = 'passw0rd!'
@@ -804,7 +908,7 @@ test('annual chart hover and selection show values, and cell exclusion updates t
     // Hidden axes and 12 equal columns: January is at the first column's center.
     const january = { x: bounds.width / 24, y: bounds.height / 2 }
     await chart.hover({ position: january })
-    await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
+    await expect(page.getByRole('tooltip', { name: '월별 차트 상세' })).toContainText('월 합계 500,000원의 100.0%')
     await chart.click({ position: january })
     await expect(detailSection.getByText('식비 · 1월 선택', { exact: true })).toBeVisible()
     const subCell = detailSection.getByRole('button', { name: '식비 카페 1월 500,000원, 합계에서 제외', exact: true })
@@ -817,11 +921,11 @@ test('annual chart hover and selection show values, and cell exclusion updates t
     await expect(januaryCell).toHaveAttribute('aria-pressed', 'true')
     await expect(januaryCell).toHaveAccessibleName(/합계에 다시 포함/)
     await chart.hover({ position: january })
-    await expect(detailSection.getByText('월 합계 0원의', { exact: false })).toContainText('0.0%')
+    await expect(page.getByRole('tooltip', { name: '월별 차트 상세' })).toContainText('월 합계 0원의 0.0%')
     await januaryCell.click()
     await expect(januaryCell).toHaveAttribute('aria-pressed', 'false')
     await chart.hover({ position: january })
-    await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
+    await expect(page.getByRole('tooltip', { name: '월별 차트 상세' })).toContainText('월 합계 500,000원의 100.0%')
     await detailSection.getByRole('button', { name: '선', exact: true }).click()
     const line = detailSection.getByRole('img', { name: '선 월별 차트' }).locator('canvas')
     const lineBounds = await line.boundingBox()
@@ -829,14 +933,14 @@ test('annual chart hover and selection show values, and cell exclusion updates t
     // January is the known 500k maximum, so its line point is in the first column near the chart top.
     const januaryLine = { x: lineBounds.width / 24, y: lineBounds.height / 24 }
     await line.hover({ position: januaryLine })
-    await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%')
+    await expect(page.getByRole('tooltip', { name: '월별 차트 상세' })).toContainText('월 합계 500,000원의 100.0%')
     await detailSection.getByRole('button', { name: '100% 누적 영역', exact: true }).click()
     const area = detailSection.getByRole('img', { name: '100% 누적 영역 월별 차트' }).locator('canvas')
     // Area hits require painted fill, not the old nearest-point fallback in
     // the margin to the left of January's center. Move inside the Jan-Feb band.
     await expect(async () => {
       await area.hover({ position: { x: lineBounds.width * 0.75 / 12, y: lineBounds.height / 2 } })
-      await expect(detailSection.getByText('월 합계 500,000원의', { exact: false })).toContainText('100.0%', { timeout: 200 })
+      await expect(page.getByRole('tooltip', { name: '월별 차트 상세' })).toContainText('월 합계 500,000원의 100.0%', { timeout: 200 })
     }).toPass({ timeout: 5000 })
     await detailSection.getByRole('button', { name: '선택 해제', exact: true }).click()
     await expect(detailSection.getByLabel('월별 그래프와 항목별 표').getByText('전체 항목', { exact: true })).toBeVisible()
