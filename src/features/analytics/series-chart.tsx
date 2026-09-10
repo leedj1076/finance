@@ -12,6 +12,7 @@ import {
   CHART_POINT_RADIUS_ACTIVE,
   alpha,
   PROVISIONAL_DASH,
+  provisionalPattern,
   resolveChartColor,
   monthlyEligibilityBoundary,
   useFinanceChartPalette,
@@ -96,33 +97,6 @@ function normalizedPercent(series: SeriesChartSeries[], seriesIndex: number, mon
   return (Math.max(series[seriesIndex].values[month] ?? 0, 0) / total) * 100
 }
 
-// Bar elements do not support dashed borders. Read the current dataset so
-// outlines follow month-close refreshes, theme changes, and selection dimming.
-const provisionalBarBorders: Plugin<'bar'> = {
-  id: 'finance-provisional-bar-borders',
-  afterDatasetDraw(chart, { index, meta }) {
-    const dataset = chart.data.datasets[index] as ChartData<'bar'>['datasets'][number] & { provisionalMonths?: boolean[] }
-    const { ctx, chartArea } = chart
-    ctx.save()
-    ctx.beginPath()
-    ctx.rect(chartArea.left, chartArea.top, chartArea.width, chartArea.height)
-    ctx.clip()
-    ctx.setLineDash(PROVISIONAL_DASH)
-    ctx.lineWidth = 1
-    meta.data.forEach((element, month) => {
-      if (!dataset.provisionalMonths?.[month] || dataset.data[month] == null || dataset.data[month] === 0) return
-      const bar = element as BarElement
-      const { x, y, base, width } = bar.getProps(['x', 'y', 'base', 'width'], false)
-      if (x === null || y === null) return
-      const height = Math.abs(base - y)
-      const inset = Math.min(width, height, ctx.lineWidth) / 2
-      ctx.strokeStyle = bar.options.borderColor
-      ctx.strokeRect(x - width / 2 + inset, Math.min(y, base) + inset, width - inset * 2, height - inset * 2)
-    })
-    ctx.restore()
-  },
-}
-
 export function SeriesChart({
   series,
   kind,
@@ -177,6 +151,7 @@ export function SeriesChart({
   }, [onHover])
 
   const data = useMemo<ChartData<'bar'> | ChartData<'line'>>(() => {
+    const hatch = provisionalPattern(palette)
     const provisional = (month: number) => ['open', 'needs_review', 'current'].includes(monthStates[month])
     const datasets = series.map((row, seriesIndex) => {
       const color = resolveChartColor(row.color, palette)
@@ -192,10 +167,9 @@ export function SeriesChart({
           id: row.id,
           label: row.label,
           data: values,
-          provisionalMonths: values.map((_, month) => provisional(month)),
-          backgroundColor: values.map((_, month) => alpha(color, (dimmed ? 0.16 : 1) * (provisional(month) ? 0.2 : 1))),
-          borderColor: values.map((_, month) => provisional(month) ? alpha(color, (dimmed ? 0.16 : 1) * 0.45) : palette.background),
-          borderWidth: values.map((_, month) => provisional(month) ? 0 : 1),
+          backgroundColor: values.map((_, month) => provisional(month) ? hatch : alpha(color, dimmed ? 0.16 : 1)),
+          borderColor: values.map((_, month) => provisional(month) ? palette.faint : palette.background),
+          borderWidth: 1,
           barPercentage: 0.72,
           categoryPercentage: 0.82,
         }
@@ -310,7 +284,7 @@ export function SeriesChart({
       role="img"
     >
       {isBar
-        ? <Bar data={data as ChartData<'bar'>} options={commonOptions as ChartOptions<'bar'>} plugins={[hoverBoundary, eligibilityBoundary, provisionalBarBorders]} />
+        ? <Bar data={data as ChartData<'bar'>} options={commonOptions as ChartOptions<'bar'>} plugins={[hoverBoundary, eligibilityBoundary]} />
         : <Line data={data as ChartData<'line'>} options={commonOptions as ChartOptions<'line'>} plugins={[hoverBoundary, eligibilityBoundary]} />}
     </div>
   )
