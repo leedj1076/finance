@@ -143,8 +143,8 @@ export function BudgetRecommendationPanel({
     setData(accepted)
     setNetworkError(null)
     if (pendingRequestRef.current && (
-      accepted.latestJob?.id === pendingRequestRef.current.requestId
-      || accepted.completed?.id === pendingRequestRef.current.requestId
+      accepted.latestJob?.requestId === pendingRequestRef.current.requestId
+      || accepted.completed?.requestId === pendingRequestRef.current.requestId
     )) {
       pendingRequestRef.current = null
       setHasAmbiguousRequest(false)
@@ -163,7 +163,7 @@ export function BudgetRecommendationPanel({
     setRecovering(true)
     setNetworkError(null)
     try {
-      const next = await getBudgetRecommendations(month, controller.signal)
+      const next = await getBudgetRecommendations(month, controller.signal, pendingRequestRef.current?.requestId)
       if (manualRequestRef.current !== controller || controller.signal.aborted) return
       acceptData(next)
     } catch (error) {
@@ -332,6 +332,18 @@ export function BudgetRecommendationPanel({
       setNetworkError(safe.message)
       setHasAmbiguousRequest(safe.ambiguous)
       if (!safe.ambiguous) pendingRequestRef.current = null
+      else {
+        // A lost POST response does not imply the job was lost. Read the exact
+        // original intent once; never acknowledge an unrelated latest job.
+        try {
+          const recovered = await getBudgetRecommendations(month, controller.signal, request.requestId)
+          if (manualRequestRef.current !== controller || controller.signal.aborted) return
+          acceptData(recovered)
+          if (pendingRequestRef.current) setNetworkError(safe.message)
+        } catch {
+          // Keep the frozen request and explicit same-UUID retry if unconfirmed.
+        }
+      }
     } finally {
       if (manualRequestRef.current === controller) {
         manualRequestRef.current = null

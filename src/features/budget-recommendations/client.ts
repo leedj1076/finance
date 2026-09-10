@@ -360,6 +360,13 @@ function validateEvaluation(value: unknown, expected: BudgetEvaluation): void {
   })
 }
 
+function requestIdentity(value: unknown): { requestId?: string } {
+  // A rolling deployment may still return a response without correlation.
+  if (value === undefined) return {}
+  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) invalid()
+  return { requestId: value }
+}
+
 function validateCompleted(value: unknown, month: string): CompletedBudgetRecommendation | null {
   if (value === null) return null
   const completed = record(value)
@@ -371,6 +378,7 @@ function validateCompleted(value: unknown, month: string): CompletedBudgetRecomm
   validateEvaluation(completed.evaluation, evaluation)
   return {
     id: completed.id,
+    ...requestIdentity(completed.requestId),
     completedAt: completed.completedAt as string,
     snapshot,
     promptInput,
@@ -394,6 +402,7 @@ function validateData(value: unknown, month: string): BudgetRecommendationData {
       || (latest.errorCode !== null && !jobErrorCodes.has(latest.errorCode as string))) invalid()
     latestJob = {
       id: latest.id,
+      ...requestIdentity(latest.requestId),
       status: latest.status as NonNullable<BudgetRecommendationData['latestJob']>['status'],
       errorCode: latest.errorCode as NonNullable<BudgetRecommendationData['latestJob']>['errorCode'],
     }
@@ -418,6 +427,7 @@ async function requestData(
   month: string,
   init: Omit<RequestInit, 'signal'>,
   callerSignal?: AbortSignal,
+  requestId?: string,
 ): Promise<BudgetRecommendationData> {
   const controller = new AbortController()
   let timedOut = false
@@ -436,7 +446,9 @@ async function requestData(
 
   try {
     checkAbort()
-    const response = await fetch(`/api/budget-recommendations?month=${encodeURIComponent(month)}`, {
+    const query = new URLSearchParams({ month })
+    if (requestId !== undefined) query.set('requestId', requestId)
+    const response = await fetch(`/api/budget-recommendations?${query}`, {
       ...init,
       cache: 'no-store',
       signal: controller.signal,
@@ -474,9 +486,10 @@ async function requestData(
 export async function getBudgetRecommendations(
   month: string,
   signal?: AbortSignal,
+  requestId?: string,
 ): Promise<BudgetRecommendationData> {
-  if (!isMonthKey(month)) throw new ClientError('invalid_input')
-  return requestData(month, { method: 'GET' }, signal)
+  if (!isMonthKey(month) || requestId !== undefined && !UUID_PATTERN.test(requestId)) throw new ClientError('invalid_input')
+  return requestData(month, { method: 'GET' }, signal, requestId)
 }
 
 export async function startBudgetRecommendation(

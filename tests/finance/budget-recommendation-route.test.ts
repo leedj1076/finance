@@ -54,3 +54,14 @@ test('returns safe service codes and redacts unexpected failures', async () => {
   expect(failed.status).toBe(500)
   expect(await failed.text()).not.toContain('private credential')
 })
+
+test('GET forwards one valid request ID with authenticated scope and rejects malformed correlation', async () => {
+  const url = 'http://localhost:3101/api/budget-recommendations?month=2026-10'
+  expect((await GET(new Request(`${url}&requestId=${input.requestId}`))).status).toBe(200)
+  expect(context.get).toHaveBeenCalledWith('session-household', '2026-10', input.requestId)
+  context.get.mockClear()
+  for (const query of ['requestId=', 'requestId=bad', `requestId=${input.requestId}&requestId=${input.requestId}`]) {
+    expect((await GET(new Request(`${url}&${query}`))).status).toBe(400)
+  }
+  expect(context.get).not.toHaveBeenCalled()
+})

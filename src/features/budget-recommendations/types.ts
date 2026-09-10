@@ -141,6 +141,8 @@ export type ClaimedBudgetJob = {
 
 export type CompletedBudgetRecommendation = {
   id: string
+  /** Absent on older API responses; never infer it from the job ID. */
+  requestId?: string
   completedAt: string
   snapshot: BudgetRecommendationSnapshot
   promptInput: AiPromptInput | null
@@ -150,7 +152,7 @@ export type CompletedBudgetRecommendation = {
 
 export type BudgetRecommendationData = {
   month: string
-  latestJob: { id: string; status: BudgetJobStatus; errorCode: DiagnosisErrorCode | null } | null
+  latestJob: { id: string; requestId?: string; status: BudgetJobStatus; errorCode: DiagnosisErrorCode | null } | null
   completed: CompletedBudgetRecommendation | null
   worker: 'ready' | 'offline' | 'upgrade_required' | 'not_registered'
   availability: 'available' | 'past_or_distant_month' | 'missing_income' | 'setup_required'

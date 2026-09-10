@@ -48,6 +48,28 @@ afterEach(() => {
 })
 
 describe('budget recommendation requests', () => {
+  test('looks up the original request and preserves validated request IDs separately from job IDs', async () => {
+    const value = data()
+    value.latestJob!.requestId = rerunRequestId
+    value.completed!.requestId = rerunRequestId
+    const fetcher = vi.fn().mockResolvedValue(response(value))
+    vi.stubGlobal('fetch', fetcher)
+
+    const recovered = await getBudgetRecommendations('2026-09', undefined, rerunRequestId)
+    expect(fetcher.mock.calls[0][0]).toBe(`/api/budget-recommendations?month=2026-09&requestId=${rerunRequestId}`)
+    expect(recovered.latestJob).toMatchObject({ id: requestId, requestId: rerunRequestId })
+    expect(recovered.completed).toMatchObject({ id: requestId, requestId: rerunRequestId })
+    await expect(getBudgetRecommendations('2026-09', undefined, 'not-a-uuid')).rejects.toThrow('invalid_input')
+    expect(fetcher).toHaveBeenCalledOnce()
+  })
+
+  test.each(['latestJob', 'completed'] as const)('rejects an invalid %s request correlation without inferring it from job ID', async field => {
+    const value = data()
+    Object.assign(value[field]!, { requestId: 'not-a-uuid' })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(value)))
+    await expect(getBudgetRecommendations('2026-09')).rejects.toThrow('request_failed')
+  })
+
   test('uses no-store requests, validates the requested month, and retains a previous completion while queued', async () => {
     const waiting = data('queued')
     const fetcher = vi.fn().mockResolvedValueOnce(response(waiting))

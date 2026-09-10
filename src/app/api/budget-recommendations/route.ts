@@ -41,6 +41,12 @@ export async function GET(request: Request): Promise<Response> {
     const params = new URL(request.url).searchParams
     const month = params.get('month')
     if (!month || !isMonthKey(month) || params.getAll('month').length !== 1) return response({ error: 'invalid_input' }, 400)
+    const requestId = params.get('requestId')
+    if (requestId !== null) {
+      if (params.getAll('requestId').length !== 1) return response({ error: 'invalid_input' }, 400)
+      parseBudgetRequest({ requestId, month, notes: '', plannedExpenses: [], draftAmounts: [] })
+      return response(await getBudgetRecommendationData(household.householdId, month, requestId))
+    }
     return response(await getBudgetRecommendationData(household.householdId, month))
   } catch (error) { return failure(error) }
 }

@@ -136,3 +136,16 @@ DATABASE_URL='<verified-production-session-pooler-5432-url>' pnpm db:migrate
 - 데스크톱·390px 모바일·다크·month-close/statistics 스크린샷을 원본 크기로 확인했다.
 - 로컬 상태 확인, 마이그레이션 이력, 최종 여섯 게이트, backend/UI scoped review가 완료됐다.
 - 별도 승인이 있을 때만 운영 backup → DB → worker → web → 인증 UI 순서로 실행한다. 위 운영 기록표의 placeholder는 실제 증거가 생길 때까지 그대로 유지한다.
+
+## 후속 검증 — 원래 요청 ID로 자동 복구
+
+`87f8907` 이후 요청 ID 자동 복구 변경을 묶어서 구현한 뒤 최종 검증했다. GET의 선택적 `requestId`는 인증된 가구와 월 안에서만 원래 작업을 조회한다. 응답 유실 시 한 번 읽기 전용 조회하고, 같은 요청임이 확인되면 상태를 복구한다. 원래 요청을 확인하지 못하거나 구 서버 응답에 요청 ID가 없으면 기존 동일 UUID 재전송을 유지한다. DB 마이그레이션이나 자동 재실행은 추가하지 않았다.
+
+- `pnpm lint`, `pnpm exec tsc --noEmit`: exit 0.
+- `pnpm test`: 73파일 / 659개 통과.
+- `pnpm test:db`: 39파일 / 318개 통과.
+- 빌드: Playwright의 기존 `pnpm build && pnpm start --port 3101` 서버 기동 단계에서 통과. 별도 전체 빌드는 중복 실행하지 않았다.
+- `pnpm e2e`: 53개 통과 / 1개 실패. 자동 복구 시나리오는 통과했다. 실패한 수동 저장 시나리오는 전월 거래 fixture 추가로 예산 상한이 낮아졌는데 초과 저장 동의가 누락되어 있었다. 애플리케이션의 차단은 정상이다.
+- 테스트에 표시된 초과 저장 동의를 반영한 후 `pnpm exec playwright test tests/e2e/budget-recommendation-persistence.spec.ts --project=chromium --grep 'keeps manual saving available'`: 1개 통과 (27.8초, 테스트 본문 3.4초). 전체 54개를 재실행한 결과가 아니라, 기존 53개 통과와 수정한 1개 재검증 결과를 합친 인수 기록이다. 이 마지막 변경은 테스트의 동의 절차뿐이며 애플리케이션 코드는 전체 검증 때와 동일하다.
+
+기존 Vite loader·Next workspace-root·색상 환경변수 경고는 남아 있으며 숨기지 않았다. 추가 리뷰·전체 검증 반복·운영 반영은 수행하지 않았다.

@@ -50,16 +50,33 @@ async function completeFor(owner: BudgetQueueHousehold, input: BudgetRequest) {
 test('freezes settings and recovers exact completed request A after newer B', async () => {
   await raw`insert into ai_diagnosis_settings (household_id, common_instructions, revision, updated_by) values (${a.householdId}, 'instruction A', 1, ${a.userId})`
   const first = await complete()
+  expect(first.job.id).not.toBe(first.input.requestId)
   await raw`update ai_diagnosis_settings set common_instructions = 'instruction B', revision = 2 where household_id = ${a.householdId}`
   const second = await complete()
   vi.setSystemTime(new Date('2026-11-10T03:00:00Z'))
   const retried = await create(first.input)
   expect(retried.latestJob?.id).toBe(first.job.id)
   expect(retried.completed?.id).toBe(first.job.id)
+  expect(retried.latestJob?.requestId).toBe(first.input.requestId)
+  expect(retried.completed?.requestId).toBe(first.input.requestId)
   expect(retried.completed?.promptInput?.instructions.common).toBe('instruction A')
   expect(retried.completed?.snapshot).toEqual(first.job.snapshot)
   expect(retried.instructionsChanged).toBe(true)
   expect((await get()).completed?.id).toBe(second.job.id)
+
+  const [before] = await raw`select * from budget_recommendation_jobs where household_id = ${a.householdId} and id = ${first.job.id}`
+  const recovered = await getBudgetRecommendationData(a.householdId, month, first.input.requestId)
+  expect(recovered.latestJob).toMatchObject({ id: first.job.id, requestId: first.input.requestId, status: 'completed' })
+  expect(recovered.completed).toMatchObject({ id: first.job.id, requestId: first.input.requestId })
+  const [after] = await raw`select * from budget_recommendation_jobs where household_id = ${a.householdId} and id = ${first.job.id}`
+  expect(after).toEqual(before)
+  const foreign = await getBudgetRecommendationData(b.householdId, month, first.input.requestId)
+  expect(foreign.latestJob).toBeNull()
+  expect(foreign.completed).toBeNull()
+  const otherMonth = await getBudgetRecommendationData(a.householdId, '2026-10', first.input.requestId)
+  expect(otherMonth.latestJob).toBeNull()
+  expect(otherMonth.completed).toBeNull()
+  expect((await getBudgetRecommendationData(a.householdId, month, randomUUID())).latestJob?.id).toBe(second.job.id)
 })
 test('same UUID conflicts before any input rebuilding and another active request conflicts', async () => {
   const input = request()

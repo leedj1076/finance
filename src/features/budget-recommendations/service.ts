@@ -75,7 +75,7 @@ function completedResult(job: Job, month: string): CompletedBudgetRecommendation
     validateBaseline(job.snapshot, job.promptInput === null)
     const promptInput = job.promptInput === null ? null : parseAiPromptInput(job.promptInput, 'budget', job.snapshot)
     const report = parseBudgetRecommendationReport(job.report, job.snapshot, promptInput)
-    return { id: job.id, completedAt: job.completedAt.toISOString(), snapshot: job.snapshot, promptInput, report, evaluation: evaluateBudget(job.snapshot, report.rows) }
+    return { id: job.id, requestId: job.requestId, completedAt: job.completedAt.toISOString(), snapshot: job.snapshot, promptInput, report, evaluation: evaluateBudget(job.snapshot, report.rows) }
   } catch { throw new BudgetRecommendationError('invalid_result', 409) }
 }
 function freshness(completed: CompletedBudgetRecommendation, current: BudgetRecommendationSnapshot): BudgetRecommendationData['freshness'] {
@@ -127,7 +127,7 @@ async function readData(reader: BudgetReader, householdId: string, month: string
     if (row.status !== 'completed') continue
     try { completed = completedResult(row, month); break } catch { /* Preserve preceding verified completion. */ }
   }
-  const latestJob: BudgetRecommendationData['latestJob'] = latest ? { id: latest.id, status: latest.status, errorCode: latest.errorCode } : null
+  const latestJob: BudgetRecommendationData['latestJob'] = latest ? { id: latest.id, requestId: latest.requestId, status: latest.status, errorCode: latest.errorCode } : null
   if (latestJob?.status === 'running' && latest.leaseExpiresAt && latest.leaseExpiresAt < now) Object.assign(latestJob, { status: 'failed', errorCode: 'lease_expired' })
   if (latestJob?.status === 'completed') {
     try { completedResult(latest, month) } catch { Object.assign(latestJob, { status: 'failed', errorCode: 'invalid_output' }) }
@@ -139,10 +139,14 @@ async function readData(reader: BudgetReader, householdId: string, month: string
     freshness: state,
     instructionsChanged: !!completed?.promptInput && completed.promptInput.instructionsHash !== aiInstructionsHash(resolveAiInstructions(settings, 'budget'), budgetPromptPolicy.version) }
 }
-export async function getBudgetRecommendationData(householdId: string, month: string): Promise<BudgetRecommendationData> {
+export async function getBudgetRecommendationData(householdId: string, month: string, requestId?: string): Promise<BudgetRecommendationData> {
   if (!isMonthKey(month)) throw new BudgetRecommendationError('invalid_input')
+  if (requestId !== undefined) parseBudgetRequest({ requestId, month, notes: '', plannedExpenses: [], draftAmounts: [] })
   try {
-    return await db.transaction(async tx => readData(tx, householdId, month, await databaseNow(tx)), { isolationLevel: 'repeatable read', accessMode: 'read only' })
+    return await db.transaction(async tx => {
+      const anchor = requestId ? await exactRequest(tx, householdId, requestId) : undefined
+      return readData(tx, householdId, month, await databaseNow(tx), anchor?.month === month ? anchor : undefined)
+    }, { isolationLevel: 'repeatable read', accessMode: 'read only' })
   } catch (error) {
     if (!missingSchema(error)) throw error
     return { month, latestJob: null, completed: null, worker: 'upgrade_required', availability: 'setup_required', freshness: 'current', instructionsChanged: false }

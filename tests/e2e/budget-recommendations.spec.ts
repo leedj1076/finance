@@ -113,9 +113,14 @@ test('reviews a recommendation in the single editor without persisting the fake 
         expect(request.month).toBe(month)
         expect(request.draftAmounts).toContainEqual({
           major: '식비',
-          amount: postedBodies.length <= 3 ? 350_000 : 300_000,
+          amount: postedBodies.length <= 3 ? 350_000 : postedBodies.length === 4 ? 300_000 : 310_000,
         })
         if (postedBodies.length === 1) {
+          // A job ID is not a request ID: this other intent must not acknowledge ours.
+          activeResponse = { ...empty, latestJob: {
+            id: String(request.requestId), requestId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+            status: 'failed', errorCode: 'cli_failed',
+          } }
           await route.abort('connectionfailed')
           return
         }
@@ -123,9 +128,32 @@ test('reviews a recommendation in the single editor without persisting the fake 
           await route.fulfill({ status: 409, json: { error: 'request_conflict' } })
           return
         }
-        activeResponse = postedBodies.length === 3 ? completed : rerun
+        if (postedBodies.length >= 5) {
+          const recoveredJobId = postedBodies.length === 5
+            ? 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' : 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+          activeResponse = {
+            ...rerun,
+            latestJob: { id: recoveredJobId, requestId: String(request.requestId), status: postedBodies.length === 5 ? 'running' : 'completed', errorCode: null },
+            completed: postedBodies.length === 5 ? rerun.completed : { ...rerun.completed!, id: recoveredJobId, requestId: String(request.requestId) },
+          }
+          await route.abort('connectionfailed')
+          return
+        }
+        const result = postedBodies.length === 3 ? completed : rerun
+        activeResponse = { ...result,
+          latestJob: { ...result.latestJob!, requestId: String(request.requestId) },
+          completed: { ...result.completed!, requestId: String(request.requestId) },
+        }
         await route.fulfill({ json: activeResponse })
         return
+      }
+      const lookup = new URL(route.request().url()).searchParams.get('requestId')
+      if (lookup) expect(lookup).toBe(postedBodies.at(-1)?.requestId)
+      else if (activeResponse.latestJob?.status === 'running') {
+        activeResponse = { ...activeResponse,
+          latestJob: { ...activeResponse.latestJob, status: 'completed' },
+          completed: { ...rerun.completed!, id: activeResponse.latestJob.id, requestId: activeResponse.latestJob.requestId },
+        }
       }
       await route.fulfill({ json: activeResponse })
     })
@@ -146,9 +174,9 @@ test('reviews a recommendation in the single editor without persisting the fake 
     await expect(page.getByRole('button', { name: '같은 요청 다시 보내기', exact: true })).toBeVisible()
     await page.getByLabel('추천에 전달할 참고 메모', { exact: true }).fill('충돌 다음 요청에는 이 메모를 사용합니다.')
     await page.getByRole('button', { name: '같은 요청 다시 보내기', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'AI 예산 추천', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: '다시 추천하기', exact: true })).toBeVisible()
     expect(postedBodies[1]).toEqual(postedBodies[0])
-    await page.getByRole('button', { name: 'AI 예산 추천', exact: true }).click()
+    await page.getByRole('button', { name: '다시 추천하기', exact: true }).click()
     await expect(page.getByText('추천 완료', { exact: true })).toBeVisible()
     expect(postedBodies[2].requestId).not.toBe(postedBodies[0].requestId)
     expect(postedBodies[2].notes).toBe('충돌 다음 요청에는 이 메모를 사용합니다.')
@@ -224,6 +252,21 @@ test('reviews a recommendation in the single editor without persisting the fake 
     await page.getByRole('button', { name: '식비 추천 이유', exact: true }).click()
     await page.getByLabel('식비 예산', { exact: true }).scrollIntoViewIfNeeded()
     await page.screenshot({ path: testInfo.outputPath('budget-recommendation-mobile-row-dark.png'), fullPage: false })
+
+    // Lost responses recover the matching running/completed job without replaying POST.
+    await page.getByRole('button', { name: '다시 추천하기', exact: true }).click()
+    await expect(page.getByRole('button', { name: '추천 분석 중…', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: '같은 요청 다시 보내기', exact: true })).toHaveCount(0)
+    // Normal polling is five seconds; allow one poll plus response/render time.
+    await expect(page.getByRole('button', { name: '다시 추천하기', exact: true })).toBeEnabled({ timeout: 10_000 })
+    expect(postedBodies).toHaveLength(5)
+    expect(postedBodies[4].requestId).not.toBe(postedBodies[3].requestId)
+    await page.getByRole('button', { name: '다시 추천하기', exact: true }).click()
+    await expect.poll(() => postedBodies.length).toBe(6)
+    await expect(page.getByRole('button', { name: '다시 추천하기', exact: true })).toBeEnabled()
+    await expect(page.getByRole('button', { name: '같은 요청 다시 보내기', exact: true })).toHaveCount(0)
+    expect(postedBodies[5].requestId).not.toBe(postedBodies[4].requestId)
+    await expect(amount).toHaveValue('310000')
     expect(pageErrors).toEqual([])
   } finally {
     if (householdId) {

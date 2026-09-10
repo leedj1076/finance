@@ -219,6 +219,9 @@ suite('keeps manual saving available while a fixture worker is unsupported, abse
 
   const saveManual = async (amount: string) => {
     await page.getByLabel('식비 예산', { exact: true }).fill(amount)
+    await expect(page.getByText(`입력 합계 ${Number(amount).toLocaleString('ko-KR')}원`, { exact: true })).toBeVisible()
+    const overageConsent = page.getByRole('checkbox', { name: '미분류·정기 지출을 포함한 전체 예산의 상한 초과를 확인하고 저장합니다.', exact: true })
+    if (await overageConsent.isVisible()) await overageConsent.check()
     await page.getByRole('button', { name: '변경사항 저장', exact: true }).click()
     await expect(page.getByRole('button', { name: '저장됨', exact: true })).toBeVisible({ timeout: 15_000 })
   }
