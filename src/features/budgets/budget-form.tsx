@@ -1,7 +1,6 @@
 'use client'
 
-import { useActionState, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { useFormStatus } from 'react-dom'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { checkRecommendationForApply } from '@/features/budget-recommendations/client'
@@ -51,8 +50,7 @@ const groups = [
 
 const initialState: BudgetActionState = {}
 
-function SaveButton({ dirty, disabled = false }: { dirty: boolean; disabled?: boolean }) {
-  const { pending } = useFormStatus()
+function SaveButton({ dirty, pending, disabled = false }: { dirty: boolean; pending: boolean; disabled?: boolean }) {
   return (
     <button
       className={`h-[34px] px-4 t-body-strong transition-colors disabled:cursor-not-allowed ${dirty
@@ -66,7 +64,12 @@ function SaveButton({ dirty, disabled = false }: { dirty: boolean; disabled?: bo
   )
 }
 
-export function BudgetForm({
+export function BudgetForm(props: BudgetFormProps) {
+  // A different month owns a new editor, even if the caller keeps its identity.
+  return <BudgetEditor key={props.month} {...props} />
+}
+
+function BudgetEditor({
   averageExpense,
   averageIncome,
   baselines,
@@ -96,18 +99,10 @@ export function BudgetForm({
   const applyRequest = useRef<AbortController | null>(null)
   const [applyBusy, setApplyBusy] = useState(false)
   const [applyError, setApplyError] = useState<string | null>(null)
-  const [state, action, pending] = useActionState(async (previous: BudgetActionState, formData: FormData) => {
-    const result = await saveBudgetPlan(previous, formData)
-    if (result.saved) {
-      // Editing is disabled for this short transaction, so an old acknowledgement
-      // cannot overwrite a newer local draft. Keep the mounted form/details intact.
-      dispatch({ type: 'saved', rows: result.saved.rows })
-      setTargetBaseline({ savingsTarget: result.saved.savingsTarget, targetVersion: result.saved.targetVersion })
-      setTarget(result.saved.savingsTarget)
-      setAcknowledgeOverage(false)
-    }
-    return result
-  }, initialState)
+  const [state, setState] = useState<BudgetActionState>(initialState)
+  const [pending, setPending] = useState(false)
+  const saveRequest = useRef<symbol | null>(null)
+  useEffect(() => () => { saveRequest.current = null }, [])
   const [reduction, setReduction] = useState(10)
   const [preview, setPreview] = useState<{ label: string; amounts: Record<string, string>; manualMajors: string[] } | null>(null)
   const amounts = useMemo(() => Object.fromEntries(draft.rows.map(row => [row.major, row.amount])), [draft.rows])
@@ -130,6 +125,37 @@ export function BudgetForm({
   const payload: BudgetSaveRequest = { month, changes,
     targetChange: target === targetBaseline.savingsTarget ? null : { value: target, expectedVersion: targetBaseline.targetVersion }, acknowledgeOverage }
   const isDirty = invalidDraft || payload.targetChange !== null || changes.length > 0
+
+  async function submitBudget(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (saveRequest.current || applyBusy || compareWaiting || invalidDraft || !isDirty) return
+    // Snapshot before controls are disabled; the ref also rejects same-tick submits.
+    const formData = new FormData(event.currentTarget)
+    const request = Symbol('budget-save')
+    saveRequest.current = request
+    setPending(true)
+    try {
+      const result = await saveBudgetPlan(state, formData)
+      if (saveRequest.current !== request) return
+      if (result.saved) {
+        dispatch({ type: 'saved', rows: result.saved.rows })
+        setTargetBaseline({ savingsTarget: result.saved.savingsTarget, targetVersion: result.saved.targetVersion })
+        setTarget(result.saved.savingsTarget)
+        setAcknowledgeOverage(false)
+      }
+      setState(result)
+    } catch {
+      if (saveRequest.current !== request) return
+      setState({ error: '저장 결과를 확인하지 못했습니다. 입력한 초안을 유지했으니 다시 저장해 주세요.' })
+    } finally {
+      // Leaving this editor does not cancel the server mutation. Ignore its late result.
+      if (saveRequest.current === request) {
+        saveRequest.current = null
+        setPending(false)
+      }
+    }
+  }
+
   const baselineByMajor = new Map(draft.baseline.map(row => [row.major, row]))
   const activeMajors = useMemo(() => rows.map(row => row.major), [rows])
   draftRef.current = draft
@@ -260,7 +286,7 @@ export function BudgetForm({
   }
 
   return (
-    <form action={action} className="mt-6 space-y-6">
+    <form onSubmit={submitBudget} className="mt-6 space-y-6">
       <input name="payload" type="hidden" value={JSON.stringify(payload)} />
       <input name="month" type="hidden" value={month} />
       <fieldset className="min-w-0 space-y-6 border-0 p-0" disabled={pending || applyBusy}>
@@ -409,7 +435,7 @@ export function BudgetForm({
             >
               월평균으로 채우기
             </button>
-            <SaveButton disabled={invalidDraft} dirty={isDirty} />
+            <SaveButton disabled={invalidDraft || applyBusy || compareWaiting} dirty={isDirty} pending={pending} />
           </div>
         </div>
 
