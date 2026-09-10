@@ -51,7 +51,20 @@ pnpm build
 pnpm e2e
 ```
 
-현재 준비 단계에서는 기능 UI와 full-stack persistence E2E가 아직 통합되지 않았으므로 이 최종 여섯 게이트를 완료했다고 기록하지 않는다. UI 통합 후에는 데스크톱, 390px 모바일, 다크 모드 결과와 생성된 Playwright 스크린샷도 직접 확인한다.
+최종 통합 commit `5959a29f46f6c20355539f82c5238ecc124bbc53`에서 위 여섯 명령을 순서대로 한 번씩, warning suppression·retry·worker 수 override·instrumentation 없이 새로 실행했다.
+
+| 명령 | 최종 결과 |
+| --- | --- |
+| `pnpm lint` | exit 0, 5.51초 |
+| `pnpm exec tsc --noEmit` | exit 0, 소요 시간 미보존 |
+| `pnpm test` | 73 files / 654 tests 통과, 13.37초 |
+| `pnpm test:db` | 39 files / 318 tests 통과, 소요 시간 미보존 |
+| `pnpm build` | exit 0, 22 pages, tool wall 24.90초 (`next build` compile 5.3초) |
+| `pnpm e2e` | 54/54 통과, 소요 시간 미보존 |
+
+마지막 Playwright result는 `passed`와 빈 failed-test 목록을 기록했고 green 결과를 만들기 위한 재실행은 없었다. 실행 전에 DB/API hostname이 모두 loopback인지 다시 확인했다. 데스크톱, 390px 모바일, 다크 모드, month-close/statistics 스크린샷도 원본 크기로 직접 확인했으며 가로 넘침, 잘림, 불투명도 또는 가독성 결함을 발견하지 않았다.
+
+검증 과정에서 확인된 두 저장 lifecycle 원인은 분리해서 수정·검토했다. backend는 전체 transaction을 SQLSTATE `40001`일 때만 최대 3회 재시도하고, 명시적 CAS·`23505`·`40P01`·기타 오류는 재시도하지 않는다. UI는 pending 상태를 요청 단위로 소유하고 단일 저장 action을 dedupe하며 활성 월 기준으로 결과 소유권을 제한한다. 두 수정 모두 별도 scoped review를 통과했다.
 
 ## 실제 CLI 어댑터 smoke
 
@@ -65,6 +78,8 @@ pnpm exec tsx tests/smoke/budget-recommendation.ts
 ```
 
 한 검증 회차에 실제 모델 호출은 한 번만 시도하며 자동 재시도하지 않는다. 성공 표식은 `budget_recommendation_smoke_passed`, 실패 표식은 `budget_recommendation_smoke_failed`뿐이다. 이 결과는 합성 자료의 live model 생성과 schema/근거 검증만 확인한다. 큐/RPC 완료, 저장, 충돌, stale 처리는 로컬 full-stack 테스트로 별도 검증해야 하며 결정적 fixture 테스트만으로 live model 생성을 증명할 수 없다.
+
+이번 기능의 bounded smoke 이력은 이미 완료되었다. 최초 일반 smoke는 3.42초 뒤 exit 1과 `budget_recommendation_smoke_failed`만 남겼고, 통합 commit `83d7565`에서 승인된 단일 safe-code 진단은 4.19초 뒤 `cli_failed`로 분류됐다. Structured Outputs 참조 union을 `oneOf`에서 지원되는 `anyOf`로 바꾸되 strict parser는 유지한 수정이 `cb86ce7`에서 검토되었다. 수정 후 승인된 단 한 번의 합성 live 생성과 strict parsing은 26.73초에 통과했다. Task 13 인수를 위해 모델 호출을 반복하지 않으며, 로컬 큐/RPC/UI persistence는 별도 full-stack E2E로 증명한다.
 
 ## capability와 lease 확인
 
@@ -114,11 +129,9 @@ DATABASE_URL='<verified-production-session-pooler-5432-url>' pnpm db:migrate
 
 `0008`/`0009`의 additive 테이블·열·RPC를 즉시 삭제하지 않는다. 대기/실행/완료 작업, 불변 `prompt_input`, 완료 보고서, 예산의 추천 provenance를 삭제하거나 재작성하지 않는다. 지원 워커가 없으면 configured 작업은 원형 그대로 기다리게 한다. 데이터 파괴나 마이그레이션 역행이 필요해 보이면 배포를 멈추고 별도 복구 승인을 받는다.
 
-## 아직 남은 최종 인수 항목
+## 최종 인수 상태와 남은 운영 항목
 
-- 통합 예산 UI가 준비된 뒤 persistence/concurrency/stale/regeneration full-stack E2E 작성 및 통과
-- manual-only, 구 워커, retry/idempotency, 부분 이력/연말 전환/수입 없음, 늦은 응답, 단일 편집기, 모바일/다크/키보드 edge acceptance
-- 데스크톱·모바일·다크 스크린샷 캡처 및 직접 확인
-- 위 로컬 상태 확인, 마이그레이션, 최종 6개 게이트의 새 결과 기록
-- 최종 변경에 대한 코드 리뷰와 영향받은 게이트 재실행
-- 별도 승인이 있을 때만 운영 backup → DB → worker → web → 인증 UI 순서 실행
+- 로컬 persistence/concurrency/stale/regeneration, manual-only/worker guidance, retry/idempotency, 부분 이력/연말 전환/수입 없음, 늦은 응답, 단일 편집기, 모바일/다크/키보드 edge acceptance는 최종 54/54 E2E에서 통과했다.
+- 데스크톱·390px 모바일·다크·month-close/statistics 스크린샷을 원본 크기로 확인했다.
+- 로컬 상태 확인, 마이그레이션 이력, 최종 여섯 게이트, backend/UI scoped review가 완료됐다.
+- 별도 승인이 있을 때만 운영 backup → DB → worker → web → 인증 UI 순서로 실행한다. 위 운영 기록표의 placeholder는 실제 증거가 생길 때까지 그대로 유지한다.

@@ -11,6 +11,7 @@ test.describe('monthly diagnosis', () => {
       const databaseUrl = process.env.DATABASE_URL!
       for (const value of [url, databaseUrl]) if (!['localhost', '127.0.0.1'].includes(new URL(value).hostname)) throw new Error('Diagnosis E2E requires local Supabase')
       const admin = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
+      const anon = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
       const database = postgres(databaseUrl, { prepare: false, max: 1 })
       const email = `diagnosis-e2e-${crypto.randomUUID()}@example.com`
       const password = randomBytes(20).toString('base64url')
@@ -49,14 +50,19 @@ test.describe('monthly diagnosis', () => {
         await page.getByPlaceholder('비밀번호').fill(password)
         await page.getByRole('button', { name: '로그인', exact: true }).click()
         await expect(page).toHaveURL('/dashboard')
+        const heartbeat = await anon.rpc('heartbeat_ai_worker', { p_token: token, p_model: null, p_timeout_ms: 180_000 })
+        if (heartbeat.error) throw heartbeat.error
+        expect(heartbeat.data).toBe(true)
         await page.goto('/ledger?month=2026-07&tab=ai&flow=expense&major=보험&q=unmatched')
         await expect(page.getByRole('navigation', { name: '거래 보기' }).getByRole('link')).toHaveText(['요약', '목록', 'AI 진단', '카테고리', '가맹점'])
         const panel = page.getByRole('region', { name: '7월 AI 진단', exact: true })
         await expect(panel.getByText('64.8', { exact: false }).first()).toBeVisible()
         await expect(panel.getByText('아직 7월 진단이 없어요')).toBeVisible()
         await panel.getByRole('button', { name: '7월 AI 진단하기', exact: true }).first().click()
-        await expect(panel.getByText('Mac 연결 대기', { exact: true })).toBeVisible()
-        const [claim] = await database`select public.claim_diagnosis_job(${token}) as job`
+        await expect(panel.getByRole('button', { name: '진단 대기 중', exact: true })).toBeVisible()
+        const [legacyClaim] = await database`select public.claim_diagnosis_job(${token}) as job`
+        expect(legacyClaim.job).toBeNull()
+        const [claim] = await database`select public.claim_configured_diagnosis_job(${token}) as job`
         const job = claim.job
         expect(job.snapshot.current.salaryRemainder).toBe(647771)
         expect(job.snapshot.current.count).toBe(6)
@@ -81,10 +87,13 @@ test.describe('monthly diagnosis', () => {
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
         await page.evaluate(() => window.scrollTo(0, 0))
         await page.screenshot({ path: testInfo.outputPath(`diagnosis-${width}.png`), fullPage: true })
+        const rerunHeartbeat = await anon.rpc('heartbeat_ai_worker', { p_token: token, p_model: null, p_timeout_ms: 180_000 })
+        if (rerunHeartbeat.error) throw rerunHeartbeat.error
+        expect(rerunHeartbeat.data).toBe(true)
         await panel.getByRole('button', { name: '다시 진단하기' }).click()
         await expect(panel.getByRole('button', { name: '진단 대기 중', exact: true })).toBeVisible()
         await expect(panel.getByRole('heading', { name: report.headline })).toBeVisible()
-        const [second] = await database`select public.claim_diagnosis_job(${token}) as job`
+        const [second] = await database`select public.claim_configured_diagnosis_job(${token}) as job`
         await database`select public.finish_diagnosis_job(${token}, ${second.job.id}, ${second.job.claimToken}, null, 'cli_failed')`
         await expect(panel.getByText(/이전 보고서는 그대로 남아 있어요/)).toBeVisible({ timeout: 15_000 })
         await expect(panel.getByRole('heading', { name: report.headline })).toBeVisible()
