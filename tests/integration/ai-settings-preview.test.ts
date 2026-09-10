@@ -4,6 +4,7 @@ import { afterAll, beforeAll, expect, test } from 'vitest'
 
 import { db } from '@/db/client'
 import { getAiJobPrompt, previewAiPrompt } from '@/features/ai-settings/preview'
+import { getAiWorkerViews } from '@/features/ai-settings/service'
 import { buildDiagnosisPromptInput } from '@/features/diagnosis/prompt'
 import { readDiagnosisSnapshot } from '@/features/diagnosis/queries'
 import { currentMonthInKorea } from '@/lib/finance'
@@ -76,4 +77,23 @@ test('stored prompts are reconstructed only from household-owned frozen input an
     values (${householdId}, '2026-06', ${raw.json({ ...snapshot, month: '2026-06' })}, null, ${'b'.repeat(64)}, ${userId}, 'queued') returning id`
   expect(await getAiJobPrompt(householdId, 'ledger', legacy.id)).toEqual({ state: 'unrecorded', kind: 'ledger', month: '2026-06' })
   await expect(getAiJobPrompt(randomUUID(), 'ledger', recorded.id)).rejects.toThrow('not_found')
+})
+
+test('worker readiness requires both prompt protocols and both capability heartbeats on the same worker', async () => {
+  await raw`insert into diagnosis_workers
+    (household_id, token_hash, label, last_seen_at, prompt_protocol_version, prompt_last_seen_at, budget_protocol_version, budget_last_seen_at)
+    values
+    (${householdId}, ${'1'.repeat(64)}, 'both fresh', now(), 1, now(), 1, now()),
+    (${householdId}, ${'2'.repeat(64)}, 'stale budget', now(), 1, now(), 1, now() - interval '91 seconds'),
+    (${householdId}, ${'3'.repeat(64)}, 'missing heartbeat', now(), 1, null, 1, now()),
+    (${householdId}, ${'4'.repeat(64)}, 'mixed version', now(), 1, now(), 0, now())`
+
+  const workers = await getAiWorkerViews(householdId)
+  expect(Object.fromEntries(workers.map(worker => [worker.label, worker.state]))).toEqual({
+    'both fresh': 'ready',
+    'stale budget': 'offline',
+    'missing heartbeat': 'offline',
+    'mixed version': 'upgrade_required',
+  })
+  for (const worker of workers) expect(worker).not.toHaveProperty('tokenHash')
 })

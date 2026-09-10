@@ -71,9 +71,10 @@ export async function getAiWorkerViews(householdId: string): Promise<AiWorkerVie
     const seen = [row.lastSeenAt, row.promptLastSeenAt, row.budgetLastSeenAt]
       .filter((value): value is Date => value !== null)
       .sort((left, right) => right.getTime() - left.getTime())[0] ?? null
-    const state: AiWorkerView['state'] = row.promptProtocolVersion < 1
+    const state: AiWorkerView['state'] = row.promptProtocolVersion < 1 || row.budgetProtocolVersion < 1
       ? 'upgrade_required'
-      : row.promptLastSeenAt && row.promptLastSeenAt.getTime() >= cutoff ? 'ready' : 'offline'
+      : row.promptLastSeenAt && row.budgetLastSeenAt
+        && row.promptLastSeenAt.getTime() >= cutoff && row.budgetLastSeenAt.getTime() >= cutoff ? 'ready' : 'offline'
     return {
       id: row.id,
       label: row.label,
