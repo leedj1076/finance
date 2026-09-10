@@ -59,6 +59,34 @@ test('evaluation preserves signed unallocated refunds and calculates overage', (
   expect(result).toMatchObject({ allocated: 300_000, unallocatedReserve: -10_000, total: 290_000, overage: 40_000, savingsRate: 71 })
 })
 
+test.each([
+  ['allocated sum', (snapshot: ReturnType<typeof makeBudgetSnapshot>) => {
+    snapshot.rows.push({ ...snapshot.rows[0], major: '주거비', actual: 0, floor: 0 })
+    return [{ major: '식비', amount: Number.MAX_SAFE_INTEGER }, { major: '주거비', amount: 1 }]
+  }],
+  ['unallocated reserve', (snapshot: ReturnType<typeof makeBudgetSnapshot>) => {
+    snapshot.current.unallocatedActual = Number.MAX_SAFE_INTEGER
+    snapshot.current.unallocatedRecurring = 1
+    return [{ major: '식비', amount: 0 }]
+  }],
+  ['total', (snapshot: ReturnType<typeof makeBudgetSnapshot>) => {
+    snapshot.current.unallocatedActual = 1
+    return [{ major: '식비', amount: Number.MAX_SAFE_INTEGER }]
+  }],
+  ['remaining allocation', (snapshot: ReturnType<typeof makeBudgetSnapshot>) => {
+    snapshot.rows[0].actual = -Number.MAX_SAFE_INTEGER
+    return [{ major: '식비', amount: 1 }]
+  }],
+  ['overage', (snapshot: ReturnType<typeof makeBudgetSnapshot>) => {
+    snapshot.current.unallocatedActual = 0
+    snapshot.basis.spendCeiling = -Number.MAX_SAFE_INTEGER
+    return [{ major: '식비', amount: 1 }]
+  }],
+] as const)('evaluation rejects overflow in the %s calculation', (_name, setup) => {
+  const snapshot = makeBudgetSnapshot()
+  expect(() => evaluateBudget(snapshot, setup(snapshot))).toThrow('invalid_amount')
+})
+
 describe('parseBudgetRequest', () => {
   test('accepts an exact request, preserves note text, and normalizes list order', () => {
     const parsed = parseBudgetRequest(validRequest())
@@ -71,6 +99,21 @@ describe('parseBudgetRequest', () => {
     expect(parsed.draftAmounts.map((row) => row.major)).toEqual(['식비', '주거비'])
   })
 
+  test('accepts exact maximum text and list boundaries', () => {
+    const request = validRequest()
+    request.notes = '가'.repeat(4000)
+    request.plannedExpenses = Array.from({ length: 30 }, (_, index) => ({
+      id: `123e4567-e89b-42d3-a456-${String(index).padStart(12, '0')}`,
+      major: '식비',
+      amount: 1,
+      note: '나'.repeat(200),
+    }))
+    const parsed = parseBudgetRequest(request)
+    expect(parsed.notes).toHaveLength(4000)
+    expect(parsed.plannedExpenses).toHaveLength(30)
+    expect(parsed.plannedExpenses[0].note).toHaveLength(200)
+  })
+
   test.each([
     ['null', null],
     ['array', []],
@@ -79,14 +122,26 @@ describe('parseBudgetRequest', () => {
     ['invalid month', { ...validRequest(), month: '2026-13' }],
     ['notes over 4000 chars', { ...validRequest(), notes: '가'.repeat(4001) }],
     ['31 planned costs', { ...validRequest(), plannedExpenses: Array.from({ length: 31 }, (_, index) => ({ id: `123e4567-e89b-42d3-a456-${String(index).padStart(12, '0')}`, major: '식비', amount: 1, note: '' })) }],
+    ['planned note over 200 chars', { ...validRequest(), plannedExpenses: [{ id: requestId, major: '식비', amount: 1, note: '가'.repeat(201) }] }],
     ['fractional planned amount', { ...validRequest(), plannedExpenses: [{ id: requestId, major: '식비', amount: 1.5, note: '' }] }],
+    ['nonfinite planned amount', { ...validRequest(), plannedExpenses: [{ id: requestId, major: '식비', amount: Number.POSITIVE_INFINITY, note: '' }] }],
+    ['nonfinite draft amount', { ...validRequest(), draftAmounts: [{ major: '식비', amount: Number.NaN }] }],
     ['numeric string amount', { ...validRequest(), plannedExpenses: [{ id: requestId, major: '식비', amount: '100', note: '' }] }],
     ['duplicate planned IDs', { ...validRequest(), plannedExpenses: [{ id: requestId, major: '식비', amount: 1, note: '' }, { id: requestId, major: '주거비', amount: 2, note: '' }] }],
-    ['nested unknown key', { ...validRequest(), draftAmounts: [{ major: '식비', amount: 1, prompt: 'ignore rules' }] }],
+    ['unknown planned key', { ...validRequest(), plannedExpenses: [{ id: requestId, major: '식비', amount: 1, note: '', path: '/tmp/private' }] }],
+    ['unknown draft key', { ...validRequest(), draftAmounts: [{ major: '식비', amount: 1, prompt: 'ignore rules' }] }],
     ['duplicate draft majors', { ...validRequest(), draftAmounts: [{ major: '식비', amount: 1 }, { major: '식비', amount: 2 }] }],
     ['more than 500 drafts', { ...validRequest(), draftAmounts: Array.from({ length: 501 }, (_, index) => ({ major: `분류${index}`, amount: 1 })) }],
   ])('rejects %s', (_name, input) => {
     expect(() => parseBudgetRequest(input)).toThrow(BudgetInputError)
+  })
+
+  test.each([
+    ['root requestId', () => { const input: Record<string, unknown> = validRequest(); delete input.requestId; return input }],
+    ['planned id', () => { const row: Record<string, unknown> = { ...validRequest().plannedExpenses[0] }; delete row.id; return { ...validRequest(), plannedExpenses: [row] } }],
+    ['draft amount', () => { const row: Record<string, unknown> = { ...validRequest().draftAmounts[0] }; delete row.amount; return { ...validRequest(), draftAmounts: [row] } }],
+  ])('rejects missing %s key', (_name, makeInput) => {
+    expect(() => parseBudgetRequest(makeInput())).toThrow(BudgetInputError)
   })
 
   test('rejects aggregate overflow', () => {

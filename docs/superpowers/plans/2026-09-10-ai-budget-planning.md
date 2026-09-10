@@ -166,7 +166,7 @@ export type CompletedBudgetRecommendation = {
 }
 export type BudgetRecommendationData = {
   month: string
-  latestJob: { id: string; status: BudgetJobStatus; errorCode: string | null } | null
+  latestJob: { id: string; status: BudgetJobStatus; errorCode: DiagnosisErrorCode | null } | null
   completed: CompletedBudgetRecommendation | null // keep prior success while rerunning
   worker: 'ready' | 'offline' | 'upgrade_required' | 'not_registered'
   availability: 'available' | 'past_or_distant_month' | 'missing_income' | 'setup_required'
@@ -514,7 +514,7 @@ const unposted = postedIds.has(rule.id) ? 0 : rule.amount
 // The row major must be in activeMajorNames, otherwise reserve under unallocatedRecurring.
 ```
 
-Map explicit user planned costs to active majors after `assertBudgetMajors` and compute each row's `floor` with `recommendationFloor(actual, unpostedRecurring, planned)`. The `planned` sum does not include amounts inferred from notes. Initialize `savedRecommendationJobId` to null until Task 6 adds its DB column; that task then reads real provenance. Mark ambiguous manual matches as a limitation in the prompt/report; don't invent posting matches. Pass the same `now` to both canonical readers so a KST month boundary cannot mix income periods inside one snapshot.
+Map explicit user planned costs to active majors after `assertBudgetMajors` and compute each row's `floor` with `recommendationFloor(actual, unpostedRecurring, planned)`. The `planned` sum does not include amounts inferred from notes. Initialize `savedRecommendationJobId` to null until Task 6 adds its DB column; that task then reads real provenance. Mark ambiguous manual matches as a limitation in the prompt/report; don't invent posting matches. Pass the same `now` to both canonical readers so a KST month boundary cannot mix income periods inside one snapshot. Complete Task 1's injected-clock contract in `readBudgetData` by passing existing `todayInKorea(now)` to `calculateBudgetPace`; its currently omitted third argument reads the wall clock independently. Cover the supplied-clock behavior in this task's integration tests without changing the pace formula.
 
 - [ ] **4. Bound evidence and compute separate hashes.** Select up to 1000 largest absolute amounts plus 1000 most recent transaction IDs, household/date scoped, stable ties by ID; de-duplicate and interleave the two ranked lists to preserve both objectives. Aggregate total/provided counts separately. If serialized bytes exceed 1MiB, remove evidence from the end until within the limit; fail `input_too_large` if the aggregate-only snapshot still exceeds it. Never truncate titles/notes then claim an exact quote from the untruncated original.
 
