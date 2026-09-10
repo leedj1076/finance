@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>예산 편집기 개편안 · 01-desktop-editor</title>
+</head>
+<body>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;display=swap">
+  <style>
+    body { margin: 0; background: #ffffff; color: #18181b; font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; font-size: 13px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+    a { color: #2563eb; text-decoration: none; } a:hover { color: #18181b; }
+    .t-title { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+    .t-section { font-size: 15px; font-weight: 600; }
+    .t-body { font-size: 13px; } .t-strong { font-size: 13px; font-weight: 600; }
+    .t-caption { font-size: 12px; } .t-small { font-size: 11px; }
+    .t-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+    .muted { color: #71717a; } .faint { color: #a1a1aa; } .ink { color: #18181b; }
+    .blue { color: #2563eb; } .red { color: #dc2626; } .green { color: #16a34a; } .amber { color: #d97706; } .violet { color: #7c3aed; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: #71717a; white-space: nowrap; }
+    .chip i { display: inline-block; width: 7px; height: 7px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; height: 34px; padding: 0 14px; background: #18181b; color: #ffffff; font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .btn.h30 { height: 30px; padding: 0 12px; font-size: 12px; }
+    .btn.outline { background: #ffffff; color: #18181b; border: 1px solid #e4e4e7; }
+    .btn.dim { opacity: 0.5; }
+    .nav { display: inline-flex; align-items: stretch; height: 34px; border: 1px solid #e4e4e7; font-size: 12px; }
+    .nav span { display: flex; align-items: center; padding: 0 12px; border-left: 1px solid #e4e4e7; }
+    .nav span:first-child { border-left: 0; } .nav .go { background: #18181b; color: #ffffff; font-weight: 600; }
+    .bar { display: flex; align-items: center; gap: 28px; height: 52px; border-top: 1px solid #18181b; border-bottom: 1px solid #18181b; background: #ffffff; }
+    .bar .kv { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+    .bar .k { font-size: 12px; color: #71717a; } .bar .v { font-size: 15px; font-weight: 600; }
+    .bar .target { display: inline-flex; align-items: baseline; gap: 6px; border-bottom: 1px dashed #a1a1aa; padding-bottom: 1px; cursor: pointer; }
+    .thead { display: grid; gap: 16px; align-items: end; padding: 12px 0 10px; border-bottom: 1px solid #18181b; }
+    .th { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #71717a; }
+    .th .sub { display: block; margin-top: 3px; font-size: 11px; font-weight: 400; letter-spacing: 0; text-transform: none; color: #a1a1aa; }
+    .th .act { display: block; margin-top: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: #2563eb; }
+    .group { display: flex; align-items: baseline; gap: 8px; padding: 18px 0 6px; }
+    .group .name { font-size: 13px; font-weight: 600; } .group .note { font-size: 12px; color: #a1a1aa; }
+    .row { display: grid; gap: 16px; align-items: start; padding: 12px 0; border-bottom: 1px solid #e4e4e7; }
+    .major { font-size: 13px; font-weight: 600; }
+    .input { display: flex; align-items: center; gap: 6px; }
+    .input .box { display: flex; align-items: center; justify-content: flex-end; height: 34px; flex: 1; padding: 0 10px; border: 1px solid #e4e4e7; background: #ffffff; font-size: 13px; }
+    .input .box.focus { border-color: #2563eb; }
+    .src { display: inline-flex; align-items: center; justify-content: flex-end; height: 34px; width: 100%; padding: 0 10px; box-sizing: border-box; border: 1px solid transparent; font-size: 13px; text-align: right; background: #ffffff; }
+    .src.on { background: #f4f4f5; font-weight: 600; border-color: #e4e4e7; }
+    .src.ai.on { background: #f5f3ff; border-color: #ddd6fe; }
+    .src.off { color: #a1a1aa; }
+    .src.stale { color: #a1a1aa; text-decoration: line-through; }
+    .cap { display: block; margin-top: 4px; font-size: 11px; color: #71717a; text-align: right; }
+    .cap.l { text-align: left; }
+    .pop { background: #ffffff; border: 1px solid #18181b; box-shadow: 0 8px 24px rgba(24, 24, 27, 0.12); }
+    .status { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .status i { display: inline-block; width: 7px; height: 7px; flex: none; }
+    .note { font-size: 12px; color: #71717a; }
+    .label-tag { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border: 1px solid #e4e4e7; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; color: #71717a; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field .lab { font-size: 12px; font-weight: 600; }
+    .sel { display: inline-flex; align-items: center; justify-content: space-between; height: 34px; padding: 0 10px; border: 1px solid #e4e4e7; font-size: 13px; background: #fff; }
+    .textarea { min-height: 96px; padding: 10px; border: 1px solid #e4e4e7; font-size: 13px; color: #18181b; }
+
+  </style>
+<div style="width: 1440px; box-sizing: border-box; background: #ffffff;">
+<div style="padding: 36px 48px 40px;">
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;">
+    <h1 style="margin: 0; display: flex; align-items: baseline; gap: 12px;" class="t-title">2026년 10월 예산<span class="chip"><i style="background: #a1a1aa;"></i>2026년 10월 · 예정</span></h1>
+    <div style="display: flex; align-items: center; gap: 8px;"><span class="nav"><span>←</span><span style="font-weight: 600;">2026-10</span><span class="go">보기</span><span>→</span></span></div>
+  </div>
+  <div style="margin-top: 24px;"><div class="bar">
+  <span class="kv"><span class="k">목표 저축률</span><span class="target"><span class="v">30%</span><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="#18181b" stroke-width="1.4"/></svg></span></span>
+  <span class="kv"><span class="k">목표 지출 상한</span><span class="v">4,280,500</span></span>
+  <span class="kv"><span class="k">편집안 합계</span><span class="v">1,840,000</span></span>
+  <span class="kv"><span class="k">여유</span><span class="v" style="color: #16a34a;">2,440,500</span></span>
+  <span style="margin-left: auto; display: flex; align-items: center; gap: 12px;"><span class="t-caption amber">아직 저장하지 않은 편집안</span><span class="btn">변경사항 저장</span></span>
+</div></div>
+  <div style="margin-top: 4px;"><div class="thead" style="grid-template-columns: minmax(150px, 1.1fr) 190px 160px 160px 160px 200px;">
+  <span class="th">항목</span>
+  <span class="th" style="text-align: right;">예산 (원)</span>
+  <span class="th" style="text-align: right;">지난달 예산<span class="sub">9월</span><span class="act"><a href="#">이 열로 채우기</a></span></span>
+  <span class="th" style="text-align: right;">지난달 실적<span class="sub">9월 27일까지 · 진행 중</span><span class="act"><a href="#">이 열로 채우기</a></span></span>
+  <span class="th" style="text-align: right;">3개월 평균<span class="sub">6·7·8월</span><span class="act"><a href="#">이 열로 채우기</a></span></span>
+  <span class="th">AI 추천<span class="sub">9월 27일 14:02 · 합계 1,855,000 · 상한 안</span><span class="act"><a href="#">전체 반영</a> · <a href="#">요약</a> · <a href="#">다시 추천</a></span></span>
+</div><div class="group"><span class="name">고정비</span><span class="note">조절이 어려운 비용</span></div><div class="row" style="grid-template-columns: minmax(150px, 1.1fr) 190px 160px 160px 160px 200px;">
+  <div><div class="major">주거</div></div>
+  <div><div class="input"><span class="box">380,000</span><span class="t-caption muted">원</span></div></div>
+  <div><span class="src on">380,000</span></div>
+  <div><span class="src on">380,000</span><span class="cap" style="color: #71717a;">예산과 같음</span></div>
+  <div><span class="src">380,812</span><span class="cap" style="color: #a1a1aa;">6·7·8월</span></div>
+  <div><span class="src ai">380,000</span><span class="cap" style="color: #2563eb;"><a href="#">근거</a></span></div>
+</div><div class="group"><span class="name">변동비</span><span class="note">생활하면서 조절할 비용</span></div><div class="row" style="grid-template-columns: minmax(150px, 1.1fr) 190px 160px 160px 160px 200px;">
+  <div><div class="major">식비</div></div>
+  <div><div class="input"><span class="box">600,000</span><span class="t-caption muted">원</span></div><span class="cap l" style="margin-top: 5px;"><span class="violet" style="font-weight: 600;">AI 추천 650,000 → 조정</span> · <a href="#">출처 지우기</a></span></div>
+  <div><span class="src">1,100,000</span></div>
+  <div><span class="src">612,400</span><span class="cap" style="color: #71717a;">−487,600</span></div>
+  <div><span class="src">656,262</span><span class="cap" style="color: #a1a1aa;">6·7·8월</span></div>
+  <div><span class="src ai on">650,000</span><span class="cap" style="color: #2563eb;"><a href="#">근거</a></span></div>
+</div><div class="row" style="grid-template-columns: minmax(150px, 1.1fr) 190px 160px 160px 160px 200px;">
+  <div><div class="major">교통비</div></div>
+  <div><div class="input"><span class="box">110,000</span><span class="t-caption muted">원</span></div></div>
+  <div><span class="src">160,000</span></div>
+  <div><span class="src">96,300</span><span class="cap" style="color: #71717a;">−63,700</span></div>
+  <div><span class="src on">110,000</span><span class="cap" style="color: #a1a1aa;">6·7·8월</span></div>
+  <div><span class="src ai">105,000</span><span class="cap" style="color: #2563eb;"><a href="#">근거</a></span></div>
+</div><div class="row" style="grid-template-columns: minmax(150px, 1.1fr) 190px 160px 160px 160px 200px;">
+  <div><div class="major">생활용품</div></div>
+  <div><div class="input"><span class="box focus">130,000</span><span class="t-caption muted">원</span></div></div>
+  <div><span class="src">200,000</span></div>
+  <div><span class="src">84,900</span><span class="cap" style="color: #71717a;">−115,100</span></div>
+  <div><span class="src">130,838</span><span class="cap" style="color: #a1a1aa;">6·7·8월</span></div>
+  <div><span class="src ai">120,000</span><span class="cap" style="color: #2563eb;"><a href="#">근거</a></span></div>
+</div><div class="row" style="grid-template-columns: minmax(150px, 1.1fr) 190px 160px 160px 160px 200px;">
+  <div><div class="major">문화생활</div></div>
+  <div><div class="input"><span class="box">120,000</span><span class="t-caption muted">원</span></div></div>
+  <div><span class="src on">120,000</span></div>
+  <div><span class="src">131,700</span><span class="cap" style="color: #dc2626;">+11,700 초과</span></div>
+  <div><span class="src">57,025</span><span class="cap" style="color: #a1a1aa;">6·7·8월</span></div>
+  <div><span class="src ai">90,000</span><span class="cap" style="color: #2563eb;"><a href="#">근거</a></span></div>
+</div><div class="row" style="grid-template-columns: minmax(150px, 1.1fr) 190px 160px 160px 160px 200px;">
+  <div><div class="major">건강</div></div>
+  <div><div class="input"><span class="box">100,000</span><span class="t-caption muted">원</span></div></div>
+  <div><span class="src on">100,000</span></div>
+  <div><span class="src">182,400</span><span class="cap" style="color: #dc2626;">+82,400 초과</span></div>
+  <div><span class="src">72,725</span><span class="cap" style="color: #a1a1aa;">6·7·8월</span></div>
+  <div><span class="src ai">110,000</span><span class="cap" style="color: #2563eb;"><a href="#">근거</a></span></div>
+</div><div class="group"><span class="name">비정기</span><span class="note">여행·경조사 등 월 적립 예산</span></div><div class="row" style="grid-template-columns: minmax(150px, 1.1fr) 190px 160px 160px 160px 200px;">
+  <div><div class="major">여행</div></div>
+  <div><div class="input"><span class="box">300,000</span><span class="t-caption muted">원</span></div></div>
+  <div><span class="src on">300,000</span></div>
+  <div><span class="src">0</span><span class="cap" style="color: #71717a;">−300,000</span></div>
+  <div><span class="src">420,000</span><span class="cap" style="color: #a1a1aa;">6·7·8월 · 7월 1회</span></div>
+  <div><span class="src ai">300,000</span><span class="cap" style="color: #2563eb;"><a href="#">근거</a></span></div>
+</div><div class="row" style="grid-template-columns: minmax(150px, 1.1fr) 190px 160px 160px 160px 200px;">
+  <div><div class="major">경조사</div></div>
+  <div><div class="input"><span class="box">100,000</span><span class="t-caption muted">원</span></div></div>
+  <div><span class="src on">100,000</span></div>
+  <div><span class="src">50,000</span><span class="cap" style="color: #71717a;">−50,000</span></div>
+  <div><span class="src">25,000</span><span class="cap" style="color: #a1a1aa;">6·7·8월</span></div>
+  <div><span class="src ai">100,000</span><span class="cap" style="color: #2563eb;"><a href="#">근거</a></span></div>
+</div></div>
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #e4e4e7;">
+    <span class="t-caption muted">출처 칸을 누르면 그 금액이 예산에 들어갑니다. 저장 전에는 바뀌지 않습니다.</span>
+    <a class="t-caption" href="#" style="font-weight: 600;">최근 변경 실행 취소</a>
+  </div>
+</div>
+</div>
+</body>
+</html>
