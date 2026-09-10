@@ -5,7 +5,7 @@ import { budgets, categories, categoryMeta, settings, transactions } from '@/db/
 import { currentMonthInKorea, isMonthKey, monthBounds, savingsRate, shiftMonth } from '@/lib/finance'
 import { roundLikePython } from '@/features/ledger/forecast'
 
-import { calculateBudgetPace } from './pace'
+import { calculateBudgetPace, todayInKorea } from './pace'
 
 export type BudgetReader = Pick<typeof db, 'select'>
 
@@ -224,7 +224,7 @@ export async function readBudgetData(
   const savingsTarget = Number.isFinite(parsedTarget) ? Math.min(Math.max(parsedTarget, 0), 80) : 30
   const totalBudget = rows.reduce((sum, row) => sum + row.budget, 0)
   const totalActual = rows.reduce((sum, row) => sum + row.actual, 0)
-  const paceWarnings = calculateBudgetPace(rows, month)
+  const paceWarnings = calculateBudgetPace(rows, month, todayInKorea(now))
 
   return {
     month,
@@ -236,6 +236,7 @@ export async function readBudgetData(
     remaining: totalBudget - totalActual,
     savingsTarget,
     averageIncome,
+    incomeBasis: { start: yearStart, end: averageEnd, monthCount: divisor },
     averageExpense,
     averageSaving,
     currentSavingsRate: savingsRate(totalIncome, totalExpense),
