@@ -51,3 +51,26 @@ export type AiWorkerView = {
   configuredModel: string | null
   timeoutMs: number | null
 }
+
+export type AiSettingsPageData = {
+  settings: AiSettingsState
+  defaults: Record<keyof AiSettingsValues, string>
+  workers: AiWorkerView[]
+  budgetPreviewAvailable: boolean
+}
+
+export type AiPromptPreview = {
+  kind: AiKind
+  month: string
+  prefix: string
+  dataJson: string
+  suffix: string
+  promptHash: string
+  instructions: ResolvedAiInstructions
+  generatedAt: string
+  unsaved: boolean
+}
+
+export type AiJobPromptView =
+  | { state: 'recorded'; preview: AiPromptPreview }
+  | { state: 'unrecorded'; kind: AiKind; month: string }

@@ -1,10 +1,11 @@
 import 'server-only'
 
-import { and, eq } from 'drizzle-orm'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 
 import { db } from '@/db/client'
-import { aiDiagnosisSettings } from '@/db/schema'
-import type { AiSettingsSave, AiSettingsState, AiSettingsValues } from './types'
+import { aiDiagnosisSettings, diagnosisWorkers } from '@/db/schema'
+import { AI_DEFAULTS } from './defaults'
+import type { AiSettingsPageData, AiSettingsSave, AiSettingsState, AiSettingsValues, AiWorkerView } from './types'
 
 export type AiSettingsReader = Pick<typeof db, 'select'>
 
@@ -48,6 +49,47 @@ export async function readAiSettings(reader: AiSettingsReader, householdId: stri
 
 export async function getAiSettings(householdId: string): Promise<AiSettingsState> {
   return readAiSettings(db, householdId)
+}
+
+export async function getAiWorkerViews(householdId: string): Promise<AiWorkerView[]> {
+  const rows = await db.select({
+    id: diagnosisWorkers.id,
+    label: diagnosisWorkers.label,
+    lastSeenAt: diagnosisWorkers.lastSeenAt,
+    promptProtocolVersion: diagnosisWorkers.promptProtocolVersion,
+    promptLastSeenAt: diagnosisWorkers.promptLastSeenAt,
+    budgetProtocolVersion: diagnosisWorkers.budgetProtocolVersion,
+    budgetLastSeenAt: diagnosisWorkers.budgetLastSeenAt,
+    configuredModel: diagnosisWorkers.configuredModel,
+    configuredTimeoutMs: diagnosisWorkers.configuredTimeoutMs,
+  }).from(diagnosisWorkers).where(and(
+    eq(diagnosisWorkers.householdId, householdId),
+    isNull(diagnosisWorkers.revokedAt),
+  )).orderBy(asc(diagnosisWorkers.createdAt), asc(diagnosisWorkers.id))
+  const cutoff = Date.now() - 90_000
+  return rows.map((row) => {
+    const seen = [row.lastSeenAt, row.promptLastSeenAt, row.budgetLastSeenAt]
+      .filter((value): value is Date => value !== null)
+      .sort((left, right) => right.getTime() - left.getTime())[0] ?? null
+    const state: AiWorkerView['state'] = row.promptProtocolVersion < 1
+      ? 'upgrade_required'
+      : row.promptLastSeenAt && row.promptLastSeenAt.getTime() >= cutoff ? 'ready' : 'offline'
+    return {
+      id: row.id,
+      label: row.label,
+      lastSeenAt: seen?.toISOString() ?? null,
+      state,
+      promptProtocolVersion: row.promptProtocolVersion,
+      budgetProtocolVersion: row.budgetProtocolVersion,
+      configuredModel: row.configuredModel,
+      timeoutMs: row.configuredTimeoutMs,
+    }
+  })
+}
+
+export async function getAiSettingsPageData(householdId: string): Promise<AiSettingsPageData> {
+  const [settings, workers] = await Promise.all([getAiSettings(householdId), getAiWorkerViews(householdId)])
+  return { settings, defaults: { ...AI_DEFAULTS }, workers, budgetPreviewAvailable: true }
 }
 
 export async function saveAiSettings(

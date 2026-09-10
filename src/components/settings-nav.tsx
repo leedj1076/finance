@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-export type SettingsSection = 'accounts' | 'assets' | 'categories' | 'recurring' | 'rules' | 'security'
+export type SettingsSection = 'accounts' | 'assets' | 'categories' | 'recurring' | 'rules' | 'security' | 'ai'
 
 const ITEMS: Array<{ key: SettingsSection; href: string; label: string }> = [
   { key: 'accounts', href: '/manage?tab=accounts', label: '결제수단' },
@@ -8,6 +8,7 @@ const ITEMS: Array<{ key: SettingsSection; href: string; label: string }> = [
   { key: 'rules', href: '/manage?tab=rules', label: '가져오기 규칙' },
   { key: 'recurring', href: '/recurring', label: '정기거래 규칙' },
   { key: 'assets', href: '/settings?section=assets', label: '자산 계정' },
+  { key: 'ai', href: '/settings?section=ai', label: 'AI 진단' },
   { key: 'security', href: '/settings?section=security', label: '계정 및 보안' },
 ]
 

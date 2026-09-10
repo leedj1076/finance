@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+import { loadAiJobPrompt } from '@/features/ai-settings/client'
+import { AiPromptViewer } from '@/features/ai-settings/prompt-viewer'
+import type { AiJobPromptView } from '@/features/ai-settings/types'
 import { requestDiagnosisPageData, startDiagnosisPolling } from './client'
 import type { DiagnosisErrorCode, DiagnosisPageData, DiagnosisSnapshot, DiagnosisTransaction } from './types'
 import styles from './diagnosis-panel.module.css'
@@ -214,11 +217,17 @@ export function DiagnosisPanel({ initialData }: { initialData: DiagnosisPageData
   const [networkError, setNetworkError] = useState<string | null>(null)
   const [pollRetry, setPollRetry] = useState(0)
   const [evidence, setEvidence] = useState<{ title: string; rows: DiagnosisTransaction[] } | null>(null)
+  const [promptView, setPromptView] = useState<AiJobPromptView | null>(null)
+  const [promptLoading, setPromptLoading] = useState(false)
+  const [promptError, setPromptError] = useState<string | null>(null)
   const manualRequest = useRef<AbortController | null>(null)
+  const promptRequest = useRef<{ controller: AbortController; key: string } | null>(null)
+  const requestId = useRef<string | null>(null)
   const month = monthLabel(data.month)
   const active = data.latestJob?.status === 'queued' || data.latestJob?.status === 'running'
   const busy = submitting || active
   const snapshot = data.completed?.snapshot ?? data.currentSnapshot
+  const promptJobId = active ? data.latestJob!.id : data.completed?.id ?? null
   const isPartialMonth = snapshot.month === new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: '2-digit', timeZone: 'Asia/Seoul' }).format(new Date(snapshot.asOf))
 
   useEffect(() => {
@@ -226,9 +235,23 @@ export function DiagnosisPanel({ initialData }: { initialData: DiagnosisPageData
     setData(initialData)
     setNetworkError(null)
     setEvidence(null)
+    setPromptView(null)
+    setPromptError(null)
+    requestId.current = null
   }, [initialData])
 
-  useEffect(() => () => { manualRequest.current?.abort() }, [])
+  useEffect(() => () => { manualRequest.current?.abort(); promptRequest.current?.controller.abort() }, [])
+
+  useEffect(() => {
+    const key = promptJobId ? `${data.month}:ledger:${promptJobId}` : null
+    if (promptRequest.current && promptRequest.current.key !== key) promptRequest.current.controller.abort()
+    setPromptView(null)
+    setPromptError(null)
+  }, [data.month, promptJobId])
+
+  useEffect(() => {
+    if (data.latestJob && !['queued', 'running'].includes(data.latestJob.status)) requestId.current = null
+  }, [data.latestJob])
 
   useEffect(() => {
     if (!active) return
@@ -255,7 +278,9 @@ export function DiagnosisPanel({ initialData }: { initialData: DiagnosisPageData
   }
 
   async function generate() {
-    if (busy || data.setupRequired || data.currentSnapshot.current.count === 0) return
+    if (busy || data.setupRequired || data.promptSetupRequired || data.currentSnapshot.current.count === 0) return
+    const intentId = requestId.current ?? crypto.randomUUID()
+    requestId.current = intentId
     setSubmitting(true)
     setNetworkError(null)
     manualRequest.current?.abort()
@@ -263,25 +288,51 @@ export function DiagnosisPanel({ initialData }: { initialData: DiagnosisPageData
     manualRequest.current = controller
     const timeout = setTimeout(() => controller.abort(), 20000)
     try {
-      setData(await requestDiagnosisPageData(data.month, 'POST', controller.signal))
+      setData(await requestDiagnosisPageData(data.month, 'POST', controller.signal, intentId))
+      requestId.current = null
     } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError') && !(error instanceof TypeError)) requestId.current = null
       setNetworkError(error instanceof Error && error.name !== 'AbortError' ? error.message : '요청 결과를 확인하지 못했어요. 상태를 다시 확인해 주세요.')
     } finally { clearTimeout(timeout); setSubmitting(false) }
   }
 
+  async function showPrompt() {
+    if (!promptJobId) return
+    promptRequest.current?.controller.abort()
+    const controller = new AbortController()
+    const key = `${data.month}:ledger:${promptJobId}`
+    promptRequest.current = { controller, key }
+    setPromptLoading(true)
+    setPromptError(null)
+    try {
+      const next = await loadAiJobPrompt('ledger', promptJobId, controller.signal)
+      if (promptRequest.current?.key !== key || controller.signal.aborted) return
+      setPromptView(next)
+    } catch (error) {
+      if (promptRequest.current?.key !== key || controller.signal.aborted) return
+      setPromptError(error instanceof Error ? error.message : '사용한 프롬프트를 불러오지 못했습니다.')
+    } finally {
+      if (promptRequest.current?.key === key) setPromptLoading(false)
+    }
+  }
+
   const requestLabel = submitting ? '진단 요청 중…' : data.latestJob?.status === 'queued' ? '진단 대기 중' : data.latestJob?.status === 'running' ? '진단 중…' : data.completed || data.latestJob?.status === 'failed' ? '다시 진단하기' : `${month} AI 진단하기`
-  const requestButton = <button type="button" className={styles.primaryButton} disabled={busy || data.setupRequired || data.currentSnapshot.current.count === 0} onClick={generate}>{requestLabel}</button>
+  const requestButton = <button type="button" className={styles.primaryButton} disabled={busy || data.setupRequired || data.promptSetupRequired || data.currentSnapshot.current.count === 0} onClick={generate}>{requestLabel}</button>
 
   return (
     <section className={styles.panel} aria-labelledby="diagnosis-title">
       <header className={styles.heading}>
-        <div><p className={styles.sectionIndex}>MONTHLY REVIEW · {data.month}</p><h2 id="diagnosis-title">{month} AI 진단</h2><p>이번 달의 돈 흐름을 읽고, 다음 달에 해볼 일을 정리합니다.</p></div>
-        <div className={styles.headerActions}>{data.completed && <button type="button" className={styles.secondaryButton} onClick={() => window.print()}>인쇄</button>}{requestButton}</div>
+        <div><p className={styles.sectionIndex}>MONTHLY REVIEW · {data.month}</p><h2 id="diagnosis-title">{month} AI 진단</h2><p>이번 달의 돈 흐름을 읽고, 다음 달에 해볼 일을 정리합니다. <a className={styles.textButton} href="/settings?section=ai">AI 진단 설정 →</a></p></div>
+        <div className={styles.headerActions}>{promptJobId && <button type="button" className={styles.secondaryButton} disabled={promptLoading} onClick={() => void showPrompt()}>{promptLoading ? '프롬프트 확인 중…' : '사용한 프롬프트'}</button>}{data.completed && <button type="button" className={styles.secondaryButton} onClick={() => window.print()}>인쇄</button>}{requestButton}</div>
       </header>
       <div className={styles.meta}><span>{data.completed ? '진단 당시' : '이 달 전체'} 내역 {snapshot.current.count.toLocaleString('ko-KR')}건 · 필터와 무관한 월 전체 기준{isPartialMonth && ' · 월중 기록 기준'}</span>{data.completed && <span>진단 완료 {dateLabel(data.completed.completedAt)}</span>}</div>
       {networkError && <div className={styles.notice} role="alert"><p>{networkError}</p><button type="button" className={styles.textButton} onClick={refresh}>상태 다시 확인</button></div>}
       {data.isStale && data.completed && <div className={styles.notice}><p><strong>진단 이후 내역이 바뀌었어요.</strong> 현재 보고서는 이전 기록 기준입니다. 다시 진단하면 수정한 내역을 반영합니다.</p></div>}
+      {data.instructionsChanged && data.completed && <div className={styles.notice}><p><strong>진단 지침이 변경되었습니다.</strong> 현재 보고서는 이전 지침 기준입니다. 새 지침으로 다시 진단할 수 있습니다.</p></div>}
       {data.setupRequired && <div className={styles.notice}><p><strong>Mac에서 진단 연결을 준비해 주세요.</strong> 한 번 연결하면 이 화면에서 매달 진단을 요청할 수 있어요.</p></div>}
+      {!data.setupRequired && data.promptSetupRequired && <div className={styles.notice}><p><strong>Mac의 AI 작업기를 업데이트해 주세요.</strong> 설정은 편집할 수 있지만, 새 지침을 지원하는 작업기가 확인된 뒤 진단을 요청할 수 있습니다.</p><a className={styles.textButton} href="/settings?section=ai">실행 정보 확인</a></div>}
+      <div aria-live="polite">{promptError && <div className={styles.notice} role="alert"><p>{promptError}</p></div>}</div>
+      {promptView && <div className="mt-5 min-w-0"><AiPromptViewer view={promptView} /></div>}
       {active && <div className={styles.progress} role="status" aria-live="polite"><span className={styles.activityDot} aria-hidden="true" /><div><strong>{data.latestJob?.status === 'running' ? '이번 달 보고서를 정리하고 있어요' : data.workerOnline ? '진단을 기다리고 있어요' : 'Mac 연결 대기'}</strong><p>{data.latestJob?.status === 'running' ? '분석이 끝나면 이 화면에 보고서가 표시됩니다.' : data.workerOnline ? '차례가 되면 자동으로 진단을 시작합니다.' : '요청은 저장됐어요. Mac이 켜져 있고 연결되면 자동으로 시작합니다.'}{data.completed && ' 기다리는 동안 이전 보고서를 볼 수 있어요.'}</p></div></div>}
       {data.latestJob?.status === 'failed' && <div className={styles.notice} role="status"><p><strong>{ERROR_MESSAGES[data.latestJob.errorCode ?? 'cli_failed']}</strong> {data.completed ? '이전 보고서는 그대로 남아 있어요. 다시 진단할 수 있습니다.' : '다시 진단하기를 눌러 재요청할 수 있습니다.'}</p></div>}
       <Cashflow snapshot={snapshot} />

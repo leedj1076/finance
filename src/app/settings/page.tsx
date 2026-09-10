@@ -4,6 +4,8 @@ import { AppHeader } from '@/components/app-header'
 import { SettingsNav } from '@/components/settings-nav'
 import { AssetAccountsManager } from '@/features/assets/asset-accounts-manager'
 import { getAssetData } from '@/features/assets/queries'
+import { getAiSettingsPageData } from '@/features/ai-settings/service'
+import { AiSettingsForm } from '@/features/ai-settings/settings-form'
 import { requireHousehold } from '@/lib/household'
 
 import { PasswordChangeForm } from './password-change-form'
@@ -20,8 +22,13 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   const household = await requireHousehold()
   if (!household) redirect('/login')
   const params = await searchParams
-  const section = params.section === 'assets' ? 'assets' : 'security'
+  const section = params.section === 'assets' ? 'assets' : params.section === 'ai' ? 'ai' : 'security'
   const assetData = section === 'assets' ? await getAssetData(household.householdId) : null
+  const aiData = section === 'ai' ? await getAiSettingsPageData(household.householdId) : null
+  const title = section === 'assets' ? '자산 계정' : section === 'ai' ? 'AI 진단 설정' : '계정 및 보안'
+  const description = section === 'assets' ? '자산 그룹과 계정 이름을 관리합니다.'
+    : section === 'ai' ? '우리집 AI가 중요하게 볼 내용과 설명 방식을 함께 관리합니다.'
+      : `로그인 계정 · ${household.email}`
 
   return (
     <div className="min-h-screen bg-white">
@@ -32,8 +39,8 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           <div className="min-w-0">
             <header>
               <p className="t-label uppercase text-finance-blue">가계부 기준 관리</p>
-              <h1 className="mt-2 t-page-title text-finance-ink">{section === 'assets' ? '자산 계정' : '계정 및 보안'}</h1>
-              <p className="mt-2 t-caption text-finance-muted">{section === 'assets' ? '자산 그룹과 계정 이름을 관리합니다.' : `로그인 계정 · ${household.email}`}</p>
+              <h1 className="mt-2 t-page-title text-finance-ink">{title}</h1>
+              <p className="mt-2 t-caption text-finance-muted">{description}</p>
             </header>
 
             {section === 'assets' && assetData && (
@@ -50,6 +57,8 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 <PasswordChangeForm />
               </section>
             )}
+
+            {section === 'ai' && aiData && <AiSettingsForm initial={aiData} />}
           </div>
         </div>
       </main>
