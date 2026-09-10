@@ -904,12 +904,14 @@ git commit -m "feat: edit AI instructions and preview frozen diagnosis prompts"
 
 ### Task 10: One safe save path with optimistic concurrency and AI provenance
 
+Call-site preflight: `app/budgets/page.tsx` explicitly lists BudgetForm props, so it must pass the new baseline/targetVersion props as part of this task (not wait for Task12). Existing planning-query and page-render unit fixtures must add/mock these new reader values while preserving their canonical ceiling/month-status assertions. This is necessary wiring for the approved single-save path, not extra UI scope.
+
 Parallel execution refinement: implement/review the pure `save-contract.ts` and its unit tests ahead of server work in a separate `feat/ai-budget-draft` worktree, commit `feat: define budget save patch contract`, then let Task11 consume that real contract. This does not complete Task10: its transaction/CAS/actions/UI/integration work remains gated on Task8. No temporary stubs or concurrent owners for the contract file.
 
 **Files:**
 - Create: `src/features/budgets/save-contract.ts`, `src/features/budgets/save-service.ts`
-- Modify: `src/features/budgets/actions.ts`, `src/features/budgets/review-actions.ts`, `src/features/budgets/planning-queries.ts`, `src/features/budgets/budget-form.tsx`
-- Tests: `tests/finance/budget-save-contract.test.ts`, `tests/integration/budget-actions.test.ts`, `tests/integration/budget-recommendation-save.test.ts`
+- Modify: `src/features/budgets/actions.ts`, `src/features/budgets/review-actions.ts`, `src/features/budgets/planning-queries.ts`, `src/features/budgets/budget-form.tsx`, `src/app/budgets/page.tsx`
+- Tests: `tests/finance/budget-save-contract.test.ts`, `tests/integration/budget-actions.test.ts`, `tests/integration/budget-recommendation-save.test.ts`, `tests/finance/budget-planning.test.ts`, `tests/finance/month-status-pages.test.tsx`
 
 **Interfaces:**
 - `BudgetBaseline = { major: string; amount: number; recommendationJobId: string | null; version: string }`.
@@ -965,7 +967,7 @@ A manual saved-row edit retains existing AI origin unless user explicitly choose
 - [ ] **7. Commit.**
 
 ```bash
-git add src/features/budgets/save-contract.ts src/features/budgets/save-service.ts src/features/budgets/actions.ts src/features/budgets/review-actions.ts src/features/budgets/planning-queries.ts src/features/budgets/budget-form.tsx tests/finance/budget-save-contract.test.ts tests/integration/budget-actions.test.ts tests/integration/budget-recommendation-save.test.ts
+git add src/features/budgets/save-contract.ts src/features/budgets/save-service.ts src/features/budgets/actions.ts src/features/budgets/review-actions.ts src/features/budgets/planning-queries.ts src/features/budgets/budget-form.tsx src/app/budgets/page.tsx tests/finance/budget-save-contract.test.ts tests/integration/budget-actions.test.ts tests/integration/budget-recommendation-save.test.ts tests/finance/budget-planning.test.ts tests/finance/month-status-pages.test.tsx
 git commit -m "feat: save budget changes with conflict and provenance checks"
 ```
 
