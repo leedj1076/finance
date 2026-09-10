@@ -541,6 +541,8 @@ git commit -m "feat: build consistent budget recommendation snapshots"
 
 ### Task 5: Validate recommendations and their evidence before display
 
+Prompt ownership clarification: the sections below describe the complete resolved prompt, not a requirement to duplicate editable analysis prose inside the immutable policy. Source language/tone and exceptional-spend/true-savings/irregular-fund/reduction emphasis only from the resolved common/task instructions (defaults or explicit replacement, including empty strings). Keep fixed money, evidence, missing/provisional-data interpretation, non-invention, disclosure and output-schema rules in application policy. Changing analysis preferences must not weaken any numeric/evidence validation.
+
 **Files:**
 - Create: `src/features/budget-recommendations/report.ts`, `src/features/budget-recommendations/prompt.ts`
 - Test: `tests/finance/budget-recommendation-report.test.ts`

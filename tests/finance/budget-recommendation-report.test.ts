@@ -13,7 +13,7 @@ import type {
   BudgetRecommendationReport,
   BudgetRecommendationSnapshot,
 } from '@/features/budget-recommendations/types'
-import { renderAiPrompt } from '@/features/ai-settings/prompt'
+import { freezeAiPromptInput, renderAiPrompt, resolveAiInstructions } from '@/features/ai-settings/prompt'
 import { makeBudgetReport, makeBudgetSnapshot } from '../fixtures/budget-recommendation'
 
 const settings: AiSettingsState = {
@@ -193,6 +193,23 @@ describe('budget recommendation report validation', () => {
     })).toThrow('invalid_output')
     expect(() => parseBudgetRecommendationReport(report, { ...snapshot, asOfDate: '2026-09-11' }, promptInput)).toThrow('invalid_output')
   })
+
+  test('rejects instruction evidence from a valid frozen prompt of the wrong kind', () => {
+    const snapshot = makeBudgetSnapshot()
+    const report = makeBudgetReport()
+    const promptInput = freezeAiPromptInput(
+      resolveAiInstructions(settings, 'ledger'),
+      budgetPromptPolicy,
+      snapshot,
+    )
+    report.rows[0].references = [{
+      kind: 'instructions',
+      scope: 'common',
+      quote: promptInput.instructions.common.slice(0, 20),
+    }]
+
+    expect(() => parseBudgetRecommendationReport(report, snapshot, promptInput)).toThrow('invalid_output')
+  })
 })
 
 describe('budget recommendation prompt contract', () => {
@@ -231,5 +248,47 @@ describe('budget recommendation prompt contract', () => {
     expect(prompt).toContain('제목이나 금액의 유사성')
     expect(prompt).toContain(JSON.stringify(budgetRecommendationReportSchema))
     expect(prompt).toContain(JSON.stringify(snapshot.input.notes))
+  })
+
+  test.each([
+    {
+      label: 'custom replacements',
+      commonInstructions: '숫자 중심으로 답하세요.',
+      budgetInstructions: '고정 계약 안에서 사용자 지정 관점만 적용하세요.',
+    },
+    { label: 'explicit empty replacements', commonInstructions: '', budgetInstructions: '' },
+  ])('$label removes default analysis and style prose without weakening safeguards', ({
+    commonInstructions,
+    budgetInstructions,
+  }) => {
+    const snapshot = makeBudgetSnapshot()
+    const input = buildBudgetPromptInput(snapshot, {
+      ...settings,
+      commonInstructions,
+      budgetInstructions,
+    })
+    const prompt = renderAiPrompt(input, snapshot)
+
+    expect(prompt).not.toContain('한국어로 간결하고 구체적으로')
+    expect(prompt).not.toContain('예외 지출')
+    expect(prompt).not.toContain('실제 절약')
+    expect(prompt).not.toContain('과거의 exceptional 지출')
+    expect(prompt).not.toContain('반복 가능한 true savings')
+    expect(prompt).not.toContain('irregular 그룹')
+    expect(prompt).not.toContain('비정기 적립')
+    expect(prompt).not.toContain('sinking-fund 적립')
+
+    expect(prompt).toContain('rows.floor')
+    expect(prompt).toContain('canonical ceiling')
+    expect(prompt).toContain('closed')
+    expect(prompt).toContain('provisional')
+    expect(prompt).toContain('missing')
+    expect(prompt).toContain('incomplete')
+    expect(prompt).toContain('unclassified')
+    expect(prompt).toContain('unallocated')
+    expect(prompt).toContain('evidenceCount.provided')
+    expect(prompt).toContain('posted')
+    expect(prompt).toContain('제목이나 금액의 유사성')
+    expect(prompt).toContain(JSON.stringify(budgetRecommendationReportSchema))
   })
 })

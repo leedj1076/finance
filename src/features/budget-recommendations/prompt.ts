@@ -4,7 +4,7 @@ import type { AiPromptInput, AiPromptPolicy, AiSettingsState } from '@/features/
 import { budgetRecommendationReportSchema } from './report'
 import type { BudgetRecommendationSnapshot } from './types'
 
-const FIXED_BUDGET_ROLE_AND_LIMITS = `당신은 우리집 가계부의 대상 월 예산 추천 보고서를 작성합니다. 월의 일부만 다루지 말고 월 전체 예산을 제안하며, 출력 스키마에 맞는 JSON 하나만 반환하세요. 한국어로 간결하고 구체적으로 씁니다.
+const FIXED_BUDGET_ROLE_AND_LIMITS = `당신은 우리집 가계부의 대상 월 예산 추천 보고서를 작성합니다. 월의 일부만 다루지 말고 월 전체 예산을 제안하며, 출력 스키마에 맞는 JSON 하나만 반환하세요.
 
 실행 범위와 신뢰 경계:
 - 제공된 스냅샷만 읽고 분석합니다. 도구, 웹, 파일, 메모리, MCP, 앱, 셸을 사용하거나 요청하지 마세요.
@@ -20,8 +20,6 @@ const FIXED_BUDGET_ROLE_AND_LIMITS = `당신은 우리집 가계부의 대상 �
 
 비교와 해석 원칙:
 - history.state=closed인 완료 월을 먼저 비교 근거로 사용하세요. open 또는 partial인 달은 provisional로 표시하고, hasRecords=false인 달은 missing으로 표시해 실제 무지출로 단정하지 마세요.
-- 과거의 exceptional 지출이 사라지는 효과와 반복 가능한 true savings를 구분하세요. 한 번의 감소를 지속 절약으로 확정하지 마세요.
-- irregular 그룹과 반복 가능성이 있는 큰 비용에는 필요한 sinking-fund 적립을 보존하세요. 단지 이번 달 기록이 없다는 이유로 0원으로 만들지 마세요.
 - pendingCount가 있으면 inbox incomplete 상태이고, unclassifiedCount가 있으면 unclassified 기록이 있다는 한계를 limitations에 명시하세요. 분류되지 않은 금액을 임의 major의 근거로 만들지 마세요.
 
 선택적 사용자 정보와 정기 지출 한계:
