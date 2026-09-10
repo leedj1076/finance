@@ -156,7 +156,8 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         </header>
 
         <MonthWrapUp recurringForm={recurringApplyForm ?? <span className="t-caption text-finance-faint">내역에서 반영</span>} summary={monthClose} />
-        <MonthCloseControl allClear={showWrapUp && !monthClose.requiresAcknowledgment} key={shell.month} month={shell.month} status={monthClose} pendingCount={monthClose.pendingCount} />
+        {/* Month-scoped siblings need distinct keys, including during action revalidation. */}
+        <MonthCloseControl allClear={showWrapUp && !monthClose.requiresAcknowledgment} key={`month-close:${shell.month}`} month={shell.month} status={monthClose} pendingCount={monthClose.pendingCount} />
         {firstParam(params.notice) && <ActionNotice notice={firstParam(params.notice)} />}
 
         <div className="mt-6 flex gap-1.5 overflow-x-auto border-b border-finance-border pb-4 print:hidden">
@@ -196,7 +197,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         </div>
         </>}
 
-        {tab === 'ai' && diagnosisData && <DiagnosisPanel initialData={diagnosisData} key={shell.month} />}
+        {tab === 'ai' && diagnosisData && <DiagnosisPanel initialData={diagnosisData} key={`diagnosis:${shell.month}`} />}
         {tab === 'summary' && analysis && <LedgerSummaryPanel data={analysis} monthTotals={shell.totals} />}
         {tab === 'categories' && analysis && <LedgerCategoriesPanel data={analysis} detail={categoryDetail} filters={filters} />}
         {tab === 'merchants' && analysis && <LedgerMerchantsPanel data={analysis} filters={filters} />}

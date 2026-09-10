@@ -268,6 +268,37 @@ suite('fixture calendar keeps January rollover and sparse/current roles in separ
   ]).size).toBe(5)
 })
 
+suite('month-close panel stays singular across AI month navigation and ledger tab switches', async ({ page, household }) => {
+  await seed(household)
+  await page.goto(`/ledger?month=${CLOSE_MONTH}&tab=ai`)
+  await closeVisibleMonth(page, CLOSE_MONTH)
+
+  const panel = page.getByRole('region', { name: '월 마감 상태', exact: true })
+  await expect(panel).toHaveCount(1)
+  await expect(panel.getByRole('status')).toContainText(`${CLOSE_MONTH} 전체를 마감했습니다`)
+
+  // Client-side navigation must remove the previous month's control, not
+  // append another one when the AI panel also remounts for the selected month.
+  for (const [direction, offset] of [
+    ['이전 달', -1], ['이전 달', -2], ['다음 달', -1], ['다음 달', 0],
+  ] as const) {
+    const month = shiftMonth(CLOSE_MONTH, offset)
+    await page.getByRole('link', { name: direction, exact: true }).click()
+    await expect(page.getByLabel('조회 월', { exact: true })).toHaveValue(month)
+    await expect(panel).toHaveCount(1)
+    await expect(panel.getByRole('button')).toHaveText(`${month} ${offset === 0 ? '마감 확인 · 해제' : '월 마감'}`)
+    await expect(panel.getByRole('status')).toHaveCount(0)
+    await expect(page.getByRole('region', { name: `${Number(month.slice(5, 7))}월 AI 진단`, exact: true })).toHaveCount(1)
+  }
+
+  for (const tab of ['목록', 'AI 진단', '목록', 'AI 진단']) {
+    await page.getByRole('navigation', { name: '거래 보기' }).getByRole('link', { name: tab, exact: true }).click()
+    await expect(page.getByRole('link', { name: tab, exact: true })).toHaveAttribute('aria-current', 'page')
+    await expect(panel).toHaveCount(1)
+    await expect(panel.getByRole('button')).toHaveText(`${CLOSE_MONTH} 마감 확인 · 해제`)
+  }
+})
+
 suite('filtered ledger closes the whole month, inline edits invalidate it without reload, and reclose restores statistics', async ({ page, household }, info) => {
   suite.slow()
   const setup = await seed(household)
