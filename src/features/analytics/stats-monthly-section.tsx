@@ -149,7 +149,7 @@ export function StatsMonthlySection({
   const [chart, setChart] = useState<SeriesChartKind>(initialChart)
   const [excluded, setExcluded] = useState<Set<string>>(() => new Set())
   const [expanded, setExpanded] = useState<Set<string>>(() => (
-    new Set(highlightedMajor ? [highlightedMajor] : [details.expense.groups[0]?.major].filter(Boolean))
+    new Set(highlightedMajor ? [highlightedMajor] : [])
   ))
   const [hoverSeries, setHoverSeries] = useState<string | null>(null)
   const [hoverMonth, setHoverMonth] = useState<number | null>(null)

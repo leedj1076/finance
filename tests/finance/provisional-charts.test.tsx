@@ -151,6 +151,7 @@ test('monthly chart labels all twelve calendar columns before selection and keep
   expect(html).toContain('2월·잠정')
   expect(html).toMatch(/class="[^"]*italic[^"]*">6월·진행 중/)
   expect(html).toContain('12월')
+  expect(html).not.toContain('식비 외식 최근 추세')
   expect(captured.bars[0].datasets[0].data).toEqual([40, 60, 20, 0, null, 10, null, null, null, null, null, null])
 })
 
@@ -182,6 +183,7 @@ test.each([
     }}
     initialFlow={flow}
     initialAxis={axis}
+    highlightedMajor="식비"
   />)
 
   for (const label of [majorLabel, subLabel]) {
