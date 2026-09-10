@@ -98,12 +98,17 @@ describe('frozen diagnosis input', () => {
   it('passes enqueue-time input unchanged even if current defaults or settings change', async () => {
     const promptInput = frozenInput('설정 A')
     const job: ClaimedDiagnosisJob = { id: 'job-1', claimToken: 'claim-1', snapshot, promptInput }
-    const run = vi.fn(async () => report)
+    const changedInput = frozenInput('설정 B')
+    const run = vi.fn(async (_snapshot, options) => {
+      expect(options.promptInput).toEqual(promptInput)
+      expect(options.promptInput).not.toEqual(changedInput)
+      return report
+    })
     const rpc = { claim: async () => job, heartbeat: async () => true, finish: async () => true }
     expect(await processDiagnosisJob(job, rpc, { codexPath: '/fake', run })).toBe('completed')
     expect(run).toHaveBeenCalledWith(snapshot, expect.objectContaining({ promptInput }))
     expect(JSON.stringify(promptInput)).toContain('설정 A')
-    expect(JSON.stringify(promptInput)).not.toContain('설정 B')
+    expect(JSON.stringify(changedInput)).toContain('설정 B')
   })
 
   it('finishes a hash-invalid owned job as invalid_output without invoking the runner or legacy defaults', async () => {

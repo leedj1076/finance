@@ -16,6 +16,10 @@ class WorkerRpcError extends Error {
 
 class MissingWorkerRpcError extends WorkerRpcError {}
 
+export function isMissingWorkerRpcError(error: unknown): boolean {
+  return error instanceof MissingWorkerRpcError
+}
+
 async function boundedResponse(response: Response): Promise<unknown> {
   if (response.status === 404) throw new MissingWorkerRpcError()
   if (!response.ok || !response.body) throw new WorkerRpcError()

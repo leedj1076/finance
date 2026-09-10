@@ -719,7 +719,7 @@ git commit -m "feat: add isolated budget recommendation queue and provenance"
 ### Task 7: One hardened Mac worker, two fair job queues
 
 **Files:**
-- Create: `src/features/diagnosis/structured-runner.ts`, `src/features/diagnosis/worker-rpc.ts`, `src/features/budget-recommendations/codex-runner.ts`, `src/features/budget-recommendations/worker.ts`
+- Create: `src/features/diagnosis/structured-runner.ts`, `src/features/diagnosis/worker-rpc.ts`, `src/features/diagnosis/lease-job.ts`, `src/features/budget-recommendations/codex-runner.ts`, `src/features/budget-recommendations/worker.ts`
 - Modify: `src/features/diagnosis/codex-runner.ts`, `src/features/diagnosis/worker.ts`, `src/features/diagnosis/types.ts`, `scripts/diagnosis-worker.ts`
 - Tests: `tests/finance/budget-recommendation-worker.test.ts`, `tests/finance/budget-recommendation-runner.test.ts`, `tests/finance/ai-prompt-worker.test.ts`; keep all existing diagnosis runner/worker tests
 - Modify fixture only: `tests/finance/diagnosis-worker.test.ts` foreground-script local RPC server must recognize `claim_configured_diagnosis_job`; retain its legacy adapter coverage and all outcome/security assertions. Unknown-RPC boolean responses are not valid configured claims and must not trigger a production fallback.
@@ -785,7 +785,7 @@ Maintain prompt presence through `heartbeat_ai_worker` on startup and every30s d
 - [ ] **6. Commit.**
 
 ```bash
-git add src/features/diagnosis/structured-runner.ts src/features/diagnosis/worker-rpc.ts src/features/diagnosis/codex-runner.ts src/features/diagnosis/worker.ts src/features/diagnosis/types.ts src/features/budget-recommendations/codex-runner.ts src/features/budget-recommendations/worker.ts scripts/diagnosis-worker.ts tests/finance/budget-recommendation-worker.test.ts tests/finance/budget-recommendation-runner.test.ts tests/finance/ai-prompt-worker.test.ts tests/finance/diagnosis-worker.test.ts docs/superpowers/plans/2026-09-10-ai-budget-planning.md
+git add src/features/diagnosis/structured-runner.ts src/features/diagnosis/worker-rpc.ts src/features/diagnosis/lease-job.ts src/features/diagnosis/codex-runner.ts src/features/diagnosis/worker.ts src/features/diagnosis/types.ts src/features/budget-recommendations/codex-runner.ts src/features/budget-recommendations/worker.ts scripts/diagnosis-worker.ts tests/finance/budget-recommendation-worker.test.ts tests/finance/budget-recommendation-runner.test.ts tests/finance/ai-prompt-worker.test.ts tests/finance/diagnosis-worker.test.ts docs/superpowers/plans/2026-09-10-ai-budget-planning.md
 git commit -m "feat: process budget and ledger AI jobs with one worker"
 ```
 

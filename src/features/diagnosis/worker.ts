@@ -4,8 +4,14 @@ import { isAbsolute } from 'node:path'
 import { parseAiPromptInput } from '@/features/ai-settings/prompt'
 import { createBudgetRpcClient, processBudgetJob, type BudgetRpcClient } from '@/features/budget-recommendations/worker'
 import { getDiagnosisErrorCode, runCodexDiagnosis, type CodexDiagnosisOptions } from './codex-runner'
+import { processLeaseJob } from './lease-job'
 import { DiagnosisRunnerError } from './structured-runner'
-import { createConfiguredDiagnosisRpcClient, createWorkerRpcCaller, type ConfiguredDiagnosisRpcClient } from './worker-rpc'
+import {
+  createConfiguredDiagnosisRpcClient,
+  createWorkerRpcCaller,
+  isMissingWorkerRpcError,
+  type ConfiguredDiagnosisRpcClient,
+} from './worker-rpc'
 import type { ClaimedDiagnosisJob, DiagnosisErrorCode, DiagnosisReport, DiagnosisSnapshot } from './types'
 
 export { createConfiguredDiagnosisRpcClient }
@@ -129,58 +135,24 @@ function validDiagnosisSnapshot(snapshot: unknown): snapshot is DiagnosisSnapsho
 }
 
 export async function processDiagnosisJob(job: ClaimedDiagnosisJob, rpc: DiagnosisRpcClient, options: DiagnosisJobOptions): Promise<'completed' | 'failed' | 'lease_lost'> {
-  const controller = new AbortController()
-  const stop = () => controller.abort()
-  options.signal?.addEventListener('abort', stop, { once: true })
-  if (options.signal?.aborted) stop()
-  let active = true
-  let leaseLost = false
-  let timer: ReturnType<typeof setTimeout> | undefined
-  let heartbeat: Promise<void> | undefined
-  const scheduleHeartbeat = () => {
-    timer = setTimeout(() => {
-      heartbeat = rpc.heartbeat(job).then(valid => {
-        if (!valid) { leaseLost = true; controller.abort() }
-      }).catch(() => {
-        // With uncertain ownership, stop computing and let the durable lease expire.
-        leaseLost = true
-        controller.abort()
-      }).finally(() => {
-        if (active && !leaseLost) scheduleHeartbeat()
+  return processLeaseJob(job, rpc, {
+    signal: options.signal,
+    heartbeatMs: options.heartbeatMs,
+    execute: async (signal) => {
+      if (!validDiagnosisSnapshot(job.snapshot)) throw new DiagnosisRunnerError('invalid_output')
+      if (Object.hasOwn(job, 'promptInput') && job.promptInput === undefined) {
+        throw new DiagnosisRunnerError('invalid_output')
+      }
+      if (job.promptInput != null) parseAiPromptInput(job.promptInput, 'ledger', job.snapshot)
+      return (options.run ?? runCodexDiagnosis)(job.snapshot, {
+        codexPath: options.codexPath, model: options.model, timeoutMs: options.timeoutMs,
+        signal, promptInput: job.promptInput,
       })
-    }, options.heartbeatMs ?? 30_000)
-  }
-  scheduleHeartbeat()
-  let report: DiagnosisReport | null = null
-  let code: DiagnosisErrorCode | null = null
-  try {
-    if (!validDiagnosisSnapshot(job.snapshot)) throw new DiagnosisRunnerError('invalid_output')
-    if (Object.hasOwn(job, 'promptInput') && job.promptInput === undefined) {
-      throw new DiagnosisRunnerError('invalid_output')
-    }
-    if (job.promptInput != null) parseAiPromptInput(job.promptInput, 'ledger', job.snapshot)
-    report = await (options.run ?? runCodexDiagnosis)(job.snapshot, { codexPath: options.codexPath,
-      model: options.model, timeoutMs: options.timeoutMs, signal: controller.signal,
-      promptInput: job.promptInput })
-  } catch (error) {
-    code = options.signal?.aborted ? 'worker_stopped'
-      : error instanceof Error && error.message === 'invalid_ai_prompt' ? 'invalid_output'
-        : getDiagnosisErrorCode(error)
-  } finally {
-    active = false
-    clearTimeout(timer)
-    await heartbeat
-    options.signal?.removeEventListener('abort', stop)
-  }
-  if (leaseLost) return 'lease_lost'
-  try {
-    if (!await rpc.heartbeat(job)) return 'lease_lost'
-  } catch {
-    return 'lease_lost'
-  }
-  if (options.signal?.aborted) { report = null; code = 'worker_stopped' }
-  const completed = await rpc.finish(job, report, code)
-  return completed ? (code ? 'failed' : 'completed') : 'lease_lost'
+    },
+    errorCode: (error) => error instanceof Error && error.message === 'invalid_ai_prompt'
+      ? 'invalid_output'
+      : getDiagnosisErrorCode(error),
+  })
 }
 
 function delay(ms: number, signal?: AbortSignal) {
@@ -294,7 +266,21 @@ export async function runFinanceWorker(config: DiagnosisWorkerConfig, options: {
             preferred = 'budget'
             break
           }
-          const job = await budgetRpc.claim()
+          let job
+          try {
+            job = await budgetRpc.claim()
+          } catch (error) {
+            if (isMissingWorkerRpcError(error)) {
+              budgetAvailable = false
+              if (!budgetSetupLogged) {
+                options.log?.('budget_setup_required')
+                budgetSetupLogged = true
+              }
+            } else {
+              options.log?.('rpc_failed')
+            }
+            continue
+          }
           if (!job) continue
           processed = true
           options.log?.('started', job.id)

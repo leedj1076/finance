@@ -176,6 +176,86 @@ describe('fair unified finance worker', () => {
     expect(maximumActive).toBe(1)
   })
 
+  it('continues to diagnosis when a preferred budget claim fails generically', async () => {
+    const controller = new AbortController()
+    const started: string[] = []
+    const logs: string[] = []
+    const diagnosisJobs: ClaimedDiagnosisJob[] = ['D1', 'D2'].map((id) => ({
+      id, claimToken: `claim-${id}`, snapshot: diagnosisSnapshot,
+    }))
+    let budgetClaims = 0
+    const diagnosisRpc = {
+      presence: async () => true,
+      claim: async () => diagnosisJobs.shift() ?? null,
+      heartbeat: async () => true, finish: async () => true,
+    }
+    const budgetRpc = {
+      presence: async () => true,
+      claim: async () => {
+        budgetClaims += 1
+        if (budgetClaims === 2) controller.abort()
+        throw new Error('network detail')
+      },
+      heartbeat: async () => true, finish: async () => true,
+    }
+
+    await runFinanceWorker(config, { signal: controller.signal, pollMs: 1, diagnosisRpc, budgetRpc,
+      diagnosisRun: async () => diagnosisReport,
+      log: (event, jobId) => {
+        logs.push(event)
+        if (event === 'started' && jobId) started.push(jobId)
+        if (event === 'completed' && jobId === 'D2') controller.abort()
+      },
+    })
+
+    expect(started).toEqual(['D1', 'D2'])
+    expect(budgetClaims).toBe(1)
+    expect(logs).toContain('rpc_failed')
+    expect(logs).not.toContain('budget_setup_required')
+  })
+
+  it('continues to diagnosis after a missing budget claim and recovers budget availability', async () => {
+    const controller = new AbortController()
+    const started: string[] = []
+    const logs: string[] = []
+    const diagnosisJobs: ClaimedDiagnosisJob[] = ['D1', 'D2'].map((id) => ({
+      id, claimToken: `claim-${id}`, snapshot: diagnosisSnapshot,
+    }))
+    let budgetClaims = 0
+    const diagnosisRpc = {
+      presence: async () => true,
+      claim: async () => diagnosisJobs.shift() ?? null,
+      heartbeat: async () => true, finish: async () => true,
+    }
+    const budgetRpc = createBudgetRpcClient(config, async (input) => {
+      const name = String(input).split('/').at(-1)
+      if (name === 'heartbeat_budget_worker') return new Response('true')
+      if (name === 'claim_budget_recommendation_job') {
+        budgetClaims += 1
+        return budgetClaims === 1
+          ? new Response('{}', { status: 404 })
+          : new Response(JSON.stringify(budgetJob('B1')))
+      }
+      if (name === 'heartbeat_budget_recommendation_job'
+        || name === 'finish_budget_recommendation_job') return new Response('true')
+      throw new Error('unexpected budget RPC')
+    })
+
+    await runFinanceWorker(config, { signal: controller.signal, pollMs: 1, diagnosisRpc, budgetRpc,
+      diagnosisRun: async () => diagnosisReport,
+      budgetRun: async () => makeBudgetReport(),
+      log: (event, jobId) => {
+        logs.push(event)
+        if (event === 'started' && jobId) started.push(jobId)
+        if (event === 'completed' && started.length === 3) controller.abort()
+      },
+    })
+
+    expect(started).toEqual(['D1', 'D2', 'B1'])
+    expect(budgetClaims).toBe(2)
+    expect(logs).toContain('budget_setup_required')
+  })
+
   it('keeps diagnosis available when the additive budget RPC is missing', async () => {
     const logs: string[] = []
     const diagnosisRpc = {
