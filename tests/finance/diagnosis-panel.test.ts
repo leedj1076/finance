@@ -27,7 +27,7 @@ const snapshot: DiagnosisSnapshot = {
 function page(overrides: Partial<DiagnosisPageData> = {}): DiagnosisPageData {
   return {
     month: '2026-07', currentSnapshot: snapshot, latestJob: null, completed: null,
-    isStale: false, workerOnline: true, setupRequired: false, ...overrides,
+    isStale: false, workerOnline: true, setupRequired: false, instructionsChanged: false, promptSetupRequired: false, ...overrides,
   }
 }
 function complete(overrides: Partial<DiagnosisPageData> = {}): DiagnosisPageData {

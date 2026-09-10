@@ -2,12 +2,12 @@ import type { DiagnosisPageData } from './types'
 
 const REQUEST_ERROR = '진단 상태를 불러오지 못했어요.'
 
-export async function requestDiagnosisPageData(month: string, method: 'GET' | 'POST', signal: AbortSignal): Promise<DiagnosisPageData> {
+export async function requestDiagnosisPageData(month: string, method: 'GET' | 'POST', signal: AbortSignal, requestId?: string): Promise<DiagnosisPageData> {
   const response = await fetch(`/api/diagnosis?month=${encodeURIComponent(month)}`, {
     method,
     cache: 'no-store',
     signal,
-    ...(method === 'POST' ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ month }) } : {}),
+    ...(method === 'POST' ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ month, ...(requestId === undefined ? {} : { requestId }) }) } : {}),
   })
   const result: unknown = await response.json().catch(() => { throw new Error(REQUEST_ERROR) })
   if (!result || typeof result !== 'object') throw new Error(REQUEST_ERROR)

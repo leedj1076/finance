@@ -29,7 +29,8 @@ function assertSafeAmounts(values: number[]) {
 }
 
 function assertSnapshotAmounts(snapshot: Pick<BudgetRecommendationSnapshot,
-  'basis' | 'current' | 'rows' | 'history' | 'recurring' | 'evidence' | 'input'>) {
+  'basis' | 'current' | 'rows' | 'history' | 'recurring' | 'evidence' | 'input' | 'budgetState'>) {
+  assertSafeAmounts([...snapshot.budgetState.current, ...snapshot.budgetState.previous].map(row => row.amount))
   assertSafeAmounts([snapshot.basis.averageIncome, snapshot.basis.spendCeiling, ...Object.values(snapshot.current)])
   for (const row of snapshot.rows) {
     assertSafeAmounts([row.savedAmount, row.actual, row.unpostedRecurring, row.planned, row.floor,
@@ -227,8 +228,6 @@ export async function readBudgetSnapshot(
   })
   const pendingCount = Number(pendingRows[0].count)
   const unclassifiedCount = Number(unclassifiedRows[0].count)
-  assertSnapshotAmounts({ basis, current, rows, history, recurring: recurringRows,
-    evidence: [...largestEvidence, ...recentEvidence], input })
   const sourceHash = hashBudgetPayload({ month, asOfDate, basis, rangeDigest, incomeBasisDigest,
     categories: categoryRows, metadata, dueRules, postings, recurring: recurringRows, statuses, pendingCount, unclassifiedCount })
   const effectiveBudget = (target: string, major: string) => {
@@ -236,17 +235,18 @@ export async function readBudgetSnapshot(
       ?? budgetRows.find(row => row.month === '*' && row.major === major)
     return { major, amount: saved?.amount ?? 0, sourceMonth: saved?.month ?? null, recommendationJobId: saved?.recommendationJobId ?? null }
   }
-  const budgetHash = hashBudgetPayload({ month,
+  const budgetState = { month,
     current: rows.map(row => effectiveBudget(month, row.major)),
     previous: rows.map(row => effectiveBudget(shiftMonth(month, -1), row.major)),
-  })
+  }
+  const budgetHash = hashBudgetPayload(budgetState)
   // Construct a fresh input so a requestId supplied structurally by a caller is never hashed.
   const sortedInput: BudgetInput = { month, notes: input.notes,
     plannedExpenses: [...input.plannedExpenses].sort((a, b) => compareText(a.id, b.id)),
     draftAmounts: [...input.draftAmounts].sort((a, b) => compareText(a.major, b.major)) }
   const fingerprint = hashBudgetPayload({ sourceHash, budgetHash, notes: sortedInput.notes,
     plannedExpenses: sortedInput.plannedExpenses, unsavedDraft: { kind: 'unsaved', amounts: sortedInput.draftAmounts } })
-  return boundBudgetEvidence({ version: 1, month, asOfDate, sourceHash, budgetHash, fingerprint, input: sortedInput,
+  return boundBudgetEvidence({ version: 1, month, asOfDate, sourceHash, budgetHash, budgetState, fingerprint, input: sortedInput,
     basis, current, rows, history, recurring: recurringRows,
     evidence: [...largestEvidence, ...recentEvidence],
     evidenceCount: { total: safeBudgetSum(aggregates.map(row => Number(row.count))), provided: 0 }, pendingCount, unclassifiedCount })

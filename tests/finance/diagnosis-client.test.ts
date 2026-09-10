@@ -9,6 +9,15 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
 
 describe('diagnosis client requests', () => {
+  test('carries one explicit request ID in POST only', async () => {
+    const fetcher = vi.fn().mockImplementation(async () => response(waiting))
+    vi.stubGlobal('fetch', fetcher)
+    const requestId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    await requestDiagnosisPageData('2026-07', 'POST', new AbortController().signal, requestId)
+    expect(JSON.parse(fetcher.mock.calls[0][1].body)).toEqual({ month: '2026-07', requestId })
+    await requestDiagnosisPageData('2026-07', 'GET', new AbortController().signal, requestId)
+    expect(fetcher.mock.calls[1][1].body).toBeUndefined()
+  })
   test('posts only the chosen month and rejects a response for another month', async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(response(waiting)).mockResolvedValueOnce(response({ ...waiting, month: '2026-06' }))
     vi.stubGlobal('fetch', fetcher)

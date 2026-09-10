@@ -57,7 +57,10 @@ export async function POST(request: Request): Promise<Response> {
     if (!household) return response({ error: '가족 가계부에 연결된 계정으로 로그인해주세요.' }, 401)
     if (request.headers.get('Origin') !== new URL(request.url).origin) return response({ error: '가계부 화면에서 다시 요청해주세요.' }, 403)
     const body = await readBody(request)
-    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length !== 1 || !('month' in body) || !validMonth(body.month)) return response({ error: '진단할 월을 확인해주세요.' }, 400)
-    return response(await requestDiagnosis(household.householdId, household.userId, body.month))
+    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(key => !['month', 'requestId'].includes(key)) || !('month' in body) || !validMonth(body.month)
+      || ('requestId' in body && (typeof body.requestId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.requestId)))) return response({ error: '진단할 월을 확인해주세요.' }, 400)
+    return response(await ('requestId' in body
+      ? requestDiagnosis(household.householdId, household.userId, body.month, body.requestId as string)
+      : requestDiagnosis(household.householdId, household.userId, body.month)))
   } catch (error) { return failure(error) }
 }

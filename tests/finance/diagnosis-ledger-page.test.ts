@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const loaders = vi.hoisted(() => ({
-  diagnosis: vi.fn(async () => ({ month: '2026-07' })),
+  diagnosis: vi.fn(async () => ({ month: '2026-07', instructionsChanged: false, promptSetupRequired: false })),
   analysis: vi.fn(async () => ({})),
   categories: vi.fn(async () => ({})),
   list: vi.fn(async () => ({ rows: [], truncated: false })),

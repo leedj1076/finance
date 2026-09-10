@@ -36,12 +36,20 @@ export type BudgetEvidence = {
   merchant: string
 }
 
+export type EffectiveBudgetState = {
+  major: string
+  amount: number
+  sourceMonth: string | null
+  recommendationJobId: string | null
+}
+
 export type BudgetRecommendationSnapshot = {
   version: 1
   month: string
   asOfDate: string
   sourceHash: string
   budgetHash: string
+  budgetState: { month: string; current: EffectiveBudgetState[]; previous: EffectiveBudgetState[] }
   fingerprint: string
   input: BudgetInput
   basis: {

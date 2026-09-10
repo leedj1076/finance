@@ -4,6 +4,9 @@ export function makeBudgetSnapshot(): BudgetRecommendationSnapshot {
   return {
     version: 1, month: '2026-09', asOfDate: '2026-09-10',
     sourceHash: 'a'.repeat(64), budgetHash: 'b'.repeat(64), fingerprint: 'c'.repeat(64),
+    budgetState: { month: '2026-09',
+      current: [{ major: '식비', amount: 350_000, sourceMonth: '*', recommendationJobId: null }],
+      previous: [{ major: '식비', amount: 350_000, sourceMonth: '*', recommendationJobId: null }] },
     input: { month: '2026-09', notes: '', plannedExpenses: [], draftAmounts: [] },
     basis: { averageIncome: 1_000_000, savingsTarget: 30, spendCeiling: 700_000,
       incomeStart: '2026-01-01', incomeEnd: '2026-09-01', incomeMonthCount: 8 },

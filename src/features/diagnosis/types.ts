@@ -84,11 +84,14 @@ export type DiagnosisPageData = {
     completedAt: string
     snapshot: DiagnosisSnapshot
     report: DiagnosisReport
+    promptInput?: AiPromptInput | null
   } | null
   currentSnapshot: DiagnosisSnapshot
   isStale: boolean
   workerOnline: boolean
   setupRequired: boolean
+  instructionsChanged: boolean
+  promptSetupRequired: boolean
 }
 
 export type ClaimedDiagnosisJob = {
@@ -96,3 +99,4 @@ export type ClaimedDiagnosisJob = {
   claimToken: string
   snapshot: DiagnosisSnapshot
 }
+import type { AiPromptInput } from '@/features/ai-settings/types'

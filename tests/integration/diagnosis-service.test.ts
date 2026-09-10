@@ -1,10 +1,12 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
 import postgres from 'postgres'
-import { afterAll, afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { db } from '@/db/client'
 
 import { getDiagnosisPageData, getDiagnosisSnapshot, requestDiagnosis } from '@/features/diagnosis/queries'
 import type { ClaimedDiagnosisJob, DiagnosisReport, DiagnosisSnapshot } from '@/features/diagnosis/types'
+import type { AiPromptInput } from '@/features/ai-settings/types'
 
 const databaseUrl = process.env.DATABASE_URL!
 for (const value of [databaseUrl, process.env.NEXT_PUBLIC_SUPABASE_URL!]) {
@@ -23,8 +25,8 @@ async function fixture(label: string): Promise<Fixture> {
   householdIds.push(household.id)
   const token = randomBytes(32).toString('hex')
   const [worker] = await raw`
-    insert into diagnosis_workers (household_id, token_hash, label)
-    values (${household.id}, ${createHash('sha256').update(token).digest('hex')}, 'Service test') returning id
+    insert into diagnosis_workers (household_id, token_hash, label, prompt_protocol_version, prompt_last_seen_at)
+    values (${household.id}, ${createHash('sha256').update(token).digest('hex')}, 'Service test', 1, now()) returning id
   `
   const categoryRows = await raw`
     insert into categories (household_id, kind, major, sub) values
@@ -63,7 +65,7 @@ function report(owner = a): DiagnosisReport {
 }
 
 async function claim(owner = a): Promise<ClaimedDiagnosisJob> {
-  const [row] = await raw`select public.claim_diagnosis_job(${owner.token}) as result`
+  const [row] = await raw`select public.claim_configured_diagnosis_job(${owner.token}) as result`
   expect(row.result).not.toBeNull()
   return row.result
 }
@@ -89,12 +91,116 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  vi.restoreAllMocks()
   if (householdIds.length) await raw`delete from households where id in ${raw(householdIds)}`
   householdIds.splice(0)
 })
 afterAll(async () => { await raw.end() })
 
 describe('monthly diagnosis service', () => {
+  test('normal GET chooses most recent valid completion independently from newest creation', async () => {
+    const first = await completedReport()
+    const second = await completedReport()
+    await raw`update diagnosis_jobs set completed_at = now() + interval '1 second' where id = ${first.id}`
+    const state = await getDiagnosisPageData(a.householdId, '2026-07')
+    expect(state.latestJob).toMatchObject({ id: second.id, status: 'completed' })
+    expect(state.completed?.id).toBe(first.id)
+  })
+  test.each(['23505', '40001'])('wrapped %s recovery remains anchored to completed request A', async code => {
+    const requestId = randomUUID()
+    await requestDiagnosis(a.householdId, a.userId, '2026-07', requestId)
+    const first = await claim()
+    await finish(first)
+    await completedReport()
+    vi.spyOn(db, 'transaction').mockRejectedValueOnce(Object.assign(new Error('wrapped'), { cause: { code } }))
+    const retry = await requestDiagnosis(a.householdId, a.userId, '2026-07', requestId)
+    expect(retry.latestJob?.id).toBe(first.id)
+    expect(retry.completed?.id).toBe(first.id)
+    expect(retry.completed?.snapshot).toEqual(first.snapshot)
+  })
+  test('same explicit UUID deduplicates concurrent requests', async () => {
+    const requestId = randomUUID()
+    const states = await Promise.all(Array.from({ length: 3 }, () => requestDiagnosis(a.householdId, a.userId, '2026-07', requestId)))
+    expect(new Set(states.map(state => state.latestJob?.id)).size).toBe(1)
+    expect((await raw`select id from diagnosis_jobs where household_id = ${a.householdId}`)).toHaveLength(1)
+  })
+  test('same UUID expiration retains original input and only its preceding result', async () => {
+    const preceding = await completedReport()
+    const requestId = randomUUID()
+    await requestDiagnosis(a.householdId, a.userId, '2026-07', requestId)
+    const running = await claim()
+    await raw`update diagnosis_jobs set lease_expires_at = now() - interval '1 second' where id = ${running.id}`
+    const failed = await requestDiagnosis(a.householdId, a.userId, '2026-07', requestId)
+    expect(failed.latestJob).toMatchObject({ id: running.id, status: 'failed', errorCode: 'lease_expired' })
+    await completedReport()
+    const retry = await requestDiagnosis(a.householdId, a.userId, '2026-07', requestId)
+    expect(retry.latestJob?.id).toBe(running.id)
+    expect(retry.completed?.id).toBe(preceding.id)
+    expect((await raw`select snapshot from diagnosis_jobs where id = ${running.id}`)[0].snapshot).toEqual(running.snapshot)
+  })
+  test('budget-only edits do not stale ledger instructions, common and ledger edits do', async () => {
+    await raw`insert into ai_diagnosis_settings (household_id, revision, updated_by) values (${a.householdId}, 1, ${a.userId})`
+    await completedReport()
+    await raw`update ai_diagnosis_settings set budget_instructions = 'budget preference', revision = 2 where household_id = ${a.householdId}`
+    expect((await getDiagnosisPageData(a.householdId, '2026-07')).instructionsChanged).toBe(false)
+    await raw`update ai_diagnosis_settings set ledger_instructions = 'ledger preference', revision = 3 where household_id = ${a.householdId}`
+    const changed = await getDiagnosisPageData(a.householdId, '2026-07')
+    expect(changed.instructionsChanged).toBe(true)
+    expect(changed.isStale).toBe(false)
+    await raw`update ai_diagnosis_settings set ledger_instructions = null, common_instructions = 'common preference', revision = 4 where household_id = ${a.householdId}`
+    expect((await getDiagnosisPageData(a.householdId, '2026-07')).instructionsChanged).toBe(true)
+  })
+  test('legacy null-prompt results remain displayable without backfilling current instructions', async () => {
+    const snapshot = await getDiagnosisSnapshot(a.householdId, '2026-07')
+    const [legacy] = await raw`insert into diagnosis_jobs (household_id, month, snapshot, fingerprint, requested_by, report, status, completed_at)
+      values (${a.householdId}, '2026-07', ${raw.json(snapshot)}, ${'a'.repeat(64)}, ${a.userId}, ${raw.json(report())}, 'completed', now()) returning id`
+    const page = await getDiagnosisPageData(a.householdId, '2026-07')
+    expect(page.completed).toMatchObject({ id: legacy.id, promptInput: null })
+    expect(page.instructionsChanged).toBe(false)
+    expect((await raw`select prompt_input from diagnosis_jobs where id = ${legacy.id}`)[0].prompt_input).toBeNull()
+  })
+  test('allowlisted prompt schema rollout preserves historical ledger access, unrelated failures propagate', async () => {
+    const legacy = await completedReport()
+    const missing = Object.assign(new Error('wrapped'), { cause: { code: '42703', message: 'column "prompt_input" does not exist' } })
+    vi.spyOn(db, 'transaction').mockRejectedValueOnce(missing)
+    const page = await getDiagnosisPageData(a.householdId, '2026-07')
+    expect(page.completed?.id).toBe(legacy.id)
+    expect(page.promptSetupRequired).toBe(true)
+    const unexpected = Object.assign(new Error('wrapped'), { cause: { code: '42P01', message: 'relation "transactions" does not exist' } })
+    vi.spyOn(db, 'transaction').mockRejectedValueOnce(unexpected)
+    await expect(getDiagnosisPageData(a.householdId, '2026-07')).rejects.toBe(unexpected)
+  })
+  test('explicit retries preserve frozen A after settings and later requests change', async () => {
+    const requestId = randomUUID()
+    await raw`insert into ai_diagnosis_settings (household_id, common_instructions, revision, updated_by) values (${a.householdId}, 'A', 1, ${a.userId})`
+    const first = await requestDiagnosis(a.householdId, a.userId, '2026-07', requestId)
+    await raw`update ai_diagnosis_settings set common_instructions = 'B', revision = 2 where household_id = ${a.householdId}`
+    const claimed = await claim() as ClaimedDiagnosisJob & { promptInput: AiPromptInput }
+    expect(claimed.promptInput.instructions.common).toBe('A')
+    await finish(claimed)
+    await completedReport()
+    const retry = await requestDiagnosis(a.householdId, a.userId, '2026-07', requestId)
+    expect(retry.latestJob?.id).toBe(first.latestJob?.id)
+    expect(retry.completed?.id).toBe(first.latestJob?.id)
+    expect(retry.completed?.promptInput?.instructions.common).toBe('A')
+    expect(retry.instructionsChanged).toBe(true)
+    expect(retry.isStale).toBe(false)
+  })
+  test('explicit UUID month mismatch and another active intent reject without updates', async () => {
+    const requestId = randomUUID()
+    const first = await requestDiagnosis(a.householdId, a.userId, '2026-07', requestId)
+    const [before] = await raw`select * from diagnosis_jobs where id = ${first.latestJob!.id}`
+    await expect(requestDiagnosis(a.householdId, a.userId, '2026-06', requestId)).rejects.toMatchObject({ status: 409 })
+    await expect(requestDiagnosis(a.householdId, a.userId, '2026-07', randomUUID())).rejects.toMatchObject({ status: 409 })
+    expect((await raw`select * from diagnosis_jobs where id = ${first.latestJob!.id}`)[0]).toEqual(before)
+  })
+  test('never-capable workers block new requests while previously capable offline workers may queue', async () => {
+    await raw`update diagnosis_workers set prompt_protocol_version = 0, prompt_last_seen_at = null where id = ${a.workerId}`
+    expect((await getDiagnosisPageData(a.householdId, '2026-07')).promptSetupRequired).toBe(true)
+    await expect(requestDiagnosis(a.householdId, a.userId, '2026-07')).rejects.toMatchObject({ status: 409 })
+    await raw`update diagnosis_workers set prompt_protocol_version = 1, prompt_last_seen_at = now() - interval '10 minutes' where id = ${a.workerId}`
+    expect((await requestDiagnosis(a.householdId, a.userId, '2026-07')).latestJob?.status).toBe('queued')
+  })
   test('loads the whole selected month across accounts and fixed flags, with only three prior months', async () => {
     await raw`
       insert into transactions (household_id, date, flow, amount, category_id) values

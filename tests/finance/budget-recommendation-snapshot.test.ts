@@ -52,10 +52,18 @@ test('payload hashing is SHA256 of canonical nested object JSON', () => {
   expect(hashBudgetPayload({ a: 1, b: 2 })).toBe(hashBudgetPayload({ b: 2, a: 1 }))
 })
 
+test('baseline fields count toward the aggregate byte limit', () => {
+  const snapshot = makeBudgetSnapshot()
+  snapshot.budgetState.current[0].major = '가'.repeat(400_000)
+  expect(() => boundBudgetEvidence(snapshot)).toThrow('input_too_large')
+})
+
 test.each<[string, (s: BudgetRecommendationSnapshot, value: number) => void]>([
   ['canonical income', (s, value) => { s.basis.averageIncome = value }],
   ['canonical ceiling', (s, value) => { s.basis.spendCeiling = value }],
   ['saved budget', (s, value) => { s.rows[0].savedAmount = value }],
+  ['current baseline', (s, value) => { s.budgetState.current[0].amount = value }],
+  ['previous baseline', (s, value) => { s.budgetState.previous[0].amount = value }],
   ['previous budget', (s, value) => { s.rows[0].previousBudget = value }],
   ['previous actual', (s, value) => { s.rows[0].previousActual = value }],
   ['historical average', (s, value) => { s.rows[0].average = value }],

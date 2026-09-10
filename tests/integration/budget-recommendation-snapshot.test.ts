@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, test } from 'vitest'
 
 import { db } from '@/db/client'
 import { budgets, categories, categoryMeta, households, importInbox, ledgerMonths, recurring, settings, transactions } from '@/db/schema'
-import { readBudgetSnapshot } from '@/features/budget-recommendations/snapshot'
+import { hashBudgetPayload, readBudgetSnapshot } from '@/features/budget-recommendations/snapshot'
 import type { BudgetInput } from '@/features/budget-recommendations/types'
 import { readBudgetData } from '@/features/budgets/queries'
 
@@ -87,6 +87,14 @@ beforeEach(async () => {
 
 afterEach(async () => {
   for (const id of [own, foreign].filter(Boolean)) await db.delete(households).where(eq(households.id, id))
+})
+
+test('persists the exact current and previous effective tuples already used by budgetHash', async () => {
+  const snapshot = await db.transaction(tx => readBudgetSnapshot(tx, own, input, now), { isolationLevel: 'repeatable read' })
+  expect(snapshot.budgetState).toEqual({ month: '2026-09',
+    current: [{ major: '식비', amount: 250_000, sourceMonth: '2026-09', recommendationJobId: null }],
+    previous: [{ major: '식비', amount: 180_000, sourceMonth: '2026-08', recommendationJobId: null }] })
+  expect(snapshot.budgetHash).toBe(hashBudgetPayload(snapshot.budgetState))
 })
 
 function snapshot(value = input, clock = now) {
