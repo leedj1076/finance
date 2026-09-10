@@ -175,7 +175,7 @@ export async function readBudgetSnapshot(
     const dueDate = recurringPostingDate(input.month, rule.day)
     const date = rule.adjustToBusinessDay ? await previousKoreanBusinessDay(dueDate) : dueDate
     const category = rule.categoryId === null ? undefined : categoryById.get(rule.categoryId)
-    return { id: rule.id, major: category?.kind === 'expense' ? category.major : null,
+    return { id: rule.id, major: category?.kind === 'expense' && !category.hidden ? category.major : null,
       amount: rule.amount, date, posted: postedIds.has(rule.id), memo: recurringMemo(rule, month) ?? '' }
   }))
   const basis = {

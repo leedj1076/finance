@@ -121,6 +121,30 @@ test('due expense obligations include overdue/final occurrence, business date an
   expect(next.recurring.some(row => row.id === finalRule)).toBe(false)
 })
 
+test('hidden recurring subcategory sharing an active major reserves only unallocated funds until explicitly posted', async () => {
+  const [hiddenFood] = await db.select().from(categories).where(and(
+    eq(categories.householdId, own), eq(categories.major, '식비'), eq(categories.hidden, true),
+  ))
+  const [rule] = await db.insert(recurring).values({
+    householdId: own, flow: 'expense', categoryId: hiddenFood.id, amount: 35_000, day: 2,
+  }).returning()
+  const unposted = await snapshot()
+  expect(unposted.current.unallocatedRecurring).toBe(65_000)
+  expect(unposted.rows[0]).toMatchObject({ major: '식비', unpostedRecurring: 55_000, floor: 160_000 })
+  expect(unposted.recurring.find(row => row.id === rule.id)).toMatchObject({
+    major: null, amount: 35_000, date: '2026-09-02', posted: false,
+  })
+
+  await db.insert(transactions).values({
+    householdId: own, date: '2026-10-02', flow: 'expense', categoryId: hiddenFood.id,
+    amount: 35_000, recurringId: rule.id, importUid: `recurring:${rule.id}:2026-09`,
+  })
+  const posted = await snapshot()
+  expect(posted.current.unallocatedRecurring).toBe(30_000)
+  expect(posted.rows[0]).toMatchObject({ major: '식비', unpostedRecurring: 55_000, floor: 160_000 })
+  expect(posted.recurring.find(row => row.id === rule.id)).toMatchObject({ major: null, amount: 35_000, posted: true })
+})
+
 test('six calendar months distinguish missing open, closed zero, sparse records and the current partial month', async () => {
   const s = await snapshot()
   expect(s.history.map(row => row.month)).toEqual(['2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08'])
