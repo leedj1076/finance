@@ -230,3 +230,28 @@ test('supplied repeatable-read reader preserves one snapshot despite concurrent 
 test('planned costs cannot target a hidden major', async () => {
   await expect(snapshot({ ...input, plannedExpenses: [{ ...input.plannedExpenses[0], major: '숨김' }] })).rejects.toThrow()
 })
+
+test.each(['2026-09', '*', '2026-08'])('rejects unsafe saved/effective budget from %s', async month => {
+  await db.update(budgets).set({ amount: Number.MAX_SAFE_INTEGER + 1 })
+    .where(and(eq(budgets.householdId, own), eq(budgets.month, month)))
+  await expect(snapshot()).rejects.toThrow('invalid_amount')
+})
+
+test('rejects an unsafe posted rule amount even though it contributes no reserve', async () => {
+  await db.update(recurring).set({ amount: Number.MAX_SAFE_INTEGER + 1 }).where(eq(recurring.id, postedRule))
+  await expect(snapshot()).rejects.toThrow('invalid_amount')
+})
+
+test.each(['2026-09-03', '2026-01-03'])('rejects canceling unsafe source transactions on %s even outside evidence', async date => {
+  await db.insert(transactions).values([
+    { householdId: own, date, flow: 'expense', categoryId: food, amount: Number.MAX_SAFE_INTEGER + 1 },
+    { householdId: own, date, flow: 'expense', categoryId: food, amount: Number.MIN_SAFE_INTEGER - 1 },
+  ])
+  await expect(snapshot()).rejects.toThrow('invalid_amount')
+})
+
+test('rejects an unsafe canonical basis aggregate even when individual rows and the divided income are safe', async () => {
+  await db.update(transactions).set({ amount: Number.MAX_SAFE_INTEGER }).where(eq(transactions.id, incomeId))
+  await db.insert(transactions).values({ householdId: own, date: '2026-02-03', flow: 'income', amount: Number.MAX_SAFE_INTEGER })
+  await expect(snapshot()).rejects.toThrow('invalid_amount')
+})

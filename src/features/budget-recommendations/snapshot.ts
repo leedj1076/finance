@@ -24,7 +24,28 @@ export function hashBudgetPayload(value: unknown): string {
   return createHash('sha256').update(canonicalAiJson(value)).digest('hex')
 }
 
+function assertSafeAmounts(values: number[]) {
+  if (values.some(value => !Number.isSafeInteger(value))) throw new Error('invalid_amount')
+}
+
+function assertSnapshotAmounts(snapshot: Pick<BudgetRecommendationSnapshot,
+  'basis' | 'current' | 'rows' | 'history' | 'recurring' | 'evidence' | 'input'>) {
+  assertSafeAmounts([snapshot.basis.averageIncome, snapshot.basis.spendCeiling, ...Object.values(snapshot.current)])
+  for (const row of snapshot.rows) {
+    assertSafeAmounts([row.savedAmount, row.actual, row.unpostedRecurring, row.planned, row.floor,
+      row.previousBudget, row.previousActual, row.average, row.median, ...row.subcategories.map(value => value.amount)])
+  }
+  for (const row of snapshot.history) {
+    assertSafeAmounts([row.income, row.expense, row.saving, ...row.majors.map(value => value.amount)])
+  }
+  assertSafeAmounts(snapshot.recurring.map(row => row.amount))
+  assertSafeAmounts(snapshot.evidence.map(row => row.amount))
+  safeBudgetSum(snapshot.input.plannedExpenses.map(row => row.amount))
+  safeBudgetSum(snapshot.input.draftAmounts.map(row => row.amount))
+}
+
 export function boundBudgetEvidence(snapshot: BudgetRecommendationSnapshot): BudgetRecommendationSnapshot {
+  assertSnapshotAmounts(snapshot)
   const candidates = [...new Map(snapshot.evidence.map(row => [row.id, row])).values()]
   const largest = [...candidates].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount) || a.id - b.id)
     .slice(0, EVIDENCE_RANK_LIMIT)
@@ -57,13 +78,29 @@ export function boundBudgetEvidence(snapshot: BudgetRecommendationSnapshot): Bud
 }
 
 async function transactionDigest(reader: BudgetReader, householdId: string, start: string, end: string) {
-  const [row] = await reader.select({
+  const scope = and(eq(transactions.householdId, householdId), gte(transactions.date, start), lt(transactions.date, end))
+  const [[row], totals] = await Promise.all([reader.select({
+    unsafeAmount: sql<boolean>`coalesce(bool_or(${transactions.amount} > ${Number.MAX_SAFE_INTEGER}
+      or ${transactions.amount} < ${Number.MIN_SAFE_INTEGER}), false)`,
     digest: sql<string>`encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_array(
       ${transactions.id}, ${transactions.date}, ${transactions.flow}, ${transactions.amount},
       ${transactions.categoryId}, ${transactions.accountId}, ${transactions.fixed}, ${transactions.memo},
       ${transactions.rawMerchant}, ${transactions.recurringId}, ${transactions.importUid}
     ) order by ${transactions.id}), '[]'::jsonb)::text, 'UTF8')), 'hex')`,
-  }).from(transactions).where(and(eq(transactions.householdId, householdId), gte(transactions.date, start), lt(transactions.date, end)))
+  }).from(transactions).where(scope),
+  reader.select({ flow: transactions.flow, major: categories.major,
+    amount: sql<string>`sum(${transactions.amount})`,
+    fixed: sql<string>`sum(case when ${transactions.fixed} then ${transactions.amount} else 0 end)`,
+  }).from(transactions).leftJoin(categories, and(eq(categories.id, transactions.categoryId), eq(categories.householdId, householdId)))
+    .where(scope).groupBy(transactions.flow, categories.major).orderBy(transactions.flow, categories.major)])
+  // SQL sees exact bigint values, including omitted evidence and opposing unsafe
+  // rows that could cancel to a safe sum before conversion into JS numbers.
+  if (row.unsafeAmount) throw new Error('invalid_amount')
+  for (const total of totals) assertSafeAmounts([Number(total.amount), Number(total.fixed)])
+  for (const flow of ['income', 'expense', 'saving']) {
+    safeBudgetSum(totals.filter(total => total.flow === flow).map(total => Number(total.amount)))
+    safeBudgetSum(totals.filter(total => total.flow === flow).map(total => Number(total.fixed)))
+  }
   return row.digest
 }
 
@@ -109,7 +146,7 @@ export async function readBudgetSnapshot(
       .orderBy(recurring.id),
     reader.select({ id: transactions.id, recurringId: transactions.recurringId, importUid: transactions.importUid, date: transactions.date })
       .from(transactions).where(and(eq(transactions.householdId, householdId), recurringPostingInMonth(month))).orderBy(transactions.id),
-    readEvidence([sql`abs(${transactions.amount}) desc`, sql`${transactions.id} asc`]),
+    readEvidence([sql`abs(${transactions.amount}::numeric) desc`, sql`${transactions.id} asc`]),
     readEvidence([desc(transactions.id)]),
     reader.select({ count: sql<string>`count(*)` }).from(importInbox).where(and(eq(importInbox.householdId, householdId),
       eq(importInbox.status, 'pending'), gte(importInbox.date, currentStart), lt(importInbox.date, end))),
@@ -122,6 +159,12 @@ export async function readBudgetSnapshot(
       .orderBy(budgets.major, budgets.month),
   ])
 
+  assertSafeAmounts(budgetRows.map(row => row.amount))
+  assertSafeAmounts(aggregates.map(row => Number(row.amount)))
+  assertSafeAmounts([canonical.totalBudget, canonical.totalActual, canonical.averageIncome,
+    canonical.averageExpense, canonical.averageSaving, canonical.spendCeiling,
+    review.reviewBudgetTotal, review.reviewIncome, review.reviewExpense, review.reviewSaving,
+    review.averageIncome, review.spendCeiling])
   const activeMajorNames = canonical.rows.map(row => row.major)
   assertBudgetMajors(input, activeMajorNames)
   const activeMajors = new Set(activeMajorNames)
@@ -182,6 +225,8 @@ export async function readBudgetSnapshot(
   })
   const pendingCount = Number(pendingRows[0].count)
   const unclassifiedCount = Number(unclassifiedRows[0].count)
+  assertSnapshotAmounts({ basis, current, rows, history, recurring: recurringRows,
+    evidence: [...largestEvidence, ...recentEvidence], input })
   const sourceHash = hashBudgetPayload({ month, asOfDate, basis, rangeDigest, incomeBasisDigest,
     categories: categoryRows, metadata, dueRules, postings, recurring: recurringRows, statuses, pendingCount, unclassifiedCount })
   const effectiveBudget = (target: string, major: string) => {
