@@ -51,7 +51,7 @@ pnpm build
 pnpm e2e
 ```
 
-최종 통합 commit `5959a29f46f6c20355539f82c5238ecc124bbc53`에서 위 여섯 명령을 순서대로 한 번씩, warning suppression·retry·worker 수 override·instrumentation 없이 새로 실행했다.
+원래 검토된 backend 수정 commit `29b3699`를 acceptance branch에 `5959a29f46f6c20355539f82c5238ecc124bbc53`로 cherry-pick한 뒤, Task 13 E2E와 문서 변경이 적용된 working tree에서 위 여섯 명령을 순서대로 한 번씩 실행했다. 이때 검증한 app/test 내용은 이후 `04a39ff1ad878df9f9f43ab2f842964a35a98dbf`로 변경 없이 commit됐다. warning suppression·retry·worker 수 override·instrumentation은 사용하지 않았다.
 
 | 명령 | 최종 결과 |
 | --- | --- |
@@ -131,7 +131,8 @@ DATABASE_URL='<verified-production-session-pooler-5432-url>' pnpm db:migrate
 
 ## 최종 인수 상태와 남은 운영 항목
 
-- 로컬 persistence/concurrency/stale/regeneration, manual-only/worker guidance, retry/idempotency, 부분 이력/연말 전환/수입 없음, 늦은 응답, 단일 편집기, 모바일/다크/키보드 edge acceptance는 최종 54/54 E2E에서 통과했다.
+- 최종 54/54 Playwright E2E는 실제 persistence/concurrency/stale/regeneration, manual-only/worker guidance, transport retry/idempotency, 단일 편집기, 모바일/다크/키보드, month-close/statistics browser 동작을 통과했다.
+- 최종 unit/DB gate는 partial·missing·closed-zero snapshot 이력, 12월→1월 rollover, 수입 없음, 과거 월 조회와 client 늦은 응답 contract를 통과했다. 따라서 이 edge acceptance 묶음은 최종 여섯 게이트 전체에서 통과한 것이며 모두 Playwright 54건에 포함됐다는 뜻은 아니다.
 - 데스크톱·390px 모바일·다크·month-close/statistics 스크린샷을 원본 크기로 확인했다.
 - 로컬 상태 확인, 마이그레이션 이력, 최종 여섯 게이트, backend/UI scoped review가 완료됐다.
 - 별도 승인이 있을 때만 운영 backup → DB → worker → web → 인증 UI 순서로 실행한다. 위 운영 기록표의 placeholder는 실제 증거가 생길 때까지 그대로 유지한다.
