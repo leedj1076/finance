@@ -173,11 +173,13 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
           key={`budget-editor:${data.month}`}
           averageExpense={data.averageExpense}
           averageIncome={data.averageIncome}
+          baselines={data.baselines}
           currentSavingsRate={data.currentSavingsRate}
           month={data.month}
           rows={data.rows}
           review={data.review}
           savingsTarget={data.savingsTarget}
+          targetVersion={data.targetVersion}
           spendCeiling={data.spendCeiling}
         />
         <BudgetReference review={data.review} />

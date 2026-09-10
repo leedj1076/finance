@@ -50,6 +50,8 @@ describe('month status page headings', () => {
       totalActual: 0,
       remaining: 0,
       savingsTarget: 30,
+      baselines: [],
+      targetVersion: 'target-version',
       averageIncome: 0,
       averageExpense: 0,
       averageSaving: 0,
@@ -67,6 +69,11 @@ describe('month status page headings', () => {
     expect(heading).toContain('2026년 9월 · 진행 중 · 9일 경과 / 30일')
     expect(html).not.toContain('실제 사용액은 마감 전 내역도 포함합니다')
     expect(html).not.toContain('예산의 평균·제안에는 잠정 내역이 포함될 수 있습니다')
+    const payload = html.match(/name="payload"[^>]*value="([^"]*)"/)?.[1]
+    expect(payload).toBeDefined()
+    expect(JSON.parse(payload!.replaceAll('&quot;', '"'))).toEqual({
+      month: '2026-09', changes: [], targetChange: null, acknowledgeOverage: false,
+    })
   })
 
   test('the legacy review page permanently redirects to the same target month', async () => {

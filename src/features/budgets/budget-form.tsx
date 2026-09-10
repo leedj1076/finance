@@ -9,6 +9,7 @@ import { saveBudgetPlan, type BudgetActionState } from './actions'
 import { spendingCeilingForTarget } from './simulator-calculations'
 import { VariableSpendSimulator } from './simulator'
 import type { getBudgetReviewData } from './review-queries'
+import type { BudgetBaseline, BudgetSaveRequest } from './save-contract'
 
 type BudgetRow = {
   major: string
@@ -24,11 +25,13 @@ type BudgetRow = {
 type BudgetFormProps = {
   averageExpense: number
   averageIncome: number
+  baselines: BudgetBaseline[]
   currentSavingsRate: number
   month: string
   rows: BudgetRow[]
   review: Awaited<ReturnType<typeof getBudgetReviewData>>
   savingsTarget: number
+  targetVersion: string
   spendCeiling: number
 }
 
@@ -58,20 +61,39 @@ function SaveButton({ dirty }: { dirty: boolean }) {
 export function BudgetForm({
   averageExpense,
   averageIncome,
+  baselines,
   currentSavingsRate,
   month,
   rows,
   review,
   savingsTarget,
+  targetVersion,
   spendCeiling,
 }: BudgetFormProps) {
-  const [state, action] = useActionState(saveBudgetPlan, initialState)
+  const [baseline, setBaseline] = useState({ rows: baselines, savingsTarget, targetVersion })
   const [target, setTarget] = useState(savingsTarget)
   const [amounts, setAmounts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(rows.map((row) => [row.major, String(row.budget || '')])),
+    Object.fromEntries(baselines.map((row) => [row.major, String(row.amount || '')])),
   )
+  const [origins, setOrigins] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(baselines.map(row => [row.major, row.recommendationJobId])),
+  )
+  const [acknowledgeOverage, setAcknowledgeOverage] = useState(false)
+  const [state, action, pending] = useActionState(async (previous: BudgetActionState, formData: FormData) => {
+    const result = await saveBudgetPlan(previous, formData)
+    if (result.saved) {
+      // Editing is disabled for this short transaction, so an old acknowledgement
+      // cannot overwrite a newer local draft. Keep the mounted form/details intact.
+      setBaseline(result.saved)
+      setAmounts(Object.fromEntries(result.saved.rows.map(row => [row.major, String(row.amount || '')])))
+      setOrigins(Object.fromEntries(result.saved.rows.map(row => [row.major, row.recommendationJobId])))
+      setTarget(result.saved.savingsTarget)
+      setAcknowledgeOverage(false)
+    }
+    return result
+  }, initialState)
   const [reduction, setReduction] = useState(10)
-  const [preview, setPreview] = useState<{ label: string; amounts: Record<string, string> } | null>(null)
+  const [preview, setPreview] = useState<{ label: string; amounts: Record<string, string>; manualMajors: string[] } | null>(null)
   const totalBudget = useMemo(
     () => Object.values(amounts).reduce((sum, value) => sum + (Number(value) || 0), 0),
     [amounts],
@@ -85,12 +107,14 @@ export function BudgetForm({
   const targetGap = Math.max(averageExpense - targetSpendCeiling, 0)
   const allocationGap = targetSpendCeiling - totalBudget
   const expectedSavingsRate = savingsRate(averageIncome, totalBudget)
-  const isDirty = target !== savingsTarget || rows.some(
-    (row) => amounts[row.major] !== String(row.budget || ''),
-  )
+  const changes = baseline.rows.filter(row => Number(amounts[row.major]) !== row.amount || origins[row.major] !== row.recommendationJobId)
+    .map(row => ({ major: row.major, amount: Number(amounts[row.major]), recommendationJobId: origins[row.major], expectedVersion: row.version }))
+  const payload: BudgetSaveRequest = { month, changes,
+    targetChange: target === baseline.savingsTarget ? null : { value: target, expectedVersion: baseline.targetVersion }, acknowledgeOverage }
+  const isDirty = payload.targetChange !== null || changes.length > 0
 
-  function previewFill(label: string, proposed: Record<string, string>) {
-    setPreview({ label, amounts: proposed })
+  function previewFill(label: string, proposed: Record<string, string>, manualMajors = Object.keys(proposed)) {
+    setPreview({ label, amounts: proposed, manualMajors })
   }
 
   function fillFrom(key: 'average' | 'previousBudget') {
@@ -116,16 +140,18 @@ export function BudgetForm({
       if (reviewRow?.group !== 'variable' || reviewRow.median <= 0) return [row.major, amounts[row.major]]
       const amount = Math.round((reviewRow.median * (1 - reduction / 100)) / 1_000) * 1_000
       return [row.major, amount > 0 ? String(amount) : '']
-    })))
+    })), review.rows.filter(row => row.group === 'variable' && row.median > 0).map(row => row.major))
   }
 
   function applySimulator(amountsFromCuts: Record<string, string>) {
-    previewFill('절약 시뮬레이션 가져오기', { ...amounts, ...amountsFromCuts })
+    previewFill('절약 시뮬레이션 가져오기', { ...amounts, ...amountsFromCuts }, Object.keys(amountsFromCuts))
   }
 
   return (
     <form action={action} className="mt-6 space-y-6">
+      <input name="payload" type="hidden" value={JSON.stringify(payload)} />
       <input name="month" type="hidden" value={month} />
+      <fieldset className="min-w-0 space-y-6 border-0 p-0" disabled={pending}>
 
       <section className="border-y border-finance-ink py-5">
         <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
@@ -152,7 +178,7 @@ export function BudgetForm({
                 max={80}
                 min={0}
                 name="savingsTarget"
-                onChange={(event) => setTarget(Number(event.target.value))}
+                onChange={(event) => { setTarget(Number(event.target.value)); setAcknowledgeOverage(false) }}
                 type="range"
                 value={target}
               />
@@ -236,7 +262,7 @@ export function BudgetForm({
 
         {preview && (
           <section aria-label="예산 채우기 미리보기" className="border-b border-finance-hairline bg-finance-panel p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="t-body-strong text-finance-ink">{preview.label} 미리보기</p><p className="t-caption text-finance-muted">확인 전에는 편집안과 저장된 예산이 바뀌지 않습니다.</p></div><div className="flex gap-2"><button className="h-[30px] border border-finance-hairline bg-white px-3 t-body-strong text-finance-muted" onClick={() => setPreview(null)} type="button">취소</button><button className="h-[30px] bg-finance-ink px-3 t-body-strong text-white" onClick={() => { setAmounts(preview.amounts); setPreview(null); document.getElementById('budget-list')?.scrollIntoView({ behavior: 'smooth' }) }} type="button">초안에 가져오기</button></div></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="t-body-strong text-finance-ink">{preview.label} 미리보기</p><p className="t-caption text-finance-muted">확인 전에는 편집안과 저장된 예산이 바뀌지 않습니다. 가져온 항목은 수동 초안으로 전환됩니다.</p></div><div className="flex gap-2"><button className="h-[30px] border border-finance-hairline bg-white px-3 t-body-strong text-finance-muted" onClick={() => setPreview(null)} type="button">취소</button><button className="h-[30px] bg-finance-ink px-3 t-body-strong text-white" onClick={() => { setAmounts(preview.amounts); setOrigins(current => ({ ...current, ...Object.fromEntries(preview.manualMajors.map(major => [major, null])) })); setAcknowledgeOverage(false); setPreview(null); document.getElementById('budget-list')?.scrollIntoView({ behavior: 'smooth' }) }} type="button">초안에 가져오기</button></div></div>
             <ul className="mt-3 divide-y divide-finance-hairline">{rows.filter((row) => amounts[row.major] !== preview.amounts[row.major]).map((row) => <li className="grid grid-cols-[1fr_auto_auto] gap-3 py-2 t-caption" key={row.major}><span className="font-medium text-finance-ink">{row.major}</span><span className="text-finance-muted">현재 {formatWon(Number(amounts[row.major]) || 0)}원</span><span className="text-finance-blue">제안 {formatWon(Number(preview.amounts[row.major]) || 0)}원</span></li>)}</ul>
           </section>
         )}
@@ -263,6 +289,10 @@ export function BudgetForm({
                         <div>
                           <p className="t-body font-medium text-finance-ink">{row.major}</p>
                           <p className="mt-1 t-caption text-finance-faint">평균 {formatWon(row.average)}원</p>
+                          {origins[row.major] && <p className="mt-1 t-caption text-finance-muted">AI 출처 유지 · 수정한 금액은 사용자 조정으로 저장됩니다.</p>}
+                          {origins[row.major] && <button className="mt-1 t-caption text-finance-blue" type="button" onClick={() => {
+                            setOrigins(current => ({ ...current, [row.major]: null })); setAcknowledgeOverage(false)
+                          }}>수동 초안으로 전환</button>}
                         </div>
                         <label className="t-caption text-finance-muted">
                           <span className="sr-only">{row.major} 예산</span>
@@ -271,12 +301,13 @@ export function BudgetForm({
                             className="h-[34px] w-full border border-finance-hairline bg-white px-3 text-right t-body tabular-nums text-finance-ink outline-none focus:border-finance-blue"
                             min={0}
                             name={`budget:${row.major}`}
-                            onChange={(event) =>
+                            onChange={(event) => {
+                              setAcknowledgeOverage(false)
                               setAmounts((current) => ({
                                 ...current,
                                 [row.major]: event.target.value,
                               }))
-                            }
+                            }}
                             placeholder="0"
                             step={1}
                             type="number"
@@ -329,7 +360,13 @@ export function BudgetForm({
         />
       </details>
 
+      {(allocationGap < 0 || state.code === 'overage_confirmation_required') && <label className="flex items-center gap-2 t-body text-finance-red">
+        <input checked={acknowledgeOverage} onChange={event => setAcknowledgeOverage(event.target.checked)} type="checkbox" />
+        미분류·정기 지출을 포함한 전체 예산의 상한 초과를 확인하고 저장합니다.
+      </label>}
+
       {state.error && <p className="t-body text-finance-red">{state.error}</p>}
+      </fieldset>
     </form>
   )
 }
