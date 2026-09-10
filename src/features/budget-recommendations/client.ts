@@ -26,6 +26,7 @@ const responseErrorCodes = new Set([
   'body_too_large',
   'active_job_exists',
   'request_conflict',
+  'past_or_distant_month',
   'missing_income',
   'setup_required',
   'source_changed',
@@ -455,7 +456,11 @@ async function requestData(
         ? body.error : 'request_failed'
       throw new ClientError(code)
     }
-    return validateData(result, month)
+    try {
+      return validateData(result, month)
+    } catch {
+      throw new ClientError('request_failed', true)
+    }
   } catch (error) {
     checkAbort()
     if (error instanceof ClientError) throw error

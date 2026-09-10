@@ -117,10 +117,12 @@ describe('budget recommendation requests', () => {
   test('allowlists server codes and never exposes an unknown response body', async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(response({ error: 'active_job_exists' }, 409))
+      .mockResolvedValueOnce(response({ error: 'past_or_distant_month' }, 400))
       .mockResolvedValueOnce(response({ error: 'private database detail', prompt: 'secret' }, 500))
     vi.stubGlobal('fetch', fetcher)
 
     await expect(getBudgetRecommendations('2026-09')).rejects.toThrow('active_job_exists')
+    await expect(getBudgetRecommendations('2026-09')).rejects.toThrow('past_or_distant_month')
     await expect(getBudgetRecommendations('2026-09')).rejects.toThrow('request_failed')
   })
 
@@ -251,5 +253,14 @@ describe('apply freshness recovery', () => {
   ])('rejects %s before apply', async (_name, value, code) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(value)))
     await expect(checkRecommendationForApply('2026-09', requestId)).rejects.toThrow(code)
+  })
+
+  test('maps aggregate overflow in a completed response to invalid_result before apply', async () => {
+    const malformed = structuredClone(data())
+    malformed.completed!.snapshot.current.unallocatedActual = 1
+    malformed.completed!.report.rows[0].amount = Number.MAX_SAFE_INTEGER
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(malformed)))
+
+    await expect(checkRecommendationForApply('2026-09', requestId)).rejects.toThrow('invalid_result')
   })
 })
