@@ -153,3 +153,67 @@ test('monthly chart labels all twelve calendar columns before selection and keep
   expect(html).toContain('12월')
   expect(captured.bars[0].datasets[0].data).toEqual([40, 60, 20, 0, null, 10, null, null, null, null, null, null])
 })
+
+test.each([
+  ['expense', 'category', '식비 최근 추세', '식비 카페 최근 추세'],
+  ['expense', 'account', '생활 카드 최근 추세', null],
+  ['income', 'category', '식비 최근 추세', '식비 카페 최근 추세'],
+  ['saving', 'category', '식비 최근 추세', '식비 카페 최근 추세'],
+] as const)('%s %s table trends render dashed provisional and solid closed segments', (flow, axis, majorLabel, subLabel) => {
+  const values = [400, 999, 200, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  const detail = {
+    groups: [{ major: '식비', subs: [{ sub: '카페', months: values }] }],
+    months: [1, 2, 3, 4],
+    divisor: 3,
+    provisionalDivisor: 4,
+    currentMonth: 5,
+    closedMonths: [1, 3, 4],
+    endedMonths: [1, 2, 3, 4],
+    recordedMonths: [1, 2, 3, 4],
+    provisionalMonths: [1, 2, 3, 4],
+    states: ['closed', 'open', 'closed', 'closed', 'current', 'future', 'future', 'future', 'future', 'future', 'future', 'future'] as StatsMonthState[],
+  }
+  const html = renderToStaticMarkup(<StatsMonthlySection
+    year={2026}
+    details={{ expense: detail, income: detail, saving: detail }}
+    accountMonthly={{
+      expense: { accounts: ['생활 카드'], series: { '생활 카드': values } },
+      income: { accounts: [], series: {} },
+    }}
+    initialFlow={flow}
+    initialAxis={axis}
+  />)
+
+  for (const label of [majorLabel, subLabel]) {
+    if (label === null) continue
+    const spark = html.match(new RegExp(`<svg[^>]*aria-label="${label}"[^>]*>(.*?)</svg>`))?.[1]
+    expect(spark, label).toBeDefined()
+    expect(spark?.match(/<polyline/g)).toHaveLength(2)
+    expect(spark).toMatch(/<polyline[^>]*stroke-dasharray="5 4"[^>]*opacity="0\.45"/)
+    expect(spark).toMatch(/<polyline(?![^>]*stroke-dasharray)[^>]*opacity="1"/)
+    expect(spark).toMatch(/<circle[^>]*fill="var\(--finance-(?:green|red|muted)\)"[^>]*opacity="1"[^>]*r="2\.5"/)
+  }
+})
+
+test('table trend leaves a provisional final marker hollow and faded', () => {
+  const detail = {
+    groups: [{ major: '식비', subs: [{ sub: '카페', months: [100, 200, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0] }] }],
+    months: [1, 2, 3],
+    divisor: 2,
+    provisionalDivisor: 3,
+    currentMonth: 4,
+    closedMonths: [1, 2],
+    endedMonths: [1, 2, 3],
+    recordedMonths: [1, 2, 3],
+    provisionalMonths: [1, 2, 3],
+    states: ['closed', 'closed', 'open', 'current', 'future', 'future', 'future', 'future', 'future', 'future', 'future', 'future'] as StatsMonthState[],
+  }
+  const html = renderToStaticMarkup(<StatsMonthlySection
+    year={2026}
+    details={{ expense: detail, income: detail, saving: detail }}
+    accountMonthly={{ expense: { accounts: [], series: {} }, income: { accounts: [], series: {} } }}
+  />)
+  const spark = html.match(/<svg[^>]*aria-label="식비 최근 추세"[^>]*>(.*?)<\/svg>/)?.[1]
+
+  expect(spark).toMatch(/<circle[^>]*fill="none"[^>]*opacity="0\.45"[^>]*r="2\.5"/)
+})

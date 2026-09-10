@@ -75,6 +75,47 @@ describe('stats monthly shared model', () => {
     expect(statsSparkline([null, null, null], 'expense', 3)).toBeNull()
   })
 
+  test('a six-point trend aligns its closed mask to calendar months after leading and trailing gaps', () => {
+    const trend = statsSparkline(
+      [null, null, 10, 20, 30, 40, 50, 60, 70, 80, null, null],
+      'income',
+      12,
+      true,
+      [false, false, true, true, true, true, false, true, true, true, false, false],
+    )
+
+    expect(trend?.segments).toEqual([
+      '2,17.0 17.2,14.2',
+      '17.2,14.2 32.4,11.4 47.599999999999994,8.6',
+      '47.599999999999994,8.6 62.8,5.8 78,3.0',
+    ])
+    expect(trend?.provisionalSegments).toEqual([false, true, false])
+    expect(trend?.lastProvisional).toBe(false)
+  })
+
+  test('provisional edges do not bridge gaps and retain recorded zero and refund points', () => {
+    const trend = statsSparkline(
+      [-100, 0, null, 50, 0],
+      'expense',
+      5,
+      true,
+      [true, false, false, true, false],
+    )
+
+    expect(trend?.segments).toEqual(['2,17.0 21,7.7', '59,3.0 78,7.7'])
+    expect(trend?.provisionalSegments).toEqual([true, true])
+    expect(trend?.points).toBe('2,17.0 21,7.7 59,3.0 78,7.7')
+    expect(trend?.lastProvisional).toBe(true)
+  })
+
+  test('an omitted closed mask keeps the legacy sparkline solid', () => {
+    const trend = statsSparkline([10, 20, 30], 'saving', 3, true)
+
+    expect(trend?.segments).toEqual(['2,17.0 40,10.0 78,3.0'])
+    expect(trend?.provisionalSegments).toEqual([false])
+    expect(trend?.lastProvisional).toBe(false)
+  })
+
   test('with nothing closed the official average is unavailable and the provisional one is offered', () => {
     const open: CategoryDetails = { ...details, expense: { ...details.expense,
       months: Array.from({ length: 12 }, (_, i) => i + 1), divisor: 0, provisionalDivisor: 2,

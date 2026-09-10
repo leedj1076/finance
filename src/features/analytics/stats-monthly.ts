@@ -364,7 +364,7 @@ export function buildStatsMonthlyModel({
   }
 }
 
-export function statsSparkline(values: Array<number | null>, flow: StatsMonthlyFlow, activeMonths = values.length, preserveRecordedMonths = false) {
+export function statsSparkline(values: Array<number | null>, flow: StatsMonthlyFlow, activeMonths = values.length, preserveRecordedMonths = false, closedMonths?: readonly boolean[]) {
   const relevant = values.slice(0, Math.max(0, Math.min(activeMonths, values.length)))
   while (relevant.length && relevant.at(-1) === null) relevant.pop()
   const firstValue = relevant.findIndex((value) => value !== null && (preserveRecordedMonths || value > 0))
@@ -394,22 +394,42 @@ export function statsSparkline(values: Array<number | null>, flow: StatsMonthlyF
       : 'muted'
 
   const segments: string[] = []
+  const provisionalSegments: boolean[] = []
+  const allPoints: string[] = []
+  const firstMonth = relevant.length - points.length
   let segment: string[] = []
+  let segmentProvisional = false
+  let lastProvisional = false
   let lastX = 2
   let lastY = 10
+  const finishSegment = () => {
+    if (!segment.length) return
+    segments.push(segment.join(' '))
+    provisionalSegments.push(segmentProvisional)
+  }
   for (let i = 0; i < yValues.length; i++) {
     const y = yValues[i]
     if (y === null) {
-      if (segment.length) segments.push(segment.join(' '))
+      finishSegment()
       segment = []
     } else {
+      const provisional = closedMonths ? !closedMonths[firstMonth + i] : false
+      const edgeProvisional = segment.length ? lastProvisional || provisional : provisional
+      if (segment.length > 1 && segmentProvisional !== edgeProvisional) {
+        finishSegment()
+        segment = [segment[segment.length - 1]]
+      }
+      segmentProvisional = edgeProvisional
+      lastProvisional = provisional
       lastX = 2 + i * step; lastY = y
-      segment.push(`${lastX},${y.toFixed(1)}`)
+      const point = `${lastX},${y.toFixed(1)}`
+      segment.push(point)
+      allPoints.push(point)
     }
   }
-  if (segment.length) segments.push(segment.join(' '))
+  finishSegment()
   return {
-    points: segments.join(' '), segments, lastX, lastY,
+    points: allPoints.join(' '), segments, provisionalSegments, lastX, lastY, lastProvisional,
     color: tone === 'green'
       ? 'var(--finance-green)'
       : tone === 'red'

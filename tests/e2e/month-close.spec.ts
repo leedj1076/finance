@@ -482,8 +482,14 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await expect(majorSpark).toBeVisible()
   await expect(subSpark).toBeVisible()
   for (const spark of [majorSpark, subSpark]) {
-    const points = await spark.locator('polyline').getAttribute('points')
-    expect(points?.trim().split(/\s+/)).toHaveLength(4)
+    const segments = spark.locator('polyline')
+    await expect(segments).toHaveCount(2)
+    await expect(segments.nth(0)).toHaveAttribute('stroke-dasharray', '5 4')
+    await expect(segments.nth(0)).toHaveAttribute('opacity', '0.45')
+    await expect(segments.nth(1)).not.toHaveAttribute('stroke-dasharray')
+    await expect(segments.nth(1)).toHaveAttribute('opacity', '1')
+    expect((await segments.nth(0).getAttribute('points'))?.trim().split(/\s+/)).toHaveLength(3)
+    expect((await segments.nth(1).getAttribute('points'))?.trim().split(/\s+/)).toHaveLength(2)
   }
 
   const topMonthGrid = section.locator('div.mb-2.grid').first()

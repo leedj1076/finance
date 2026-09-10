@@ -19,6 +19,7 @@ import type { AccountMonthlyData } from './account-monthly'
 import { toggleCategoryDetailCell } from './category-detail-calculations'
 import type { CategoryDetails, CellTransactionResult } from './category-detail'
 import { compactWon } from './chart-theme'
+import { PROVISIONAL_DASH } from './chart-js'
 import { ChartHoverTooltip } from './chart-hover-tooltip'
 import type { ChartHoverAnchor } from './chart-tooltip-position'
 import { buildSeriesChartGeometry } from './series-chart-geometry'
@@ -102,22 +103,24 @@ function Sparkline({
   flow,
   activeMonths,
   preserveRecordedMonths,
+  closedMonths,
   label,
 }: {
   values: Array<number | null>
   flow: StatsMonthlyFlow
   activeMonths: number
   preserveRecordedMonths: boolean
+  closedMonths: readonly boolean[]
   label: string
 }) {
-  const spark = statsSparkline(values, flow, activeMonths, preserveRecordedMonths)
+  const spark = statsSparkline(values, flow, activeMonths, preserveRecordedMonths, closedMonths)
   if (!spark) return <span className="text-finance-faint">–</span>
   return (
     <svg aria-label={`${label} 최근 추세`} className="h-5 w-20" role="img" viewBox="0 0 80 20">
       {spark.segments.map((points, index) => points.includes(' ')
-        ? <polyline key={index} fill="none" points={points} stroke={spark.color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
-        : <circle key={index} cx={points.split(',')[0]} cy={points.split(',')[1]} fill={spark.color} r="2" />)}
-      <circle cx={spark.lastX} cy={spark.lastY} fill={spark.color} r="2.5" />
+        ? <polyline key={index} fill="none" points={points} stroke={spark.color} strokeWidth="2" strokeDasharray={spark.provisionalSegments[index] ? PROVISIONAL_DASH.join(' ') : undefined} opacity={spark.provisionalSegments[index] ? 0.45 : 1} vectorEffect="non-scaling-stroke" />
+        : <circle key={index} cx={points.split(',')[0]} cy={points.split(',')[1]} fill={spark.provisionalSegments[index] ? 'none' : spark.color} stroke={spark.color} strokeWidth="1.5" opacity={spark.provisionalSegments[index] ? 0.45 : 1} r="2" />)}
+      <circle cx={spark.lastX} cy={spark.lastY} fill={spark.lastProvisional ? 'none' : spark.color} stroke={spark.color} strokeWidth="1.5" opacity={spark.lastProvisional ? 0.45 : 1} r="2.5" />
     </svg>
   )
 }
@@ -635,7 +638,7 @@ export function StatsMonthlySection({
                       })}
                       <div className={`text-right font-bold tabular-nums ${model.divisor > 0 ? 'text-finance-ink' : 'text-finance-faint'}`}>{formatWon(model.divisor > 0 ? row.closedTotal : row.provisionalTotal)}</div>
                       <div className={`text-right tabular-nums ${row.average === null ? 'text-finance-faint' : 'text-finance-muted'}`}>{row.average !== null ? formatWon(row.average) : row.provisionalAverage !== null ? formatWon(row.provisionalAverage) : '—'}</div>
-                      <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} preserveRecordedMonths flow={flow} label={row.label} values={row.values.map((value, month) => model.availableMonths[month] ? value : null)} /></div>
+                      <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} preserveRecordedMonths closedMonths={model.closedMonths} flow={flow} label={row.label} values={row.values.map((value, month) => model.availableMonths[month] ? value : null)} /></div>
                     </div>
 
                     {isExpanded && row.subs.map((sub) => (
@@ -680,7 +683,7 @@ export function StatsMonthlySection({
                         })}
                         <div className={`text-right font-semibold tabular-nums ${model.divisor > 0 ? 'text-finance-ink' : 'text-finance-faint'}`}>{formatWon(model.divisor > 0 ? sub.closedTotal : sub.provisionalTotal)}</div>
                         <div className={`text-right tabular-nums ${sub.average === null ? 'text-finance-faint' : 'text-finance-muted'}`}>{sub.average !== null ? formatWon(sub.average) : sub.provisionalAverage !== null ? formatWon(sub.provisionalAverage) : '—'}</div>
-                        <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} preserveRecordedMonths flow={flow} label={`${sub.major} ${sub.label}`} values={sub.values.map((value, month) => model.availableMonths[month] ? value : null)} /></div>
+                        <div className="flex justify-center"><Sparkline activeMonths={model.activeMonths} preserveRecordedMonths closedMonths={model.closedMonths} flow={flow} label={`${sub.major} ${sub.label}`} values={sub.values.map((value, month) => model.availableMonths[month] ? value : null)} /></div>
                       </div>
                     ))}
                   </div>
