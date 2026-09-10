@@ -202,6 +202,10 @@ test('family user can manage a transaction and change their password', async ({ 
       'title',
       '마감 전이라 통계의 평균·비교에는 들어가지 않습니다.',
     )
+    const editableBudgetForms = page.locator('form').filter({ has: page.locator('input[name^="budget:"]') })
+    await expect(editableBudgetForms).toHaveCount(1)
+    await expect(editableBudgetForms.locator('input[name^="budget:"]')).toHaveCount(1)
+    await expect(page.locator('table input[name^="budget:"]')).toHaveCount(0)
     await page.getByLabel('식비 예산').fill('500000')
     await expect(page.getByText('입력 합계 500,000원')).toBeVisible()
     await page.getByLabel('목표 저축률').fill('35')
@@ -217,6 +221,12 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page.getByText('기존 리뷰 규칙으로 채우기', { exact: false }).first()).toBeVisible()
     await expect(aprilBudget).toHaveValue(draftBeforePreview)
     await page.screenshot({ fullPage: true, path: testInfo.outputPath('unified-budget-preview.png') })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.emulateMedia({ colorScheme: 'dark' })
+    expect(await page.locator('html').evaluate((element) => getComputedStyle(element).colorScheme)).toBe('dark')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await page.screenshot({ fullPage: true, path: testInfo.outputPath('unified-budget-preview-390-dark.png') })
+    await page.setViewportSize({ width: 1280, height: 720 })
     await page.getByRole('button', { name: '초안에 가져오기' }).click()
     await expect(aprilBudget).not.toHaveValue(draftBeforePreview)
     await aprilBudget.fill('450000')
