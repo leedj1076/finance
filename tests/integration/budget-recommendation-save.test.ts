@@ -19,6 +19,29 @@ async function patch(major = '식비', amount = 723693): Promise<BudgetSaveReque
   return { month, changes: [{ major, amount, recommendationJobId: null, expectedVersion: baseline.version }],
     targetChange: null, acknowledgeOverage: true }
 }
+function abortTransactions(codes: string[], afterRollback?: (attempt: number) => Promise<void>) {
+  const transaction = db.transaction.bind(db)
+  let attempts = 0
+  vi.spyOn(db, 'transaction').mockImplementation(async (callback, config) => {
+    const attempt = ++attempts
+    const code = codes[attempt - 1]
+    let injected = false
+    try {
+      return await transaction(async tx => {
+        const result = await callback(tx)
+        if (code) {
+          injected = true
+          throw Object.assign(new Error('injected transaction abort'), { cause: { code } })
+        }
+        return result
+      }, config)
+    } catch (error) {
+      if (injected) await afterRollback?.(attempt)
+      throw error
+    }
+  })
+  return () => attempts
+}
 beforeAll(async () => { ({ a, b } = await fixture.setup()) })
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-09-10T03:00:00Z'))
@@ -179,6 +202,86 @@ test('AI user adjustment preserves origin even below the proposal floor and expl
   await expect(save(stale)).rejects.toThrow('source_changed')
   stale.changes[0].recommendationJobId = null
   expect((await save(stale)).rows.find(row => row.major === '식비')).toMatchObject({ amount: 2, recommendationJobId: null })
+})
+test('retries a rolled-back 40001 in a fresh transaction and persists AI provenance once', async () => {
+  // Catches retrying only a fragment or leaking the first attempt's writes.
+  const id = await complete()
+  const request = await patch('식비', 54321)
+  request.changes[0].recommendationJobId = id
+  const attempts = abortTransactions(['40001'])
+  const result = await save(request)
+  expect(attempts()).toBe(2)
+  expect(result.rows.find(row => row.major === '식비')).toMatchObject({ amount: 54321, recommendationJobId: id })
+  expect(await raw`select amount, recommendation_job_id from budgets
+    where household_id = ${a.householdId} and month = ${month} and major = '식비'`).toEqual([
+    { amount: '54321', recommendation_job_id: id },
+  ])
+})
+test('stops after three rolled-back 40001 attempts and leaves stored state unchanged', async () => {
+  // Catches an unbounded loop, a fourth attempt, or a commit from an aborted attempt.
+  const before = await raw`select amount, recommendation_job_id from budgets
+    where household_id = ${a.householdId} and month = ${month} and major = '식비'`
+  const attempts = abortTransactions(['40001', '40001', '40001', '40001'])
+  await expect(save(await patch('식비', 54321))).rejects.toThrow('budget_conflict')
+  expect(attempts()).toBe(3)
+  expect(await raw`select amount, recommendation_job_id from budgets
+    where household_id = ${a.householdId} and month = ${month} and major = '식비'`).toEqual(before)
+})
+test.each(['row', 'target'] as const)('a %s winner after rollback is preserved by the original CAS', async kind => {
+  // Catches rebasing either requested version when a retry starts.
+  const baseline = await read()
+  const request: BudgetSaveRequest = { month, changes: [{ major: '식비', amount: 54321, recommendationJobId: null,
+    expectedVersion: baseline.rows.find(row => row.major === '식비')!.version }],
+  targetChange: { value: 40, expectedVersion: baseline.targetVersion }, acknowledgeOverage: true }
+  const attempts = abortTransactions(['40001'], async () => {
+    if (kind === 'row') await raw`update budgets set amount = 65432
+      where household_id = ${a.householdId} and month = ${month} and major = '식비'`
+    else await raw`insert into settings (household_id, key, value) values (${a.householdId}, 'savings_target', '55')`
+  })
+  await expect(save(request)).rejects.toThrow('budget_conflict')
+  expect(attempts()).toBe(2)
+  expect((await raw`select amount from budgets where household_id = ${a.householdId} and month = ${month} and major = '식비'`)[0].amount)
+    .toBe(kind === 'row' ? '65432' : '100000')
+  expect(await raw`select value from settings where household_id = ${a.householdId}`).toEqual(
+    kind === 'target' ? [{ value: '55' }] : [],
+  )
+})
+test('rechecks analytical source after rollback and keeps the explicit manual path available', async () => {
+  // Catches a retry that reuses a previously accepted AI freshness result.
+  const id = await complete()
+  const request = await patch('식비', 54321)
+  request.changes[0].recommendationJobId = id
+  const attempts = abortTransactions(['40001'], async () => {
+    await raw`update transactions set amount = 12000 where household_id = ${a.householdId} and flow = 'expense'`
+  })
+  await expect(save(request)).rejects.toThrow('source_changed')
+  expect(attempts()).toBe(2)
+  expect((await raw`select amount, recommendation_job_id from budgets
+    where household_id = ${a.householdId} and month = ${month} and major = '식비'`)[0]).toEqual(
+    { amount: '100000', recommendation_job_id: null },
+  )
+  request.changes[0].recommendationJobId = null
+  expect((await save(request)).rows.find(row => row.major === '식비')).toMatchObject({ amount: 54321, recommendationJobId: null })
+})
+test.each(['23505', '40P01'])('does not retry SQLSTATE %s or retain its rolled-back write', async code => {
+  // Catches accidentally broadening the transient retry allowlist.
+  const attempts = abortTransactions([code, '40001'])
+  await expect(save(await patch('식비', 54321))).rejects.toThrow('budget_conflict')
+  expect(attempts()).toBe(1)
+  expect((await raw`select amount from budgets where household_id = ${a.householdId} and month = ${month} and major = '식비'`)[0].amount)
+    .toBe('100000')
+})
+test.each(['budget_conflict', 'overage_confirmation_required'] as const)('does not retry explicit %s application errors', async kind => {
+  // Catches treating application errors as transient database aborts.
+  const request = await patch('식비', kind === 'budget_conflict' ? 54321 : 900000)
+  if (kind === 'budget_conflict') await raw`update budgets set amount = 65432
+    where household_id = ${a.householdId} and month = ${month} and major = '식비'`
+  else request.acknowledgeOverage = false
+  const attempts = abortTransactions([])
+  await expect(save(request)).rejects.toThrow(kind)
+  expect(attempts()).toBe(1)
+  expect((await raw`select amount from budgets where household_id = ${a.householdId} and month = ${month} and major = '식비'`)[0].amount)
+    .toBe(kind === 'budget_conflict' ? '65432' : '100000')
 })
 test('target changes reject mixed AI saves and invalidate prior reports', async () => {
   const id = await complete()

@@ -94,18 +94,19 @@ export async function readBudgetSaveEvaluation(
     savingsRate: savingsRate(canonical.averageIncome, total) }
 }
 
-function isConflict(error: unknown, seen = new Set<object>()): boolean {
+function hasDatabaseCode(error: unknown, codes: string[], seen = new Set<object>()): boolean {
   if (!error || typeof error !== 'object' || seen.has(error)) return false
   seen.add(error)
   const item = error as { code?: string; cause?: unknown }
-  return ['40001', '40P01', '23505'].includes(item.code ?? '') || isConflict(item.cause, seen)
+  return codes.includes(item.code ?? '') || hasDatabaseCode(item.cause, codes, seen)
 }
 
 export async function saveBudgetChanges(householdId: string, request: BudgetSaveRequest): Promise<BudgetSaveResult> {
   const input = parseBudgetSaveRequest(request)
   if (input.targetChange && input.changes.some(row => row.recommendationJobId !== null)) throw new Error('save_target_first')
-  try {
-    return await db.transaction(async tx => {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await db.transaction(async tx => {
       // Every save takes locks in this order. Household target changes serialize across months.
       if (input.targetChange) await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`budget-target:${householdId}`}, 0))`)
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`budget-month:${householdId}:${input.month}`}, 0))`)
@@ -157,9 +158,11 @@ export async function saveBudgetChanges(householdId: string, request: BudgetSave
         }
       }
       return { ...await readBudgetBaselines(tx, householdId, input.month), total: evaluation.total, overage: evaluation.overage }
-    }, { isolationLevel: 'serializable' })
-  } catch (error) {
-    if (isConflict(error)) throw new Error('budget_conflict')
-    throw error
+      }, { isolationLevel: 'serializable' })
+    } catch (error) {
+      if (hasDatabaseCode(error, ['40001']) && attempt < 2) continue
+      if (hasDatabaseCode(error, ['40001', '40P01', '23505'])) throw new Error('budget_conflict')
+      throw error
+    }
   }
 }
