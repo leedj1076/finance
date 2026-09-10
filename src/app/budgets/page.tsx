@@ -6,7 +6,8 @@ import { getMonthStatuses } from '@/features/month-close/queries'
 import { MonthStatusLabel } from '@/features/month-close/month-status-label'
 import { SubmitButton } from '@/components/submit-button'
 import { BudgetForm } from '@/features/budgets/budget-form'
-import { getBudgetData } from '@/features/budgets/queries'
+import { BudgetReference } from '@/features/budgets/budget-reference'
+import { getBudgetPlanningData } from '@/features/budgets/planning-queries'
 import { currentMonthInKorea, formatRate, formatWon } from '@/lib/finance'
 import { getAuthContext, requireHousehold } from '@/lib/household'
 
@@ -53,7 +54,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
   const params = await searchParams
   const requestedMonth = typeof params.month === 'string' ? params.month : undefined
   const reviewSaved = params.reviewSaved === '1'
-  const data = await getBudgetData(household.householdId, requestedMonth)
+  const data = await getBudgetPlanningData(household.householdId, requestedMonth)
   const [monthStatus] = await getMonthStatuses(household.householdId, [data.month])
   const safeToSpend = data.spendCeiling - data.totalActual
   const remainingTone = safeToSpend < 0 ? 'warning' : 'good'
@@ -91,7 +92,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
               className={`h-[34px] whitespace-nowrap border px-3 py-2 t-body-strong ${reviewNeedsAttention
                 ? 'border-finance-green bg-finance-green text-white hover:opacity-80'
                 : 'border-finance-hairline bg-white text-finance-muted hover:border-finance-green hover:text-finance-green'}`}
-              href={`/budgets/review?month=${data.nextMonth}`}
+              href={`/budgets?month=${data.nextMonth}`}
             >
               {reviewNeedsAttention ? '다음 달 예산 만들기 →' : '월말 리뷰 →'}
             </Link>
@@ -145,7 +146,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
           />
         </section>
 
-        {data.paceWarnings.length > 0 && (
+        {data.month <= currentMonth && data.paceWarnings.length > 0 && (
           <section className="mt-6 border-t border-finance-ink py-4">
             <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
               <div>
@@ -169,15 +170,17 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
         )}
 
         <BudgetForm
-          key={data.month}
+          key={`budget-editor:${data.month}`}
           averageExpense={data.averageExpense}
           averageIncome={data.averageIncome}
           currentSavingsRate={data.currentSavingsRate}
           month={data.month}
           rows={data.rows}
+          review={data.review}
           savingsTarget={data.savingsTarget}
           spendCeiling={data.spendCeiling}
         />
+        <BudgetReference review={data.review} />
       </main>
     </div>
   )

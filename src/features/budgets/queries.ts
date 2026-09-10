@@ -7,8 +7,10 @@ import { roundLikePython } from '@/features/ledger/forecast'
 
 import { calculateBudgetPace } from './pace'
 
-export async function getExpenseMajorNames(householdId: string) {
-  const rows = await db
+export type BudgetReader = Pick<typeof db, 'select'>
+
+export async function readExpenseMajorNames(reader: BudgetReader, householdId: string) {
+  const rows = await reader
     .select({
       major: categories.major,
       sortOrder: sql<string>`min(${categories.sortOrder})`,
@@ -27,21 +29,30 @@ export async function getExpenseMajorNames(householdId: string) {
   return rows.map((row) => row.major)
 }
 
-export async function getBudgetData(householdId: string, requestedMonth?: string) {
-  const [latest] = await db
+export async function getExpenseMajorNames(householdId: string) {
+  return readExpenseMajorNames(db, householdId)
+}
+
+export async function readBudgetData(
+  reader: BudgetReader,
+  householdId: string,
+  requestedMonth?: string,
+  now = new Date(),
+) {
+  const [latest] = await reader
     .select({ date: transactions.date })
     .from(transactions)
     .where(eq(transactions.householdId, householdId))
     .orderBy(desc(transactions.date))
     .limit(1)
 
-  const latestMonth = latest?.date.slice(0, 7) ?? currentMonthInKorea()
+  const latestMonth = latest?.date.slice(0, 7) ?? currentMonthInKorea(now)
   const month = isMonthKey(requestedMonth) ? requestedMonth : latestMonth
   const previousMonth = shiftMonth(month, -1)
   const nextMonth = shiftMonth(month, 1)
   const { start, end } = monthBounds(month)
   const year = Number(month.slice(0, 4))
-  const currentMonth = currentMonthInKorea()
+  const currentMonth = currentMonthInKorea(now)
   const averageEnd = String(year) === currentMonth.slice(0, 4)
     ? `${currentMonth}-01`
     : `${year + 1}-01-01`
@@ -59,14 +70,14 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
     targetRows,
     nextBudgetRows,
   ] = await Promise.all([
-    getExpenseMajorNames(householdId),
-    db
+    readExpenseMajorNames(reader, householdId),
+    reader
       .select({ major: budgets.major, month: budgets.month, amount: budgets.amount })
       .from(budgets)
       .where(
         and(eq(budgets.householdId, householdId), inArray(budgets.month, ['*', month])),
       ),
-    db
+    reader
       .select({ major: budgets.major, month: budgets.month, amount: budgets.amount })
       .from(budgets)
       .where(
@@ -75,7 +86,7 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
           inArray(budgets.month, ['*', previousMonth]),
         ),
       ),
-    db
+    reader
       .select({
         major: categories.major,
         amount: sql<string>`sum(${transactions.amount})`,
@@ -97,7 +108,7 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
         ),
       )
       .groupBy(categories.major),
-    db
+    reader
       .select({
         major: categories.major,
         amount: sql<string>`sum(${transactions.amount})`,
@@ -120,7 +131,7 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
         ),
       )
       .groupBy(categories.major),
-    db
+    reader
       .select({
         income: sql<string>`coalesce(sum(case when ${transactions.flow} = 'income' then ${transactions.amount} else 0 end), 0)`,
         expense: sql<string>`coalesce(sum(case when ${transactions.flow} = 'expense' then ${transactions.amount} else 0 end), 0)`,
@@ -134,7 +145,7 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
           lt(transactions.date, averageEnd),
         ),
       ),
-    db
+    reader
       .select({ count: sql<string>`count(distinct to_char(${transactions.date}, 'YYYY-MM'))` })
       .from(transactions)
       .where(
@@ -144,16 +155,16 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
           lt(transactions.date, averageEnd),
         ),
       ),
-    db
+    reader
       .select({ major: categoryMeta.major })
       .from(categoryMeta)
       .where(and(eq(categoryMeta.householdId, householdId), eq(categoryMeta.irregular, true))),
-    db
+    reader
       .select({ value: settings.value })
       .from(settings)
       .where(and(eq(settings.householdId, householdId), eq(settings.key, 'savings_target')))
       .limit(1),
-    db
+    reader
       .select({ count: sql<string>`count(*)` })
       .from(budgets)
       .where(and(eq(budgets.householdId, householdId), eq(budgets.month, nextMonth))),
@@ -232,4 +243,8 @@ export async function getBudgetData(householdId: string, requestedMonth?: string
     paceWarnings,
     nextBudgetExists: Number(nextBudgetRows[0]?.count ?? 0) > 0,
   }
+}
+
+export async function getBudgetData(householdId: string, requestedMonth?: string) {
+  return readBudgetData(db, householdId, requestedMonth)
 }

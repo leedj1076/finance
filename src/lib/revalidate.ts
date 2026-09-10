@@ -12,7 +12,6 @@ const ROUTES = {
   ledger: '/ledger',
   stats: '/report',
   budgets: '/budgets',
-  budgetReview: '/budgets/review',
   assets: '/assets',
   inbox: '/inbox',
   recurring: '/recurring',
@@ -34,13 +33,13 @@ export type FinanceDomain =
 
 const READERS: Record<FinanceDomain, readonly Route[]> = {
   // History also reads ledger matches and their confirmed categories/accounts.
-  transactions: ['home', 'ledger', 'stats', 'budgets', 'budgetReview', 'recurring', 'inbox'],
-  budgets: ['home', 'ledger', 'budgets', 'budgetReview'],
+  transactions: ['home', 'ledger', 'stats', 'budgets', 'recurring', 'inbox'],
+  budgets: ['home', 'ledger', 'budgets'],
   assets: ['home', 'assets', 'stats', 'settings'],
   // 홈's todo list counts pending rows; the header badge on other pages is
   // chrome and can wait for their next server render.
   inbox: ['inbox', 'home', 'ledger'],
-  monthClose: ['ledger', 'stats', 'home', 'budgets', 'budgetReview'],
+  monthClose: ['ledger', 'stats', 'home', 'budgets'],
   taxonomy: ['home', 'ledger', 'stats', 'budgets', 'inbox', 'manage', 'settings'],
   recurring: ['home', 'ledger', 'budgets', 'recurring', 'settings'],
   settings: ['home', 'ledger', 'budgets', 'assets', 'manage', 'settings'],

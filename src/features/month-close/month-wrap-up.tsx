@@ -45,7 +45,7 @@ export function MonthWrapUp({ summary, recurringForm }: { summary: MonthCloseSum
           <div className="t-body text-finance-faint">AI 진단 · {nextMonth} 예산 만들기<span className="ml-2 t-caption">선택 · 마감 뒤에</span></div>
           <span className="flex gap-3 t-caption font-medium text-finance-faint">
             <Link className="hover:text-finance-blue" href={`/ledger?month=${summary.month}&tab=ai`}>진단 →</Link>
-            <Link className="hover:text-finance-blue" href={`/budgets/review?month=${reviewMonth}`}>예산 →</Link>
+            <Link className="hover:text-finance-blue" href={`/budgets?month=${reviewMonth}`}>예산 →</Link>
           </span>
         </li>
       </ul>

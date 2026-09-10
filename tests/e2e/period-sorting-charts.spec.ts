@@ -122,7 +122,8 @@ suite('budget money fields accept single won amounts, but not negatives or fract
   if (error) throw error
   expect(Number(data.amount)).toBe(723693)
   await page.goto('/budgets/review?month=2026-07')
-  const review = page.getByRole('spinbutton', { name: '식비 다음 달 예산' })
+  await expect(page).toHaveURL('/budgets?month=2026-07')
+  const review = page.getByRole('spinbutton', { name: '식비 예산', exact: true })
   await review.fill('723693')
   expect(await review.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(true)
   for (const value of ['-1', '1.5']) {

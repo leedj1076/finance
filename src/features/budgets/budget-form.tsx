@@ -8,6 +8,7 @@ import { formatRate, formatWon, savingsRate } from '@/lib/finance'
 import { saveBudgetPlan, type BudgetActionState } from './actions'
 import { spendingCeilingForTarget } from './simulator-calculations'
 import { VariableSpendSimulator } from './simulator'
+import type { getBudgetReviewData } from './review-queries'
 
 type BudgetRow = {
   major: string
@@ -26,6 +27,7 @@ type BudgetFormProps = {
   currentSavingsRate: number
   month: string
   rows: BudgetRow[]
+  review: Awaited<ReturnType<typeof getBudgetReviewData>>
   savingsTarget: number
   spendCeiling: number
 }
@@ -59,6 +61,7 @@ export function BudgetForm({
   currentSavingsRate,
   month,
   rows,
+  review,
   savingsTarget,
   spendCeiling,
 }: BudgetFormProps) {
@@ -67,6 +70,8 @@ export function BudgetForm({
   const [amounts, setAmounts] = useState<Record<string, string>>(() =>
     Object.fromEntries(rows.map((row) => [row.major, String(row.budget || '')])),
   )
+  const [reduction, setReduction] = useState(10)
+  const [preview, setPreview] = useState<{ label: string; amounts: Record<string, string> } | null>(null)
   const totalBudget = useMemo(
     () => Object.values(amounts).reduce((sum, value) => sum + (Number(value) || 0), 0),
     [amounts],
@@ -84,13 +89,38 @@ export function BudgetForm({
     (row) => amounts[row.major] !== String(row.budget || ''),
   )
 
+  function previewFill(label: string, proposed: Record<string, string>) {
+    setPreview({ label, amounts: proposed })
+  }
+
   function fillFrom(key: 'average' | 'previousBudget') {
-    setAmounts(Object.fromEntries(rows.map((row) => [row.major, String(row[key] || '')])))
+    previewFill(
+      key === 'average' ? '월평균으로 채우기' : '지난달 예산 채우기',
+      Object.fromEntries(rows.map((row) => [row.major, String(row[key] || '')])),
+    )
+  }
+
+  function fillFromReview() {
+    const reviewByMajor = new Map(review.rows.map((row) => [row.major, row.suggestion]))
+    previewFill('기존 리뷰 규칙으로 채우기', Object.fromEntries(rows.map((row) => [
+      row.major,
+      String(reviewByMajor.get(row.major) || ''),
+    ])))
+  }
+
+  function reduceReviewVariables() {
+    if (!Number.isFinite(reduction) || reduction < 0 || reduction > 50) return
+    const reviewByMajor = new Map(review.rows.map((row) => [row.major, row]))
+    previewFill('변동비 줄이기', Object.fromEntries(rows.map((row) => {
+      const reviewRow = reviewByMajor.get(row.major)
+      if (reviewRow?.group !== 'variable' || reviewRow.median <= 0) return [row.major, amounts[row.major]]
+      const amount = Math.round((reviewRow.median * (1 - reduction / 100)) / 1_000) * 1_000
+      return [row.major, amount > 0 ? String(amount) : '']
+    })))
   }
 
   function applySimulator(amountsFromCuts: Record<string, string>) {
-    setAmounts((current) => ({ ...current, ...amountsFromCuts }))
-    document.getElementById('budget-list')?.scrollIntoView({ behavior: 'smooth' })
+    previewFill('절약 시뮬레이션 가져오기', { ...amounts, ...amountsFromCuts })
   }
 
   return (
@@ -179,6 +209,13 @@ export function BudgetForm({
             </button>
             <button
               className="h-[30px] border border-finance-hairline px-3 t-body-strong text-finance-ink hover:bg-finance-panel"
+              onClick={fillFromReview}
+              type="button"
+            >
+              기존 리뷰 규칙으로 채우기
+            </button>
+            <button
+              className="h-[30px] border border-finance-hairline px-3 t-body-strong text-finance-ink hover:bg-finance-panel"
               onClick={() => fillFrom('average')}
               type="button"
             >
@@ -187,6 +224,22 @@ export function BudgetForm({
             <SaveButton dirty={isDirty} />
           </div>
         </div>
+
+        <div className="border-b border-finance-hairline py-4">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="t-caption text-finance-muted">리뷰 제안 변동비 감축률
+              <input aria-label="리뷰 제안 변동비 감축률" className="ml-2 h-[30px] w-20 border border-finance-hairline px-2 text-right" min="0" max="50" onChange={(event) => setReduction(Number(event.target.value))} step="1" type="number" value={reduction} />%
+            </label>
+            <button className="h-[30px] border border-finance-hairline px-3 t-body-strong text-finance-ink hover:bg-finance-panel" onClick={reduceReviewVariables} type="button">변동비에 적용</button>
+          </div>
+        </div>
+
+        {preview && (
+          <section aria-label="예산 채우기 미리보기" className="border-b border-finance-hairline bg-finance-panel p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="t-body-strong text-finance-ink">{preview.label} 미리보기</p><p className="t-caption text-finance-muted">확인 전에는 편집안과 저장된 예산이 바뀌지 않습니다.</p></div><div className="flex gap-2"><button className="h-[30px] border border-finance-hairline bg-white px-3 t-body-strong text-finance-muted" onClick={() => setPreview(null)} type="button">취소</button><button className="h-[30px] bg-finance-ink px-3 t-body-strong text-white" onClick={() => { setAmounts(preview.amounts); setPreview(null); document.getElementById('budget-list')?.scrollIntoView({ behavior: 'smooth' }) }} type="button">초안에 가져오기</button></div></div>
+            <ul className="mt-3 divide-y divide-finance-hairline">{rows.filter((row) => amounts[row.major] !== preview.amounts[row.major]).map((row) => <li className="grid grid-cols-[1fr_auto_auto] gap-3 py-2 t-caption" key={row.major}><span className="font-medium text-finance-ink">{row.major}</span><span className="text-finance-muted">현재 {formatWon(Number(amounts[row.major]) || 0)}원</span><span className="text-finance-blue">제안 {formatWon(Number(preview.amounts[row.major]) || 0)}원</span></li>)}</ul>
+          </section>
+        )}
 
         <div className="divide-y divide-finance-hairline">
           {groups.map((group) => {

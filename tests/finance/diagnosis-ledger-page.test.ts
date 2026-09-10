@@ -94,7 +94,7 @@ describe('diagnosis ledger integration', () => {
       filteredTotals: { count: 2, income: 0, expense: 8888, saving: 0 },
     })
     const html = renderToStaticMarkup(await LedgerPage({ searchParams: Promise.resolve({ month: '2026-12' }) }))
-    expect(html).toContain('href="/budgets/review?month=2027-01"')
+    expect(html).toContain('href="/budgets?month=2027-01"')
     expect(html).toContain('1월 예산 만들기')
   })
 

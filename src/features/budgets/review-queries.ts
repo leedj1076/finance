@@ -5,12 +5,17 @@ import { budgets, categories, categoryMeta, settings, transactions } from '@/db/
 import { currentMonthInKorea, isMonthKey, monthBounds, savingsRate, shiftMonth } from '@/lib/finance'
 
 import { medianAmount, suggestedBudget, type ReviewGroup } from './review-calculations'
-import { getExpenseMajorNames } from './queries'
+import { readExpenseMajorNames, type BudgetReader } from './queries'
 
-export async function getBudgetReviewData(householdId: string, requestedTargetMonth?: string) {
-  const targetMonth = isMonthKey(requestedTargetMonth) ? requestedTargetMonth : currentMonthInKorea()
+export async function readBudgetReviewData(
+  reader: BudgetReader,
+  householdId: string,
+  requestedTargetMonth?: string,
+  now = new Date(),
+) {
+  const targetMonth = isMonthKey(requestedTargetMonth) ? requestedTargetMonth : currentMonthInKorea(now)
   const reviewMonth = shiftMonth(targetMonth, -1)
-  const currentMonth = currentMonthInKorea()
+  const currentMonth = currentMonthInKorea(now)
   const { start: reviewStart, end: reviewEnd } = monthBounds(reviewMonth)
   const completedMonths = Array.from({ length: 6 }, (_, index) => shiftMonth(reviewMonth, -index))
     .filter((month) => month < currentMonth)
@@ -30,16 +35,16 @@ export async function getBudgetReviewData(householdId: string, requestedTargetMo
     irregularRows,
     targetRows,
   ] = await Promise.all([
-    getExpenseMajorNames(householdId),
-    db
+    readExpenseMajorNames(reader, householdId),
+    reader
       .select({ major: budgets.major, month: budgets.month, amount: budgets.amount })
       .from(budgets)
       .where(and(eq(budgets.householdId, householdId), inArray(budgets.month, ['*', reviewMonth]))),
-    db
+    reader
       .select({ major: budgets.major, amount: budgets.amount })
       .from(budgets)
       .where(and(eq(budgets.householdId, householdId), eq(budgets.month, targetMonth))),
-    db
+    reader
       .select({
         income: sql<string>`coalesce(sum(case when ${transactions.flow} = 'income' then ${transactions.amount} else 0 end), 0)`,
         expense: sql<string>`coalesce(sum(case when ${transactions.flow} = 'expense' then ${transactions.amount} else 0 end), 0)`,
@@ -47,7 +52,7 @@ export async function getBudgetReviewData(householdId: string, requestedTargetMo
       })
       .from(transactions)
       .where(and(eq(transactions.householdId, householdId), gte(transactions.date, reviewStart), lt(transactions.date, reviewEnd))),
-    db
+    reader
       .select({ major: categories.major, amount: sql<string>`sum(${transactions.amount})` })
       .from(transactions)
       .innerJoin(categories, and(eq(categories.id, transactions.categoryId), eq(categories.householdId, householdId)))
@@ -59,7 +64,7 @@ export async function getBudgetReviewData(householdId: string, requestedTargetMo
       ))
       .groupBy(categories.major),
     completedMonths.length > 0
-      ? db
+      ? reader
           .select({ major: categories.major, month: monthExpression, amount: sql<string>`sum(${transactions.amount})` })
           .from(transactions)
           .innerJoin(categories, and(eq(categories.id, transactions.categoryId), eq(categories.householdId, householdId)))
@@ -70,7 +75,7 @@ export async function getBudgetReviewData(householdId: string, requestedTargetMo
           ))
           .groupBy(categories.major, monthExpression)
       : Promise.resolve([]),
-    db
+    reader
       .select({
         income: sql<string>`coalesce(sum(case when ${transactions.flow} = 'income' then ${transactions.amount} else 0 end), 0)`,
         expense: sql<string>`coalesce(sum(case when ${transactions.flow} = 'expense' then ${transactions.amount} else 0 end), 0)`,
@@ -78,15 +83,15 @@ export async function getBudgetReviewData(householdId: string, requestedTargetMo
       })
       .from(transactions)
       .where(and(eq(transactions.householdId, householdId), gte(transactions.date, historyStart), lt(transactions.date, historyEnd))),
-    db
+    reader
       .select({ count: sql<string>`count(distinct to_char(${transactions.date}, 'YYYY-MM'))` })
       .from(transactions)
       .where(and(eq(transactions.householdId, householdId), gte(transactions.date, historyStart), lt(transactions.date, historyEnd))),
-    db
+    reader
       .select({ major: categoryMeta.major })
       .from(categoryMeta)
       .where(and(eq(categoryMeta.householdId, householdId), eq(categoryMeta.irregular, true))),
-    db
+    reader
       .select({ value: settings.value })
       .from(settings)
       .where(and(eq(settings.householdId, householdId), eq(settings.key, 'savings_target')))
@@ -112,7 +117,7 @@ export async function getBudgetReviewData(householdId: string, requestedTargetMo
   const globalFixedRatio = historyExpense > 0 ? historyFixedExpense / historyExpense : 0
   const perMajorHistory = new Map<string, { total: number; fixed: number }>()
   if (completedMonths.length > 0) {
-    const fixedRows = await db
+    const fixedRows = await reader
       .select({
         major: categories.major,
         total: sql<string>`sum(${transactions.amount})`,
@@ -182,4 +187,8 @@ export async function getBudgetReviewData(householdId: string, requestedTargetMo
     savingsTarget,
     spendCeiling,
   }
+}
+
+export async function getBudgetReviewData(householdId: string, requestedTargetMonth?: string) {
+  return readBudgetReviewData(db, householdId, requestedTargetMonth)
 }

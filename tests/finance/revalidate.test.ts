@@ -5,7 +5,6 @@ import { routesToRevalidate } from '@/lib/revalidate'
 test('a transaction change refreshes every page that reports on transactions', () => {
   expect(routesToRevalidate(['transactions']).sort()).toEqual([
     '/budgets',
-    '/budgets/review',
     '/dashboard',
     '/inbox',
     '/ledger',
@@ -19,7 +18,7 @@ test('an inbox change refreshes the inbox, home todos and closed-month pending n
 })
 
 test('closing or reopening refreshes statistics and every live status label', () => {
-  expect(routesToRevalidate(['monthClose']).sort()).toEqual(['/budgets', '/budgets/review', '/dashboard', '/ledger', '/report'])
+  expect(routesToRevalidate(['monthClose']).sort()).toEqual(['/budgets', '/dashboard', '/ledger', '/report'])
 })
 
 test('combining domains lists each route once', () => {

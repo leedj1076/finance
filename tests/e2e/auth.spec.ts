@@ -135,7 +135,7 @@ async function openFromSettings(page: import('@playwright/test').Page, link: str
   throw new Error(`설정 메뉴에서 ${link} 링크를 열지 못했습니다.`)
 }
 
-test('family user can manage a transaction and change their password', async ({ page }) => {
+test('family user can manage a transaction and change their password', async ({ page }, testInfo) => {
   test.slow()
   const email = `finance-e2e-${Date.now()}-${crypto.randomUUID()}@example.com`
   const currentPassword = 'passw0rd!'
@@ -210,12 +210,19 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page.getByText('입력 합계 500,000원')).toBeVisible()
 
     await page.getByRole('link', { name: /^(월말 리뷰|다음 달 예산 만들기) →$/ }).click()
-    await expect(page).toHaveURL('/budgets/review?month=2026-04')
-    await expect(page.getByRole('heading', { name: '월말 리뷰' })).toBeVisible()
-    await expect(page.getByText('2026-03 결산 → 2026-04 예산 만들기')).toBeVisible()
-    await page.getByLabel('식비 다음 달 예산').fill('450000')
-    await page.getByRole('button', { name: '2026-04 예산으로 저장' }).click()
-    await expect(page).toHaveURL('/budgets?month=2026-04&reviewSaved=1')
+    await expect(page).toHaveURL('/budgets?month=2026-04')
+    const aprilBudget = page.getByLabel('식비 예산')
+    const draftBeforePreview = await aprilBudget.inputValue()
+    await page.getByRole('button', { name: '기존 리뷰 규칙으로 채우기' }).click()
+    await expect(page.getByText('기존 리뷰 규칙으로 채우기', { exact: false }).first()).toBeVisible()
+    await expect(aprilBudget).toHaveValue(draftBeforePreview)
+    await page.screenshot({ fullPage: true, path: testInfo.outputPath('unified-budget-preview.png') })
+    await page.getByRole('button', { name: '초안에 가져오기' }).click()
+    await expect(aprilBudget).not.toHaveValue(draftBeforePreview)
+    await aprilBudget.fill('450000')
+    await page.getByRole('button', { name: '변경사항 저장' }).click()
+    await expect(page.getByRole('button', { name: '저장됨', exact: true })).toBeVisible()
+    await page.goto('/budgets?month=2026-04&reviewSaved=1')
     await expect(page.getByText('월말 리뷰에서 2026-04 예산을 저장했습니다.')).toBeVisible()
     await expect(page.getByLabel('식비 예산')).toHaveValue('450000')
 

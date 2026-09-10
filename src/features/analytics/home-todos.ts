@@ -110,7 +110,7 @@ export function buildHomeTodos(input: HomeTodoInput): HomeTodo[] {
     priority: 5,
     title: '다음 달 예산을 준비할 때입니다',
     detail: '이번 달을 돌아보고 다음 달 예산을 작성해 주세요.',
-    href: `/budgets/review?month=${input.month}`,
+    href: `/budgets?month=${input.month}`,
   })
   if (input.ungeneratedRecurringCount > 0) rows.push({
     kind: 'recurring',
