@@ -1,6 +1,6 @@
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { DiagnosisWorkerError, loadDiagnosisWorkerConfig, runDiagnosisWorker } from '../src/features/diagnosis/worker'
+import { DiagnosisWorkerError, loadDiagnosisWorkerConfig, runFinanceWorker } from '../src/features/diagnosis/worker'
 
 function argumentsForWorker(args: string[]) {
   let configPath = join(homedir(), '.config', 'finance-web', 'diagnosis-worker.json')
@@ -21,7 +21,7 @@ async function main() {
   process.once('SIGTERM', stop)
   process.once('SIGINT', stop)
   try {
-    await runDiagnosisWorker(config, { once, signal: controller.signal,
+    await runFinanceWorker(config, { once, signal: controller.signal,
       log: (event, jobId) => process.stdout.write(JSON.stringify({ event, ...(jobId ? { jobId } : {}) }) + '\n') })
   } finally {
     process.removeListener('SIGTERM', stop)

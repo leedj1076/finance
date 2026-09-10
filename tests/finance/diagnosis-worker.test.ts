@@ -310,7 +310,9 @@ describe('worker lease ownership', () => {
       request.on('data', chunk => { input += chunk })
       request.on('end', () => {
         response.setHeader('content-type', 'application/json')
-        if (request.url?.endsWith('/claim_diagnosis_job')) response.end(JSON.stringify(job))
+        if (request.url?.endsWith('/claim_configured_diagnosis_job')) {
+          response.end(JSON.stringify({ ...job, promptInput: null }))
+        }
         else {
           if (request.url?.endsWith('/finish_diagnosis_job')) finishedReport = JSON.parse(input).p_report
           response.end('true')

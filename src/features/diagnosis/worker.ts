@@ -1,8 +1,15 @@
 import { constants } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { isAbsolute } from 'node:path'
+import { parseAiPromptInput } from '@/features/ai-settings/prompt'
+import { createBudgetRpcClient, processBudgetJob, type BudgetRpcClient } from '@/features/budget-recommendations/worker'
 import { getDiagnosisErrorCode, runCodexDiagnosis, type CodexDiagnosisOptions } from './codex-runner'
+import { DiagnosisRunnerError } from './structured-runner'
+import { createConfiguredDiagnosisRpcClient, createWorkerRpcCaller, type ConfiguredDiagnosisRpcClient } from './worker-rpc'
 import type { ClaimedDiagnosisJob, DiagnosisErrorCode, DiagnosisReport, DiagnosisSnapshot } from './types'
+
+export { createConfiguredDiagnosisRpcClient }
+export type { ConfiguredDiagnosisRpcClient }
 
 export type DiagnosisWorkerConfig = {
   supabaseUrl: string
@@ -74,43 +81,9 @@ export async function loadDiagnosisWorkerConfig(path: string): Promise<Diagnosis
   }
 }
 
-async function boundedResponse(response: Response): Promise<unknown> {
-  if (!response.ok || !response.body) throw new DiagnosisWorkerError('rpc_failed')
-  const reader = response.body.getReader()
-  const chunks: Uint8Array[] = []
-  let bytes = 0
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      bytes += value.length
-      if (bytes > 2 * 1024 * 1024) throw new DiagnosisWorkerError('rpc_failed')
-      chunks.push(value)
-    }
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'))
-  } finally {
-    await reader.cancel().catch(() => {})
-    reader.releaseLock()
-  }
-}
-
 export function createDiagnosisRpcClient(config: DiagnosisWorkerConfig, fetcher: typeof fetch = fetch): DiagnosisRpcClient {
   parseDiagnosisWorkerConfig(config)
-  async function call(name: string, params: Record<string, unknown>) {
-    try {
-      const headers: Record<string, string> = { apikey: config.supabaseAnonKey, 'Content-Type': 'application/json' }
-      // New publishable keys use apikey only; legacy anon JWTs also support Bearer auth.
-      if (!config.supabaseAnonKey.startsWith('sb_publishable_')) headers.Authorization = `Bearer ${config.supabaseAnonKey}`
-      const response = await fetcher(`${new URL(config.supabaseUrl).origin}/rest/v1/rpc/${name}`, {
-        method: 'POST', headers, redirect: 'error', cache: 'no-store',
-        body: JSON.stringify({ p_token: config.workerToken, ...params }),
-        signal: AbortSignal.timeout(10_000),
-      })
-      return await boundedResponse(response)
-    } catch {
-      throw new DiagnosisWorkerError('rpc_failed')
-    }
-  }
+  const call = createWorkerRpcCaller(config, fetcher)
   const jobParams = (job: ClaimedDiagnosisJob) => ({ p_job_id: job.id, p_claim_token: job.claimToken })
   const booleanResult = (value: unknown) => {
     if (typeof value !== 'boolean') throw new DiagnosisWorkerError('rpc_failed')
@@ -132,6 +105,26 @@ export function createDiagnosisRpcClient(config: DiagnosisWorkerConfig, fetcher:
     async finish(job, report, code) {
       return booleanResult(await call('finish_diagnosis_job', { ...jobParams(job), p_report: report, p_error_code: code }))
     },
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+    && Object.getPrototypeOf(value) === Object.prototype
+}
+
+function validDiagnosisSnapshot(snapshot: unknown): snapshot is DiagnosisSnapshot {
+  if (!isPlainObject(snapshot) || snapshot.version !== 1
+    || typeof snapshot.month !== 'string' || typeof snapshot.asOf !== 'string'
+    || typeof snapshot.sourceHash !== 'string' || !isPlainObject(snapshot.current)
+    || !Array.isArray(snapshot.months) || !isPlainObject(snapshot.comparison)
+    || !Array.isArray(snapshot.categories) || !isPlainObject(snapshot.budget)
+    || !Array.isArray(snapshot.transactions) || !Number.isSafeInteger(snapshot.evidenceCount)
+    || (snapshot.evidenceCount as number) < 0) return false
+  try {
+    return Buffer.byteLength(JSON.stringify(snapshot), 'utf8') <= 1024 * 1024
+  } catch {
+    return false
   }
 }
 
@@ -161,10 +154,18 @@ export async function processDiagnosisJob(job: ClaimedDiagnosisJob, rpc: Diagnos
   let report: DiagnosisReport | null = null
   let code: DiagnosisErrorCode | null = null
   try {
+    if (!validDiagnosisSnapshot(job.snapshot)) throw new DiagnosisRunnerError('invalid_output')
+    if (Object.hasOwn(job, 'promptInput') && job.promptInput === undefined) {
+      throw new DiagnosisRunnerError('invalid_output')
+    }
+    if (job.promptInput != null) parseAiPromptInput(job.promptInput, 'ledger', job.snapshot)
     report = await (options.run ?? runCodexDiagnosis)(job.snapshot, { codexPath: options.codexPath,
-      model: options.model, timeoutMs: options.timeoutMs, signal: controller.signal })
+      model: options.model, timeoutMs: options.timeoutMs, signal: controller.signal,
+      promptInput: job.promptInput })
   } catch (error) {
-    code = options.signal?.aborted ? 'worker_stopped' : getDiagnosisErrorCode(error)
+    code = options.signal?.aborted ? 'worker_stopped'
+      : error instanceof Error && error.message === 'invalid_ai_prompt' ? 'invalid_output'
+        : getDiagnosisErrorCode(error)
   } finally {
     active = false
     clearTimeout(timer)
@@ -215,5 +216,107 @@ export async function runDiagnosisWorker(config: DiagnosisWorkerConfig, options:
     }
     if (options.once) return
     await delay(options.pollMs ?? 10_000, options.signal)
+  }
+}
+
+export function queueOrder(preferred: 'diagnosis' | 'budget') {
+  return preferred === 'diagnosis'
+    ? ['diagnosis', 'budget'] as const
+    : ['budget', 'diagnosis'] as const
+}
+
+export async function runFinanceWorker(config: DiagnosisWorkerConfig, options: {
+  once?: boolean
+  signal?: AbortSignal
+  pollMs?: number
+  log?: (event: string, jobId?: string) => void
+  diagnosisRpc?: ConfiguredDiagnosisRpcClient
+  budgetRpc?: BudgetRpcClient
+  diagnosisRun?: DiagnosisJobOptions['run']
+  budgetRun?: typeof import('@/features/budget-recommendations/codex-runner').runCodexBudgetRecommendation
+} = {}): Promise<void> {
+  parseDiagnosisWorkerConfig(config)
+  const diagnosisRpc = options.diagnosisRpc ?? createConfiguredDiagnosisRpcClient(config)
+  const budgetRpc = options.budgetRpc ?? createBudgetRpcClient(config)
+  let budgetAvailable = true
+  let budgetSetupLogged = false
+  let preferred: 'diagnosis' | 'budget' = 'diagnosis'
+  let presence: Promise<boolean> | undefined
+  let presenceTimer: ReturnType<typeof setTimeout> | undefined
+  let active = true
+
+  const refreshPresence = () => {
+    if (presence) return presence
+    presence = (async () => {
+      if (!await diagnosisRpc.presence()) throw new DiagnosisWorkerError('rpc_failed')
+      try {
+        if (!await budgetRpc.presence()) throw new Error('unavailable')
+        budgetAvailable = true
+        budgetSetupLogged = false
+      } catch {
+        budgetAvailable = false
+        if (!budgetSetupLogged) {
+          options.log?.('budget_setup_required')
+          budgetSetupLogged = true
+        }
+      }
+      return true
+    })().finally(() => { presence = undefined })
+    return presence
+  }
+  const schedulePresence = () => {
+    presenceTimer = setTimeout(() => {
+      void refreshPresence().catch(() => options.log?.('rpc_failed')).finally(() => {
+        if (active && !options.signal?.aborted) schedulePresence()
+      })
+    }, 30_000)
+  }
+
+  try {
+    await refreshPresence()
+    schedulePresence()
+    while (!options.signal?.aborted) {
+      let processed = false
+      try {
+        await refreshPresence()
+        for (const kind of queueOrder(preferred)) {
+          if (kind === 'budget' && !budgetAvailable) continue
+          if (kind === 'diagnosis') {
+            const job = await diagnosisRpc.claim()
+            if (!job) continue
+            processed = true
+            options.log?.('started', job.id)
+            const outcome = await processDiagnosisJob(job, diagnosisRpc, {
+              codexPath: config.codexPath, model: config.model,
+              signal: options.signal, run: options.diagnosisRun,
+            })
+            options.log?.(outcome, job.id)
+            preferred = 'budget'
+            break
+          }
+          const job = await budgetRpc.claim()
+          if (!job) continue
+          processed = true
+          options.log?.('started', job.id)
+          const outcome = await processBudgetJob(job, budgetRpc, {
+            codexPath: config.codexPath, model: config.model,
+            signal: options.signal, run: options.budgetRun,
+          })
+          options.log?.(outcome, job.id)
+          preferred = 'diagnosis'
+          break
+        }
+        if (!processed && options.once) options.log?.('idle')
+      } catch {
+        options.log?.('rpc_failed')
+        if (options.once) throw new DiagnosisWorkerError('rpc_failed')
+      }
+      if (options.once) return
+      if (!processed) await delay(options.pollMs ?? 10_000, options.signal)
+    }
+  } finally {
+    active = false
+    clearTimeout(presenceTimer)
+    await presence?.catch(() => {})
   }
 }

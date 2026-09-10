@@ -98,5 +98,6 @@ export type ClaimedDiagnosisJob = {
   id: string
   claimToken: string
   snapshot: DiagnosisSnapshot
+  promptInput?: AiPromptInput | null
 }
 import type { AiPromptInput } from '@/features/ai-settings/types'
