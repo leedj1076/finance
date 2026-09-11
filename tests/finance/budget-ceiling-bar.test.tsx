@@ -127,6 +127,13 @@ describe('CeilingBar', () => {
     expect(html).toContain('저축률 변경도 저장 버튼으로 함께 저장됩니다.')
   })
 
+  test('marks the desktop trigger as the popover anchor and renders the target as a large value', () => {
+    const html = render()
+
+    expect(html).toMatch(/<button[^>]+class="[^"]*ceiling-bar__target-anchor[^"]*"[^>]+popoverTarget="savings-target-popover"/)
+    expect(html).toMatch(/<output[^>]+class="t-kpi-sm"[^>]*>30%<\/output>/)
+  })
+
   test('keeps zero-income arithmetic finite', () => {
     const html = render({
       basis: { ...basis, averageIncome: 0, incomeMonthCount: 0 },

@@ -792,6 +792,7 @@ button.finance-nav-link { cursor: pointer; }
 
 .ceiling-bar__target:hover,
 .ceiling-bar__target:focus-visible { color: var(--finance-blue); }
+.ceiling-bar__target-anchor { anchor-name: --ceiling-savings-target; }
 .ceiling-bar__target:focus-visible,
 .ceiling-bar__save:focus-visible,
 .ceiling-bar__slider-row input:focus-visible {
@@ -824,14 +825,19 @@ button.finance-nav-link { cursor: pointer; }
 
 .ceiling-bar__popover {
   position: fixed;
-  inset: 116px auto auto max(16px, calc((100vw - 1120px) / 2));
+  position-anchor: --ceiling-savings-target;
+  inset: auto;
+  top: anchor(bottom);
+  left: anchor(left);
   width: min(360px, calc(100vw - 32px));
   box-sizing: border-box;
+  margin: 8px 0 0;
   border: 1px solid var(--finance-ink);
   background: var(--background);
   padding: 16px;
   color: var(--finance-ink);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--finance-ink) 12%, transparent);
+  position-try-fallbacks: flip-block, flip-inline;
 }
 .ceiling-bar__popover::backdrop { background: transparent; }
 .ceiling-bar__slider-row { display: flex; align-items: center; gap: 14px; margin-top: 12px; }

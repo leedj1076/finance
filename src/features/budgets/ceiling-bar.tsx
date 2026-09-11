@@ -64,7 +64,7 @@ export function CeilingBar({
   const targetButton = (mobile = false) => (
     <button
       aria-haspopup="dialog"
-      className={mobile ? 'ceiling-bar__target ceiling-bar__target--mobile t-caption' : 'ceiling-bar__target t-body'}
+      className={mobile ? 'ceiling-bar__target ceiling-bar__target--mobile t-caption' : 'ceiling-bar__target ceiling-bar__target-anchor t-body'}
       popoverTarget={popoverId}
       type="button"
     >
@@ -112,7 +112,7 @@ export function CeilingBar({
             type="range"
             value={target}
           />
-          <output className="t-section" htmlFor="savings-target">{target}%</output>
+          <output className="t-kpi-sm" htmlFor="savings-target">{target}%</output>
         </div>
         <p className="ceiling-bar__formula t-caption text-finance-muted">
           월평균 수입 {formatWon(basis.averageIncome)} × (1 − {target}%) = <strong className="text-finance-ink">상한 {formatWon(ceiling)}</strong><br />
