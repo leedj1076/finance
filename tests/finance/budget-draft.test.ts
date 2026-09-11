@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { budgetDraftReducer, createBudgetDraft, draftBudgetAmounts, draftBudgetChanges } from '@/features/budgets/draft'
+import { budgetDraftReducer, createBudgetDraft, draftBudgetAmounts, draftBudgetChanges, manualDraftChoice } from '@/features/budgets/draft'
 import type { BudgetBaseline } from '@/features/budgets/save-contract'
 import type { BudgetPlanRow } from '@/features/budgets/plan-sources'
 const job = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -51,6 +51,14 @@ test('fill snapshots amounts and sources for one undo only', () => {
 test('source-only choice is not a persistence change', () => {
   const state = budgetDraftReducer(createBudgetDraft(baseline()), { type: 'choose', major: '식비', amount: 350000, source: 'previousActual', recommendationJobId: null })
   expect(draftBudgetChanges(state)).toEqual([])
+})
+test('manual conversion leaves blank input invalid and retains recommendation provenance', () => {
+  const rows = baseline(); rows[0].recommendationJobId = job
+  const invalid = budgetDraftReducer(createBudgetDraft(rows), { type: 'edit', major: '식비', amount: '' })
+  const choice = manualDraftChoice(invalid.rows[0])
+  const state = choice ? budgetDraftReducer(invalid, { type: 'choose', ...choice }) : invalid
+  expect(state.rows[0]).toMatchObject({ amount: '', source: null, recommendationJobId: job })
+  expect(() => draftBudgetChanges(state)).toThrow('invalid_amount')
 })
 test('rebase preserves dirty invalid input and provenance, adopts clean rows and new versions', () => {
   const rows = baseline(); rows[1].recommendationJobId = job

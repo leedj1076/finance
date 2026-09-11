@@ -10,7 +10,7 @@ import { currentMonthInKorea, formatRate, formatWon, savingsRate } from '@/lib/f
 
 import { saveBudgetPlan, type BudgetActionState } from './actions'
 import { BudgetRow, type RecommendationRowContext } from './budget-row'
-import { budgetDraftReducer, createBudgetDraft, draftBudgetAmounts, draftBudgetChanges, type BudgetDraftChoice } from './draft'
+import { budgetDraftReducer, createBudgetDraft, draftBudgetAmounts, draftBudgetChanges, manualDraftChoice, type BudgetDraftChoice } from './draft'
 import { spendingCeilingForTarget } from './simulator-calculations'
 import { VariableSpendSimulator } from './simulator'
 import type { getBudgetReviewData } from './review-queries'
@@ -498,7 +498,12 @@ function BudgetEditor({
                       key={canonicalRow.major}
                       month={month}
                       onEdit={(amount) => { dispatch({ type: 'edit', major: row.major, amount }); setAcknowledgeOverage(false) }}
-                      onManual={() => { dispatch({ type: 'choose', major: row.major, amount: Number(row.amount), source: null, recommendationJobId: null }); setAcknowledgeOverage(false) }}
+                      onManual={() => {
+                        const choice = manualDraftChoice(row)
+                        if (!choice) return
+                        dispatch({ type: 'choose', ...choice })
+                        setAcknowledgeOverage(false)
+                      }}
                       onSelect={(checked) => setSelected((current) => checked
                         ? [...new Set([...current, row.major])] : current.filter(major => major !== row.major))}
                       origin={recommendationContext(saved, row.major)}

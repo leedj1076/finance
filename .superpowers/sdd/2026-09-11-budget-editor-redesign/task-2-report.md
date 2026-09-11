@@ -54,3 +54,9 @@ overwrittenDraftRows(draft: BudgetDraft, choices: BudgetDraftChoice[]): BudgetDr
 - Protected save service, save contract, schema, snapshot, and recommendation report files have no diff.
 - The legacy manual conversion passes its numeric input through `choose`; Task 7 removes this compatibility UI. Invalid draft input remains blocked from saving as before.
 - The controller-owned plan document remains modified but is not part of this task commit.
+
+## Review follow-up
+
+- Added `manualDraftChoice(row): BudgetDraftChoice | null`, which uses the same exact non-negative safe-integer validation as save serialization. The temporary legacy manual action dispatches only when this conversion succeeds.
+- Regression RED: the focused draft suite failed because `manualDraftChoice` did not exist. GREEN: focused draft/fill tests passed 22/22, including proof that blank input stays blank and invalid while its recommendation provenance remains intact.
+- Re-ran `NODE_OPTIONS= pnpm exec tsc --noEmit && NODE_OPTIONS= pnpm lint && NODE_OPTIONS= pnpm test`; all gates exited 0 and Vitest passed 674/674 tests across 75 files.

@@ -30,6 +30,19 @@ export type BudgetDraftAction =
   | { type: 'rebase'; rows: BudgetBaseline[] }
   | { type: 'saved'; rows: BudgetBaseline[] }
 
+export function manualDraftChoice(row: BudgetDraftRow): BudgetDraftChoice | null {
+  try {
+    return {
+      major: row.major,
+      amount: parseDraftAmount(row.amount),
+      source: null,
+      recommendationJobId: null,
+    }
+  } catch {
+    return null
+  }
+}
+
 function copyRows(rows: BudgetDraftRow[]): BudgetDraftRow[] {
   return rows.map((row) => ({ ...row }))
 }
