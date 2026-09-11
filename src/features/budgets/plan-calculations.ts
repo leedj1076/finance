@@ -2,6 +2,22 @@ import { roundLikePython } from '@/features/ledger/forecast'
 
 import type { BudgetPlanRow, BudgetSource } from './plan-sources'
 
+export function spendingCeilingForTarget({
+  averageIncome,
+  initialSavingsTarget,
+  savingsTarget,
+  serverSpendCeiling,
+}: {
+  averageIncome: number
+  initialSavingsTarget: number
+  savingsTarget: number
+  serverSpendCeiling: number
+}) {
+  return savingsTarget === initialSavingsTarget
+    ? serverSpendCeiling
+    : roundLikePython(averageIncome * (1 - savingsTarget / 100))
+}
+
 export type Average3Input = {
   candidateMonths: string[]
   transactionMonths: string[]

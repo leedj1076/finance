@@ -751,6 +751,118 @@ button.finance-nav-link { cursor: pointer; }
 .t-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; line-height: 1.3; }
 .t-badge { font-size: 10px; font-weight: 600; line-height: 1; white-space: nowrap; }
 
+/* Budget editor ceiling bar */
+.ceiling-bar {
+  position: sticky;
+  z-index: 40;
+  top: 56px;
+  display: flex;
+  box-sizing: border-box;
+  height: 52px;
+  align-items: center;
+  gap: 24px;
+  border-top: 1px solid var(--finance-ink);
+  border-bottom: 1px solid var(--finance-ink);
+  background: var(--background);
+  color: var(--finance-ink);
+}
+
+.ceiling-bar__desktop {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 28px;
+}
+
+.ceiling-bar__target {
+  display: inline-flex;
+  flex: none;
+  cursor: pointer;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-bottom: 1px dashed var(--finance-faint);
+  background: transparent;
+  padding: 0 0 1px;
+  color: var(--finance-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ceiling-bar__target:hover,
+.ceiling-bar__target:focus-visible { color: var(--finance-blue); }
+.ceiling-bar__target:focus-visible,
+.ceiling-bar__save:focus-visible,
+.ceiling-bar__slider-row input:focus-visible {
+  outline: 2px solid var(--finance-blue);
+  outline-offset: 2px;
+}
+
+.ceiling-bar__chevron { width: 12px; height: 12px; }
+.ceiling-bar__metric { display: flex; align-items: baseline; gap: 8px; color: var(--finance-muted); white-space: nowrap; }
+.ceiling-bar__metric strong { color: var(--finance-ink); }
+.ceiling-bar__metric strong.text-finance-amber { color: var(--finance-amber); }
+.ceiling-bar__balance { flex: none; white-space: nowrap; }
+.ceiling-bar__actions { display: flex; flex: none; align-items: center; gap: 12px; margin-left: auto; }
+.ceiling-bar__save {
+  display: inline-flex;
+  height: 34px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--finance-border);
+  background: var(--finance-panel);
+  padding: 0 14px;
+  color: var(--finance-muted);
+  white-space: nowrap;
+}
+.ceiling-bar__save.is-dirty { border-color: var(--finance-ink); background: var(--finance-ink); color: var(--background); }
+.ceiling-bar__save:disabled { cursor: not-allowed; opacity: .6; }
+.ceiling-bar__save-mobile,
+.ceiling-bar__mobile { display: none; }
+
+.ceiling-bar__popover {
+  position: fixed;
+  inset: 116px auto auto max(16px, calc((100vw - 1120px) / 2));
+  width: min(360px, calc(100vw - 32px));
+  box-sizing: border-box;
+  border: 1px solid var(--finance-ink);
+  background: var(--background);
+  padding: 16px;
+  color: var(--finance-ink);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--finance-ink) 12%, transparent);
+}
+.ceiling-bar__popover::backdrop { background: transparent; }
+.ceiling-bar__slider-row { display: flex; align-items: center; gap: 14px; margin-top: 12px; }
+.ceiling-bar__slider-row input { min-width: 0; flex: 1; accent-color: var(--finance-ink); }
+.ceiling-bar__slider-row output { min-width: 44px; text-align: right; }
+.ceiling-bar__formula { margin-top: 14px; line-height: 1.7; }
+.ceiling-bar__expected { display: flex; justify-content: space-between; margin-top: 12px; border-top: 1px solid var(--finance-border); padding-top: 12px; }
+.ceiling-bar__notice { margin-top: 8px; letter-spacing: 0; }
+
+@media (max-width: 640px) {
+  .ceiling-bar { gap: 8px; padding: 0 8px; }
+  .ceiling-bar__desktop { display: none; }
+  .ceiling-bar__mobile { display: grid; min-width: 0; flex: 1; gap: 1px; }
+  .ceiling-bar__compact-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ceiling-bar__target--mobile { justify-self: start; }
+  .ceiling-bar__dirty,
+  .ceiling-bar__save-desktop { display: none; }
+  .ceiling-bar__save-mobile { display: inline; }
+  .ceiling-bar__save { height: 30px; padding: 0 12px; }
+  .ceiling-bar__popover {
+    inset: auto 0 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    padding: 20px 16px;
+  }
+}
+
 /* Charts: text inside SVG wears text tokens, never the series color. */
 .chart-value-label { font-size: 11px; font-weight: 700; letter-spacing: -0.01em; }
 .chart-hero-value { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
