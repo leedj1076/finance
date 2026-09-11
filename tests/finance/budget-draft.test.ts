@@ -1,214 +1,89 @@
 import { describe, expect, test } from 'vitest'
-
-import { evaluateBudget } from '@/features/budget-recommendations/calculations'
+import { budgetDraftReducer, createBudgetDraft, draftBudgetAmounts, draftBudgetChanges } from '@/features/budgets/draft'
 import type { BudgetBaseline } from '@/features/budgets/save-contract'
-import {
-  budgetDraftReducer,
-  createBudgetDraft,
-  draftBudgetAmounts,
-  draftBudgetChanges,
-} from '@/features/budgets/draft'
-import { makeBudgetReport, makeBudgetSnapshot } from '../fixtures/budget-recommendation'
+import type { BudgetPlanRow } from '@/features/budgets/plan-sources'
+const job = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+const baseline = (): BudgetBaseline[] => [
+  { major: '식비', amount: 350000, recommendationJobId: null, version: 'food-v1' },
+  { major: '교통', amount: 90000, recommendationJobId: null, version: 'travel-v1' },
+]
+const plan = (): BudgetPlanRow[] => baseline().map(saved => ({ major: saved.major, saved, group: 'variable', actual: 0,
+  previousBudget: saved.amount, previousActual: { amount: saved.amount, month: '2026-08', partial: null },
+  average3: { amount: 100000, months: ['2026-08'], monthsWithSpend: 1, provisional: true } }))
 
-const jobId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
-const otherJobId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
-
-function baseline(): BudgetBaseline[] {
-  return [
-    { major: '식비', amount: 350_000, recommendationJobId: null, version: 'food-v1' },
-    { major: '교통', amount: 90_000, recommendationJobId: null, version: 'travel-v1' },
-  ]
-}
-
-function completed() {
-  const snapshot = makeBudgetSnapshot()
-  const report = makeBudgetReport()
-  return {
-    id: jobId,
-    completedAt: '2026-09-10T01:00:00Z',
-    snapshot,
-    promptInput: null,
-    report,
-    evaluation: evaluateBudget(snapshot, report.rows),
-  }
-}
-
-test('nothing is selected; applying one category preserves all other manual values', () => {
+test('initial sources describe the saved values and do not cause changes', () => {
+  const state = createBudgetDraft(baseline(), plan(), null)
+  expect(state.rows.map(row => row.source)).toEqual(['previousBudget', 'previousBudget'])
+  expect(draftBudgetChanges(state)).toEqual([])
+  expect('selected' in state).toBe(false)
+})
+test('initial AI needs matching provenance and recommendation amount', () => {
+  const rows = baseline(); rows[0].recommendationJobId = job
+  expect(createBudgetDraft(rows, plan(), job, { 식비: 350000 }).rows[0].source).toBe('ai')
+  expect(createBudgetDraft(rows, plan(), job, { 식비: 340000 }).rows[0].source).toBe('previousBudget')
+})
+test('choose changes one row and edit retains AI provenance while clearing selection', () => {
   let state = createBudgetDraft(baseline())
-  expect(state.selected).toEqual([])
-  state = budgetDraftReducer(state, { type: 'edit', major: '교통', amount: '80000' })
-  state = budgetDraftReducer(state, { type: 'select', majors: ['식비'] })
-  state = budgetDraftReducer(state, { type: 'apply', completed: completed() })
-  expect(state.rows.map((row) => row.amount)).toEqual(['300000', '80000'])
+  state = budgetDraftReducer(state, { type: 'choose', major: '식비', amount: 300000, source: 'ai', recommendationJobId: job })
+  expect(state.rows[0]).toEqual({ major: '식비', amount: '300000', source: 'ai', recommendationJobId: job })
+  expect(state.rows[1].amount).toBe('90000')
   state = budgetDraftReducer(state, { type: 'edit', major: '식비', amount: '310000' })
-  expect(draftBudgetChanges(state).find((row) => row.major === '식비')?.recommendationJobId)
-    .toBe(jobId)
-  state = budgetDraftReducer(state, { type: 'manual', majors: ['식비'] })
+  expect(state.rows[0]).toMatchObject({ amount: '310000', source: null, recommendationJobId: job })
+  expect(draftBudgetChanges(state)[0]).toEqual({ major: '식비', amount: 310000, recommendationJobId: job, expectedVersion: 'food-v1' })
+})
+test.each(['previousBudget', 'previousActual', 'average3'] as const)('%s choice clears provenance even with a caller ID', source => {
+  const rows = baseline(); rows[0].recommendationJobId = job
+  const state = budgetDraftReducer(createBudgetDraft(rows), { type: 'choose', major: '식비', amount: 350000, source, recommendationJobId: job })
   expect(state.rows[0].recommendationJobId).toBeNull()
+  expect(draftBudgetChanges(state)[0]).toMatchObject({ amount: 350000, recommendationJobId: null })
 })
-
-describe('draft selection and immutable row transitions', () => {
-  test('selection supports one, all, and none without changing amounts', () => {
-    const initial = createBudgetDraft(baseline())
-    const one = budgetDraftReducer(initial, { type: 'select', majors: ['교통', '없음', '교통'] })
-    const all = budgetDraftReducer(one, { type: 'select', majors: ['식비', '교통'] })
-    const none = budgetDraftReducer(all, { type: 'select', majors: [] })
-
-    expect(one.selected).toEqual(['교통'])
-    expect(all.selected).toEqual(['식비', '교통'])
-    expect(none.selected).toEqual([])
-    expect(none.rows).toEqual(initial.rows)
-    expect(one).not.toBe(initial)
-    expect(initial.selected).toEqual([])
-  })
-
-  test('fill clears origin only for copied rows and undo restores amounts and origins', () => {
-    const withOrigin = baseline()
-    withOrigin[0].recommendationJobId = jobId
-    let state = createBudgetDraft(withOrigin)
-    state = budgetDraftReducer(state, { type: 'select', majors: ['식비'] })
-    state = budgetDraftReducer(state, { type: 'apply', completed: completed() })
-    const appliedRows = state.rows
-
-    state = budgetDraftReducer(state, { type: 'fill', amounts: [{ major: '식비', amount: 320_000 }] })
-    expect(state.rows).toEqual([
-      { major: '식비', amount: '320000', recommendationJobId: null },
-      { major: '교통', amount: '90000', recommendationJobId: null },
-    ])
-    expect(state.undoRows).toEqual(appliedRows)
-
-    state = budgetDraftReducer(state, { type: 'undo' })
-    expect(state.rows).toEqual(appliedRows)
-    expect(state.rows[0].recommendationJobId).toBe(jobId)
-    expect(state.undoRows).toBeNull()
-  })
-
-  test('conflict rebase retains only dirty amount or provenance and adopts every clean fresh row', () => {
-    const initial = [
-      { major: '식비', amount: 350_000, recommendationJobId: null, version: 'food-v1' },
-      { major: '교통', amount: 90_000, recommendationJobId: jobId, version: 'travel-v1' },
-      { major: '보험', amount: 100_000, recommendationJobId: null, version: 'insurance-v1' },
-      { major: '삭제됨', amount: 50_000, recommendationJobId: null, version: 'removed-v1' },
-    ]
-    let state = createBudgetDraft(initial)
-    state = budgetDraftReducer(state, { type: 'edit', major: '식비', amount: '330000' })
-    state = budgetDraftReducer(state, { type: 'manual', majors: ['교통'] })
-    state = budgetDraftReducer(state, { type: 'select', majors: ['식비', '교통', '보험', '삭제됨'] })
-    const fresh = [
-      { major: '식비', amount: 360_000, recommendationJobId: otherJobId, version: 'food-v2' },
-      { major: '교통', amount: 95_000, recommendationJobId: otherJobId, version: 'travel-v2' },
-      { major: '보험', amount: 120_000, recommendationJobId: otherJobId, version: 'insurance-v2' },
-      { major: '주거', amount: 500_000, recommendationJobId: null, version: 'housing-v1' },
-    ]
-
-    state = budgetDraftReducer(state, { type: 'rebase', rows: fresh })
-    fresh[0].amount = 1
-
-    expect(state.rows).toEqual([
-      { major: '식비', amount: '330000', recommendationJobId: null },
-      { major: '교통', amount: '90000', recommendationJobId: null },
-      { major: '보험', amount: '120000', recommendationJobId: otherJobId },
-      { major: '주거', amount: '500000', recommendationJobId: null },
-    ])
-    expect(state.baseline).toEqual([
-      { major: '식비', amount: 360_000, recommendationJobId: otherJobId, version: 'food-v2' },
-      { major: '교통', amount: 95_000, recommendationJobId: otherJobId, version: 'travel-v2' },
-      { major: '보험', amount: 120_000, recommendationJobId: otherJobId, version: 'insurance-v2' },
-      { major: '주거', amount: 500_000, recommendationJobId: null, version: 'housing-v1' },
-    ])
-    expect(state.selected).toEqual(['식비', '교통', '보험'])
-    expect(state.undoRows).toBeNull()
-    expect(draftBudgetChanges(state)).toEqual([
-      { major: '식비', amount: 330_000, recommendationJobId: null, expectedVersion: 'food-v2' },
-      { major: '교통', amount: 90_000, recommendationJobId: null, expectedVersion: 'travel-v2' },
-    ])
-  })
-
-  test.each(['350000', '0350000', ' 350000 '])('conflict rebase treats equivalent prior amount %j and provenance as clean', (equivalent) => {
-    let state = createBudgetDraft(baseline())
-    state = budgetDraftReducer(state, { type: 'edit', major: '식비', amount: '1' })
-    state = budgetDraftReducer(state, { type: 'edit', major: '식비', amount: equivalent })
-
-    state = budgetDraftReducer(state, { type: 'rebase', rows: [
-      { major: '식비', amount: 360_000, recommendationJobId: otherJobId, version: 'food-v2' },
-      { major: '교통', amount: 90_000, recommendationJobId: null, version: 'travel-v2' },
-    ] })
-
-    expect(state.rows[0]).toEqual({ major: '식비', amount: '360000', recommendationJobId: otherJobId })
-    expect(draftBudgetChanges(state)).toEqual([])
-  })
-
-  test('conflict rebase retains invalid in-progress input as dirty without coercing it', () => {
-    let state = createBudgetDraft(baseline())
-    state = budgetDraftReducer(state, { type: 'edit', major: '식비', amount: '' })
-
-    state = budgetDraftReducer(state, { type: 'rebase', rows: [
-      { major: '식비', amount: 360_000, recommendationJobId: null, version: 'food-v2' },
-      { major: '교통', amount: 90_000, recommendationJobId: null, version: 'travel-v2' },
-    ] })
-
-    expect(state.rows[0]).toEqual({ major: '식비', amount: '', recommendationJobId: null })
-    expect(() => draftBudgetChanges(state)).toThrow('invalid_amount')
-  })
+test('fill snapshots amounts and sources for one undo only', () => {
+  let state = budgetDraftReducer(createBudgetDraft(baseline(), plan()), { type: 'choose', major: '식비', amount: 300000, source: 'ai', recommendationJobId: job })
+  const before = structuredClone(state.rows)
+  state = budgetDraftReducer(state, { type: 'fill', choices: [{ major: '식비', amount: 320000, source: 'previousActual', recommendationJobId: null }] })
+  expect(state.rows[0]).toMatchObject({ amount: '320000', source: 'previousActual', recommendationJobId: null })
+  expect(state.undoRows).toEqual(before)
+  state = budgetDraftReducer(state, { type: 'undo' })
+  expect(state.rows).toEqual(before)
+  expect(state.undoRows).toBeNull()
+  expect(budgetDraftReducer(state, { type: 'undo' })).toBe(state)
 })
-
-describe('draft serialization', () => {
-  test('returns a partial mixed total from the editable draft, not the complete AI report', () => {
-    let state = createBudgetDraft(baseline())
-    state = budgetDraftReducer(state, { type: 'edit', major: '교통', amount: '80000' })
-    state = budgetDraftReducer(state, { type: 'select', majors: ['식비'] })
-    state = budgetDraftReducer(state, { type: 'apply', completed: completed() })
-
-    expect(draftBudgetAmounts(state)).toEqual([
-      { major: '식비', amount: 300_000 },
-      { major: '교통', amount: 80_000 },
-    ])
-    expect(draftBudgetAmounts(state).reduce((sum, row) => sum + row.amount, 0)).toBe(380_000)
-    expect(draftBudgetChanges(state)).toEqual([
-      { major: '식비', amount: 300_000, recommendationJobId: jobId, expectedVersion: 'food-v1' },
-      { major: '교통', amount: 80_000, recommendationJobId: null, expectedVersion: 'travel-v1' },
-    ])
-  })
-
-  test.each(['', ' ', '-1', '1.5', 'NaN', '9007199254740992'])('blocks invalid in-progress amount %j before submit', (amount) => {
+test('source-only choice is not a persistence change', () => {
+  const state = budgetDraftReducer(createBudgetDraft(baseline()), { type: 'choose', major: '식비', amount: 350000, source: 'previousActual', recommendationJobId: null })
+  expect(draftBudgetChanges(state)).toEqual([])
+})
+test('rebase preserves dirty invalid input and provenance, adopts clean rows and new versions', () => {
+  const rows = baseline(); rows[1].recommendationJobId = job
+  let state = budgetDraftReducer(createBudgetDraft(rows), { type: 'edit', major: '식비', amount: '' })
+  state = budgetDraftReducer(state, { type: 'choose', major: '교통', amount: 90000, source: 'previousBudget', recommendationJobId: null })
+  const fresh = [...baseline().map(row => ({ ...row, amount: row.amount + 1000, version: 'v2' })), { major: '주거', amount: 500000, recommendationJobId: null, version: 'v1' }]
+  state = budgetDraftReducer(state, { type: 'rebase', rows: fresh })
+  fresh[0].amount = 1
+  expect(state.rows.map(row => row.amount)).toEqual(['', '90000', '500000'])
+  expect(state.baseline[0].amount).toBe(351000)
+  expect(state.rows[1].recommendationJobId).toBeNull()
+  expect(() => draftBudgetChanges(state)).toThrow('invalid_amount')
+})
+test.each(['350000', '0350000', ' 350000 '])('rebase treats equivalent %j as clean', amount => {
+  let state = budgetDraftReducer(createBudgetDraft(baseline()), { type: 'edit', major: '식비', amount })
+  state = budgetDraftReducer(state, { type: 'rebase', rows: baseline().map(row => ({ ...row, amount: row.amount + 1 })) })
+  expect(state.rows[0].amount).toBe('350001')
+  expect(draftBudgetChanges(state)).toEqual([])
+})
+describe('serialization', () => {
+  test.each(['', ' ', '-1', '1.5', 'NaN', '9007199254740992'])('rejects %j', amount => {
     const state = budgetDraftReducer(createBudgetDraft(baseline()), { type: 'edit', major: '식비', amount })
     expect(() => draftBudgetAmounts(state)).toThrow('invalid_amount')
     expect(() => draftBudgetChanges(state)).toThrow('invalid_amount')
   })
-
-  test('includes provenance-only changes with the matching baseline version', () => {
-    const initial = baseline()
-    initial[0].recommendationJobId = jobId
-    let state = createBudgetDraft(initial)
-    state = budgetDraftReducer(state, { type: 'manual', majors: ['식비'] })
-    expect(draftBudgetChanges(state)).toEqual([{
-      major: '식비', amount: 350_000, recommendationJobId: null, expectedVersion: 'food-v1',
-    }])
-  })
-
-  test('saved is authoritative and clears local state; callers must guard acknowledgments by revision', () => {
-    let state = budgetDraftReducer(createBudgetDraft(baseline()), { type: 'edit', major: '식비', amount: '999999' })
-    state = budgetDraftReducer(state, { type: 'select', majors: ['식비'] })
-    state = budgetDraftReducer(state, { type: 'apply', completed: completed() })
-
-    const savedRows = [
-      { major: '식비', amount: 360_000, recommendationJobId: jobId, version: 'food-v2' },
-      { major: '교통', amount: 90_000, recommendationJobId: null, version: 'travel-v2' },
-    ]
-    const saved = budgetDraftReducer(state, { type: 'saved', rows: savedRows })
-    savedRows[0].amount = 1
-
-    expect(saved).toEqual({
-      rows: [
-        { major: '식비', amount: '360000', recommendationJobId: jobId },
-        { major: '교통', amount: '90000', recommendationJobId: null },
-      ],
-      baseline: [
-        { major: '식비', amount: 360_000, recommendationJobId: jobId, version: 'food-v2' },
-        { major: '교통', amount: 90_000, recommendationJobId: null, version: 'travel-v2' },
-      ],
-      selected: [],
-      undoRows: null,
-    })
+  test('acknowledgement adopts server versions, preserves matching session source, and clears undo', () => {
+    let state = budgetDraftReducer(createBudgetDraft(baseline()), { type: 'fill', choices: [{ major: '식비', amount: 300000, source: 'ai', recommendationJobId: job }] })
+    const rows = [{ ...baseline()[0], amount: 300000, recommendationJobId: job, version: 'v2' }, baseline()[1]]
+    state = budgetDraftReducer(state, { type: 'saved', rows })
+    rows[0].amount = 1
+    expect(state.rows[0]).toMatchObject({ amount: '300000', source: 'ai', recommendationJobId: job })
+    expect(state.baseline[0].version).toBe('v2')
+    expect(state.undoRows).toBeNull()
+    expect(draftBudgetChanges(state)).toEqual([])
   })
 })

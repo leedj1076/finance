@@ -1,26 +1,31 @@
-import type { CompletedBudgetRecommendation } from '@/features/budget-recommendations/types'
-
+import { initialSource } from './plan-calculations'
+import type { BudgetPlanRow, BudgetSource } from './plan-sources'
 import type { BudgetBaseline, BudgetSaveRequest } from './save-contract'
 
 export type BudgetDraftRow = {
   major: string
   amount: string
+  source: BudgetSource | null
   recommendationJobId: string | null
 }
 
 export type BudgetDraft = {
   rows: BudgetDraftRow[]
   baseline: BudgetBaseline[]
-  selected: string[]
   undoRows: BudgetDraftRow[] | null
+}
+
+export type BudgetDraftChoice = {
+  major: string
+  amount: number
+  source: BudgetSource | null
+  recommendationJobId: string | null
 }
 
 export type BudgetDraftAction =
   | { type: 'edit'; major: string; amount: string }
-  | { type: 'select'; majors: string[] }
-  | { type: 'apply'; completed: CompletedBudgetRecommendation }
-  | { type: 'fill'; amounts: { major: string; amount: number }[] }
-  | { type: 'manual'; majors: string[] }
+  | ({ type: 'choose' } & BudgetDraftChoice)
+  | { type: 'fill'; choices: BudgetDraftChoice[] }
   | { type: 'undo' }
   | { type: 'rebase'; rows: BudgetBaseline[] }
   | { type: 'saved'; rows: BudgetBaseline[] }
@@ -29,21 +34,46 @@ function copyRows(rows: BudgetDraftRow[]): BudgetDraftRow[] {
   return rows.map((row) => ({ ...row }))
 }
 
-function rowsFromBaseline(rows: BudgetBaseline[]): BudgetDraftRow[] {
-  return rows.map(({ major, amount, recommendationJobId }) => ({
-    major,
-    amount: String(amount),
-    recommendationJobId,
-  }))
+function rowFromBaseline(
+  row: BudgetBaseline,
+  plan?: BudgetPlanRow,
+  completedJobId: string | null = null,
+  recommendedAmount?: number,
+): BudgetDraftRow {
+  return {
+    major: row.major,
+    amount: String(row.amount),
+    source: plan ? initialSource({ ...plan, saved: row }, completedJobId, recommendedAmount) : null,
+    recommendationJobId: row.recommendationJobId,
+  }
 }
 
-export function createBudgetDraft(baseline: BudgetBaseline[]): BudgetDraft {
+export function createBudgetDraft(
+  baseline: BudgetBaseline[],
+  plan: BudgetPlanRow[] = [],
+  completedJobId: string | null = null,
+  recommendedAmounts: Record<string, number> = {},
+): BudgetDraft {
   const copiedBaseline = baseline.map((row) => ({ ...row }))
+  const planByMajor = new Map(plan.map((row) => [row.major, row]))
   return {
-    rows: rowsFromBaseline(copiedBaseline),
+    rows: copiedBaseline.map((row) => rowFromBaseline(
+      row,
+      planByMajor.get(row.major),
+      completedJobId,
+      recommendedAmounts[row.major],
+    )),
     baseline: copiedBaseline,
-    selected: [],
     undoRows: null,
+  }
+}
+
+function chosenRow(row: BudgetDraftRow, choice: BudgetDraftChoice): BudgetDraftRow {
+  return {
+    ...row,
+    amount: String(choice.amount),
+    source: choice.source,
+    recommendationJobId: choice.source === 'ai' ? choice.recommendationJobId : null,
   }
 }
 
@@ -52,43 +82,24 @@ export function budgetDraftReducer(state: BudgetDraft, action: BudgetDraftAction
     case 'edit':
       return {
         ...state,
-        rows: state.rows.map((row) => row.major === action.major ? { ...row, amount: action.amount } : row),
-      }
-    case 'select': {
-      const requested = new Set(action.majors)
-      return {
-        ...state,
-        selected: state.rows.filter((row) => requested.has(row.major)).map((row) => row.major),
-      }
-    }
-    case 'apply': {
-      const selected = new Set(state.selected)
-      const recommendations = new Map(action.completed.report.rows.map((row) => [row.major, row.amount]))
-      return {
-        ...state,
-        undoRows: copyRows(state.rows),
-        selected: [],
-        rows: state.rows.map((row) => selected.has(row.major) && recommendations.has(row.major)
-          ? { ...row, amount: String(recommendations.get(row.major)), recommendationJobId: action.completed.id }
+        rows: state.rows.map((row) => row.major === action.major
+          ? { ...row, amount: action.amount, source: null }
           : row),
       }
-    }
+    case 'choose':
+      return {
+        ...state,
+        rows: state.rows.map((row) => row.major === action.major ? chosenRow(row, action) : row),
+      }
     case 'fill': {
-      const amounts = new Map(action.amounts.map((row) => [row.major, row.amount]))
+      const choices = new Map(action.choices.map((choice) => [choice.major, choice]))
       return {
         ...state,
         undoRows: copyRows(state.rows),
-        rows: state.rows.map((row) => amounts.has(row.major)
-          ? { ...row, amount: String(amounts.get(row.major)), recommendationJobId: null }
-          : row),
-      }
-    }
-    case 'manual': {
-      const majors = new Set(action.majors)
-      return {
-        ...state,
-        undoRows: copyRows(state.rows),
-        rows: state.rows.map((row) => majors.has(row.major) ? { ...row, recommendationJobId: null } : row),
+        rows: state.rows.map((row) => {
+          const choice = choices.get(row.major)
+          return choice ? chosenRow(row, choice) : row
+        }),
       }
     }
     case 'undo':
@@ -97,24 +108,37 @@ export function budgetDraftReducer(state: BudgetDraft, action: BudgetDraftAction
       const previousRows = new Map(state.rows.map((row) => [row.major, row]))
       const previousBaseline = new Map(state.baseline.map((row) => [row.major, row]))
       const nextBaseline = action.rows.map((row) => ({ ...row }))
-      const activeMajors = new Set(nextBaseline.map((row) => row.major))
       return {
         rows: nextBaseline.map((baseline) => {
           const row = previousRows.get(baseline.major)
           const previous = previousBaseline.get(baseline.major)
-          if (!row || !previous) return rowsFromBaseline([baseline])[0]
+          if (!row || !previous) return rowFromBaseline(baseline)
           let amountDirty = true
           try { amountDirty = parseDraftAmount(row.amount) !== previous.amount } catch { /* Invalid in-progress input is dirty. */ }
           const provenanceDirty = row.recommendationJobId !== previous.recommendationJobId
-          return amountDirty || provenanceDirty ? { ...row } : rowsFromBaseline([baseline])[0]
+          return amountDirty || provenanceDirty ? { ...row } : rowFromBaseline(baseline)
         }),
         baseline: nextBaseline,
-        selected: state.selected.filter((major) => activeMajors.has(major)),
         undoRows: null,
       }
     }
-    case 'saved':
-      return createBudgetDraft(action.rows)
+    case 'saved': {
+      const acknowledged = new Map(state.rows.map((row) => [row.major, row]))
+      const baseline = action.rows.map((row) => ({ ...row }))
+      return {
+        rows: baseline.map((saved) => {
+          const row = acknowledged.get(saved.major)
+          if (!row) return rowFromBaseline(saved)
+          let amountMatches = false
+          try { amountMatches = parseDraftAmount(row.amount) === saved.amount } catch { /* Server acknowledgement wins. */ }
+          return amountMatches && row.recommendationJobId === saved.recommendationJobId
+            ? { ...row, amount: String(saved.amount) }
+            : rowFromBaseline(saved)
+        }),
+        baseline,
+        undoRows: null,
+      }
+    }
   }
 }
 

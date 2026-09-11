@@ -10,7 +10,7 @@ import { currentMonthInKorea, formatRate, formatWon, savingsRate } from '@/lib/f
 
 import { saveBudgetPlan, type BudgetActionState } from './actions'
 import { BudgetRow, type RecommendationRowContext } from './budget-row'
-import { budgetDraftReducer, createBudgetDraft, draftBudgetAmounts, draftBudgetChanges } from './draft'
+import { budgetDraftReducer, createBudgetDraft, draftBudgetAmounts, draftBudgetChanges, type BudgetDraftChoice } from './draft'
 import { spendingCeilingForTarget } from './simulator-calculations'
 import { VariableSpendSimulator } from './simulator'
 import type { getBudgetReviewData } from './review-queries'
@@ -85,6 +85,7 @@ function BudgetEditor({
 }: BudgetFormProps) {
   const router = useRouter()
   const [draft, dispatch] = useReducer(budgetDraftReducer, baselines, createBudgetDraft)
+  const [selected, setSelected] = useState<string[]>([])
   const [targetBaseline, setTargetBaseline] = useState({ savingsTarget, targetVersion })
   const [target, setTarget] = useState(savingsTarget)
   const targetBaselineRef = useRef(targetBaseline)
@@ -104,7 +105,7 @@ function BudgetEditor({
   const saveRequest = useRef<symbol | null>(null)
   useEffect(() => () => { saveRequest.current = null }, [])
   const [reduction, setReduction] = useState(10)
-  const [preview, setPreview] = useState<{ label: string; amounts: Record<string, string>; manualMajors: string[] } | null>(null)
+  const [preview, setPreview] = useState<{ label: string; amounts: Record<string, string>; manualMajors: string[]; source: BudgetDraftChoice['source'] } | null>(null)
   const amounts = useMemo(() => Object.fromEntries(draft.rows.map(row => [row.major, row.amount])), [draft.rows])
   const parsedDraftAmounts = useMemo(() => {
     try { return draftBudgetAmounts(draft) } catch { return null }
@@ -189,7 +190,7 @@ function BudgetEditor({
   const getDraftAmounts = useCallback(() => draftBudgetAmounts(draftRef.current), [])
   const onRecommendationData = useCallback((next: BudgetRecommendationData) => {
     const nextCompletedId = next.completed?.id ?? null
-    if (completedJobId.current !== nextCompletedId) dispatch({ type: 'select', majors: [] })
+    if (completedJobId.current !== nextCompletedId) setSelected([])
     completedJobId.current = nextCompletedId
     setRecommendationState({ month, data: next })
     setApplyError(null)
@@ -219,7 +220,7 @@ function BudgetEditor({
   }
 
   async function applySelectedRecommendations() {
-    if (!currentCompleted || draft.selected.length === 0 || applyBusy || recommendationActive
+    if (!currentCompleted || selected.length === 0 || applyBusy || recommendationActive
       || payload.targetChange !== null
       || recommendationData?.freshness === 'source_changed'
       || recommendationData?.freshness === 'budgets_changed') return
@@ -231,7 +232,19 @@ function BudgetEditor({
     try {
       const verified = await checkRecommendationForApply(month, currentCompleted.id, controller.signal)
       if (applyRequest.current !== controller || controller.signal.aborted) return
-      dispatch({ type: 'apply', completed: verified })
+      const selectedMajors = new Set(selected)
+      dispatch({
+        type: 'fill',
+        choices: verified.report.rows
+          .filter((row) => selectedMajors.has(row.major))
+          .map((row) => ({
+            major: row.major,
+            amount: row.amount,
+            source: 'ai',
+            recommendationJobId: verified.id,
+          })),
+      })
+      setSelected([])
       setRecommendationState(current => current?.month === month
         ? { month, data: { ...current.data, completed: verified } }
         : current)
@@ -251,14 +264,21 @@ function BudgetEditor({
     }
   }
 
-  function previewFill(label: string, proposed: Record<string, string>, manualMajors = Object.keys(proposed)) {
-    setPreview({ label, amounts: proposed, manualMajors })
+  function previewFill(
+    label: string,
+    proposed: Record<string, string>,
+    manualMajors = Object.keys(proposed),
+    source: BudgetDraftChoice['source'] = null,
+  ) {
+    setPreview({ label, amounts: proposed, manualMajors, source })
   }
 
   function fillFrom(key: 'average' | 'previousBudget') {
     previewFill(
       key === 'average' ? '월평균으로 채우기' : '지난달 예산 채우기',
       Object.fromEntries(rows.map((row) => [row.major, String(row[key] || '')])),
+      rows.map((row) => row.major),
+      key === 'previousBudget' ? 'previousBudget' : null,
     )
   }
 
@@ -395,9 +415,9 @@ function BudgetEditor({
         </details>}
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
-          <button className="h-[30px] border border-finance-hairline px-3 t-body-strong" onClick={() => dispatch({ type: 'select', majors: recommendedMajors })} type="button">추천 전체 선택</button>
-          <button className="h-[30px] border border-finance-hairline px-3 t-body-strong" onClick={() => dispatch({ type: 'select', majors: [] })} type="button">추천 선택 해제</button>
-          <button className="h-[34px] bg-finance-violet px-4 t-body-strong text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={draft.selected.length === 0 || applyBusy || recommendationActive || payload.targetChange !== null || recommendationData?.freshness === 'source_changed' || recommendationData?.freshness === 'budgets_changed'} onClick={() => void applySelectedRecommendations()} type="button">
+          <button className="h-[30px] border border-finance-hairline px-3 t-body-strong" onClick={() => setSelected(recommendedMajors)} type="button">추천 전체 선택</button>
+          <button className="h-[30px] border border-finance-hairline px-3 t-body-strong" onClick={() => setSelected([])} type="button">추천 선택 해제</button>
+          <button className="h-[34px] bg-finance-violet px-4 t-body-strong text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={selected.length === 0 || applyBusy || recommendationActive || payload.targetChange !== null || recommendationData?.freshness === 'source_changed' || recommendationData?.freshness === 'budgets_changed'} onClick={() => void applySelectedRecommendations()} type="button">
             {applyBusy ? '추천 확인 중…' : '선택한 추천 가져오기'}
           </button>
         </div>
@@ -450,7 +470,7 @@ function BudgetEditor({
 
         {preview && (
           <section aria-label="예산 채우기 미리보기" className="border-b border-finance-hairline bg-finance-panel p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="t-body-strong text-finance-ink">{preview.label} 미리보기</p><p className="t-caption text-finance-muted">확인 전에는 편집안과 저장된 예산이 바뀌지 않습니다. 가져온 항목은 수동 초안으로 전환됩니다.</p></div><div className="flex gap-2"><button className="h-[30px] border border-finance-hairline bg-white px-3 t-body-strong text-finance-muted" onClick={() => setPreview(null)} type="button">취소</button><button className="h-[30px] bg-finance-ink px-3 t-body-strong text-white" onClick={() => { const changed = new Set(preview.manualMajors); dispatch({ type: 'fill', amounts: Object.entries(preview.amounts).filter(([major]) => changed.has(major)).map(([major, amount]) => ({ major, amount: Number(amount) })) }); setAcknowledgeOverage(false); setPreview(null); document.getElementById('budget-list')?.scrollIntoView({ behavior: 'smooth' }) }} type="button">초안에 가져오기</button></div></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="t-body-strong text-finance-ink">{preview.label} 미리보기</p><p className="t-caption text-finance-muted">확인 전에는 편집안과 저장된 예산이 바뀌지 않습니다. 가져온 항목은 수동 초안으로 전환됩니다.</p></div><div className="flex gap-2"><button className="h-[30px] border border-finance-hairline bg-white px-3 t-body-strong text-finance-muted" onClick={() => setPreview(null)} type="button">취소</button><button className="h-[30px] bg-finance-ink px-3 t-body-strong text-white" onClick={() => { const changed = new Set(preview.manualMajors); dispatch({ type: 'fill', choices: Object.entries(preview.amounts).filter(([major]) => changed.has(major)).map(([major, amount]) => ({ major, amount: Number(amount), source: preview.source, recommendationJobId: null })) }); setAcknowledgeOverage(false); setPreview(null); document.getElementById('budget-list')?.scrollIntoView({ behavior: 'smooth' }) }} type="button">초안에 가져오기</button></div></div>
             <ul className="mt-3 divide-y divide-finance-hairline">{rows.filter((row) => amounts[row.major] !== preview.amounts[row.major]).map((row) => <li className="grid grid-cols-[1fr_auto_auto] gap-3 py-2 t-caption" key={row.major}><span className="font-medium text-finance-ink">{row.major}</span><span className="text-finance-muted">현재 {formatWon(Number(amounts[row.major]) || 0)}원</span><span className="text-finance-blue">제안 {formatWon(Number(preview.amounts[row.major]) || 0)}원</span></li>)}</ul>
           </section>
         )}
@@ -478,14 +498,14 @@ function BudgetEditor({
                       key={canonicalRow.major}
                       month={month}
                       onEdit={(amount) => { dispatch({ type: 'edit', major: row.major, amount }); setAcknowledgeOverage(false) }}
-                      onManual={() => { dispatch({ type: 'manual', majors: [row.major] }); setAcknowledgeOverage(false) }}
-                      onSelect={(selected) => dispatch({ type: 'select', majors: selected
-                        ? [...draft.selected, row.major] : draft.selected.filter(major => major !== row.major) })}
+                      onManual={() => { dispatch({ type: 'choose', major: row.major, amount: Number(row.amount), source: null, recommendationJobId: null }); setAcknowledgeOverage(false) }}
+                      onSelect={(checked) => setSelected((current) => checked
+                        ? [...new Set([...current, row.major])] : current.filter(major => major !== row.major))}
                       origin={recommendationContext(saved, row.major)}
                       period={period}
                       recommendation={recommendationContext(currentCompleted ?? undefined, row.major)}
                       row={row}
-                      selected={draft.selected.includes(row.major)}
+                      selected={selected.includes(row.major)}
                       source={source}
                     />
                   })}

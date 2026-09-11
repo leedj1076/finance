@@ -99,7 +99,7 @@ function render(row: BudgetDraftRow, overrides: Partial<Parameters<typeof Budget
 describe('budget recommendation row', () => {
   test('renders one accessible current-month editor with latest and saved reasons kept in their frozen contexts', () => {
     const html = render(
-      { major: '식비', amount: '310000', recommendationJobId: savedJobId },
+      { major: '식비', amount: '310000', source: null, recommendationJobId: savedJobId },
       { source: null },
     )
 
@@ -132,7 +132,7 @@ describe('budget recommendation row', () => {
 
   test('renders a future month as a whole-month budget without current-month allocation language', () => {
     const html = render(
-      { major: '식비', amount: '310000', recommendationJobId: null },
+      { major: '식비', amount: '310000', source: null, recommendationJobId: null },
       { period: 'future', origin: null, source: null, actual: 0 },
     )
 
@@ -143,7 +143,7 @@ describe('budget recommendation row', () => {
 
   test('links current and saved-origin transaction evidence to each frozen evidence month', () => {
     const html = render(
-      { major: '식비', amount: '310000', recommendationJobId: savedJobId },
+      { major: '식비', amount: '310000', source: null, recommendationJobId: savedJobId },
       {
         recommendation: context(latestJobId, 300_000, '현재 추천 이유', '현재', '2026-09-05'),
         origin: context(savedJobId, 320_000, '저장된 추천 이유', '저장', '2026-08-31'),
@@ -156,7 +156,7 @@ describe('budget recommendation row', () => {
 
   test('shows a net expense refund with a positive sign and adds it back to remaining allocation', () => {
     const html = render(
-      { major: '식비', amount: '310000', recommendationJobId: null },
+      { major: '식비', amount: '310000', source: null, recommendationJobId: null },
       { source: null, actual: -25_000, origin: null },
     )
 
@@ -166,7 +166,7 @@ describe('budget recommendation row', () => {
 
   test('keeps manual editing available when a saved origin cannot be validated', () => {
     const html = render(
-      { major: '식비', amount: '350000', recommendationJobId: savedJobId },
+      { major: '식비', amount: '350000', source: null, recommendationJobId: savedJobId },
       { recommendation: null, origin: null },
     )
 
@@ -176,7 +176,7 @@ describe('budget recommendation row', () => {
   })
 
   test('marks an invalid in-progress amount without coercing it to zero', () => {
-    const html = render({ major: '식비', amount: '', recommendationJobId: null }, { origin: null })
+    const html = render({ major: '식비', amount: '', source: null, recommendationJobId: null }, { origin: null })
 
     expect(html).toContain('value=""')
     expect(html).toContain('aria-invalid="true"')
