@@ -5,6 +5,7 @@ const loaders = vi.hoisted(() => ({
   review: vi.fn(),
   baselines: vi.fn(),
   savedRecommendations: vi.fn(),
+  planRows: vi.fn(),
   transaction: vi.fn(),
   reader: { select: vi.fn() },
 }))
@@ -14,6 +15,7 @@ vi.mock('@/features/budgets/review-queries', () => ({ readBudgetReviewData: load
 vi.mock('@/db/client', () => ({ db: { transaction: loaders.transaction } }))
 vi.mock('@/features/budgets/save-service', () => ({ readBudgetBaselines: loaders.baselines }))
 vi.mock('@/features/budget-recommendations/service', () => ({ readSavedBudgetRecommendations: loaders.savedRecommendations }))
+vi.mock('@/features/budgets/plan-sources', () => ({ readBudgetPlanRows: loaders.planRows }))
 
 import { getBudgetPlanningData } from '@/features/budgets/planning-queries'
 import { budgetReviewDestination } from '@/features/budgets/review-redirect'
@@ -24,14 +26,20 @@ test('combined planning data keeps the budget loader ceiling and resolves review
   loaders.transaction.mockImplementation(work => work(loaders.reader))
   loaders.budget.mockResolvedValue({
     month: '2026-10',
+    rows: [{ major: '식비', group: 'variable', actual: 0, previousBudget: 120 }],
     spendCeiling: 2_100_000,
     averageIncome: 3_000_000,
     savingsTarget: 30,
     incomeBasis: { start: '2026-01-01', end: '2026-10-01', monthCount: 9 },
   })
-  loaders.review.mockResolvedValue({ targetMonth: '2026-10', spendCeiling: 1_900_000 })
+  loaders.review.mockResolvedValue({
+    targetMonth: '2026-10',
+    spendCeiling: 1_900_000,
+    rows: [{ major: '식비', previousActual: 100 }],
+  })
   loaders.baselines.mockResolvedValue({ rows: [{ major: '식비', amount: 123, recommendationJobId: null, version: 'row-version' }], savingsTarget: 30, targetVersion: 'target-version' })
   loaders.savedRecommendations.mockResolvedValue([{ id: 'saved-job' }])
+  loaders.planRows.mockResolvedValue([{ major: '식비', average3: { amount: 100 } }])
 
   const planning = await getBudgetPlanningData('household-a', 'invalid-month')
 
@@ -43,6 +51,7 @@ test('combined planning data keeps the budget loader ceiling and resolves review
     baselines: [{ major: '식비', amount: 123, recommendationJobId: null, version: 'row-version' }],
     targetVersion: 'target-version',
     savedRecommendations: [{ id: 'saved-job' }],
+    planRows: [{ major: '식비', average3: { amount: 100 } }],
     basis: {
       averageIncome: 3_000_000,
       savingsTarget: 30,
@@ -54,6 +63,12 @@ test('combined planning data keeps the budget loader ceiling and resolves review
   })
   expect(loaders.baselines).toHaveBeenCalledWith(loaders.reader, 'household-a', '2026-10')
   expect(loaders.savedRecommendations).toHaveBeenCalledWith(loaders.reader, 'household-a', '2026-10')
+  expect(loaders.planRows).toHaveBeenCalledWith(loaders.reader, 'household-a', {
+    month: '2026-10',
+    budgetRows: [{ major: '식비', group: 'variable', actual: 0, previousBudget: 120 }],
+    baselineRows: [{ major: '식비', amount: 123, recommendationJobId: null, version: 'row-version' }],
+    reviewRows: [{ major: '식비', previousActual: 100 }],
+  }, loaders.budget.mock.calls[0][3])
   expect(loaders.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: 'repeatable read', accessMode: 'read only' })
 })
 
