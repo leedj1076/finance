@@ -30,6 +30,22 @@ function completedRecommendation(month: string): CompletedBudgetRecommendation {
   }
 }
 
+function reviewCompletedRecommendation(month: string): CompletedBudgetRecommendation {
+  const completed = completedRecommendation(month)
+  const transportSource = {
+    ...completed.snapshot.rows[0], major: '교통', savedAmount: 90_000, actual: 20_000,
+    floor: 20_000, previousBudget: 90_000, previousActual: 85_000, average: 82_000, median: 80_000,
+  }
+  completed.snapshot.rows.push(transportSource)
+  completed.snapshot.budgetState.current.push({ major: '교통', amount: 90_000, sourceMonth: '*', recommendationJobId: null })
+  completed.snapshot.budgetState.previous.push({ major: '교통', amount: 90_000, sourceMonth: '*', recommendationJobId: null })
+  completed.report.rows.push({
+    major: '교통', amount: 80_000, reason: '최근 교통비를 반영했습니다.', references: [], exceptional: [], reducible: [],
+  })
+  completed.evaluation = evaluateBudget(completed.snapshot, completed.report.rows)
+  return completed
+}
+
 function propsFor(month: string, origin = false): Props {
   const snapshot = makeBudgetSnapshot()
   snapshot.month = month
@@ -46,6 +62,28 @@ function propsFor(month: string, origin = false): Props {
     average3: { amount: 300_000, months: ['2026-06', '2026-07', '2026-08'], monthsWithSpend: 3, provisional: false } }],
     savedRecommendations: origin ? [{ id: jobId, completedAt: '2026-09-10T00:00:00Z',
       snapshot, promptInput: null, report, evaluation: evaluateBudget(snapshot, report.rows) }] : [],
+  }
+}
+
+function reviewPropsFor(): Props {
+  const month = '2026-10'
+  const completed = reviewCompletedRecommendation(month)
+  return {
+    month, savingsTarget: 30, targetVersion: 'target-v1', spendCeiling: 700_000,
+    basis: completed.snapshot.basis,
+    baselines: [
+      { major: '식비', amount: 350_000, recommendationJobId: null, version: 'food-v1' },
+      { major: '교통', amount: 90_000, recommendationJobId: null, version: 'transport-v1' },
+    ],
+    planRows: [
+      { major: '식비', group: 'variable', saved: { amount: 350_000, recommendationJobId: null, version: 'food-v1' },
+        previousBudget: 330_000, actual: 100_000, previousActual: { amount: 320_000, month: '2026-09', partial: null },
+        average3: { amount: 300_000, months: ['2026-07', '2026-08', '2026-09'], monthsWithSpend: 3, provisional: false } },
+      { major: '교통', group: 'variable', saved: { amount: 90_000, recommendationJobId: null, version: 'transport-v1' },
+        previousBudget: 90_000, actual: 20_000, previousActual: { amount: 85_000, month: '2026-09', partial: null },
+        average3: { amount: 82_000, months: ['2026-07', '2026-08', '2026-09'], monthsWithSpend: 3, provisional: false } },
+    ],
+    savedRecommendations: [],
   }
 }
 
@@ -69,7 +107,8 @@ let release: () => void
 let late: () => void
 
 function Harness() {
-  const [props, setProps] = useState(() => propsFor('2026-09'))
+  const reviewMode = new URLSearchParams(window.location.search).get('mode') === 'task7-review'
+  const [props, setProps] = useState(() => reviewMode ? reviewPropsFor() : propsFor('2026-09'))
   const [editorKey, setEditorKey] = useState('2026-09')
   const [visible, setVisible] = useState(true)
   const [pending, startTransition] = useTransition()

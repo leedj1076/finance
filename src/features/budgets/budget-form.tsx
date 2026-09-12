@@ -47,6 +47,7 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
   const [compareWaiting, setCompareWaiting] = useState(false)
   const [state, setState] = useState<BudgetActionState>(initialState)
   const [pending, setPending] = useState(false)
+  const [summaryPromptJobId, setSummaryPromptJobId] = useState<string | null>(null)
   const saveRequest = useRef<symbol | null>(null)
   useEffect(() => () => { saveRequest.current = null }, [])
 
@@ -141,14 +142,18 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
   ]))
   const summary = recommendation.currentCompleted ? <AiSummaryPopover
     completed={recommendation.currentCompleted}
-    onClose={recommendation.controller.clearPrompt}
+    onClose={() => {
+      recommendation.controller.clearPrompt()
+      setSummaryPromptJobId(null)
+    }}
     onShowPrompt={jobId => {
       recommendation.controller.clearPrompt()
+      setSummaryPromptJobId(jobId)
       void recommendation.controller.loadPrompt(jobId)
     }}
-    promptError={recommendation.controller.promptError}
-    promptLoading={recommendation.controller.promptLoading}
-    promptView={recommendation.controller.promptView}
+    promptError={summaryPromptJobId === recommendation.currentCompleted.id ? recommendation.controller.promptError : null}
+    promptLoading={summaryPromptJobId === recommendation.currentCompleted.id && recommendation.controller.promptLoading}
+    promptView={summaryPromptJobId === recommendation.currentCompleted.id ? recommendation.controller.promptView : null}
   /> : undefined
 
   return <>

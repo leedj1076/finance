@@ -291,7 +291,13 @@ export function usePlanRecommendations({
     applyAiChoice,
     requestFill,
     confirmFill,
-    cancelFill: () => setFillConfirmation(null),
+    cancelFill() {
+      const request = applyRequest.current
+      applyRequest.current = null
+      request?.abort()
+      setApplyBusy(false)
+      setFillConfirmation(null)
+    },
     undo() {
       dispatch({ type: 'undo' })
       setFillNotice(null)
@@ -301,7 +307,10 @@ export function usePlanRecommendations({
       controller.clearPrompt()
       setRequestOpen(true)
     },
-    closeRequest: () => setRequestOpen(false),
+    closeRequest() {
+      controller.clearPrompt()
+      setRequestOpen(false)
+    },
     clearApplyError: () => setApplyError(null),
   }
 }
