@@ -140,6 +140,8 @@ const verified = await checkRecommendationForApply(month, jobId, controller.sign
 
 **Interfaces:** Real browser controls via accessible names; existing local Supabase/test fixtures and intercepted AI transport. Never use production household data for mutation.
 
+**2026-09-13 DB acceptance follow-up:** Local Supabase is available; integration passed 40 files / 315 tests. The first full E2E run returned 66 passed / 8 failed. Finish the port in `auth.spec.ts`, `budget-recommendations.spec.ts`, `budget-recommendation-persistence.spec.ts`, `period-sorting-charts.spec.ts`, and `parity.spec.ts`: exact slider/caption selectors, explicit overage consent, removed simulator coverage transferred to surviving amount inputs, and explicit expansion before testing collapsed statistics children. Preserve the application's approved defaults and assertions. The saved-AI reload cases also exposed React hydration error 418; allow a minimal budget presentation markup repair and an SSR-to-browser hydration regression in the existing editor browser harness. Do not change protected services/contracts or use retries to hide failures. Batch the fixes, run focused changed scenarios, then the final gate once; record all results below and in `result/verification.md`.
+
 - [x] Port existing E2E assertions first to expose changed selectors and behaviors; preserve ambiguous POST recovery, stale apply, provenance persistence, conflict and pending-save coverage.
 - [x] Add four §12 flows: reference→manual→save/reload initial match; dirty whole-fill→keep edits→undo; AI dialog/request/wait and stale disabled rows; mobile 390 tap/menu. Use native button aria-pressed to assert selection.
 ```ts
