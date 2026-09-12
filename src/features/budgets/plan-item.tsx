@@ -180,16 +180,15 @@ export function PlanItem({
 
   return (
     <article className="plan-item">
-      <div className="plan-item__major">
-        <h3 className="t-body-strong">{row.major}</h3>
-        {period === 'current' && amount !== null && (
-          <p className={`plan-item__usage t-caption ${remaining !== null && remaining < 0 ? 'text-finance-red' : ''}`}>
-            사용 {formatWon(row.actual)} · {remaining !== null && remaining < 0 ? '초과' : '남은'} {formatWon(Math.abs(remaining ?? 0))}
-          </p>
-        )}
-      </div>
-
-      <div className="plan-item__budget">
+      <div className="plan-item__topline">
+        <div className="plan-item__major">
+          <h3 className="t-body-strong">{row.major}</h3>
+          {period === 'current' && amount !== null && (
+            <p className={`plan-item__usage t-caption ${remaining !== null && remaining < 0 ? 'text-finance-red' : ''}`}>
+              사용 {formatWon(row.actual)} · {remaining !== null && remaining < 0 ? '초과' : '남은'} {formatWon(Math.abs(remaining ?? 0))}
+            </p>
+          )}
+        </div>
         <label className="plan-item__input-row t-caption">
           <span className="sr-only">{row.major} 예산</span>
           <input
@@ -204,16 +203,16 @@ export function PlanItem({
           />
           <span>원</span>
         </label>
-        {amount === null && <p className="plan-item__caption t-caption text-finance-red" id={invalidId}>원 단위의 0 이상 정수를 입력해 주세요.</p>}
-        {amount !== null && caption && (
-          <p className={`plan-item__caption t-caption plan-item__caption--${caption.tone}`}>
-            {caption.text}
-            {'evidenceJobId' in caption && caption.evidenceJobId && (
-              <> · {savedEvidence ?? <button onClick={() => onOpenEvidence({ major: row.major, jobId: caption.evidenceJobId! })} type="button">근거</button>}</>
-            )}
-          </p>
-        )}
       </div>
+      {amount === null && <p className="plan-item__caption t-caption text-finance-red" id={invalidId}>원 단위의 0 이상 정수를 입력해 주세요.</p>}
+      {amount !== null && caption && (
+        <p className={`plan-item__caption t-caption plan-item__caption--${caption.tone}`}>
+          {caption.text}
+          {'evidenceJobId' in caption && caption.evidenceJobId && (
+            <> · {savedEvidence ?? <button onClick={() => onOpenEvidence({ major: row.major, jobId: caption.evidenceJobId! })} type="button">근거</button>}</>
+          )}
+        </p>
+      )}
 
       <div className="plan-item__references">
         {options.map(option => {

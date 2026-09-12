@@ -43,7 +43,7 @@ export function AiRequestDialog({
   return (
     <dialog
       aria-label="AI 예산 추천 요청"
-      className="fixed inset-0 m-auto w-full max-w-4xl border border-finance-ink bg-background p-0 text-finance-ink shadow-xl backdrop:bg-finance-ink/20"
+      className="ai-request-dialog"
       closedby="any"
       onCancel={event => {
         event.preventDefault()
@@ -56,7 +56,7 @@ export function AiRequestDialog({
       ref={dialogRef}
     >
       <form
-        className="max-h-[90vh] overflow-y-auto p-6"
+        className="ai-request-dialog__form"
         onSubmit={event => {
           event.preventDefault()
           void controller.generate().then(started => {

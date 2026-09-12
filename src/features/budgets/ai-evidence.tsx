@@ -24,12 +24,13 @@ export type AiEvidenceContext = {
 type AnchoredPopoverProps = {
   ariaLabel: string
   children: (close: () => void) => ReactNode
+  size: 'evidence' | 'summary'
   open?: boolean
   onClose: () => void
   trigger: ReactNode
 }
 
-function AnchoredPopover({ ariaLabel, children, open, onClose, trigger }: AnchoredPopoverProps) {
+function AnchoredPopover({ ariaLabel, children, size, open, onClose, trigger }: AnchoredPopoverProps) {
   const generatedId = useId().replace(/:/g, '')
   const popoverId = `ai-popover-${generatedId}`
   const anchor = `--${popoverId}`
@@ -67,7 +68,7 @@ function AnchoredPopover({ ariaLabel, children, open, onClose, trigger }: Anchor
       >{trigger}</button>
       <div
         aria-label={ariaLabel}
-        className="ai-anchored-popover"
+        className={`ai-anchored-popover ai-anchored-popover--${size}`}
         id={popoverId}
         onToggle={event => {
           if ((event.currentTarget as HTMLElement).matches(':popover-open')) return
@@ -179,7 +180,7 @@ export function AiEvidencePopover({
 }) {
   const row = context.recommendation
   return (
-    <AnchoredPopover ariaLabel={`${row.major} AI 추천 근거`} onClose={onClose} open={open} trigger={trigger}>{close => <>
+    <AnchoredPopover ariaLabel={`${row.major} AI 추천 근거`} onClose={onClose} open={open} size="evidence" trigger={trigger}>{close => <>
       <header className="border-b border-finance-ink pb-3">
         <h2 className="t-body-strong">{row.major} · AI 추천 {won(row.amount)}</h2>
         <p className="mt-1 t-caption text-finance-muted">{completedTime(context.completedAt)} 완료</p>
@@ -238,7 +239,7 @@ export function AiSummaryPopover({
     promptInput: completed.promptInput,
   }
   return (
-    <AnchoredPopover ariaLabel="AI 예산 추천 요약" onClose={onClose} open={open} trigger={trigger}>{close => <>
+    <AnchoredPopover ariaLabel="AI 예산 추천 요약" onClose={onClose} open={open} size="summary" trigger={trigger}>{close => <>
       <header className="border-b border-finance-ink pb-3">
         <h2 className="t-body-strong">AI 예산 추천 요약</h2>
         <p className="mt-1 t-caption text-finance-muted">{completedTime(completed.completedAt)} 완료</p>
