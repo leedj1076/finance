@@ -147,10 +147,11 @@ test('AI dialog Enter requests only AI, waiting permits manual edits, and a new 
   await expect(reference(page, 'AI 추천')).toBeDisabled()
   await page.getByLabel('식비 예산', { exact: true }).fill('310000')
   const requestId = String(posts[0].requestId)
-  data = completed(310_000, nextJobId)
+  data = completed(280_000, nextJobId)
   data.latestJob!.requestId = requestId
   data.completed!.requestId = requestId
   await expect(page.getByRole('button', { name: '다시 추천', exact: true })).toBeEnabled({ timeout: 10_000 })
+  await expect(reference(page, 'AI 추천')).toContainText('280,000')
   await expect(reference(page, 'AI 추천')).toHaveAttribute('aria-pressed', 'false')
   await expect(page.getByLabel('식비 예산', { exact: true })).toHaveValue('310000')
 })
