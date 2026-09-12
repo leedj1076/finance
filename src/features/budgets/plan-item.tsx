@@ -219,6 +219,7 @@ export function PlanItem({
       <div className="plan-item__references">
         {options.map(option => {
           const selected = draft.source === option.source
+            && (option.source !== 'ai' || draft.recommendationJobId === currentRecommendation?.jobId)
           const className = [
             'plan-reference__option',
             option.source === 'ai' ? 'plan-reference__option--ai' : '',

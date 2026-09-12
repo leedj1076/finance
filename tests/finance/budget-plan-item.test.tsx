@@ -109,6 +109,20 @@ describe('PlanItem', () => {
     expect(html).not.toContain('plan-item__caption--violet')
   })
 
+  test('does not select the current AI row when the draft keeps an older AI job', () => {
+    const html = render({
+      draft: { ...draft, amount: '650000', source: 'ai', recommendationJobId: 'saved-job' },
+      savedRecommendation: {
+        jobId: 'saved-job',
+        amount: 650_000,
+        completedAt: '2026-09-03T03:00:00.000Z',
+      },
+    })
+
+    expect(html).toMatch(/<button[^>]+aria-pressed="false"[^>]+plan-reference__option--ai[^>]*>[\s\S]*AI 추천/)
+    expect(html).toContain('AI 추천 (9월 3일) 650,000')
+  })
+
   test('dates an older saved AI origin and preserves factual evidence at its original amount', () => {
     const origin = {
       jobId: 'saved-job',
