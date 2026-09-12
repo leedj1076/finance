@@ -209,11 +209,10 @@ export function PlanItem({
           <p className={`plan-item__caption t-caption plan-item__caption--${caption.tone}`}>
             {caption.text}
             {'evidenceJobId' in caption && caption.evidenceJobId && (
-              <> · <button onClick={() => onOpenEvidence({ major: row.major, jobId: caption.evidenceJobId! })} type="button">근거</button></>
+              <> · {savedEvidence ?? <button onClick={() => onOpenEvidence({ major: row.major, jobId: caption.evidenceJobId! })} type="button">근거</button>}</>
             )}
           </p>
         )}
-        {savedEvidence}
       </div>
 
       <div className="plan-item__references">
@@ -252,13 +251,9 @@ export function PlanItem({
         })}
         {currentRecommendation && currentRecommendation.amount > 0 && (
           <div className="plan-item__evidence t-label">
-            {currentEvidence ?? (
-              <>
-                <strong>AI 근거</strong>
-                {currentRecommendation.reason && <span className="plan-item__reason">{currentRecommendation.reason}</span>}
-                <button onClick={() => onOpenEvidence({ major: row.major, jobId: currentRecommendation.jobId })} type="button">더 보기</button>
-              </>
-            )}
+            <strong>AI 근거</strong>
+            {currentRecommendation.reason && <span className="plan-item__reason">{currentRecommendation.reason}</span>}
+            {currentEvidence ?? <button onClick={() => onOpenEvidence({ major: row.major, jobId: currentRecommendation.jobId })} type="button">더 보기</button>}
           </div>
         )}
       </div>

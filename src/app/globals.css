@@ -1036,6 +1036,23 @@ button.finance-nav-link { cursor: pointer; }
 .plan-list__footer button { color: var(--finance-blue); font-weight: 600; }
 .plan-list__footer { color: var(--finance-muted); }
 
+.ai-anchored-popover {
+  position: fixed;
+  position-area: bottom span-right;
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(680px, calc(100vh - 32px));
+  box-sizing: border-box;
+  margin: 8px 0 0;
+  overflow: auto;
+  border: 1px solid var(--finance-ink);
+  background: var(--background);
+  padding: 16px;
+  color: var(--finance-ink);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--finance-ink) 12%, transparent);
+  position-try-fallbacks: flip-block, flip-inline;
+}
+.ai-anchored-popover::backdrop { background: transparent; }
+
 @media (max-width: 640px) {
   .plan-list__header { display: none; }
   .plan-item { grid-template-columns: 1fr; gap: 6px; }
@@ -1046,6 +1063,13 @@ button.finance-nav-link { cursor: pointer; }
   .plan-toolbar__fills { display: none; }
   .plan-toolbar__ai { flex: 1; flex-wrap: wrap; margin: 10px 0; }
   .plan-toolbar__mobile-fill { display: block; flex: none; margin: 10px 0; }
+  .ai-anchored-popover {
+    position-area: top;
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 24px);
+    margin: 0;
+    padding: 16px;
+  }
 }
 
 /* Charts: text inside SVG wears text tokens, never the series color. */
