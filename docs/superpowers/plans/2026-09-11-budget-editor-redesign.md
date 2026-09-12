@@ -148,7 +148,7 @@ const verified = await checkRecommendationForApply(month, jobId, controller.sign
 await page.getByLabel('식비 예산').fill('600000')
 await expect(page.getByText('직접 입력', { exact: true }).first()).toBeVisible()
 ```
-- [ ] Run `NODE_OPTIONS= pnpm e2e` with available local DB, task gate, `NODE_OPTIONS= pnpm test:db`, `NODE_OPTIONS= pnpm build`. Record actual counts and failures, not inferred results. Save 1440px desktop and 390px mobile screenshots and compare against PNGs. **Partial:** task gate, build, 30 standalone browser cases and screenshots passed; DB/full-stack execution remains blocked by manually paused Docker.
+- [x] Run `NODE_OPTIONS= pnpm e2e` with available local DB, task gate, `NODE_OPTIONS= pnpm test:db`, `NODE_OPTIONS= pnpm build`. Record actual counts and failures, not inferred results. Save 1440px desktop and 390px mobile screenshots and compare against PNGs. **2026-09-13:** DB 40 files / 315 tests; tsc/lint/698 unit passed; production build succeeded within E2E. First E2E 66/74; fix `af63d9e` resolved the original failures and added a passing SSR hydration regression. Final full E2E 73/75; unrelated month-close/inbox cases passed once in isolation (2/2). Not a 75/75 full pass: single-run release gate remains a documented limitation. Authenticated local synthetic 1440/390 captures saved and visually inspected.
 - [x] Commit explicit test/result paths with `test(budgets): cover reference editor workflows`.
 
 ### Task 9: 운영 설명과 최종 검증 기록
@@ -159,5 +159,5 @@ await expect(page.getByText('직접 입력', { exact: true }).first()).toBeVisib
 
 - [x] Search runbook for removed checkbox/apply/manual/panel flows and replace with four reference lines, request dialog, overwrite confirmation, provenance and undo rules.
 - [x] Write verification record with command counts, blocked checks, screenshot comparison, independently chosen details, deleted files and replaced tests. Record HTML browser policy restriction and supplied PNG inspection accurately.
-- [x] Verify no broken local references, protected contracts unchanged, `git diff --check`; run task gate. Use final code review and finishing-a-development-branch skill; keep branch local unless user requests integration. Fresh tsc/lint/80 files·698 unit/30 standalone browser gate passed; integrated review found no Critical/Important application defect. Minor scratch tracking was cleaned up with local files retained. Task 8's DB-backed release gate remains explicitly open.
+- [x] Verify no broken local references, protected contracts unchanged, `git diff --check`; run task gate. Use final code review and finishing-a-development-branch skill; keep branch local unless user requests integration. Original tsc/lint/80 files·698 unit/30 standalone browser gate passed; integrated review found no Critical/Important application defect. Minor scratch tracking was cleaned up with local files retained. Task 8's DB-backed follow-up was executed on September 13; retain the exact full-suite limitation described above rather than treating isolated reruns as one green full run.
 - [x] Commit explicit documentation paths with `docs(budgets): describe the reference editor workflow`.

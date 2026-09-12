@@ -15,7 +15,14 @@ Compared visually with `../01-desktop-editor.png` and `../05-mobile-390.png`: th
 
 During review the desktop manual caption was 48.5px below its input. The scoped CSS fix keeps captions 4–6px below inputs, including long category names and wrapping missing-origin captions; mobile layout is preserved.
 
-Verification: 30 standalone browser tests passed, 698 unit tests passed, TypeScript/lint/build passed. The database-backed E2E and integration runs remain blocked because local Docker/Supabase is manually paused. They were ported but not executed.
+## Authenticated local page captures — September 13
+
+- [Desktop, 1440px](local-desktop-1440.png)
+- [Mobile, 390px](local-mobile-390.png)
+
+These use the actual Next page, header, month controls, fonts and status chip with a signed-in **synthetic local household**, not production data. The completed recommendation is loaded and popovers are dismissed. The saved amount is 310,000 with the original 300,000 AI provenance. Full-page mobile capture includes the fixed bottom navigation partway down the image. Both captures were visually inspected; no horizontal overflow was observed.
+
+Latest verification: TypeScript/lint/build passed, 698 unit tests and 315 DB integration tests passed. Final full E2E: **73/75 passed**, including all budget-editor cases and the new SSR hydration regression. The two other failures passed once together in isolation (2/2), without changes. This is **not** a clean 75/75 full-suite result. See [verification.md](verification.md) for exact results and remaining limits.
 
 Reproduce the fixture suite:
 

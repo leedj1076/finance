@@ -1,8 +1,8 @@
 # C2 예산 편집기 검증 기록
 
-기준 브랜치 `codex/budget-editor-redesign`, 애플리케이션·테스트 기준 commit `22acf2e570cb6adee1b180c31cd409f8ee984575`. 이 기록은 로컬 브랜치 검증이며 운영 배포, 운영 DB 반영 또는 인증된 실제 가구 화면 검증을 뜻하지 않는다.
+기준 브랜치 `codex/budget-editor-redesign`, 최신 애플리케이션·테스트 commit `af63d9e` (2026-09-13 DB 인수 후속 수정). 이 기록은 로컬 브랜치와 인증된 합성 테스트 가구의 검증이며 운영 배포, 운영 DB 반영 또는 실제 사용자 가구 데이터 검증을 뜻하지 않는다.
 
-## 최종 로컬 게이트
+## 2026-09-12 로컬 게이트 (이전 기록)
 
 컨트롤러가 Task 9 문서 작업과 병행해 다음 명령을 애플리케이션·테스트 기준 commit에서 한 번 실행했다.
 
@@ -22,9 +22,32 @@ Task 2의 최종 회귀 근거도 런타임 산출물이 아닌 이 문서에 �
 
 Task 6의 반응형 단계에서는 focused 3/3, TypeScript·lint 및 당시 81 files / 719 tests가 통과했다. 이후 구 panel 전용 테스트를 대체·제거한 최종 구성이 위 698개다. Task 2·6 scratch report는 Git 추적만 해제하고 ignored 로컬 파일은 보존했다.
 
-## 열려 있는 DB 기반 게이트
+## 2026-09-13 DB 인수 후속 검증
 
-로컬 Docker/Supabase가 수동으로 일시 정지된 상태라 `pnpm test:db`와 DB-backed `pnpm e2e`는 이번 개편에서 실행하지 않았다. Task 8에서 관련 3개 spec의 7개 테스트가 수집되는 것까지만 확인했으며 실행 통과로 계산하지 않는다. Docker를 재개하고 DB/API hostname이 loopback인지 다시 확인한 뒤 두 게이트를 실행하기 전에는 실제 persistence, 인증 가구 페이지, DB concurrency를 최종 승인할 수 없다.
+이전의 Docker 일시 정지 제약은 해소됐다. `supabase status` exit 0, 컨테이너 정상 응답, DB/API가 각각 `127.0.0.1:54322` / `127.0.0.1:54321`임을 확인한 뒤 테스트했다. 자격 증명은 출력하지 않았고 마이그레이션·DB 초기화·운영 접근은 하지 않았다.
+
+| 명령 | 결과 |
+|---|---|
+| `NODE_OPTIONS= pnpm test:db` | exit 0, 40 files / 315 tests, 42.74초 |
+| 첫 `NODE_OPTIONS= pnpm e2e` | exit 1, 66 passed / 8 failed, 1.6분 |
+| 수정 후 최종 `NODE_OPTIONS= pnpm e2e` | exit 1, 73 passed / 2 failed, 1.4분. 기존 8개 실패와 새 hydration 회귀는 모두 통과 |
+| 최종 실패 두 건만 한 번 재실행 | exit 0, 2/2 통과, 28.1초. 코드 변경 없이 재실행 |
+| `NODE_OPTIONS= pnpm exec tsc --noEmit && NODE_OPTIONS= pnpm lint && NODE_OPTIONS= pnpm test` | exit 0, TypeScript·ESLint 통과, 80 files / 698 unit tests, 9.46초 |
+| production build | 최종 E2E의 `pnpm build && pnpm start --port 3101`에서 성공. 같은 소스의 빌드를 따로 중복 실행하지 않음 |
+
+새 hydration 테스트를 포함한 standalone 31개도 최종 전체 E2E에 포함되어 통과했다. DB 조회·서버 코드 변경이 없어 315개 DB 테스트는 후속 HTML·테스트 수정 후 중복 실행하지 않았다. 기존 Vite loader, Next worktree root 추론, `NO_COLOR`/`FORCE_COLOR` 경고는 숨기지 않았다.
+
+### 수정한 원인
+
+- 저장된 AI 출처 캡션의 `<p>` 안에 팝오버의 block HTML이 들어가 브라우저 파싱 시 DOM이 바뀌었다. 실제 컴포넌트를 서버 렌더 → Chromium 파싱 → `hydrateRoot`로 연결한 회귀가 invalid HTML nesting으로 실패하는 것을 확인하고, 캡션만 같은 클래스의 `<div>`로 바꿔 통과시켰다. 저장 후 재로딩의 React 418 오류도 사라졌다.
+- 목표 슬라이더와 팝오버를 함께 찾던 테스트 선택자, 숨긴 팝오버 제목을 찾던 이전 AI 출처 선택자를 실제 control/caption으로 좁혔다.
+- 상한 350,000원보다 큰 수동 예산 저장 테스트에 명시적 초과 동의를 추가했다. 서버 안전장치는 유지했다.
+- 다음 월 이동 전에 저장 완료를 기다리도록 하고, 통계 하위 셀은 기존 접힘 기본값을 유지한 채 테스트에서 명시적으로 펼쳤다.
+- 삭제된 시뮬레이터의 숫자 입력 검증은 현재 예산·AI 예정 지출 입력의 원 단위 정수/음수/소수 검증으로 옮겼다. 테스트용 worker는 loopback 검증 후 로컬 DB에만 생성하며 가구 fixture와 함께 정리한다. 실제 모델 요청은 보내지 않는다.
+
+### 남은 E2E 한계
+
+최종 전체 실행의 두 실패는 예산 편집기 밖에서 발생했다. `month-close.spec.ts`의 모바일 마감 해제 후 상태 assertion은 아직 처리 중인 마감 상태를 보았고, `parity.spec.ts`의 인박스 제목 편집 시나리오는 대기 2건 대신 3건을 보았다. 이 두 건만 함께 한 번 재실행하자 둘 다 통과했다. 간헐적 재현으로 기록하며 원인을 확정하거나 수정했다고 주장하지 않는다. **최종 전체 실행은 73/75이며, 75/75 단일 전체 통과가 아니다.** 재현되지 않는 다른 기능을 임의로 바꾸거나 전체 테스트를 반복하지 않았다. 배포 전 단일 전체 green gate는 아직 확보되지 않았다.
 
 보호된 저장 계약·저장 서비스·AI snapshot·worker·DB schema와 migration은 이 브랜치에서 변경하지 않았다. `BudgetForm`은 최종 233줄이다. 주 checkout은 확인 시 `c544621051a7535b0dbb5cb36111ad655161530e` 그대로였고, 그곳의 기존 미추적 파일은 건드리지 않았다.
 
@@ -38,6 +61,8 @@ Task 6의 반응형 단계에서는 focused 3/3, TypeScript·lint 및 당시 81 
 - [모바일 전체 채우기](synthetic-mobile-menu-390.png): viewport 안의 native 메뉴와 탭 가능한 선택지.
 
 컨트롤러가 네 최종 PNG를 모두 직접 확인하여 입력 바로 아래 4–6px 캡션, 선택 출처 한 개, 활성화된 모바일 저장, 가로 잘림 없음, 목표 popover anchoring과 메뉴 경계를 승인했다. fixture는 production main wrapper와 실제 source CSS를 쓰지만 DB-backed header, 월 이동, 상태 chip이 없고 Next font loader 대신 목업의 Apple SD Gothic Neo fallback을 사용한다. 쉘·데이터·행 수·폰트 차이가 있으므로 픽셀 동일성은 주장하지 않는다.
+
+9월 13일에는 인증된 로컬 합성 가구에서 실제 Next 페이지를 추가로 캡처했다. 추천 완료 상태를 기다리고 팝오버를 닫은 [1440px 화면](local-desktop-1440.png)과 [390px 화면](local-mobile-390.png)을 컨트롤러가 직접 확인했다. 실제 앱 헤더·월 이동·상태 칩, 저장 310,000원과 원래 AI 추천 300,000원 출처·근거가 표시되며 가로 넘침이 없다. 모바일 전체 페이지 캡처 중간에 고정 하단 내비게이션이 보이는 것은 full-page 캡처 특성이다. 실제 사용자·운영 데이터가 아닌 테스트 fixture다.
 
 브라우저 URL 정책으로 제공된 mockup HTML을 직접 열 수 없었다. 우회하지 않고 HTML source와 제공된 `01-desktop-editor.png`, `05-mobile-390.png`를 비교했다. 따라서 mockup HTML 자체의 런타임 브라우저 검사는 미검증이며, 위 네 PNG와 standalone 회귀가 허용된 대체 검증이다.
 
@@ -62,4 +87,4 @@ Task 6의 반응형 단계에서는 focused 3/3, TypeScript·lint 및 당시 81 
 
 문서 로컬 링크 검사, 보호 경로 비교와 `git diff --check`는 통과했다. `c544621..a8dbe77` 전체 브랜치와 Task 9 문서의 최종 통합 리뷰에서 Critical/Important 애플리케이션 결함은 발견되지 않았다. 가구 범위 조회, 저장·CAS·늦은 응답 소유권, AI 재검증·출처·취소, 기존 회귀의 이관을 확인했다. Minor 한 건은 새로 추적된 Task 6 scratch report였으며, 로컬 파일을 보존한 채 추적을 해제했다. 이 마지막 정리는 문서·추적 상태뿐이며 검증된 애플리케이션과 테스트 소스는 그대로다.
 
-DB-backed release gate는 여전히 열려 있다. 코드 리뷰 승인은 미실행 DB 통합·인증·persistence 검증을 대신하지 않는다. 브랜치 `codex/budget-editor-redesign`과 worktree를 로컬에 보존하며 push, merge, 배포 또는 운영 작업을 하지 않았다.
+DB 통합·인증·persistence·저장 충돌·새로고침 검증을 실제로 실행했고 예산 개편 관련 회귀는 통과했다. 최종 전체 E2E의 두 간헐적 실패는 위 한계에 그대로 남긴다. `3341143..af63d9e` 후속 변경의 독립 scoped review는 스펙·품질 모두 승인했으며 Critical/Important 지적은 없었다. 저장된 출처 캡션의 최소 HTML 수정, 실제 hydration 회귀, 기존 E2E assertion 유지, 로컬 fixture 범위와 정리를 확인했다. 브랜치 `codex/budget-editor-redesign`과 worktree를 로컬에 보존하며 push, merge, 배포 또는 운영 작업을 하지 않았다.

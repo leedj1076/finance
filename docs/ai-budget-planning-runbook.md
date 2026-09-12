@@ -145,7 +145,7 @@ DATABASE_URL='<verified-production-session-pooler-5432-url>' pnpm db:migrate
 
 ## C2 개편 이전 기능의 과거 인수 상태와 남은 운영 항목
 
-이 절의 완료 표현은 당시 검증 대상에만 해당한다. 현재 C2 검증 결과와 미실행 DB 게이트는 [별도 검증 기록](design/budget-editor/result/verification.md)에 있다.
+이 절의 완료 표현은 당시 검증 대상에만 해당한다. 현재 C2의 DB 인수·전체 E2E 결과와 남은 간헐적 실패는 [별도 검증 기록](design/budget-editor/result/verification.md)에 있다.
 
 - 최종 54/54 Playwright E2E는 실제 persistence/concurrency/stale/regeneration, manual-only/worker guidance, transport retry/idempotency, 단일 편집기, 모바일/다크/키보드, month-close/statistics browser 동작을 통과했다.
 - 최종 unit/DB gate는 partial·missing·closed-zero snapshot 이력, 12월→1월 rollover, 수입 없음, 과거 월 조회와 client 늦은 응답 contract를 통과했다. 따라서 이 edge acceptance 묶음은 최종 여섯 게이트 전체에서 통과한 것이며 모두 Playwright 54건에 포함됐다는 뜻은 아니다.
