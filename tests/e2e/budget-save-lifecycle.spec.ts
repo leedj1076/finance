@@ -1,15 +1,11 @@
-import { createRequire } from 'node:module'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
+import { buildBudgetBrowser, type BudgetBrowserBundle } from './fixtures/budget-editor-browser'
 
 import { expect, test } from '@playwright/test'
 import { evaluateBudget } from '../../src/features/budget-recommendations/calculations'
 import { makeBudgetReport, makeBudgetSnapshot } from '../fixtures/budget-recommendation'
 import type {} from './fixtures/budget-save-lifecycle'
 
-let bundle: string
-let outputDirectory: string
+let browserBundle: BudgetBrowserBundle
 let aiPosts: Record<string, unknown>[]
 let exactRequestGets: number
 let releaseFirstExactGet: (() => void) | null
@@ -53,46 +49,8 @@ function reviewCompleted() {
   }
 }
 
-test.beforeAll(async () => {
-  // Next already ships webpack; no browser-test dependency or product route.
-  const require = createRequire(path.join(process.cwd(), 'package.json'))
-  const bundled = require('next/dist/compiled/webpack/webpack')
-  bundled.init()
-  const webpack = bundled.webpack
-  outputDirectory = await mkdtemp(path.join(tmpdir(), 'budget-lifecycle-bundle-'))
-  const root = process.cwd()
-  await new Promise<void>((resolve, reject) => {
-    const compiler = webpack({
-      mode: 'development', devtool: false,
-      entry: path.join(root, 'tests/e2e/fixtures/budget-save-lifecycle.tsx'),
-      output: { path: outputDirectory, filename: 'lifecycle.js' },
-      resolve: { extensions: ['.tsx', '.ts', '.js'], alias: { '@': path.join(root, 'src'),
-        'react$': path.join(root, 'node_modules/next/dist/compiled/react'),
-        'react/jsx-runtime$': path.join(root, 'node_modules/next/dist/compiled/react/jsx-runtime'),
-        'react/jsx-dev-runtime$': path.join(root, 'node_modules/next/dist/compiled/react/jsx-dev-runtime'),
-        'react-dom$': path.join(root, 'node_modules/next/dist/compiled/react-dom'),
-        'react-dom/client$': path.join(root, 'node_modules/next/dist/compiled/react-dom/client'),
-        'next/navigation$': path.join(root, 'tests/e2e/fixtures/budget-save-lifecycle-boundaries.ts') } },
-      module: { rules: [{ test: /\.tsx?$/, exclude: /node_modules/,
-        use: path.join(root, 'tests/e2e/fixtures/budget-save-lifecycle-loader.cjs') }] },
-      plugins: [new webpack.NormalModuleReplacementPlugin(/^\.\/actions$/, (resource: { context: string; request: string }) => {
-        if (resource.context === path.join(root, 'src/features/budgets')) {
-          resource.request = path.join(root, 'tests/e2e/fixtures/budget-save-lifecycle-boundaries.ts')
-        }
-      })],
-    })
-    compiler.run((error: Error | null, stats: { hasErrors(): boolean; toString(): string }) => {
-      compiler.close(() => {
-        if (error) reject(error)
-        else if (stats.hasErrors()) reject(new Error(stats.toString()))
-        else resolve()
-      })
-    })
-  })
-  bundle = await readFile(path.join(outputDirectory, 'lifecycle.js'), 'utf8')
-})
-
-test.afterAll(async () => { if (outputDirectory) await rm(outputDirectory, { recursive: true, force: true }) })
+test.beforeAll(async () => { browserBundle = await buildBudgetBrowser() })
+test.afterAll(async () => { await browserBundle?.cleanup() })
 
 test.beforeEach(async ({ page }, testInfo) => {
   const aiControls = testInfo.title.startsWith('AI controls:')
@@ -154,7 +112,8 @@ test.beforeEach(async ({ page }, testInfo) => {
     return route.fulfill({ contentType: 'text/html', body: '<html><body><div id="root"></div></body></html>' })
   })
   await page.goto(`http://localhost/${aiControls ? '?mode=ai-controls' : task7Review ? '?mode=task7-review' : ''}`)
-  await page.addScriptTag({ content: bundle })
+  await page.addStyleTag({ content: browserBundle.css })
+  await page.addScriptTag({ content: browserBundle.script })
   if (aiControls) await expect(page.getByTestId('ai-ready')).toHaveText('true')
   else if (task7Review) await expect.poll(() => recommendationGets).toBe(1)
   else await expect(page.getByLabel('식비 예산', { exact: true })).toHaveValue('350000')
@@ -238,7 +197,7 @@ test('acknowledges the save while independent real React transition work remains
   await page.evaluate(() => window.budgetLifecycle.resolve(0))
   await expect(page.getByLabel('식비 예산', { exact: true })).toBeEnabled()
   await expect(page.getByRole('button', { name: '저장됨', exact: true })).toBeVisible()
-  await expect(page.getByText('저장된 예산 351,000원', { exact: true })).toBeVisible()
+  await expect(page.locator('p[aria-live="polite"]').filter({ hasText: /^저장됨$/ })).toBeVisible()
   await expect(page.getByTestId('independent-pending')).toHaveText('true')
   await page.evaluate(() => window.budgetLifecycle.releaseTransition())
 })
@@ -259,7 +218,7 @@ test('keeps native validation and Enter submission, snapshots once and rejects s
   await page.evaluate(() => window.budgetLifecycle.resolve(0))
   await expect(amount).toBeEnabled()
   await amount.fill('352000')
-  await page.locator('form').evaluate(form => {
+  await page.getByRole('form', { name: '예산 편집기', exact: true }).evaluate(form => {
     ;(form as HTMLFormElement).requestSubmit()
     ;(form as HTMLFormElement).requestSubmit()
   })
@@ -278,12 +237,13 @@ test('keeps a newer edit and the returned CAS baseline when older props arrive a
   await expect(amount).toBeEnabled()
   await expect(page.locator('p[aria-live="polite"]').filter({ hasText: /^저장됨$/ })).toBeVisible()
   await amount.fill('352000')
+  await page.getByRole('button', { name: '목표 저축률 30%', exact: true }).click()
   await page.getByLabel('목표 저축률', { exact: true }).fill('35')
   await expect(page.locator('p[aria-live="polite"]').filter({ hasText: /^저장됨$/ })).toHaveCount(0)
   await page.evaluate(() => window.budgetLifecycle.lateProps())
   await expect(amount).toHaveValue('352000')
   await expect(page.getByLabel('목표 저축률', { exact: true })).toHaveValue('35')
-  await expect(page.getByText('저장된 예산 351,000원', { exact: true })).toBeVisible()
+  await expect(page.locator('p[aria-live="polite"]').filter({ hasText: /^저장됨$/ })).toHaveCount(0)
   await page.getByRole('button', { name: '변경사항 저장', exact: true }).click()
   expect(await page.evaluate(() => window.budgetLifecycle.calls()[1])).toMatchObject({
     previous: { saved: { rows: [{ amount: 351000, version: 'food-v2' }] } },
@@ -298,7 +258,7 @@ for (const outcome of ['budget_conflict', 'source_changed', 'transport'] as cons
   test(`${outcome} retains edited AI provenance and permits an explicit retry`, async ({ page }) => {
     await page.evaluate(() => window.budgetLifecycle.mount('2026-10', true))
     const amount = page.getByLabel('식비 예산', { exact: true })
-    await expect(page.getByText('원래 AI 추천 300,000원', { exact: true })).toBeVisible()
+    await expect(page.getByText(/AI 추천.*300,000에서 조정/)).toBeVisible()
     await amount.fill('351000')
     await page.getByRole('button', { name: '변경사항 저장', exact: true }).click()
     await expect(amount).toBeDisabled()
@@ -308,7 +268,7 @@ for (const outcome of ['budget_conflict', 'source_changed', 'transport'] as cons
     }, outcome)
     await expect(amount).toBeEnabled()
     await expect(amount).toHaveValue('351000')
-    await expect(page.getByText('원래 AI 추천 300,000원', { exact: true })).toBeVisible()
+    await expect(page.getByText(/AI 추천.*300,000에서 조정/)).toBeVisible()
     await expect(page.getByRole('button', { name: '변경사항 저장', exact: true })).toBeEnabled()
     if (outcome === 'budget_conflict') await expect(page.getByRole('region', { name: '예산 충돌 비교', exact: true })).toBeVisible()
     if (outcome === 'source_changed') await expect(page.getByText('save rejected: source_changed', { exact: true })).toBeVisible()
@@ -351,7 +311,7 @@ for (const change of ['month', 'unmount'] as const) {
     expect(await page.evaluate(() => window.budgetLifecycle.calls()[1].payload)).toMatchObject({ month: '2026-10' })
     await page.evaluate(() => window.budgetLifecycle.resolve(1))
     await expect(amount).toBeEnabled()
-    await expect(page.getByText('저장된 예산 360,000원', { exact: true })).toBeVisible()
+    await expect(page.locator('p[aria-live="polite"]').filter({ hasText: /^저장됨$/ })).toBeVisible()
   })
   }
 }

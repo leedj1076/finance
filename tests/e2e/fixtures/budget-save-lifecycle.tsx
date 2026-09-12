@@ -87,6 +87,28 @@ function reviewPropsFor(): Props {
   }
 }
 
+function editorPropsFor(): Props {
+  const props = reviewPropsFor()
+  props.baselines[0].amount = 300_000
+  props.baselines[0].recommendationJobId = jobId
+  props.planRows[0].saved = { ...props.baselines[0] }
+  props.planRows.unshift({
+    major: '주거 · 관리비와 가족 공동생활 고정 지출', group: 'fixed',
+    saved: { amount: 120_000, recommendationJobId: null, version: 'housing-v1' },
+    previousBudget: 120_000, actual: 100_000,
+    previousActual: { amount: 125_000, month: '2026-09', partial: { asOf: '2026-09-12' } },
+    average3: { amount: 122_000, months: ['2026-07', '2026-08', '2026-09'], monthsWithSpend: 3, provisional: true },
+  })
+  props.planRows.push({
+    major: '여행 · 경조사', group: 'irregular',
+    saved: { amount: 50_000, recommendationJobId: null, version: 'travel-v1' },
+    previousBudget: 0, actual: 0, previousActual: { amount: 0, month: '2026-09', partial: null },
+    average3: { amount: 60_000, months: ['2026-07', '2026-08', '2026-09'], monthsWithSpend: 1, spendMonths: ['2026-08'], provisional: true },
+  })
+  props.baselines = props.planRows.map(row => ({ major: row.major, ...row.saved }))
+  return props
+}
+
 export type LifecycleHarness = {
   calls(): { previous: BudgetActionState; payload: BudgetSaveRequest }[]
   resolve(index: number, result?: BudgetActionState): void
@@ -97,6 +119,8 @@ export type LifecycleHarness = {
   unmount(): void
   lateProps(): void
   refreshes(): number
+  reloadSaved(): void
+  mountMissingOrigin(): void
 }
 declare global { interface Window { budgetLifecycle: LifecycleHarness } }
 
@@ -108,7 +132,8 @@ let late: () => void
 
 function Harness() {
   const reviewMode = new URLSearchParams(window.location.search).get('mode') === 'task7-review'
-  const [props, setProps] = useState(() => reviewMode ? reviewPropsFor() : propsFor('2026-09'))
+  const editorMode = new URLSearchParams(window.location.search).get('mode') === 'editor'
+  const [props, setProps] = useState(() => editorMode ? editorPropsFor() : reviewMode ? reviewPropsFor() : propsFor('2026-09'))
   const [editorKey, setEditorKey] = useState('2026-09')
   const [visible, setVisible] = useState(true)
   const [pending, startTransition] = useTransition()
@@ -120,10 +145,11 @@ function Harness() {
     release = () => work.resolve()
     startTransition(async () => { await work.promise })
   }
-  return <>
-    <output data-testid="independent-pending">{String(pending)}</output>
+  return <main className="mx-auto w-full max-w-[1440px] px-5 pb-14 pt-10 sm:px-12">
+    {editorMode && <><p className="t-caption text-finance-muted">합성 테스트 데이터 · 실제 가계 데이터 아님</p><h1 className="mt-2 t-page-title text-finance-ink">2026년 10월 예산</h1></>}
+    <output hidden={editorMode} data-testid="independent-pending">{String(pending)}</output>
     {visible && <BudgetForm key={editorKey} {...props} />}
-  </>
+  </main>
 }
 
 function AiControlsHarness() {
@@ -174,6 +200,11 @@ function AiControlsHarness() {
 }
 
 window.budgetLifecycle = {
+  mountMissingOrigin: () => {
+    const props = propsFor('2026-11', true)
+    props.savedRecommendations = []
+    updateProps(props)
+  },
   calls: () => saves.map(({ previous, payload }) => ({ previous, payload })),
   resolve: (index, result) => {
     const { payload, response } = saves[index]
@@ -183,6 +214,16 @@ window.budgetLifecycle = {
       savingsTarget: payload.targetChange?.value ?? 30, targetVersion: `target-v${index + 2}`,
       total: payload.changes.reduce((sum, row) => sum + row.amount, 0), overage: 0,
     } })
+  },
+  reloadSaved: () => {
+    const next = editorPropsFor()
+    const saved = saves.at(-1)?.payload
+    if (saved) for (const change of saved.changes) {
+      const row = next.planRows.find(row => row.major === change.major)!
+      row.saved = { amount: change.amount, recommendationJobId: change.recommendationJobId, version: 'reloaded-v1' }
+    }
+    next.baselines = next.planRows.map(row => ({ major: row.major, ...row.saved }))
+    updateProps(next, false)
   },
   reject: index => saves[index].response.reject(new Error('connection lost')),
   holdTransition: () => hold(), releaseTransition: () => release(),
