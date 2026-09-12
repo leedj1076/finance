@@ -20,6 +20,8 @@ Task 8에서 동일한 애플리케이션 소스에 대해 `NODE_OPTIONS= pnpm b
 
 Task 2의 최종 회귀 근거도 런타임 산출물이 아닌 이 문서에 보존한다. `NODE_OPTIONS= pnpm exec tsc --noEmit && NODE_OPTIONS= pnpm lint && NODE_OPTIONS= pnpm test`가 exit 0이었고, 당시 Vitest는 75 files / 674 tests를 통과했다. 빈 수동 입력을 0으로 바꾸지 않고 유효하지 않은 초안으로 유지하는 focused draft/fill 검증은 22/22 통과했다.
 
+Task 6의 반응형 단계에서는 focused 3/3, TypeScript·lint 및 당시 81 files / 719 tests가 통과했다. 이후 구 panel 전용 테스트를 대체·제거한 최종 구성이 위 698개다. Task 2·6 scratch report는 Git 추적만 해제하고 ignored 로컬 파일은 보존했다.
+
 ## 열려 있는 DB 기반 게이트
 
 로컬 Docker/Supabase가 수동으로 일시 정지된 상태라 `pnpm test:db`와 DB-backed `pnpm e2e`는 이번 개편에서 실행하지 않았다. Task 8에서 관련 3개 spec의 7개 테스트가 수집되는 것까지만 확인했으며 실행 통과로 계산하지 않는다. Docker를 재개하고 DB/API hostname이 loopback인지 다시 확인한 뒤 두 게이트를 실행하기 전에는 실제 persistence, 인증 가구 페이지, DB concurrency를 최종 승인할 수 없다.
@@ -58,4 +60,6 @@ Task 2의 최종 회귀 근거도 런타임 산출물이 아닌 이 문서에 �
 
 ## 최종 상태
 
-문서 로컬 링크 검사, 보호 경로 비교와 `git diff --check`는 Task 9 commit 전에 통과했다. DB-backed release gate는 열려 있고, 이 문서를 포함한 전체 브랜치의 최종 통합 리뷰는 컨트롤러가 Task 9 commit 뒤 수행할 예정이므로 아직 완료로 기록하지 않는다. 브랜치는 로컬에만 두며 push, merge, 배포 또는 운영 작업을 하지 않는다.
+문서 로컬 링크 검사, 보호 경로 비교와 `git diff --check`는 통과했다. `c544621..a8dbe77` 전체 브랜치와 Task 9 문서의 최종 통합 리뷰에서 Critical/Important 애플리케이션 결함은 발견되지 않았다. 가구 범위 조회, 저장·CAS·늦은 응답 소유권, AI 재검증·출처·취소, 기존 회귀의 이관을 확인했다. Minor 한 건은 새로 추적된 Task 6 scratch report였으며, 로컬 파일을 보존한 채 추적을 해제했다. 이 마지막 정리는 문서·추적 상태뿐이며 검증된 애플리케이션과 테스트 소스는 그대로다.
+
+DB-backed release gate는 여전히 열려 있다. 코드 리뷰 승인은 미실행 DB 통합·인증·persistence 검증을 대신하지 않는다. 브랜치 `codex/budget-editor-redesign`과 worktree를 로컬에 보존하며 push, merge, 배포 또는 운영 작업을 하지 않았다.
