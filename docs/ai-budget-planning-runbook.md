@@ -1,6 +1,6 @@
 # AI 예산 추천 검증 및 배포 런북
 
-이 문서는 통합 예산 화면과 AI 설정/예산 추천 기능의 로컬 검증 및 승인 후 운영 배포 순서를 분리한다. 문서에 적힌 운영 절차는 실행 승인이 난 뒤에만 수행한다. 현재 `0008_ai_diagnosis_settings.sql`과 `0009_budget_recommendations.sql`은 로컬 전용 상태이며, 이 문서는 운영 DB 반영이나 웹/워커 배포를 뜻하지 않는다.
+이 문서는 통합 예산 화면과 AI 설정/예산 추천 기능의 로컬 검증 및 승인 후 운영 배포 순서를 분리한다. 문서에 적힌 운영 절차는 실행 승인이 난 뒤에만 수행한다. 아래에는 C2 개편 이전 기능의 과거 검증 기록도 보존되어 있으며, 이 문서 자체는 `0008_ai_diagnosis_settings.sql`·`0009_budget_recommendations.sql`의 현재 운영 반영 상태나 웹/워커의 현재 배포 상태를 증명하지 않는다. C2 편집기의 최신 로컬 검증 범위와 남은 게이트는 [검증 기록](design/budget-editor/result/verification.md)을 따른다.
 
 ## 안전 원칙
 
@@ -9,6 +9,16 @@
 - 기존 수동 예산과 내역 AI 진단을 배포 및 롤백 내내 사용할 수 있어야 한다. 추천 완료만으로 예산을 저장하지 않으며, 사용자가 선택하고 확인한 행만 기존 저장 경로로 반영한다.
 - 설정이 포함된 작업의 불변 `prompt_input`, 완료 보고서, 저장된 추천 출처를 legacy 작업으로 변환하거나 삭제하지 않는다.
 - 모델 smoke는 합성 스냅샷만 사용한다. 운영 큐/RPC/DB, 실제 가계 거래, worker token을 사용하지 않는다.
+
+## C2 `항목 | 예산 | 참고` 편집기 확인 절차
+
+각 항목의 `참고` 열에는 `지난달 예산`, `지난달 실적`, `3개월 평균`, `AI 추천` 네 줄이 같은 계층으로 표시된다. 0원이거나 사용할 수 없는 줄은 선택할 수 없다. 한 줄을 선택하면 그 금액과 출처가 저장 전 초안에만 반영되고, 직접 금액을 고치면 선택 표시는 해제된다. AI 추천액을 고친 경우에는 추천 작업 ID를 유지하여 `AI 추천 …에서 조정` 출처를 표시하며, 단순히 금액이 같다는 이유로 AI 출처를 만들지 않는다.
+
+데스크톱의 네 `전체 채우기` 버튼과 모바일의 `전체 채우기` 메뉴도 저장 전 초안만 바꾼다. 이미 손댄 행을 덮어쓸 때는 영향받는 행을 확인하는 팝오버에서 `고친 항목은 두기` 또는 덮어쓰기를 선택한다. 실행 직후에는 한 단계 `실행 취소`를 제공한다. 어떤 채우기도 추천 완료만으로 실행되거나 자동 저장되지 않는다.
+
+`AI 추천 받기`는 별도 요청 대화상자에서 메모와 예정 지출을 확인한 뒤 시작한다. 대기·실행 중에도 수동 편집과 저장은 가능하다. AI 값을 가져올 때는 현재 작업 ID의 서버 검증 결과만 사용하며, 오래되었거나 바뀐 작업·저축 목표·월에 속한 값은 적용하지 않는다. 추천 근거와 이전 작업 출처는 해당 행의 근거 보기에서 확인한다.
+
+저장 전에는 선택 출처, 직접 입력 또는 조정 출처, 덮어쓰기 대상과 상한 초과 동의를 확인한다. 저장은 기존 `BudgetSaveRequest` 경로를 사용하며 선택된 출처 자체는 저장 payload를 늘리지 않는다. 저장 후 다시 열었을 때는 저장된 추천 작업 ID와 금액 또는 일치하는 과거 참고값으로 초기 선택을 복구하고, 원본 참고가 없어진 저장값은 경고 캡션으로 남긴다.
 
 ## 로컬 사전 확인
 
@@ -43,13 +53,17 @@ pnpm db:migrate
 아래 여섯 명령은 생략하거나 과거 결과로 대신하지 않고 최종 통합 상태에서 새로 실행한다. DB/E2E는 위 loopback 확인을 통과한 동일 로컬 Supabase를 사용한다. 실행 중인 `pnpm dev`와 `pnpm build`가 같은 `.next`를 동시에 쓰지 않게 한다.
 
 ```bash
-pnpm lint
-pnpm exec tsc --noEmit
-pnpm test
-pnpm test:db
-pnpm build
-pnpm e2e
+NODE_OPTIONS= pnpm lint
+NODE_OPTIONS= pnpm exec tsc --noEmit
+NODE_OPTIONS= pnpm test
+NODE_OPTIONS= pnpm test:db
+NODE_OPTIONS= pnpm build
+NODE_OPTIONS= pnpm e2e
 ```
+
+### C2 개편 이전 기능의 과거 검증 기록
+
+아래 commit, 명령 수, 화면 확인과 후속 자동 복구 결과는 C2 개편 이전 기능을 당시 상태에서 검증한 과거 기록이다. 현재 C2 결과나 현재 배포 상태로 해석하지 않는다.
 
 원래 검토된 backend 수정 commit `29b3699`를 acceptance branch에 `5959a29f46f6c20355539f82c5238ecc124bbc53`로 cherry-pick한 뒤, Task 13 E2E와 문서 변경이 적용된 working tree에서 위 여섯 명령을 순서대로 한 번씩 실행했다. 이때 검증한 app/test 내용은 이후 `04a39ff1ad878df9f9f43ab2f842964a35a98dbf`로 변경 없이 commit됐다. warning suppression·retry·worker 수 override·instrumentation은 사용하지 않았다.
 
@@ -104,7 +118,7 @@ worker 프로세스가 `running`이라는 사실만으로 준비 완료를 선�
 2. **DB 확장**: owner/direct 또는 session-pooler(5432) 연결로 additive `0008`(AI settings), 이어서 `0009`(예산 큐, prompt 호환성, provenance)를 적용한다. 적용 전후 migration 상태만 기록하고 URL/키는 남기지 않는다.
 3. **기존 Mac 워커 갱신**: 아래 기록표의 검증된 commit으로 기존 단일 워커를 갱신한다. 예산/prompt protocol v1 heartbeat, 90초 freshness, liveness, 내역 legacy/configured 처리, 예산 처리 능력을 확인한다. 지원되지 않는 configured 작업은 큐에서 기다리게 하며 `prompt_input`을 제거해 legacy로 낮추지 않는다.
 4. **웹 배포**: DB와 호환 워커 확인 후 같은 검증 commit의 웹을 배포한다. Vercel 상태가 `Ready`가 될 때까지 기다리고 deployment ID를 기록한다.
-5. **인증 UI 검증**: 실제 가구 계정으로 수동 예산 편집, AI 설정 조회/저장/실데이터 read-only preview, 예산 추천 생성/이전 결과 유지/근거 표시를 확인한다. 추천 완료 시 자동 저장되지 않는지 확인한 후 사용자가 선택한 추천만 가져와 명시적으로 저장하고 재접속 결과를 확인한다.
+5. **인증 UI 검증**: 실제 가구 계정으로 네 참고 줄 선택과 직접 수정, 데스크톱/모바일 전체 채우기와 손댄 행 덮어쓰기 확인, 한 단계 실행 취소, AI 요청 대화상자, 이전 결과 유지와 행별 근거 표시를 확인한다. 추천 완료 시 자동 적용·저장되지 않고 현재 작업의 검증된 값만 가져오는지 확인한 후 명시적으로 저장하고 재접속했을 때 출처가 복구되는지 확인한다.
 6. **호환성 확인**: 기존 내역 AI 진단이 독립적으로 enqueue/complete 되고, 수동 예산이 계속 저장되며, 워커가 동시에 두 lease를 잡지 않는지 확인한다.
 
 운영 연결 예시는 승인 시 실제 값을 안전한 비밀 저장소에서 주입한다. 아래 placeholder는 실행 결과가 아니다.
@@ -129,7 +143,9 @@ DATABASE_URL='<verified-production-session-pooler-5432-url>' pnpm db:migrate
 
 `0008`/`0009`의 additive 테이블·열·RPC를 즉시 삭제하지 않는다. 대기/실행/완료 작업, 불변 `prompt_input`, 완료 보고서, 예산의 추천 provenance를 삭제하거나 재작성하지 않는다. 지원 워커가 없으면 configured 작업은 원형 그대로 기다리게 한다. 데이터 파괴나 마이그레이션 역행이 필요해 보이면 배포를 멈추고 별도 복구 승인을 받는다.
 
-## 최종 인수 상태와 남은 운영 항목
+## C2 개편 이전 기능의 과거 인수 상태와 남은 운영 항목
+
+이 절의 완료 표현은 당시 검증 대상에만 해당한다. 현재 C2 검증 결과와 미실행 DB 게이트는 [별도 검증 기록](design/budget-editor/result/verification.md)에 있다.
 
 - 최종 54/54 Playwright E2E는 실제 persistence/concurrency/stale/regeneration, manual-only/worker guidance, transport retry/idempotency, 단일 편집기, 모바일/다크/키보드, month-close/statistics browser 동작을 통과했다.
 - 최종 unit/DB gate는 partial·missing·closed-zero snapshot 이력, 12월→1월 rollover, 수입 없음, 과거 월 조회와 client 늦은 응답 contract를 통과했다. 따라서 이 edge acceptance 묶음은 최종 여섯 게이트 전체에서 통과한 것이며 모두 Playwright 54건에 포함됐다는 뜻은 아니다.
@@ -137,7 +153,7 @@ DATABASE_URL='<verified-production-session-pooler-5432-url>' pnpm db:migrate
 - 로컬 상태 확인, 마이그레이션 이력, 최종 여섯 게이트, backend/UI scoped review가 완료됐다.
 - 별도 승인이 있을 때만 운영 backup → DB → worker → web → 인증 UI 순서로 실행한다. 위 운영 기록표의 placeholder는 실제 증거가 생길 때까지 그대로 유지한다.
 
-## 후속 검증 — 원래 요청 ID로 자동 복구
+## 과거 후속 검증 기록 — 원래 요청 ID로 자동 복구
 
 `87f8907` 이후 요청 ID 자동 복구 변경을 묶어서 구현한 뒤 최종 검증했다. GET의 선택적 `requestId`는 인증된 가구와 월 안에서만 원래 작업을 조회한다. 응답 유실 시 한 번 읽기 전용 조회하고, 같은 요청임이 확인되면 상태를 복구한다. 원래 요청을 확인하지 못하거나 구 서버 응답에 요청 ID가 없으면 기존 동일 UUID 재전송을 유지한다. DB 마이그레이션이나 자동 재실행은 추가하지 않았다.
 
