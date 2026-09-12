@@ -198,6 +198,7 @@ export function useBudgetRecommendation({
   const majorsRef = useRef(majors)
   const monthRef = useRef(month)
   const manualRequestRef = useRef<AbortController | null>(null)
+  const submissionRequestRef = useRef<AbortController | null>(null)
   const pollRequestRef = useRef<AbortController | null>(null)
   const promptRequestRef = useRef<{ controller: AbortController; key: string } | null>(null)
   const pendingRequestRef = useRef<BudgetRequest | null>(null)
@@ -226,7 +227,12 @@ export function useBudgetRecommendation({
   }, [])
 
   const recover = useCallback(async () => {
-    manualRequestRef.current?.abort()
+    const displaced = manualRequestRef.current
+    displaced?.abort()
+    if (submissionRequestRef.current === displaced) {
+      submissionRequestRef.current = null
+      setSubmitting(false)
+    }
     const controller = new AbortController()
     const ownedMonth = month
     manualRequestRef.current = controller
@@ -252,6 +258,7 @@ export function useBudgetRecommendation({
     pollRequestRef.current?.abort()
     promptRequestRef.current?.controller.abort()
     manualRequestRef.current = null
+    submissionRequestRef.current = null
     pollRequestRef.current = null
     promptRequestRef.current = null
     dataRef.current = null
@@ -275,6 +282,7 @@ export function useBudgetRecommendation({
       pollRequestRef.current?.abort()
       promptRequestRef.current?.controller.abort()
       manualRequestRef.current = null
+      submissionRequestRef.current = null
       pollRequestRef.current = null
       promptRequestRef.current = null
     }
@@ -403,6 +411,7 @@ export function useBudgetRecommendation({
     const controller = new AbortController()
     const ownedMonth = month
     manualRequestRef.current = controller
+    submissionRequestRef.current = controller
     setSubmitting(true)
     setNetworkError(null)
     try {
@@ -431,10 +440,11 @@ export function useBudgetRecommendation({
         return false
       }
     } finally {
-      if (manualRequestRef.current === controller) {
-        manualRequestRef.current = null
+      if (submissionRequestRef.current === controller) {
+        submissionRequestRef.current = null
         setSubmitting(false)
       }
+      if (manualRequestRef.current === controller) manualRequestRef.current = null
     }
   }
 

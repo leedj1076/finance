@@ -112,7 +112,7 @@ export function budgetRecommendationToolbarModel({
   if (data?.worker === 'upgrade_required') {
     return { ...base, status: { text: 'Mac의 AI 작업기 업데이트가 필요합니다', tone: 'amber' } }
   }
-  if (data?.availability === 'past_or_distant_month') {
+  if (data?.availability === 'past_or_distant_month' && !completed) {
     return { ...base, status: { text: 'AI 추천 · 아직 없음 · 이번 달·다음 달에서만', tone: 'default' } }
   }
   if (data?.availability === 'setup_required') {

@@ -23,7 +23,7 @@ export type AiEvidenceContext = {
 
 type AnchoredPopoverProps = {
   ariaLabel: string
-  children: ReactNode
+  children: (close: () => void) => ReactNode
   open?: boolean
   onClose: () => void
   trigger: ReactNode
@@ -34,6 +34,16 @@ function AnchoredPopover({ ariaLabel, children, open, onClose, trigger }: Anchor
   const popoverId = `ai-popover-${generatedId}`
   const anchor = `--${popoverId}`
   const popoverRef = useRef<HTMLDivElement>(null)
+  const ownerClosingRef = useRef(false)
+
+  function close() {
+    const popover = popoverRef.current
+    if (popover?.matches(':popover-open')) {
+      ownerClosingRef.current = true
+      popover.hidePopover()
+    }
+    onClose()
+  }
 
   useEffect(() => {
     if (open === undefined) return
@@ -42,6 +52,7 @@ function AnchoredPopover({ ariaLabel, children, open, onClose, trigger }: Anchor
     if (open) {
       if (!popover.matches(':popover-open')) popover.showPopover()
     } else if (popover.matches(':popover-open')) {
+      ownerClosingRef.current = true
       popover.hidePopover()
     }
   }, [open])
@@ -59,14 +70,16 @@ function AnchoredPopover({ ariaLabel, children, open, onClose, trigger }: Anchor
         className="ai-anchored-popover"
         id={popoverId}
         onToggle={event => {
-          if (!(event.currentTarget as HTMLElement).matches(':popover-open')) onClose()
+          if ((event.currentTarget as HTMLElement).matches(':popover-open')) return
+          if (ownerClosingRef.current) ownerClosingRef.current = false
+          else onClose()
         }}
         popover="auto"
         ref={popoverRef}
         role="dialog"
         style={{ positionAnchor: anchor } as CSSProperties}
       >
-        {children}
+        {children(close)}
       </div>
     </span>
   )
@@ -166,7 +179,7 @@ export function AiEvidencePopover({
 }) {
   const row = context.recommendation
   return (
-    <AnchoredPopover ariaLabel={`${row.major} AI 추천 근거`} onClose={onClose} open={open} trigger={trigger}>
+    <AnchoredPopover ariaLabel={`${row.major} AI 추천 근거`} onClose={onClose} open={open} trigger={trigger}>{close => <>
       <header className="border-b border-finance-ink pb-3">
         <h2 className="t-body-strong">{row.major} · AI 추천 {won(row.amount)}</h2>
         <p className="mt-1 t-caption text-finance-muted">{completedTime(context.completedAt)} 완료</p>
@@ -185,14 +198,14 @@ export function AiEvidencePopover({
         </section>
       )}
       <footer className="mt-5 flex items-center gap-2 border-t border-finance-hairline pt-3">
-        <button className="ml-auto px-3 t-caption font-semibold text-finance-muted" onClick={onClose} type="button">닫기</button>
+        <button className="ml-auto px-3 t-caption font-semibold text-finance-muted" onClick={close} type="button">닫기</button>
         <button
           className="min-h-9 border border-finance-ink bg-finance-ink px-4 t-caption font-semibold text-white"
           onClick={() => void onApplyChecked({ major: row.major, jobId: context.jobId })}
           type="button"
         >{won(row.amount)} 넣기</button>
       </footer>
-    </AnchoredPopover>
+    </>}</AnchoredPopover>
   )
 }
 
@@ -225,7 +238,7 @@ export function AiSummaryPopover({
     promptInput: completed.promptInput,
   }
   return (
-    <AnchoredPopover ariaLabel="AI 예산 추천 요약" onClose={onClose} open={open} trigger={trigger}>
+    <AnchoredPopover ariaLabel="AI 예산 추천 요약" onClose={onClose} open={open} trigger={trigger}>{close => <>
       <header className="border-b border-finance-ink pb-3">
         <h2 className="t-body-strong">AI 예산 추천 요약</h2>
         <p className="mt-1 t-caption text-finance-muted">{completedTime(completed.completedAt)} 완료</p>
@@ -261,8 +274,8 @@ export function AiSummaryPopover({
           onClick={() => void onShowPrompt(completed.id)}
           type="button"
         >{promptLoading ? '프롬프트 확인 중…' : '사용한 프롬프트'}</button>
-        <button className="ml-auto px-3 t-caption font-semibold text-finance-muted" onClick={onClose} type="button">닫기</button>
+        <button className="ml-auto px-3 t-caption font-semibold text-finance-muted" onClick={close} type="button">닫기</button>
       </footer>
-    </AnchoredPopover>
+    </>}</AnchoredPopover>
   )
 }

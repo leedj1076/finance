@@ -2,6 +2,9 @@ import { useState, useTransition, type ComponentProps } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { evaluateBudget } from '@/features/budget-recommendations/calculations'
+import type { CompletedBudgetRecommendation } from '@/features/budget-recommendations/types'
+import { useBudgetRecommendation } from '@/features/budget-recommendations/use-recommendation'
+import { AiEvidencePopover, AiSummaryPopover, type AiEvidenceContext } from '@/features/budgets/ai-evidence'
 import { BudgetForm } from '@/features/budgets/budget-form'
 import type { BudgetActionState } from '@/features/budgets/actions'
 import type { BudgetSaveRequest } from '@/features/budgets/save-contract'
@@ -10,6 +13,22 @@ import { deferred, navigation, saves } from './budget-save-lifecycle-boundaries'
 
 type Props = ComponentProps<typeof BudgetForm>
 const jobId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+
+function completedRecommendation(month: string): CompletedBudgetRecommendation {
+  const snapshot = makeBudgetSnapshot()
+  snapshot.month = month
+  snapshot.input.month = month
+  const report = makeBudgetReport()
+  return {
+    id: jobId,
+    requestId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    completedAt: '2026-09-10T00:00:00Z',
+    snapshot,
+    promptInput: null,
+    report,
+    evaluation: evaluateBudget(snapshot, report.rows),
+  }
+}
 
 function propsFor(month: string, origin = false): Props {
   const snapshot = makeBudgetSnapshot()
@@ -69,6 +88,53 @@ function Harness() {
   </>
 }
 
+function AiControlsHarness() {
+  const month = '2026-10'
+  const completed = completedRecommendation(month)
+  const [closed, setClosed] = useState({ evidence: 0, summary: 0 })
+  const controller = useBudgetRecommendation({
+    month,
+    majors: ['식비'],
+    basis: completed.snapshot.basis,
+    targetDirty: false,
+    getDraftAmounts: () => [{ major: '식비', amount: 350_000 }],
+  })
+  const evidence: AiEvidenceContext = {
+    jobId: completed.id,
+    completedAt: completed.completedAt,
+    recommendation: completed.report.rows[0],
+    snapshot: completed.snapshot,
+    promptInput: completed.promptInput,
+  }
+  const retry = controller.hasAmbiguousRequest ? 'retry' : 'request'
+
+  return (
+    <main>
+      <output data-testid="ai-ready">{String(controller.data !== null && !controller.recovering)}</output>
+      <output data-testid="ai-submitting">{String(controller.submitting)}</output>
+      <output data-testid="ai-ambiguous">{String(controller.hasAmbiguousRequest)}</output>
+      <output data-testid="ai-cleanup">evidence:{closed.evidence};summary:{closed.summary}</output>
+      <button disabled={controller.submitting || controller.data === null} onClick={() => void controller.generate()} type="button">AI controls: {retry}</button>
+      <button onClick={() => void controller.recover()} type="button">AI controls: recover</button>
+      <AiEvidencePopover
+        context={evidence}
+        onApplyChecked={() => {}}
+        onClose={() => setClosed(value => ({ ...value, evidence: value.evidence + 1 }))}
+        trigger="AI controls: evidence"
+      />
+      <AiSummaryPopover
+        completed={completed}
+        onClose={() => {
+          controller.clearPrompt()
+          setClosed(value => ({ ...value, summary: value.summary + 1 }))
+        }}
+        onShowPrompt={() => {}}
+        trigger="AI controls: summary"
+      />
+    </main>
+  )
+}
+
 window.budgetLifecycle = {
   calls: () => saves.map(({ previous, payload }) => ({ previous, payload })),
   resolve: (index, result) => {
@@ -85,4 +151,5 @@ window.budgetLifecycle = {
   mount: (month, origin, reuse) => updateProps(propsFor(month, origin), reuse),
   unmount: () => hideEditor(), lateProps: () => late(), refreshes: () => navigation.refreshes,
 }
-createRoot(document.getElementById('root')!).render(<Harness />)
+const controlsMode = new URLSearchParams(window.location.search).get('mode') === 'ai-controls'
+createRoot(document.getElementById('root')!).render(controlsMode ? <AiControlsHarness /> : <Harness />)

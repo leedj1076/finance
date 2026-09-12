@@ -8,6 +8,9 @@ import type {} from './fixtures/budget-save-lifecycle'
 
 let bundle: string
 let outputDirectory: string
+let aiPosts: Record<string, unknown>[]
+let exactRequestGets: number
+let releaseFirstExactGet: (() => void) | null
 
 test.beforeAll(async () => {
   // Next already ships webpack; no browser-test dependency or product route.
@@ -50,18 +53,72 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => { if (outputDirectory) await rm(outputDirectory, { recursive: true, force: true }) })
 
-test.beforeEach(async ({ page }) => {
-  await page.route('http://budget-lifecycle.test/**', route => {
+test.beforeEach(async ({ page }, testInfo) => {
+  const aiControls = testInfo.title.startsWith('AI controls:')
+  aiPosts = []
+  exactRequestGets = 0
+  releaseFirstExactGet = null
+  await page.route('http://localhost/**', async route => {
     const url = new URL(route.request().url())
     if (url.pathname === '/api/budget-recommendations') {
-      return route.fulfill({ json: { month: url.searchParams.get('month'), latestJob: null, completed: null,
-        worker: 'offline', availability: 'available', freshness: 'current', instructionsChanged: false } })
+      const month = url.searchParams.get('month')
+      const empty = { month, latestJob: null, completed: null,
+        worker: aiControls ? 'ready' : 'offline', availability: 'available', freshness: 'current', instructionsChanged: false }
+      if (aiControls && route.request().method() === 'POST') {
+        const body = route.request().postDataJSON() as Record<string, unknown>
+        aiPosts.push(body)
+        if (aiPosts.length === 1) return route.fulfill({ status: 503, json: { error: 'request_failed' } })
+        return route.fulfill({ json: { ...empty, latestJob: {
+          id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', requestId: body.requestId,
+          status: 'queued', errorCode: null,
+        } } })
+      }
+      if (aiControls && url.searchParams.has('requestId')) {
+        exactRequestGets += 1
+        if (exactRequestGets === 1) {
+          await new Promise<void>(resolve => { releaseFirstExactGet = resolve })
+          return route.fulfill({ json: empty }).catch(() => {})
+        }
+        releaseFirstExactGet?.()
+        return route.fulfill({ json: empty })
+      }
+      return route.fulfill({ json: empty })
     }
     return route.fulfill({ contentType: 'text/html', body: '<html><body><div id="root"></div></body></html>' })
   })
-  await page.goto('http://budget-lifecycle.test/')
+  await page.goto(`http://localhost/${aiControls ? '?mode=ai-controls' : ''}`)
   await page.addScriptTag({ content: bundle })
-  await expect(page.getByLabel('식비 예산', { exact: true })).toHaveValue('350000')
+  if (aiControls) await expect(page.getByTestId('ai-ready')).toHaveText('true')
+  else await expect(page.getByLabel('식비 예산', { exact: true })).toHaveValue('350000')
+})
+
+test('AI controls: footer Close hides native evidence and summary popovers before cleanup', async ({ page }) => {
+  await page.getByRole('button', { name: 'AI controls: evidence', exact: true }).click()
+  const evidence = page.getByRole('dialog', { name: '식비 AI 추천 근거', exact: true })
+  await expect(evidence).toBeVisible()
+  await evidence.getByRole('button', { name: '닫기', exact: true }).click()
+  await expect(evidence).toBeHidden()
+  await expect(page.getByTestId('ai-cleanup')).toHaveText('evidence:1;summary:0')
+
+  await page.getByRole('button', { name: 'AI controls: summary', exact: true }).click()
+  const summary = page.getByRole('dialog', { name: 'AI 예산 추천 요약', exact: true })
+  await expect(summary).toBeVisible()
+  await summary.getByRole('button', { name: '닫기', exact: true }).click()
+  await expect(summary).toBeHidden()
+  await expect(page.getByTestId('ai-cleanup')).toHaveText('evidence:1;summary:1')
+})
+
+test('AI controls: recover transfers an ambiguous exact-ID lookup without stranding submitting', async ({ page }) => {
+  await page.getByRole('button', { name: 'AI controls: request', exact: true }).click()
+  await expect.poll(() => exactRequestGets).toBe(1)
+  await expect(page.getByTestId('ai-submitting')).toHaveText('true')
+  await page.getByRole('button', { name: 'AI controls: recover', exact: true }).click()
+  await expect.poll(() => exactRequestGets).toBe(2)
+  await expect(page.getByTestId('ai-submitting')).toHaveText('false')
+  await expect(page.getByTestId('ai-ambiguous')).toHaveText('true')
+  await page.getByRole('button', { name: 'AI controls: retry', exact: true }).click()
+  await expect.poll(() => aiPosts).toHaveLength(2)
+  expect(aiPosts[1]).toEqual(aiPosts[0])
 })
 
 test('acknowledges the save while independent real React transition work remains pending', async ({ page }) => {

@@ -290,4 +290,23 @@ describe('AI request dialog and toolbar states', () => {
     expect(html).toContain('이전 지침으로 만든 추천')
     expect(html).toContain('plan-toolbar__instruction-marker')
   })
+
+  test('keeps a historical completed summary visible while disabling new past-month requests', () => {
+    const model = budgetRecommendationToolbarModel({
+      data: data({ completed: completed(), availability: 'past_or_distant_month' }),
+      basis,
+      targetDirty: false,
+      recovering: false,
+      submitting: false,
+      networkError: null,
+      hasAmbiguousRequest: false,
+    })
+
+    expect(model.status).toEqual({
+      text: 'AI 추천 · 9월 27일 14:02 · 합계 1,855,000 · 상한 안',
+      tone: 'default',
+    })
+    expect(model.showSummary).toBe(true)
+    expect(model.requestDisabled).toBe(true)
+  })
 })
