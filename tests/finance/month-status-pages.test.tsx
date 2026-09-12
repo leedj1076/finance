@@ -54,6 +54,7 @@ describe('month status page headings', () => {
       remaining: 0,
       savingsTarget: 30,
       baselines: [],
+      planRows: [],
       targetVersion: 'target-version',
       averageIncome: 0,
       averageExpense: 0,
@@ -93,6 +94,12 @@ describe('month status page headings', () => {
       totalBudget: 350_000, totalActual: 100_000, remaining: 250_000,
       savingsTarget: 30,
       baselines: [{ major: '식비', amount: 350_000, recommendationJobId: jobId, version: 'food-v1' }],
+      planRows: [{
+        major: '식비', group: 'variable', saved: { amount: 350_000, recommendationJobId: jobId, version: 'food-v1' },
+        actual: 100_000, previousBudget: 330_000,
+        previousActual: { amount: 320_000, month: '2026-08', partial: null },
+        average3: { amount: 300_000, months: ['2026-06', '2026-07', '2026-08'], monthsWithSpend: 3, provisional: false },
+      }],
       targetVersion: 'target-version', averageIncome: 1_000_000, averageExpense: 300_000,
       averageSaving: 100_000, currentSavingsRate: 60, spendCeiling: 700_000,
       basis: snapshot.basis,
@@ -106,9 +113,48 @@ describe('month status page headings', () => {
     const html = renderToStaticMarkup(await BudgetsPage({ searchParams: Promise.resolve({ month: '2026-09' }) }))
 
     expect(html.match(/aria-label="식비 예산"/g)).toHaveLength(1)
-    expect(html).toContain('실제 지출 −100,000원')
+    expect(html).toContain('사용 100,000 · 남은 250,000')
     expect(html).toContain('저장 당시의 식비 추천 근거입니다.')
-    expect(html).toContain('원래 AI 추천 300,000원')
+    expect(html).toContain('AI 추천 (9월 10일) 300,000에서 조정')
+    expect(html).not.toContain('지출 상한 배분')
+    expect(html).not.toContain('추천안 검토')
+    const payload = html.match(/name="payload"[^>]*value="([^"]*)"/)?.[1]
+    expect(JSON.parse(payload!.replaceAll('&quot;', '"')).changes).toEqual([])
+  })
+
+  test('a future month hides the KPI strip and next-month CTA', async () => {
+    loaders.budget.mockResolvedValue({
+      month: '2026-10', previousMonth: '2026-09', nextMonth: '2026-11', rows: [], planRows: [],
+      totalBudget: 0, totalActual: 0, remaining: 0, savingsTarget: 30, baselines: [],
+      targetVersion: 'target-version', averageIncome: 0, averageExpense: 0, averageSaving: 0,
+      currentSavingsRate: 0, spendCeiling: 0,
+      basis: { averageIncome: 0, savingsTarget: 30, spendCeiling: 0, incomeStart: '2026-01-01', incomeEnd: '2026-09-01', incomeMonthCount: 0 },
+      savedRecommendations: [], paceWarnings: [], nextBudgetExists: false,
+      review: { reviewMonth: '2026-09', rows: [], reviewIncome: 0, reviewExpense: 0, reviewSaving: 0, reviewSavingsRate: 0, reviewBudgetTotal: 0 },
+    })
+
+    const html = renderToStaticMarkup(await BudgetsPage({ searchParams: Promise.resolve({ month: '2026-10' }) }))
+
+    expect(html).not.toContain('이번 달 사용')
+    expect(html).not.toContain('더 쓸 수 있는 돈')
+    expect(html).not.toContain('다음 달 예산 만들기 →')
+  })
+
+  test('a past month does not render current-month pace warnings', async () => {
+    loaders.budget.mockResolvedValue({
+      month: '2026-08', previousMonth: '2026-07', nextMonth: '2026-09', rows: [], planRows: [],
+      totalBudget: 0, totalActual: 0, remaining: 0, savingsTarget: 30, baselines: [],
+      targetVersion: 'target-version', averageIncome: 0, averageExpense: 0, averageSaving: 0,
+      currentSavingsRate: 0, spendCeiling: 0,
+      basis: { averageIncome: 0, savingsTarget: 30, spendCeiling: 0, incomeStart: '2026-01-01', incomeEnd: '2026-09-01', incomeMonthCount: 0 },
+      savedRecommendations: [], nextBudgetExists: true,
+      paceWarnings: [{ major: '식비', progressPercent: 50, spentPercent: 80, overrun: 10_000, actual: 80_000, projected: 110_000 }],
+      review: { reviewMonth: '2026-07', rows: [], reviewIncome: 0, reviewExpense: 0, reviewSaving: 0, reviewSavingsRate: 0, reviewBudgetTotal: 0 },
+    })
+
+    const html = renderToStaticMarkup(await BudgetsPage({ searchParams: Promise.resolve({ month: '2026-08' }) }))
+
+    expect(html).not.toContain('예산보다 빠르게 지출 중인 항목이 있습니다')
   })
 
   test('the legacy review page permanently redirects to the same target month', async () => {

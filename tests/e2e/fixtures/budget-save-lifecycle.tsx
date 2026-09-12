@@ -36,17 +36,16 @@ function propsFor(month: string, origin = false): Props {
   snapshot.input.month = month
   const report = makeBudgetReport()
   return {
-    averageExpense: 100_000, averageIncome: 1_000_000, currentSavingsRate: 90,
     month, savingsTarget: 30, targetVersion: 'target-v1', spendCeiling: 700_000,
     basis: snapshot.basis,
     baselines: [{ major: '식비', amount: 350_000, recommendationJobId: origin ? jobId : null, version: 'food-v1' }],
-    rows: [{ major: '식비', group: 'variable', budget: 350_000, previousBudget: 330_000,
-      actual: 100_000, average: 300_000, remaining: 250_000, percent: 29 }],
+    planRows: [{ major: '식비', group: 'variable', saved: {
+      amount: 350_000, recommendationJobId: origin ? jobId : null, version: 'food-v1',
+    }, previousBudget: 330_000, actual: 100_000,
+    previousActual: { amount: 320_000, month: '2026-08', partial: null },
+    average3: { amount: 300_000, months: ['2026-06', '2026-07', '2026-08'], monthsWithSpend: 3, provisional: false } }],
     savedRecommendations: origin ? [{ id: jobId, completedAt: '2026-09-10T00:00:00Z',
       snapshot, promptInput: null, report, evaluation: evaluateBudget(snapshot, report.rows) }] : [],
-    review: { targetMonth: month, reviewMonth: '2026-08', completedMonths: [], rows: [], groups: [],
-      reviewIncome: 1_000_000, reviewExpense: 100_000, reviewSaving: 0, reviewSavingsRate: 90,
-      reviewBudgetTotal: 350_000, existingCount: 1, averageIncome: 1_000_000, savingsTarget: 30, spendCeiling: 700_000 },
   }
 }
 

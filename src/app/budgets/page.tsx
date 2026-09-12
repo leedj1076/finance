@@ -6,9 +6,8 @@ import { getMonthStatuses } from '@/features/month-close/queries'
 import { MonthStatusLabel } from '@/features/month-close/month-status-label'
 import { SubmitButton } from '@/components/submit-button'
 import { BudgetForm } from '@/features/budgets/budget-form'
-import { BudgetReference } from '@/features/budgets/budget-reference'
 import { getBudgetPlanningData } from '@/features/budgets/planning-queries'
-import { currentMonthInKorea, formatRate, formatWon } from '@/lib/finance'
+import { currentMonthInKorea, formatRate, formatWon, shiftMonth } from '@/lib/finance'
 import { getAuthContext, requireHousehold } from '@/lib/household'
 
 type BudgetsPageProps = {
@@ -67,8 +66,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
     Number(currentMonth.slice(5, 7)),
     0,
   )).getUTCDate()
-  const isMonthEnd = data.month === currentMonth && currentDay >= 25
-  const reviewNeedsAttention = isMonthEnd || !data.nextBudgetExists
+  const viewingNextMonth = data.month === shiftMonth(currentMonth, 1)
 
   return (
     <div className="min-h-screen bg-white">
@@ -88,14 +86,12 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              className={`h-[34px] whitespace-nowrap border px-3 py-2 t-body-strong ${reviewNeedsAttention
-                ? 'border-finance-green bg-finance-green text-white hover:opacity-80'
-                : 'border-finance-hairline bg-white text-finance-muted hover:border-finance-green hover:text-finance-green'}`}
+            {!viewingNextMonth && <Link
+              className="h-[34px] whitespace-nowrap border border-finance-green bg-finance-green px-3 py-2 t-body-strong text-white hover:opacity-80"
               href={`/budgets?month=${data.nextMonth}`}
             >
-              {reviewNeedsAttention ? '다음 달 예산 만들기 →' : '월말 리뷰 →'}
-            </Link>
+              다음 달 예산 만들기 →
+            </Link>}
             <Link
               aria-label="이전 달"
               className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel"
@@ -132,7 +128,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 
         {reviewSaved && <p className="mt-5 border-l-2 border-finance-green bg-finance-green-tint px-4 py-3 t-body text-finance-green">월말 리뷰에서 {data.month} 예산을 저장했습니다.</p>}
 
-        <section className="mt-6 grid border-y border-finance-ink sm:grid-cols-3 sm:divide-x sm:divide-finance-hairline">
+        {data.month <= currentMonth && <section className="mt-6 grid border-y border-finance-ink sm:grid-cols-3 sm:divide-x sm:divide-finance-hairline">
           <SummaryCard label="목표 지출 상한" value={`${formatWon(data.spendCeiling)}원`} />
           <SummaryCard
             label="이번 달 사용"
@@ -144,9 +140,9 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
             tone={remainingTone}
             value={`${formatWon(Math.abs(safeToSpend))}원`}
           />
-        </section>
+        </section>}
 
-        {data.month <= currentMonth && data.paceWarnings.length > 0 && (
+        {data.month === currentMonth && data.paceWarnings.length > 0 && (
           <section className="mt-6 border-t border-finance-ink py-4">
             <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
               <div>
@@ -171,20 +167,15 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
 
         <BudgetForm
           key={`budget-editor:${data.month}`}
-          averageExpense={data.averageExpense}
-          averageIncome={data.averageIncome}
           basis={data.basis}
           baselines={data.baselines}
-          currentSavingsRate={data.currentSavingsRate}
           month={data.month}
-          rows={data.rows}
-          review={data.review}
+          planRows={data.planRows}
           savedRecommendations={data.savedRecommendations}
           savingsTarget={data.savingsTarget}
           targetVersion={data.targetVersion}
           spendCeiling={data.spendCeiling}
         />
-        <BudgetReference review={data.review} />
       </main>
     </div>
   )
