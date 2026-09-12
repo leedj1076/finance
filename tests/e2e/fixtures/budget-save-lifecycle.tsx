@@ -1,5 +1,5 @@
 import { useState, useTransition, type ComponentProps } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot, hydrateRoot } from 'react-dom/client'
 
 import { evaluateBudget } from '@/features/budget-recommendations/calculations'
 import type { CompletedBudgetRecommendation } from '@/features/budget-recommendations/types'
@@ -10,6 +10,7 @@ import type { BudgetActionState } from '@/features/budgets/actions'
 import type { BudgetSaveRequest } from '@/features/budgets/save-contract'
 import { makeBudgetReport, makeBudgetSnapshot } from '../../fixtures/budget-recommendation'
 import { deferred, navigation, saves } from './budget-save-lifecycle-boundaries'
+import { SavedAiPlanItem } from './budget-plan-item-hydration'
 
 type Props = ComponentProps<typeof BudgetForm>
 const jobId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -122,7 +123,10 @@ export type LifecycleHarness = {
   reloadSaved(): void
   mountMissingOrigin(): void
 }
-declare global { interface Window { budgetLifecycle: LifecycleHarness } }
+declare global { interface Window {
+  budgetHydrationErrors: string[]
+  budgetLifecycle: LifecycleHarness
+} }
 
 let updateProps: (props: Props, reuse?: boolean) => void
 let hideEditor: () => void
@@ -231,4 +235,13 @@ window.budgetLifecycle = {
   unmount: () => hideEditor(), lateProps: () => late(), refreshes: () => navigation.refreshes,
 }
 const controlsMode = new URLSearchParams(window.location.search).get('mode') === 'ai-controls'
-createRoot(document.getElementById('root')!).render(controlsMode ? <AiControlsHarness /> : <Harness />)
+const hydrationMode = new URLSearchParams(window.location.search).get('mode') === 'saved-ai-hydration'
+const root = document.getElementById('root')!
+if (hydrationMode) {
+  window.budgetHydrationErrors = []
+  hydrateRoot(root, <SavedAiPlanItem />, {
+    onRecoverableError: error => window.budgetHydrationErrors.push(error instanceof Error ? error.message : String(error)),
+  })
+} else {
+  createRoot(root).render(controlsMode ? <AiControlsHarness /> : <Harness />)
+}

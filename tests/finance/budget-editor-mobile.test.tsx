@@ -37,7 +37,7 @@ describe('390px budget editor markup', () => {
       onChoose: vi.fn(), onChooseAi: vi.fn(), onEdit: vi.fn(), onOpenEvidence: vi.fn(),
     }))
 
-    expect(html).toMatch(/<div class="plan-item__topline">[\s\S]*class="plan-item__major"[\s\S]*class="plan-item__input-row t-caption"[\s\S]*<\/div><p class="plan-item__caption/)
+    expect(html).toMatch(/<div class="plan-item__topline">[\s\S]*class="plan-item__major"[\s\S]*class="plan-item__input-row t-caption"[\s\S]*<\/div><div class="plan-item__caption/)
     expect(html.match(/class="plan-reference__option/g)).toHaveLength(4)
     expect(html).not.toContain('type="radio"')
   })

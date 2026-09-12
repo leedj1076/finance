@@ -210,9 +210,12 @@ test('family user can manage a transaction and change their password', async ({ 
     await budgetInput.fill('500000')
     await expect(page.getByRole('form', { name: '예산 편집기' }).locator('.ceiling-bar__metric').filter({ hasText: '편집안 합계' })).toContainText('500,000')
     await page.getByRole('button', { name: /목표 저축률 \d+%/ }).click()
-    await page.getByLabel('목표 저축률').fill('35')
+    await page.getByRole('slider', { name: '목표 저축률', exact: true }).fill('35')
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: '목표 저축률 설정', exact: true })).toBeHidden()
     await expect(page.getByRole('checkbox', { name: '미분류·정기 지출을 포함한 전체 예산의 상한 초과를 확인하고 저장합니다.', exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: '변경사항 저장' }).click()
+    await expect(page.getByRole('button', { name: '저장됨', exact: true })).toBeVisible()
     await expect(page.getByLabel('식비 예산')).toHaveValue('500000')
     await expect(page.getByRole('form', { name: '예산 편집기' }).locator('.ceiling-bar__metric').filter({ hasText: '편집안 합계' })).toContainText('500,000')
 

@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
+import postgres from 'postgres'
+import { currentMonthInKorea, shiftMonth } from '@/lib/finance'
 import { closeFixtureMonths } from './close-fixture-months'
 
 function adminClient() {
@@ -10,6 +12,14 @@ function adminClient() {
   return createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
+}
+
+function localDatabase() {
+  const url = process.env.DATABASE_URL!
+  if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname)) {
+    throw new Error('These fixtures must only run against local Postgres')
+  }
+  return postgres(url, { max: 1 })
 }
 
 const suite = test.extend<{ household: string }>({
@@ -112,24 +122,52 @@ suite('budget money fields accept single won amounts, but not negatives or fract
   const budget = page.getByRole('spinbutton', { name: '식비 예산', exact: true })
   await budget.fill('723693')
   expect(await budget.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(true)
-  const cut = page.getByRole('spinbutton', { name: '식비 감축액' })
-  await page.locator('summary').filter({ hasText: '절약 시뮬레이션' }).click()
-  await cut.fill('123')
-  expect(await cut.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(true)
+  for (const value of ['-1', '1.5']) {
+    await budget.fill(value)
+    expect(await budget.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(false)
+  }
+  await budget.fill('723693')
   await page.getByRole('checkbox', { name: '미분류·정기 지출을 포함한 전체 예산의 상한 초과를 확인하고 저장합니다.', exact: true }).check()
   await page.getByRole('button', { name: '변경사항 저장', exact: true }).click()
   await expect(page.getByRole('button', { name: '저장됨', exact: true })).toBeVisible()
   const { data, error } = await adminClient().from('budgets').select('amount').eq('household_id', household).eq('month', '2026-07').eq('major', '식비').single()
   if (error) throw error
   expect(Number(data.amount)).toBe(723693)
-  await page.goto('/budgets/review?month=2026-07')
-  await expect(page).toHaveURL('/budgets?month=2026-07')
-  const review = page.getByRole('spinbutton', { name: '식비 예산', exact: true })
-  await review.fill('723693')
-  expect(await review.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(true)
+
+  const admin = adminClient()
+  const aiMonth = currentMonthInKorea()
+  const { data: incomeCategory, error: incomeCategoryError } = await admin.from('categories')
+    .insert({ household_id: household, kind: 'income', major: '월급', sub: '급여' }).select('id').single()
+  if (incomeCategoryError) throw incomeCategoryError
+  const { error: incomeError } = await admin.from('transactions').insert({
+    household_id: household,
+    date: `${shiftMonth(aiMonth, -1)}-01`,
+    amount: 1_000_000,
+    flow: 'income',
+    category_id: incomeCategory.id,
+    source: 'e2e',
+  })
+  if (incomeError) throw incomeError
+  const database = localDatabase()
+  try {
+    await database`insert into diagnosis_workers
+      (household_id, token_hash, label, prompt_protocol_version, prompt_last_seen_at, budget_protocol_version, budget_last_seen_at)
+      values (${household}, ${'0'.repeat(64)}, 'E2E budget numeric worker', 1, now(), 1, now())`
+  } finally {
+    await database.end()
+  }
+  await page.goto(`/budgets?month=${aiMonth}`)
+  await page.getByRole('button', { name: 'AI 추천 받기', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'AI 예산 추천 요청', exact: true })
+  const plannedAmount = dialog.getByLabel('예정 지출 금액', { exact: true })
+  await plannedAmount.fill('123')
+  await dialog.getByRole('button', { name: '추가', exact: true }).click()
+  const addedAmount = dialog.getByLabel('예정 지출 1 금액', { exact: true })
+  await expect(addedAmount).toHaveValue('123')
   for (const value of ['-1', '1.5']) {
-    await review.fill(value)
-    expect(await review.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(false)
+    await addedAmount.fill(value)
+    await dialog.getByRole('button', { name: '추천 요청', exact: true }).click()
+    await expect(dialog.getByRole('alert')).toHaveText('예정 지출의 카테고리와 금액을 확인해 주세요.')
   }
 })
 

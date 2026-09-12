@@ -206,12 +206,12 @@ export function PlanItem({
       </div>
       {amount === null && <p className="plan-item__caption t-caption text-finance-red" id={invalidId}>원 단위의 0 이상 정수를 입력해 주세요.</p>}
       {amount !== null && caption && (
-        <p className={`plan-item__caption t-caption plan-item__caption--${caption.tone}`}>
+        <div className={`plan-item__caption t-caption plan-item__caption--${caption.tone}`}>
           {caption.text}
           {'evidenceJobId' in caption && caption.evidenceJobId && (
             <> · {savedEvidence ?? <button onClick={() => onOpenEvidence({ major: row.major, jobId: caption.evidenceJobId! })} type="button">근거</button>}</>
           )}
-        </p>
+        </div>
       )}
 
       <div className="plan-item__references">

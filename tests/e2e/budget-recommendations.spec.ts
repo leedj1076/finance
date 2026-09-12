@@ -196,7 +196,7 @@ test('reviews a recommendation in the single editor without persisting the fake 
     await requestAgain()
     await expect(foodRow.locator('.plan-item__reason')).toHaveText('두 번째 추천의 식비 근거입니다.')
     await expect(foodRow.getByRole('button', { name: /^AI 추천 280,000/ })).toBeVisible()
-    await expect(foodRow.getByText(/AI 추천.*300,000/)).toBeVisible()
+    await expect(foodRow.locator('.plan-item__caption')).toHaveText(/AI 추천.*300,000/)
     await page.locator('.plan-toolbar__fills').getByRole('button', { name: '지난달 예산', exact: true }).click()
     if (await page.getByRole('dialog', { name: '전체 채우기 확인', exact: true }).isVisible()) await page.getByRole('button', { name: '모두 채우기', exact: true }).click()
     await expect(amount).toHaveValue('330000')

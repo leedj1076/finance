@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
+import path from 'node:path'
 
 import { expect, test } from '@playwright/test'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
@@ -219,6 +220,12 @@ suite('keeps manual saving available while a fixture worker is unsupported, abse
   const saveManual = async (amount: string) => {
     await page.getByLabel('식비 예산', { exact: true }).fill(amount)
     await expect(page.locator('.ceiling-bar__metric').filter({ hasText: '편집안 합계' })).toContainText(`${Number(amount).toLocaleString('ko-KR')}`)
+    const overageConsent = page.getByRole('checkbox', {
+      name: '미분류·정기 지출을 포함한 전체 예산의 상한 초과를 확인하고 저장합니다.',
+      exact: true,
+    })
+    await expect(overageConsent).toBeVisible()
+    await overageConsent.check()
     await page.getByRole('button', { name: '변경사항 저장', exact: true }).click()
     await expect(page.getByRole('button', { name: '저장됨', exact: true })).toBeVisible({ timeout: 15_000 })
   }
@@ -316,7 +323,15 @@ suite('persists a real completed recommendation with its adjusted amount and fro
 
   await page.reload()
   await expect(page.getByLabel('식비 예산', { exact: true })).toHaveValue('310000')
-  await expect(page.getByText(/AI 추천.*300,000에서 조정/)).toBeVisible()
+  await expect(foodRow.locator('.plan-item__caption')).toHaveText(/AI 추천.*300,000에서 조정/)
+  await expect(page.getByRole('button', { name: '다시 추천', exact: true })).toBeEnabled()
+  const resultDirectory = path.join(process.cwd(), 'docs/design/budget-editor/result')
+  await mkdir(resultDirectory, { recursive: true })
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.screenshot({ animations: 'disabled', path: path.join(resultDirectory, 'local-desktop-1440.png'), fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ animations: 'disabled', path: path.join(resultDirectory, 'local-mobile-390.png'), fullPage: true })
+  await page.setViewportSize({ width: 1280, height: 900 })
   await page.getByRole('article').filter({ has: page.getByRole('heading', { name: '식비', exact: true }) }).getByRole('button', { name: '더 보기', exact: true }).click()
   await expect(page.getByRole('dialog', { name: '식비 AI 추천 근거', exact: true }).getByText('기록된 장보기 비용을 포함해 배정했습니다.', { exact: true })).toBeVisible()
   const historicalEvidence = page.getByRole('link', { name: /E2E 지난달 장보기/ }).first()
@@ -378,7 +393,7 @@ suite('persists a real completed recommendation with its adjusted amount and fro
   await expect(page.getByText('추천 대기 중', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '분석 중…', exact: true })).toBeDisabled()
   await expect(page.getByLabel('식비 예산', { exact: true })).toBeEnabled()
-  await expect(page.getByText(/AI 추천.*300,000에서 조정/)).toBeVisible()
+  await expect(foodRow.locator('.plan-item__caption')).toHaveText(/AI 추천.*300,000에서 조정/)
   const jobs = await fixture.database`
     select id, status from budget_recommendation_jobs
     where household_id = ${fixture.householdId} and month = ${fixture.month}

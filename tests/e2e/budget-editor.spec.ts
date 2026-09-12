@@ -64,6 +64,19 @@ async function boot(page: Page, options: { delayed?: boolean; empty?: boolean; s
 test.beforeAll(async () => { bundle = await buildBudgetBrowser() })
 test.afterAll(async () => { await bundle?.cleanup() })
 
+test('saved AI evidence hydrates without reparsing its caption', async ({ page }) => {
+  await page.route('http://localhost/**', route => route.fulfill({
+    contentType: 'text/html',
+    body: `<html><head><meta charset="utf-8"></head><body><main><div id="root">${bundle.savedAiServerHtml}</div></main></body></html>`,
+  }))
+  await page.goto('http://localhost/?mode=saved-ai-hydration')
+  await page.addScriptTag({ content: bundle.script })
+  await expect(page.getByText('AI 추천 (9월 10일) 300,000에서 조정', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: '근거', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: '식비 AI 추천 근거', exact: true })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.budgetHydrationErrors)).toEqual([])
+})
+
 test('reference to manual to save and reloaded first matching historical source', async ({ page }) => {
   await boot(page)
   await reference(page, '지난달 예산').click()

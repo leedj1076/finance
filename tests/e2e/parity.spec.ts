@@ -901,6 +901,9 @@ test('annual chart hover and selection show values, and cell exclusion updates t
     })
     await expect(detailSection).toBeVisible()
     await expect(detailSection.getByLabel('월별 그래프와 항목별 표').getByText('전체 항목', { exact: true })).toBeVisible()
+    const foodToggle = detailSection.getByRole('button', { name: '▸ 식비', exact: true })
+    await expect(foodToggle).toBeVisible()
+    await foodToggle.click()
     await expect(detailSection.getByRole('button', { name: '▾ 식비', exact: true })).toBeVisible()
     const chart = detailSection.getByRole('img', { name: '누적 막대 월별 차트' }).locator('canvas')
     const bounds = await chart.boundingBox()
@@ -1112,6 +1115,7 @@ test('pending table detail requests cancel on scroll or resize and keyboard focu
       has: page.getByRole('heading', { name: '달마다 어떻게 달랐나', exact: true }),
     })
     const tableScroller = detailSection.getByLabel('월별 그래프와 항목별 표')
+    await detailSection.getByRole('button', { name: '▸ 식비', exact: true }).click()
     const pendingCell = detailSection.getByRole('button', { name: '식비 카페 2월 300,000원, 합계에서 제외', exact: true })
     await pendingCell.scrollIntoViewIfNeeded()
     await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
