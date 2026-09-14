@@ -29,7 +29,7 @@ describe('recurring calculations', () => {
     expect(detectRecurringCandidates(rows, ['넷플릭스'])).toEqual([])
   })
 
-  test('keeps once-a-month same-day bills, seasonal swing included, and drops scattered habits', () => {
+  test('keeps bills that swing with the season but drops wilder amounts, scattered days, and twice-a-month habits', () => {
     const rows = [
       { date: '2026-01-25', amount: 200_000, merchant: '관리비' },
       { date: '2026-02-25', amount: 262_000, merchant: '관리비' },
@@ -41,9 +41,19 @@ describe('recurring calculations', () => {
       { date: '2026-01-02', amount: 38_000, merchant: '헤어살롱' },
       { date: '2026-02-21', amount: 38_000, merchant: '헤어살롱' },
       { date: '2026-03-13', amount: 38_000, merchant: '헤어살롱' },
+      // kept: cv 1.035, the winter-gas-bill shape the loose amount test exists for
+      { date: '2026-01-15', amount: 25_000, merchant: '도시가스' },
+      { date: '2026-02-15', amount: 25_000, merchant: '도시가스' },
+      { date: '2026-03-15', amount: 230_000, merchant: '도시가스' },
+      // dropped: cv 1.251, same day every month but no amount worth suggesting
+      { date: '2026-01-08', amount: 5_000, merchant: '편의점' },
+      { date: '2026-02-08', amount: 5_000, merchant: '편의점' },
+      { date: '2026-03-08', amount: 120_000, merchant: '편의점' },
     ]
-    expect(detectRecurringCandidates(rows).map((candidate) => candidate.name)).toEqual(['관리비'])
-    expect(detectRecurringCandidates(rows, [], 3, { maxDaySpread: 31, maxVariation: 2 }).map((candidate) => candidate.name)).toEqual(['관리비', '헤어살롱'])
+    // 도시가스 and 편의점 differ only in amount, so they bracket maxVariation at [1.035, 1.251).
+    expect(detectRecurringCandidates(rows).map((candidate) => candidate.name)).toEqual(['관리비', '도시가스'])
+    expect(detectRecurringCandidates(rows, [], 3, { maxDaySpread: 31, maxVariation: 1.3 }).map((candidate) => candidate.name))
+      .toEqual(['관리비', '도시가스', '편의점', '헤어살롱'])
   })
 
   test('clamps a recurring day to the final day of the month', () => {
