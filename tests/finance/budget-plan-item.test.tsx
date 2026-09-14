@@ -20,6 +20,11 @@ const plan: BudgetPlanRow = {
     spendMonths: ['2026-09', '2026-07'],
     provisional: true,
   },
+  trend: [
+    { month: '2026-07', amount: 900_000, closed: true, revision: 1 },
+    { month: '2026-08', amount: 0, closed: true, revision: 1 },
+    { month: '2026-09', amount: 1_068_786, closed: false, revision: 0 },
+  ],
 }
 
 const draft: BudgetDraftRow = {

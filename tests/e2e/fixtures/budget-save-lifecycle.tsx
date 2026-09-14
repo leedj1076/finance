@@ -60,7 +60,12 @@ function propsFor(month: string, origin = false): Props {
       amount: 350_000, recommendationJobId: origin ? jobId : null, version: 'food-v1',
     }, previousBudget: 330_000, actual: 100_000,
     previousActual: { amount: 320_000, month: '2026-08', partial: null },
-    average3: { amount: 300_000, months: ['2026-06', '2026-07', '2026-08'], monthsWithSpend: 3, provisional: false } }],
+    average3: { amount: 300_000, months: ['2026-06', '2026-07', '2026-08'], monthsWithSpend: 3, provisional: false },
+    trend: [
+      { month: '2026-06', amount: 1_298_653, closed: true, revision: 7 },
+      { month: '2026-07', amount: 1_253_700, closed: true, revision: 2 },
+      { month: '2026-08', amount: 1_257_831, closed: false, revision: 4 },
+    ] }],
     savedRecommendations: origin ? [{ id: jobId, completedAt: '2026-09-10T00:00:00Z',
       snapshot, promptInput: null, report, evaluation: evaluateBudget(snapshot, report.rows) }] : [],
   }
@@ -79,10 +84,20 @@ function reviewPropsFor(): Props {
     planRows: [
       { major: '식비', group: 'variable', saved: { amount: 350_000, recommendationJobId: null, version: 'food-v1' },
         previousBudget: 330_000, actual: 100_000, previousActual: { amount: 320_000, month: '2026-09', partial: null },
-        average3: { amount: 300_000, months: ['2026-07', '2026-08', '2026-09'], monthsWithSpend: 3, provisional: false } },
+        average3: { amount: 300_000, months: ['2026-07', '2026-08', '2026-09'], monthsWithSpend: 3, provisional: false },
+        trend: [
+          { month: '2026-07', amount: 280_000, closed: true, revision: 1 },
+          { month: '2026-08', amount: 300_000, closed: true, revision: 1 },
+          { month: '2026-09', amount: 320_000, closed: false, revision: 0 },
+        ] },
       { major: '교통', group: 'variable', saved: { amount: 90_000, recommendationJobId: null, version: 'transport-v1' },
         previousBudget: 90_000, actual: 20_000, previousActual: { amount: 85_000, month: '2026-09', partial: null },
-        average3: { amount: 82_000, months: ['2026-07', '2026-08', '2026-09'], monthsWithSpend: 3, provisional: false } },
+        average3: { amount: 82_000, months: ['2026-07', '2026-08', '2026-09'], monthsWithSpend: 3, provisional: false },
+        trend: [
+          { month: '2026-07', amount: 75_000, closed: true, revision: 1 },
+          { month: '2026-08', amount: 82_000, closed: true, revision: 1 },
+          { month: '2026-09', amount: 89_000, closed: false, revision: 0 },
+        ] },
     ],
     savedRecommendations: [],
   }
@@ -99,12 +114,22 @@ function editorPropsFor(): Props {
     previousBudget: 120_000, actual: 100_000,
     previousActual: { amount: 125_000, month: '2026-09', partial: { asOf: '2026-09-12' } },
     average3: { amount: 122_000, months: ['2026-07', '2026-08', '2026-09'], monthsWithSpend: 3, provisional: true },
+    trend: [
+      { month: '2026-07', amount: 118_000, closed: true, revision: 1 },
+      { month: '2026-08', amount: 122_000, closed: true, revision: 1 },
+      { month: '2026-09', amount: 126_000, closed: false, revision: 0 },
+    ],
   })
   props.planRows.push({
     major: '여행 · 경조사', group: 'irregular',
     saved: { amount: 50_000, recommendationJobId: null, version: 'travel-v1' },
     previousBudget: 0, actual: 0, previousActual: { amount: 0, month: '2026-09', partial: null },
     average3: { amount: 60_000, months: ['2026-07', '2026-08', '2026-09'], monthsWithSpend: 1, spendMonths: ['2026-08'], provisional: true },
+    trend: [
+      { month: '2026-07', amount: 0, closed: true, revision: 1 },
+      { month: '2026-08', amount: 180_000, closed: true, revision: 1 },
+      { month: '2026-09', amount: 0, closed: false, revision: 0 },
+    ],
   })
   props.baselines = props.planRows.map(row => ({ major: row.major, ...row.saved }))
   return props

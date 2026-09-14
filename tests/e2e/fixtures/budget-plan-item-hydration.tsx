@@ -43,6 +43,11 @@ export function SavedAiPlanItem() {
         actual: 100_000,
         previousActual: { amount: 320_000, month: '2026-08', partial: null },
         average3: { amount: 300_000, months: ['2026-06', '2026-07', '2026-08'], monthsWithSpend: 3, provisional: false },
+        trend: [
+          { month: '2026-06', amount: 280_000, closed: true, revision: 1 },
+          { month: '2026-07', amount: 300_000, closed: true, revision: 1 },
+          { month: '2026-08', amount: 320_000, closed: false, revision: 0 },
+        ],
     },
     savedEvidence: createElement(AiEvidencePopover, {
       context: evidence,

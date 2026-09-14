@@ -29,6 +29,11 @@ describe('390px budget editor markup', () => {
         saved: { amount: 600_000, recommendationJobId: null, version: 'v1' },
         previousActual: { amount: 612_400, month: '2026-09', partial: null },
         average3: { amount: 656_262, months: ['2026-06', '2026-07', '2026-08'], monthsWithSpend: 3, provisional: false },
+        trend: [
+          { month: '2026-06', amount: 600_000, closed: true, revision: 1 },
+          { month: '2026-07', amount: 650_000, closed: true, revision: 1 },
+          { month: '2026-08', amount: 718_786, closed: false, revision: 0 },
+        ],
       },
       draft: { major: '식비', amount: '600000', source: null, recommendationJobId: 'current-job' },
       month: '2026-10', period: 'future',

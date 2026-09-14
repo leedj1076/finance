@@ -9,7 +9,8 @@ const baseline = (): BudgetBaseline[] => [
 ]
 const plan = (): BudgetPlanRow[] => baseline().map(saved => ({ major: saved.major, saved, group: 'variable', actual: 0,
   previousBudget: saved.amount, previousActual: { amount: saved.amount, month: '2026-08', partial: null },
-  average3: { amount: 100000, months: ['2026-08'], monthsWithSpend: 1, provisional: true } }))
+  average3: { amount: 100000, months: ['2026-08'], monthsWithSpend: 1, provisional: true },
+  trend: [{ month: '2026-08', amount: 100000, closed: false, revision: 0 }] }))
 
 test('initial sources describe the saved values and do not cause changes', () => {
   const state = createBudgetDraft(baseline(), plan(), null)

@@ -19,6 +19,11 @@ const rows: BudgetPlanRow[] = [
   previousBudget: 100_000,
   previousActual: { amount: 90_000, month: '2026-09', partial: null },
   average3: { amount: 95_000, months: ['2026-08', '2026-07', '2026-06'], monthsWithSpend: 3, provisional: false },
+  trend: [
+    { month: '2026-06', amount: 90_000, closed: true, revision: 1 },
+    { month: '2026-07', amount: 95_000, closed: true, revision: 1 },
+    { month: '2026-08', amount: 100_000, closed: false, revision: 0 },
+  ],
 }))
 
 const draft: BudgetDraft = {
