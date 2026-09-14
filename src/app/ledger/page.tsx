@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
 import { ActionNotice } from '@/components/action-notice'
+import { MonthNav } from '@/components/month-nav'
 import { MonthCloseControl } from '@/features/month-close/month-close-control'
 import { MonthStatusLabel } from '@/features/month-close/month-status-label'
 import { MonthWrapUp } from '@/features/month-close/month-wrap-up'
@@ -138,20 +139,22 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {tab !== 'list' && <Link className="h-[34px] bg-finance-blue px-4 py-2 t-body-strong text-white hover:opacity-80" href={`${ledgerUrl(shell.month, filters, { tab: 'list' })}#transaction-form`}>거래 추가</Link>}
-            <div className="flex items-center border border-finance-ink">
-              <Link aria-label="이전 달" className="grid h-8 w-[34px] place-items-center border-r border-finance-ink t-body hover:bg-finance-track" href={ledgerUrl(shell.previousMonth, filters, { tab })}>←</Link>
-              <form action="/ledger" className="flex h-8 items-center">
+            <MonthNav
+              action="/ledger"
+              hidden={<>
                 <input name="tab" type="hidden" value={tab} />
                 {filters.sort && <input name="sort" type="hidden" value={filters.sort} />}
                 {filters.account && <input name="account" type="hidden" value={filters.account} />}
                 {filters.flow && <input name="flow" type="hidden" value={filters.flow} />}
                 {filters.major && <input name="major" type="hidden" value={filters.major} />}
                 {filters.q && <input name="q" type="hidden" value={filters.q} />}
-                <input aria-label="조회 월" className="h-8 w-[124px] border-0 bg-white px-2 text-center t-body-strong text-finance-ink outline-none" defaultValue={shell.month} key={shell.month} max={shell.latestMonth} name="month" type="month" />
-                <SubmitButton className="h-8 border-l border-finance-ink bg-finance-ink px-3 t-body-strong text-white hover:bg-finance-blue" pendingLabel="불러오는 중…" type="submit">보기</SubmitButton>
-              </form>
-              <Link aria-label="다음 달" className="grid h-8 w-[34px] place-items-center border-l border-finance-ink t-body hover:bg-finance-track" href={ledgerUrl(shell.nextMonth, filters, { tab })}>→</Link>
-            </div>
+              </>}
+              label="조회 월"
+              max={shell.latestMonth}
+              month={shell.month}
+              nextHref={ledgerUrl(shell.nextMonth, filters, { tab })}
+              previousHref={ledgerUrl(shell.previousMonth, filters, { tab })}
+            />
           </div>
         </header>
 
