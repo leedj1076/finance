@@ -458,7 +458,39 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await expectFitsViewport(page, annualFlow.getByText(/마감 3개월/).last())
   const provisionalLegend = annualFlow.getByText('미마감 · 잠정', { exact: true })
   await expect(provisionalLegend).toBeVisible()
-  await expect(provisionalLegend.locator('i')).toHaveCSS('background-image', /repeating-linear-gradient/)
+  // The key must paint what an unclosed bar paints: the 지출 hue at the
+  // provisional alpha over the page ground. The chart stopped drawing a hatch,
+  // so a hatch here would key a mark that no longer exists anywhere.
+  const provisionalSwatch = provisionalLegend.locator('i')
+  await expect(provisionalSwatch).toHaveCSS('background-image', 'none')
+  const swatchPng = (await provisionalSwatch.screenshot()).toString('base64')
+  const legendFill = await page.evaluate(async ({ png, opacity }) => {
+    const image = new Image()
+    image.src = `data:image/png;base64,${png}`
+    await image.decode()
+    const canvas = document.createElement('canvas')
+    canvas.width = image.width
+    canvas.height = image.height
+    const context = canvas.getContext('2d')!
+    context.drawImage(image, 0, 0)
+    // The modal colour is the fill; the minority pixels are the faint border
+    // and the antialiased edge, which a fractional layout position can shift.
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
+    const counts = new Map<string, number>()
+    for (let offset = 0; offset < data.length; offset += 4) {
+      const key = `${data[offset]},${data[offset + 1]},${data[offset + 2]}`
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    const swatch = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+    const styles = getComputedStyle(document.documentElement)
+    const read = () => Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3).join(',')
+    const paint = (color: string) => { context.fillStyle = color; context.fillRect(0, 0, 1, 1); return read() }
+    const ink = paint(styles.getPropertyValue('--finance-ink').trim())
+    context.clearRect(0, 0, 1, 1)
+    paint(styles.getPropertyValue('--background').trim())
+    return { swatch, bar: paint(`rgba(${ink}, ${opacity})`) }
+  }, { png: swatchPng, opacity: PROVISIONAL_FILL_OPACITY })
+  expect(legendFill.swatch, 'legend swatch fill vs a provisional bar fill').toBe(legendFill.bar)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
 
   await page.setViewportSize({ width: 1280, height: 900 })

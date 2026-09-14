@@ -177,7 +177,7 @@ export function AnnualFlowOverview({
           <span><i className="mr-1.5 inline-block h-[9px] w-[9px] bg-finance-ink" />지출</span>
           <span><i className="mr-1.5 inline-block h-[9px] w-[9px] bg-finance-green" />저축 납입</span>
           <span><i className="mr-1.5 inline-block h-[7px] w-[7px] border-2 border-finance-green" />순저축률</span>
-          <span><i className="mr-1.5 inline-block h-[9px] w-[9px] border border-finance-faint bg-[repeating-linear-gradient(135deg,var(--finance-faint)_0_1px,transparent_1px_3px)]" />미마감 · 잠정</span>
+          <span><i className="mr-1.5 inline-block h-[9px] w-[9px] border border-finance-faint bg-[color-mix(in_srgb,var(--finance-ink)_34%,var(--background))]" />미마감 · 잠정</span>
         </div>
       </div>
       <div className="mt-4 min-w-0">

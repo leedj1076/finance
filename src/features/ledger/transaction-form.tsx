@@ -46,7 +46,7 @@ function SubmitButton({ editing }: { editing: boolean }) {
   const { pending } = useFormStatus()
   return (
     <button
-      className="h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:bg-finance-blue disabled:cursor-not-allowed disabled:opacity-50"
+      className="h-[34px] bg-finance-ink px-4 t-body-strong text-white hover:bg-finance-blue disabled:cursor-not-allowed disabled:opacity-50"
       disabled={pending}
       type="submit"
     >
