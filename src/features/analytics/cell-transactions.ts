@@ -17,9 +17,12 @@ export type CellRequest = {
 const SEPARATOR = String.fromCharCode(0)
 const NO_SUB = String.fromCharCode(2)
 
-/** Null sub and empty sub must never share a cache entry, and a category name must not be able to forge another key. */
-export function cellCacheKey(major: string, sub: string | null, month: number) {
-  return [major, sub === null ? NO_SUB : sub, String(month)].join(SEPARATOR)
+/**
+ * Null sub and empty sub must never share a cache entry, a category name must not be able to
+ * forge another key, and two flows (or years) for the same major/month must not collide either.
+ */
+export function cellCacheKey(cell: Pick<CellRequest, 'flow' | 'year' | 'month' | 'major' | 'sub'>) {
+  return [cell.flow, String(cell.year), String(cell.month), cell.major, cell.sub === null ? NO_SUB : cell.sub].join(SEPARATOR)
 }
 
 export function useCellTransactions() {
@@ -60,7 +63,7 @@ export function useCellTransactions() {
   const open = useCallback((cell: CellRequest, delay: number) => {
     clearTimer()
     abort()
-    const cellKey = cellCacheKey(cell.major, cell.sub, cell.month)
+    const cellKey = cellCacheKey(cell)
     active.current = cellKey
     const load = async () => {
       const cached = cache.current.get(cellKey)

@@ -33,16 +33,18 @@ export function PlanTrend({
     return <div className="plan-trend"><span className="plan-trend__empty t-caption">기록 없음</span></div>
   }
 
-  function request(entry: BudgetPlanRow['trend'][number], delay: number) {
-    open({
-      flow: 'expense',
+  function cellRequest(entry: BudgetPlanRow['trend'][number]) {
+    return {
+      flow: 'expense' as const,
       year: Number(entry.month.slice(0, 4)),
       month: monthNumber(entry.month),
       major,
       sub: null,
-      closed: entry.closed,
-      revision: entry.revision,
-    }, delay)
+    }
+  }
+
+  function request(entry: BudgetPlanRow['trend'][number], delay: number) {
+    open({ ...cellRequest(entry), closed: entry.closed, revision: entry.revision }, delay)
   }
 
   return (
@@ -50,7 +52,7 @@ export function PlanTrend({
       {stale && <p className="plan-trend__stale t-caption">마감 내역이 바뀌었습니다. 새로고침해 주세요.</p>}
       {trend.map(entry => {
         const number = monthNumber(entry.month)
-        const cellKey = cellCacheKey(major, null, number)
+        const cellKey = cellCacheKey(cellRequest(entry))
         const label = entry.month === previousActualMonth ? `${number}월 · 지난달` : `${number}월`
         const text = entry.amount === 0 ? (entry.closed ? '0' : '–') : formatWon(entry.amount)
         return (
