@@ -67,11 +67,19 @@ async function waitForCanvasAnimations(canvases: Locator) {
   }, { intervals: [100, 100, 100, 100, 100], timeout: 5_000 }).toBeGreaterThanOrEqual(2)
 }
 
+type ExpectedBar = { month: number; value: number; color: 'blue' | 'ink'; provisional?: boolean }
+
+// An unclosed month is no longer a grey hatch in --finance-faint; it is the
+// month's own series hue at low alpha, so it has no --finance-* token of its
+// own and has to be composited to be matched.
+const PROVISIONAL_FILL_OPACITY = 0.34
+const fillKey = (bar: ExpectedBar) => bar.provisional ? `${bar.color}:provisional` : bar.color
+
 async function captureAnnualStatistics(
   page: Page,
   path: string,
   axisMax: number,
-  expectedBars: Array<{ month: number; value: number; color: 'blue' | 'ink' | 'faint' }>,
+  expectedBars: ExpectedBar[],
 ) {
   const viewport = page.viewportSize()
   if (!viewport) throw new Error('Expected a fixed statistics viewport')
@@ -94,7 +102,7 @@ async function captureAnnualStatistics(
   const screenshot = await page.screenshot({ path, fullPage: true })
   await page.setViewportSize(viewport)
   // Verify the delivered PNG itself, independently of Chart.js element state.
-  const geometry = await page.evaluate(async ({ png, bounds, colors }) => {
+  const geometry = await page.evaluate(async ({ png, bounds, colors, opacity }) => {
     const image = new Image()
     image.src = `data:image/png;base64,${png}`
     await image.decode()
@@ -107,6 +115,16 @@ async function captureAnnualStatistics(
     const styles = getComputedStyle(document.documentElement)
     const rgb = (color: string) => {
       context.fillStyle = styles.getPropertyValue(`--finance-${color}`).trim()
+      context.fillRect(0, 0, 1, 1)
+      return Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3)
+    }
+    // Composite the hue over the chart ground exactly as the canvas does,
+    // rather than hard-coding the resulting hex, which differs per ground.
+    const provisionalRgb = (color: string) => {
+      const [r, g, b] = rgb(color)
+      context.fillStyle = styles.getPropertyValue('--background').trim()
+      context.fillRect(0, 0, 1, 1)
+      context.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`
       context.fillRect(0, 0, 1, 1)
       return Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3)
     }
@@ -128,7 +146,8 @@ async function captureAnnualStatistics(
     let plotLeft = 0
     while (plotLeft < canvas.width && !matches(plotLeft, top, track)) plotLeft += 1
     const bars = colors.map(color => {
-      const fill = rgb(color)
+      const [token, state] = color.split(':')
+      const fill = state === 'provisional' ? provisionalRgb(token) : rgb(token)
       const groups: Array<{ left: number; right: number; top: number; bottom: number }> = []
       for (let x = plotLeft; x < canvas.width; x += 1) {
         const ys: number[] = []
@@ -147,10 +166,10 @@ async function captureAnnualStatistics(
       return { color, groups }
     })
     return { width: canvas.width, plotLeft, plotHeight: bottom - top, bars }
-  }, { png: screenshot.toString('base64'), bounds, colors: [...new Set(expectedBars.map(bar => bar.color))] })
+  }, { png: screenshot.toString('base64'), bounds, colors: [...new Set(expectedBars.map(fillKey))], opacity: PROVISIONAL_FILL_OPACITY })
   expect(geometry.plotHeight).toBeGreaterThan(150)
   for (const { color, groups } of geometry.bars) {
-    const expected = expectedBars.filter(bar => bar.color === color)
+    const expected = expectedBars.filter(bar => fillKey(bar) === color)
     expect(groups, `${color} bar count in ${path}`).toHaveLength(expected.length)
     for (const [index, bar] of groups.entries()) {
       const fixture = expected[index]
@@ -631,7 +650,7 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await captureAnnualStatistics(page, info.outputPath('sparse-closed-months.png'), 1_000, [
     { month: 1, value: 400, color: 'ink' },
     { month: 3, value: 200, color: 'ink' },
-    { month: 2, value: 999, color: 'faint' },
+    { month: 2, value: 999, color: 'ink', provisional: true },
   ])
 
   // Refresh this mounted chart, rather than navigating/remounting it: February
