@@ -8,6 +8,7 @@ import { Line } from 'react-chartjs-2'
 import type { CategoryMonthlyData } from './account-monthly'
 import {
   CHART_ANIMATION,
+  CHART_ANIMATIONS,
   CHART_HEIGHT,
   CHART_LINE_WIDTH,
   CHART_LINE_WIDTH_ACTIVE,
@@ -67,6 +68,7 @@ export function CategoryMonthlyChart({
     responsive: true,
     maintainAspectRatio: false,
     animation: CHART_ANIMATION,
+    animations: CHART_ANIMATIONS,
     interaction: { mode: 'nearest', intersect: false },
     onHover: (_event, elements) => setHovered(elements[0] ? data.categories.filter((name) => !hidden.has(name))[elements[0].datasetIndex] ?? null : null),
     plugins: {

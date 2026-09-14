@@ -8,6 +8,7 @@ import { formatRate } from '@/lib/finance'
 
 import {
   CHART_ANIMATION,
+  CHART_ANIMATIONS,
   CHART_HEIGHT,
   CHART_LINE_WIDTH,
   CHART_POINT_RADIUS,
@@ -60,6 +61,7 @@ export function SavingsRateChart({ data, target }: {
     responsive: true,
     maintainAspectRatio: false,
     animation: CHART_ANIMATION,
+    animations: CHART_ANIMATIONS,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },

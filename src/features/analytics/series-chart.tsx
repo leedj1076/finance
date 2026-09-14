@@ -6,13 +6,13 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Bar, Line } from 'react-chartjs-2'
 
 import {
+  CHART_ANIMATIONS,
   CHART_LINE_WIDTH,
   CHART_LINE_WIDTH_ACTIVE,
   CHART_POINT_RADIUS,
   CHART_POINT_RADIUS_ACTIVE,
   alpha,
   PROVISIONAL_DASH,
-  provisionalPattern,
   resolveChartColor,
   monthlyEligibilityBoundary,
   useFinanceChartPalette,
@@ -151,7 +151,6 @@ export function SeriesChart({
   }, [onHover])
 
   const data = useMemo<ChartData<'bar'> | ChartData<'line'>>(() => {
-    const hatch = provisionalPattern(palette)
     const provisional = (month: number) => ['open', 'needs_review', 'current'].includes(monthStates[month])
     const datasets = series.map((row, seriesIndex) => {
       const color = resolveChartColor(row.color, palette)
@@ -167,7 +166,7 @@ export function SeriesChart({
           id: row.id,
           label: row.label,
           data: values,
-          backgroundColor: values.map((_, month) => provisional(month) ? hatch : alpha(color, dimmed ? 0.16 : 1)),
+          backgroundColor: values.map((_, month) => alpha(color, provisional(month) ? (dimmed ? 0.10 : 0.34) : (dimmed ? 0.16 : 1))),
           borderColor: values.map((_, month) => provisional(month) ? palette.faint : palette.background),
           borderWidth: 1,
           barPercentage: 0.72,
@@ -213,6 +212,7 @@ export function SeriesChart({
     responsive: true,
     maintainAspectRatio: false,
     animation: { duration: 300 },
+    animations: CHART_ANIMATIONS,
     interaction: { mode: kind === 'area' ? 'financeArea' as const : kind === 'stacked' ? 'financeStacked' as const : 'financeLine' as const, intersect: false },
     onHover: (event: ChartEvent, elements: Array<{ datasetIndex: number; index: number }>, chart: Chart) => {
       const element = elements[0]

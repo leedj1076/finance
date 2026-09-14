@@ -8,6 +8,7 @@ import { formatWon } from '@/lib/finance'
 
 import {
   CHART_ANIMATION,
+  CHART_ANIMATIONS,
   CHART_HEIGHT,
   CHART_LINE_WIDTH,
   CHART_POINT_RADIUS,
@@ -44,6 +45,7 @@ export function FlowTrendChart({ data, label, tone }: { data: TrendPoint[]; labe
     responsive: true,
     maintainAspectRatio: false,
     animation: CHART_ANIMATION,
+    animations: CHART_ANIMATIONS,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },

@@ -7,6 +7,7 @@ import { Bar } from 'react-chartjs-2'
 import type { AccountMonthlyData } from './account-monthly'
 import {
   CHART_ANIMATION,
+  CHART_ANIMATIONS,
   CHART_HEIGHT,
   financeScales,
   financeTooltip,
@@ -46,6 +47,7 @@ export function AccountMonthlyChart({ data }: { data: AccountMonthlyData }) {
     responsive: true,
     maintainAspectRatio: false,
     animation: CHART_ANIMATION,
+    animations: CHART_ANIMATIONS,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },

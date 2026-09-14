@@ -6,6 +6,7 @@ import { Line } from 'react-chartjs-2'
 
 import {
   CHART_ANIMATION,
+  CHART_ANIMATIONS,
   CHART_HEIGHT,
   CHART_LINE_WIDTH,
   CHART_POINT_RADIUS,
@@ -47,6 +48,7 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
     responsive: true,
     maintainAspectRatio: false,
     animation: CHART_ANIMATION,
+    animations: CHART_ANIMATIONS,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
