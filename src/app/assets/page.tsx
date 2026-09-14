@@ -87,7 +87,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
           <SummaryCard label="이번 달 입력" value={`${data.overview.enteredCount}/${data.overview.rows.length}개`} description="나머지는 직전 잔액 유지" />
         </section>
 
-        <section className="mt-6 grid gap-6 border-y border-finance-hairline py-5 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-6 grid gap-y-6 border-y border-finance-hairline py-5 sm:grid-cols-2 xl:grid-cols-4">
           {financialHealth.map((item) => {
             const tone = {
               good: 'border-finance-green',
@@ -96,7 +96,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
               none: 'border-finance-faint',
             }[item.status]
             return (
-              <article className={`border-l-2 pl-4 ${tone}`} key={item.key}>
+              <article className={`border-l-2 pl-4 pr-6 ${tone}`} key={item.key}>
                 <p className="t-label text-finance-muted">{item.key}</p>
                 <p className="mt-1.5 t-kpi-sm text-finance-ink">{item.value}</p>
                 <p className="mt-1 t-caption text-finance-faint">{item.hint}</p>
