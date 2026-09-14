@@ -752,7 +752,7 @@ button.finance-nav-link { cursor: pointer; }
 .t-badge { font-size: 10px; font-weight: 600; line-height: 1; white-space: nowrap; }
 
 /* Tab strips drifted to 41px, 44px and 46px on three screens. One height. */
-.app-tab { display: flex; align-items: center; height: 34px; padding: 0 16px; font-size: 13px; font-weight: 600; line-height: 1.5; white-space: nowrap; }
+.app-tab { display: flex; align-items: center; height: 34px; padding: 0 16px; white-space: nowrap; }
 
 /* Budget editor ceiling bar */
 .ceiling-bar {

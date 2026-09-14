@@ -186,7 +186,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
 
         <nav aria-label="거래 보기" className="mt-6 flex overflow-x-auto border-b border-finance-ink print:hidden">
           {TABS.map((item) => (
-            <Link aria-current={tab === item.key ? 'page' : undefined} className={`shrink-0 border-x border-t app-tab first:border-l ${tab === item.key ? 'border-finance-ink bg-finance-ink text-white' : 'border-finance-hairline bg-white text-finance-muted hover:text-finance-ink'}`} href={ledgerUrl(shell.month, filters, { tab: item.key })} key={item.key}>{item.label}</Link>
+            <Link aria-current={tab === item.key ? 'page' : undefined} className={`shrink-0 border-x border-t app-tab t-body-strong first:border-l ${tab === item.key ? 'border-finance-ink bg-finance-ink text-white' : 'border-finance-hairline bg-white text-finance-muted hover:text-finance-ink'}`} href={ledgerUrl(shell.month, filters, { tab: item.key })} key={item.key}>{item.label}</Link>
           ))}
         </nav>
 

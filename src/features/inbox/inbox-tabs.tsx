@@ -30,7 +30,7 @@ export function InboxTabs({ requestedTab, defaultTab, pendingCount, unclassified
       {tabs.map((item) => (
         <Link
           aria-current={tab === item.key ? 'page' : undefined}
-          className={`shrink-0 border-b-2 app-tab ${tab === item.key ? 'border-finance-blue text-finance-blue' : 'border-transparent text-finance-muted hover:text-finance-ink'}`}
+          className={`shrink-0 border-b-2 app-tab t-body-strong ${tab === item.key ? 'border-finance-blue text-finance-blue' : 'border-transparent text-finance-muted hover:text-finance-ink'}`}
           href={`/inbox?tab=${item.key}`}
           key={item.key}
         >

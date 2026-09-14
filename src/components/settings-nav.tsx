@@ -20,7 +20,7 @@ export function SettingsNav({ active }: { active: SettingsSection }) {
         {ITEMS.map((item) => (
           <Link
             aria-current={active === item.key ? 'page' : undefined}
-            className={`block border-b-2 app-tab lg:border-b-0 lg:border-l-2 ${active === item.key ? 'border-finance-blue bg-finance-blue-tint text-finance-blue lg:-ml-px' : 'border-transparent text-finance-muted hover:text-finance-ink'}`}
+            className={`app-tab t-body-strong border-b-2 lg:border-b-0 lg:border-l-2 ${active === item.key ? 'border-finance-blue bg-finance-blue-tint text-finance-blue lg:-ml-px' : 'border-transparent text-finance-muted hover:text-finance-ink'}`}
             href={item.href}
             key={item.key}
           >
