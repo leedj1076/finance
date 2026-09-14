@@ -5,6 +5,7 @@ import { AppHeader } from '@/components/app-header'
 import { MonthNav } from '@/components/month-nav'
 import { getFinancialHealthData } from '@/features/analytics/financial-health'
 import { AssetForm } from '@/features/assets/asset-form'
+import { compositionShares } from '@/features/assets/composition'
 import { NetWorthChart } from '@/features/assets/net-worth-chart'
 import { getAssetData } from '@/features/assets/queries'
 import { formatWon } from '@/lib/finance'
@@ -50,7 +51,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   const deltaLabel = data.netWorthDelta === 0
     ? '전월과 동일'
     : `전월보다 ${formatWon(Math.abs(data.netWorthDelta))}원 ${data.netWorthDelta > 0 ? '증가' : '감소'}`
-  const maxComposition = data.composition[0]?.amount ?? 1
+  const composition = compositionShares(data.composition)
 
   return (
     <div className="min-h-screen bg-white">
@@ -115,18 +116,18 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             <h2 className="t-section text-finance-ink">자산 배분</h2>
             <p className="mt-1 t-caption text-finance-muted">{data.month} 그룹별 비중</p>
             <div className="mt-5 space-y-4">
-              {data.composition.map((item) => (
+              {composition.map((item) => (
                 <div key={item.major}>
                   <div className="flex items-center justify-between gap-3 t-body">
                     <span className="text-finance-ink">{item.major}</span>
-                    <span className="font-medium text-finance-ink">{formatWon(item.amount)}원</span>
+                    <span className="font-medium text-finance-ink">{formatWon(item.amount)}원 <span className="text-finance-muted">{item.share.toFixed(1)}%</span></span>
                   </div>
                   <div className="mt-2 h-[5px] overflow-hidden bg-finance-track">
-                    <div className="h-full bg-finance-blue" style={{ width: `${(item.amount / maxComposition) * 100}%` }} />
+                    <div className="h-full bg-finance-blue" style={{ width: `${item.share}%` }} />
                   </div>
                 </div>
               ))}
-              {data.composition.length === 0 && <p className="py-12 text-center t-body text-finance-muted">입력된 자산이 없습니다.</p>}
+              {composition.length === 0 && <p className="py-12 text-center t-body text-finance-muted">입력된 자산이 없습니다.</p>}
             </div>
           </article>
         </section>
