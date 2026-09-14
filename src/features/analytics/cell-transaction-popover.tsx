@@ -15,9 +15,9 @@ const HIDE_DELAY = 150
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
-// Placement measures a real box, so it only ever runs in a browser. Calling useLayoutEffect during
-// a server render warns; the effect below never has an element to place there anyway.
-const usePlacementEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect
+// Both effects below read or write real layout, so they only ever run in a browser. Calling
+// useLayoutEffect during a server render warns, and there is nothing to place there anyway.
+const useBrowserLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect
 
 export type CellPopover = ReturnType<typeof useCellPopover>
 
@@ -33,7 +33,12 @@ export function useCellPopover({ contentKey, dismiss }: { contentKey: string | n
   const id = `cell-tx-popover-${generatedId.replace(/:/g, '')}`
   const ref = useRef<HTMLDivElement | null>(null)
   const trigger = useRef<HTMLElement | null>(null)
+  const restoring = useRef(false)
   const [anchor, setAnchor] = useState<CellPopoverAnchor | null>(null)
+  // Where the pointer is, which is not yet where the card belongs: a cell owns the anchor only
+  // once its own transactions are the ones on screen.
+  const pending = useRef<{ key: string; point: CellPopoverAnchor } | null>(null)
+  const shown = useRef<string | null>(contentKey)
   const openedAt = useRef<{ x: number; y: number } | null>(null)
   const size = useRef<{ width: number; height: number } | null>(null)
   const measuredFor = useRef<string | null>(null)
@@ -46,6 +51,7 @@ export function useCellPopover({ contentKey, dismiss }: { contentKey: string | n
 
   const close = useCallback(() => {
     cancelHide()
+    pending.current = null
     size.current = null
     measuredFor.current = null
     trigger.current = null
@@ -63,18 +69,27 @@ export function useCellPopover({ contentKey, dismiss }: { contentKey: string | n
     [],
   )
 
-  /** A new cell: drop the cached measurement so the next placement measures the new content. */
-  const open = useCallback((point: CellPopoverAnchor, target: HTMLElement | null = null) => {
+  /**
+   * A cell claims the popover. The anchor only moves once that cell's content is what is drawn,
+   * so a card never sits beside one cell showing another's transactions.
+   */
+  const open = useCallback((cellKey: string, point: CellPopoverAnchor, target: HTMLElement | null = null) => {
     cancelHide()
     trigger.current = target
-    // Focusing a cell below the fold scrolls it into view, and that scroll lands after the popover
-    // has opened at the post-scroll coordinates. Only a scroll that moves the page dismisses.
+    // Focusing a cell below the fold scrolls it into view, and that scroll event lands after the
+    // popover has opened at the post-scroll coordinates. Only a scroll that moves the page from
+    // here dismisses.
     openedAt.current = { x: window.scrollX, y: window.scrollY }
-    setAnchor(point)
+    pending.current = { key: cellKey, point }
+    if (cellKey === shown.current) setAnchor(point)
   }, [cancelHide])
 
-  /** The pointer moved inside the cell that is already open; the content, and so its size, is unchanged. */
-  const move = useCallback((point: CellPopoverAnchor) => setAnchor(point), [])
+  /** The pointer moved inside a cell that already holds the popover. */
+  const move = useCallback((cellKey: string, point: CellPopoverAnchor) => {
+    if (pending.current?.key !== cellKey) return
+    pending.current = { key: cellKey, point }
+    if (cellKey === shown.current) setAnchor(point)
+  }, [])
 
   /** Moves the keyboard into the popover, which is portaled out of the trigger's tab order. */
   const focusContent = useCallback(() => {
@@ -88,8 +103,15 @@ export function useCellPopover({ contentKey, dismiss }: { contentKey: string | n
   const closeAndRestoreFocus = useCallback(() => {
     const target = trigger.current
     close()
-    target?.focus()
+    if (!target) return
+    // Handing focus back is housekeeping, not the user asking for the popover again. The trigger's
+    // focus handler reads this and stands down; Chromium does report :focus-visible here.
+    restoring.current = true
+    target.focus()
+    restoring.current = false
   }, [close])
+
+  const isRestoringFocus = useCallback(() => restoring.current, [])
 
   useEffect(() => () => cancelHide(), [cancelHide])
 
@@ -110,7 +132,14 @@ export function useCellPopover({ contentKey, dismiss }: { contentKey: string | n
     }
   }, [close, contains])
 
-  usePlacementEffect(() => {
+  // The waiting cell's content has arrived, so now the card may move to it.
+  useBrowserLayoutEffect(() => {
+    shown.current = contentKey
+    const next = pending.current
+    if (next && next.key === contentKey) setAnchor(next.point)
+  }, [contentKey])
+
+  useBrowserLayoutEffect(() => {
     const element = ref.current
     if (!element || !anchor) return
     if (measuredFor.current !== contentKey || !size.current) {
@@ -129,7 +158,7 @@ export function useCellPopover({ contentKey, dismiss }: { contentKey: string | n
     element.style.visibility = 'visible'
   })
 
-  return { anchor, cancelHide, close, closeAndRestoreFocus, focusContent, id, move, open, ref, scheduleHide }
+  return { anchor, cancelHide, close, closeAndRestoreFocus, focusContent, id, isRestoringFocus, move, open, ref, scheduleHide }
 }
 
 export type CellPopoverController = { cells: CellTransactions; popover: CellPopover }

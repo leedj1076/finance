@@ -73,16 +73,19 @@ export function PlanTrend({
               onClick={event => {
                 if (key === cellKey) { suppressed.current = cellKey; popover.close(); return }
                 suppressed.current = null
-                popover.open({ x: event.clientX, y: event.clientY }, event.currentTarget)
+                popover.open(cellKey, { x: event.clientX, y: event.clientY }, event.currentTarget)
                 load(cellRequest(entry), 0)
               }}
               onFocus={event => {
+                // Escape inside the popover hands focus back here. That is housekeeping, not a
+                // request to reopen what was just closed.
+                if (popover.isRestoringFocus()) return
                 // A pointer click focuses the button before it clicks it, and the click would then
                 // read the popover as already open and toggle it shut. Spec section 4 opens on
                 // keyboard focus only, which is what :focus-visible selects.
                 if (!event.currentTarget.matches(':focus-visible')) return
                 const bounds = event.currentTarget.getBoundingClientRect()
-                popover.open({ x: bounds.left + bounds.width / 2, y: bounds.bottom }, event.currentTarget)
+                popover.open(cellKey, { x: bounds.left + bounds.width / 2, y: bounds.bottom }, event.currentTarget)
                 load(cellRequest(entry), 0)
               }}
               onKeyDown={event => {
@@ -96,11 +99,11 @@ export function PlanTrend({
               onMouseEnter={event => {
                 popover.cancelHide()
                 if (suppressed.current === cellKey) return
-                popover.open({ x: event.clientX, y: event.clientY }, event.currentTarget)
+                popover.open(cellKey, { x: event.clientX, y: event.clientY }, event.currentTarget)
                 load(cellRequest(entry), HOVER_DELAY)
               }}
               onMouseLeave={() => { suppressed.current = null; popover.scheduleHide() }}
-              onMouseMove={event => { if (key === cellKey) popover.move({ x: event.clientX, y: event.clientY }) }}
+              onMouseMove={event => popover.move(cellKey, { x: event.clientX, y: event.clientY })}
               type="button"
             >
               <span className="plan-trend__month t-label">{label}</span>
