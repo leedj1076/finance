@@ -263,7 +263,7 @@ describe('budget recommendation polling', () => {
 })
 
 describe('apply freshness recovery', () => {
-  test.each(['current', 'applied'] as const)('returns the matching verified completion when freshness is %s', async (freshness) => {
+  test.each(['current', 'applied', 'budgets_changed'] as const)('returns the matching verified completion when freshness is %s', async (freshness) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ ...data(), freshness })))
     await expect(checkRecommendationForApply('2026-09', requestId)).resolves.toMatchObject({ id: requestId })
   })
@@ -271,7 +271,6 @@ describe('apply freshness recovery', () => {
   test.each([
     ['changed completion', { ...data(), completed: { ...data().completed!, id: rerunRequestId } }, 'invalid_result'],
     ['source changed', { ...data(), freshness: 'source_changed' as const }, 'source_changed'],
-    ['budgets changed', { ...data(), freshness: 'budgets_changed' as const }, 'budgets_changed'],
   ])('rejects %s before apply', async (_name, value, code) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(value)))
     await expect(checkRecommendationForApply('2026-09', requestId)).rejects.toThrow(code)

@@ -36,7 +36,6 @@ export function verifiedRecommendationChoices(
   if (guard.targetDirty || guard.data?.latestJob?.status === 'queued' || guard.data?.latestJob?.status === 'running'
     || guard.data?.completed?.id !== guard.requestedJobId) throw new Error('recommendation_unavailable')
   if (guard.data.freshness === 'source_changed') throw new Error('source_changed')
-  if (guard.data.freshness === 'budgets_changed') throw new Error('budgets_changed')
   if (verified.id !== guard.requestedJobId) throw new Error('invalid_result')
   const verifiedByMajor = new Map(verified.report.rows.map(row => [row.major, row]))
   return majors.flatMap(major => {
@@ -231,7 +230,7 @@ export function usePlanRecommendations({
     amount: row.amount,
     completedAt: currentCompleted!.completedAt,
     reason: row.reason,
-    stale: controller.data?.freshness === 'source_changed' || controller.data?.freshness === 'budgets_changed',
+    stale: controller.data?.freshness === 'source_changed',
   } satisfies PlanRecommendation])), [controller.data?.freshness, currentCompleted])
 
   function evidenceContext(completed: CompletedBudgetRecommendation | undefined, major: string): AiEvidenceContext | undefined {

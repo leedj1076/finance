@@ -60,11 +60,18 @@ test('checked AI choices use only returned verified amounts and the exact curren
     data: recommendationData({ latestJob: { id: 'new-job', status: 'running', errorCode: null } }),
     targetDirty: false,
   })).toThrow('recommendation_unavailable')
-  expect(() => verifiedRecommendationChoices(verified, ['식비'], {
+  // Spec 2026-09-10 §145: editing budgets after taking a recommendation must not force a
+  // re-recommendation. Only a source change (§158) may block applying it.
+  expect(verifiedRecommendationChoices(verified, ['식비'], {
     requestedJobId: jobId,
     data: recommendationData({ freshness: 'budgets_changed' }),
     targetDirty: false,
-  })).toThrow('budgets_changed')
+  })).toEqual([{ major: '식비', amount: 612_400, source: 'ai', recommendationJobId: jobId }])
+  expect(() => verifiedRecommendationChoices(verified, ['식비'], {
+    requestedJobId: jobId,
+    data: recommendationData({ freshness: 'source_changed' }),
+    targetDirty: false,
+  })).toThrow('source_changed')
 })
 
 test('initial recommendation hydration changes display source only for untouched exact saved origins', () => {

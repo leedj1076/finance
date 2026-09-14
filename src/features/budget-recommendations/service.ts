@@ -194,7 +194,10 @@ export async function readApplicableBudgetRecommendation(reader: BudgetReader, h
   if (!job) throw new BudgetRecommendationError('invalid_result', 409)
   const completed = completedResult(job, month)
   const state = await readFreshness(reader, householdId, completed, now)
-  if (state === 'source_changed' || state === 'budgets_changed') throw new BudgetRecommendationError(state, 409)
+  // Spec 2026-09-10 §158: only a change in the analysis source (transactions, target, recurring
+  // rules) invalidates a recommendation. The user editing their own budgets afterwards is
+  // explicitly not grounds to force a re-recommendation (§145).
+  if (state === 'source_changed') throw new BudgetRecommendationError(state, 409)
   return completed
 }
 

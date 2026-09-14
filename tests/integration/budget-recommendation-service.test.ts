@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test, vi } from 'vitest'
 import { db } from '@/db/client'
+// Budget drift is still detected and reported as `budgets_changed`, but per spec 2026-09-10 §145
+// it no longer blocks applying the recommendation; only `source_changed` (§158) does.
 import { getBudgetRecommendationData, readApplicableBudgetRecommendation, readSavedBudgetRecommendations, requestBudgetRecommendation } from '@/features/budget-recommendations/service'
 import type { BudgetRequest, BudgetRecommendationSnapshot } from '@/features/budget-recommendations/types'
 import { hashBudgetPayload } from '@/features/budget-recommendations/snapshot'
@@ -120,7 +122,7 @@ test('freshness allows adjusted own saves but rejects previous or manual drift a
   expect((await readApplicableBudgetRecommendation(db, a.householdId, month, job.id)).id).toBe(job.id)
   await raw`insert into budgets (household_id, month, major, amount) values (${a.householdId}, '2026-08', '식비', 20000)`
   expect((await get()).freshness).toBe('budgets_changed')
-  await expect(readApplicableBudgetRecommendation(db, a.householdId, month, job.id)).rejects.toMatchObject({ code: 'budgets_changed' })
+  expect((await readApplicableBudgetRecommendation(db, a.householdId, month, job.id)).id).toBe(job.id)
   await raw`update transactions set memo = 'changed' where household_id = ${a.householdId}`
   expect((await get()).freshness).toBe('source_changed')
   await expect(readApplicableBudgetRecommendation(db, b.householdId, month, job.id)).rejects.toMatchObject({ code: 'invalid_result' })
@@ -232,7 +234,7 @@ test.each(['current_amount', 'current_source', 'previous_amount', 'previous_sour
   else await raw`insert into budgets (household_id, month, major, amount) values (${a.householdId}, ${kind.startsWith('current') ? month : '2026-08'}, '식비', ${kind.endsWith('amount') ? 21000 : 20000})`
   const state = await get()
   expect(state.freshness).toBe('budgets_changed')
-  await expect(readApplicableBudgetRecommendation(db, a.householdId, month, job.id)).rejects.toMatchObject({ code: 'budgets_changed' })
+  expect((await readApplicableBudgetRecommendation(db, a.householdId, month, job.id)).id).toBe(job.id)
 })
 test('mixed own and manual changes cannot be called applied', async () => {
   await raw`insert into categories (household_id, kind, major, sub) values (${a.householdId}, 'expense', '건강', '병원')`
@@ -244,7 +246,7 @@ test('foreign recommendation provenance and clearing own provenance invalidate a
   const first = await complete()
   const second = await complete()
   await raw`insert into budgets (household_id, month, major, amount, recommendation_job_id) values (${a.householdId}, ${month}, '식비', 35000, ${second.job.id})`
-  await expect(readApplicableBudgetRecommendation(db, a.householdId, month, first.job.id)).rejects.toMatchObject({ code: 'budgets_changed' })
+  expect((await readApplicableBudgetRecommendation(db, a.householdId, month, first.job.id)).id).toBe(first.job.id)
   expect((await get()).freshness).toBe('applied')
   await raw`update budgets set recommendation_job_id = null where household_id = ${a.householdId}`
   expect((await get()).freshness).toBe('budgets_changed')
@@ -257,7 +259,7 @@ test('previous-month provenance-only drift blocks an otherwise unchanged recomme
       ${'a'.repeat(64)}, '{"version":1,"rows":[{"major":"식비","amount":20000}]}'::jsonb, 'completed', now()) returning id`
   await raw`update budgets set recommendation_job_id = ${previous.id} where household_id = ${a.householdId} and month = '2026-08'`
   expect((await get()).freshness).toBe('budgets_changed')
-  await expect(readApplicableBudgetRecommendation(db, a.householdId, month, job.id)).rejects.toMatchObject({ code: 'budgets_changed' })
+  expect((await readApplicableBudgetRecommendation(db, a.householdId, month, job.id)).id).toBe(job.id)
 })
 test('saved input whose category disappeared is source_changed, without an uncaught input error', async () => {
   const { job } = await complete(request({ draftAmounts: [{ major: '식비', amount: 30000 }] }))

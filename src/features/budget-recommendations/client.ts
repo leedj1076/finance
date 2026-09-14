@@ -571,7 +571,6 @@ export async function checkRecommendationForApply(
     throw error
   }
   if (value.freshness === 'source_changed') throw new ClientError('source_changed')
-  if (value.freshness === 'budgets_changed') throw new ClientError('budgets_changed')
   if (!value.completed || value.completed.id !== jobId) throw new ClientError('invalid_result')
   return value.completed
 }

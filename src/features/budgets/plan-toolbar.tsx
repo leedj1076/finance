@@ -83,7 +83,10 @@ export function budgetRecommendationToolbarModel({
   hasAmbiguousRequest: boolean
 }): BudgetRecommendationToolbarModel {
   const active = data?.latestJob?.status === 'queued' || data?.latestJob?.status === 'running'
-  const stale = data?.freshness === 'source_changed' || data?.freshness === 'budgets_changed'
+  // Only a source change locks the recommendation. A budget the user edited since is worth
+  // saying out loud, but it must not stop them applying what they already asked for.
+  const stale = data?.freshness === 'source_changed'
+  const budgetsMoved = data?.freshness === 'budgets_changed'
   const completed = data?.completed ?? null
   const requestLabel = active || submitting ? '분석 중…'
     : hasAmbiguousRequest ? '같은 요청 다시 보내기'
@@ -144,9 +147,7 @@ export function budgetRecommendationToolbarModel({
     return {
       ...base,
       status: {
-        text: data?.freshness === 'source_changed'
-          ? '기록이 바뀌어 다시 추천이 필요합니다'
-          : '예산이 바뀌어 다시 추천이 필요합니다',
+        text: '기록이 바뀌어 다시 추천이 필요합니다',
         tone: 'amber',
       },
     }
@@ -158,7 +159,8 @@ export function budgetRecommendationToolbarModel({
     return {
       ...base,
       status: {
-        text: `AI 추천 · ${completedAt(completed.completedAt)} · 합계 ${formatWon(completed.evaluation.total)} · ${ceiling}`,
+        text: `AI 추천 · ${completedAt(completed.completedAt)} · 합계 ${formatWon(completed.evaluation.total)} · ${ceiling}`
+          + (budgetsMoved ? ' · 추천 이후 예산을 고쳤습니다' : ''),
         tone: completed.evaluation.overage > 0 ? 'red' : 'default',
       },
     }
