@@ -1,6 +1,6 @@
 'use client'
 
-import type { ChartData, ChartOptions } from 'chart.js'
+import type { ChartData, ChartOptions, TooltipItem } from 'chart.js'
 import { useMemo } from 'react'
 import { Line } from 'react-chartjs-2'
 
@@ -15,8 +15,8 @@ import {
   useFinanceChartPalette,
   wonTooltipLabel,
 } from '@/features/analytics/chart-js'
-import { ChartLegend } from '@/features/analytics/chart-legend'
-import { ROLE, monthLabel } from '@/features/analytics/chart-theme'
+import { monthLabel } from '@/features/analytics/chart-theme'
+import { formatWon } from '@/lib/finance'
 
 type TrendPoint = {
   month: string
@@ -25,12 +25,6 @@ type TrendPoint = {
   netWorth: number
   active: boolean
 }
-
-const LEGEND = [
-  { name: '순자산', color: ROLE.saving },
-  { name: '총자산', color: ROLE.faint },
-  { name: '부채', color: ROLE.over },
-]
 
 export function NetWorthChart({ data }: { data: TrendPoint[] }) {
   const palette = useFinanceChartPalette()
@@ -47,27 +41,6 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
         pointHoverRadius: CHART_POINT_RADIUS_ACTIVE,
         tension: 0.22,
       },
-      {
-        label: '총자산',
-        data: data.map((row) => row.active ? row.assets : null),
-        borderColor: palette.faint,
-        backgroundColor: palette.faint,
-        borderDash: [5, 4],
-        borderWidth: 1.25,
-        pointRadius: 2,
-        pointHoverRadius: CHART_POINT_RADIUS_ACTIVE,
-        tension: 0.22,
-      },
-      {
-        label: '부채',
-        data: data.map((row) => row.active ? row.debt : null),
-        borderColor: palette.red,
-        backgroundColor: palette.red,
-        borderWidth: 1.25,
-        pointRadius: 2,
-        pointHoverRadius: CHART_POINT_RADIUS_ACTIVE,
-        tension: 0.22,
-      },
     ],
   }), [data, palette])
   const options = useMemo<ChartOptions<'line'>>(() => ({
@@ -77,17 +50,24 @@ export function NetWorthChart({ data }: { data: TrendPoint[] }) {
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
-      tooltip: { ...financeTooltip(palette), callbacks: { label: wonTooltipLabel } },
+      tooltip: {
+        ...financeTooltip(palette),
+        displayColors: false,
+        callbacks: {
+          label: wonTooltipLabel,
+          afterBody: (items: TooltipItem<'line'>[]) => {
+            const row = data[items[0]?.dataIndex ?? -1]
+            return row ? [`총자산: ${formatWon(row.assets)}원`, `부채: ${formatWon(row.debt)}원`] : []
+          },
+        },
+      },
     },
     scales: financeScales(palette, { beginAtZero: false }),
-  }), [palette])
+  }), [data, palette])
 
   return (
-    <div>
-      <ChartLegend items={LEGEND} />
-      <div className="relative w-full" style={{ height: CHART_HEIGHT }}>
-        <Line aria-label="월별 순자산 추이" data={chartData} options={options} role="img" />
-      </div>
+    <div className="relative w-full" style={{ height: CHART_HEIGHT }}>
+      <Line aria-label="월별 순자산 추이" data={chartData} options={options} role="img" />
     </div>
   )
 }
