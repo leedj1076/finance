@@ -167,4 +167,84 @@ describe('cell transaction household scope', () => {
       { date: '2026-09-01', name: 'A 메모 내역', amount: 6_000, acct: 'A 카드' },
     ])
   })
+
+  test('a major-only query sums every sub under that major', async () => {
+    const suffix = Date.now()
+    const [household] = await raw`
+      insert into households (name) values (${`category-detail-major-only-${suffix}`}) returning id
+    `
+    householdIds.push(household.id)
+
+    const [categoryOesik] = await raw`
+      insert into categories (household_id, kind, major, sub)
+      values (${household.id}, 'expense', '식비', '외식') returning id
+    `
+    const [categoryJangbogi] = await raw`
+      insert into categories (household_id, kind, major, sub)
+      values (${household.id}, 'expense', '식비', '장보기') returning id
+    `
+    const [account] = await raw`
+      insert into accounts (household_id, name) values (${household.id}, '카드') returning id
+    `
+    await raw`
+      insert into transactions
+        (household_id, date, flow, category_id, amount, account_id, raw_merchant, memo)
+      values
+        (${household.id}, '2026-06-02', 'expense', ${categoryJangbogi.id}, 30000, ${account.id}, '마트', ''),
+        (${household.id}, '2026-06-03', 'expense', ${categoryOesik.id}, 15000, ${account.id}, '식당', '')
+    `
+
+    const withSub = await getCellTransactions(household.id, {
+      flow: 'expense', year: 2026, month: 6, major: '식비', sub: '장보기',
+    })
+    const majorOnly = await getCellTransactions(household.id, {
+      flow: 'expense', year: 2026, month: 6, major: '식비', sub: null,
+    })
+    expect(majorOnly.sub).toBeNull()
+    expect(majorOnly.items.length).toBeGreaterThanOrEqual(withSub.items.length)
+    expect(majorOnly.total).toBeGreaterThanOrEqual(withSub.total)
+    expect(majorOnly.items).toEqual([...majorOnly.items].sort((left, right) => right.amount - left.amount))
+  })
+
+  test('a major-only query stays inside the household', async () => {
+    const suffix = Date.now()
+    const [householdA] = await raw`
+      insert into households (name) values (${`category-detail-major-scope-a-${suffix}`}) returning id
+    `
+    const [householdB] = await raw`
+      insert into households (name) values (${`category-detail-major-scope-b-${suffix}`}) returning id
+    `
+    householdIds.push(householdA.id, householdB.id)
+
+    const [categoryA] = await raw`
+      insert into categories (household_id, kind, major, sub)
+      values (${householdA.id}, 'expense', '식비', '외식') returning id
+    `
+    const [categoryB] = await raw`
+      insert into categories (household_id, kind, major, sub)
+      values (${householdB.id}, 'expense', '식비', '외식') returning id
+    `
+    const [accountA] = await raw`
+      insert into accounts (household_id, name) values (${householdA.id}, 'A 카드') returning id
+    `
+    const [accountB] = await raw`
+      insert into accounts (household_id, name) values (${householdB.id}, 'B 카드') returning id
+    `
+    await raw`
+      insert into transactions
+        (household_id, date, flow, category_id, amount, account_id, raw_merchant, memo)
+      values
+        (${householdA.id}, '2026-06-05', 'expense', ${categoryA.id}, 7000, ${accountA.id}, 'A 가맹점', ''),
+        (${householdB.id}, '2026-06-05', 'expense', ${categoryB.id}, 999000, ${accountB.id}, 'B 가맹점', '')
+    `
+
+    const mine = await getCellTransactions(householdA.id, {
+      flow: 'expense', year: 2026, month: 6, major: '식비', sub: null,
+    })
+    const theirs = await getCellTransactions(householdB.id, {
+      flow: 'expense', year: 2026, month: 6, major: '식비', sub: null,
+    })
+    expect(mine.items).not.toEqual(theirs.items)
+    expect(mine.items.some(item => theirs.items.some(other => other.name === item.name && other.amount === item.amount))).toBe(false)
+  })
 })

@@ -62,14 +62,15 @@ export type CellTransactionParams = {
   year: number
   month: number
   major: string
-  sub: string
+  /** Null asks for every sub under the major. The budget editor plans at major level. */
+  sub: string | null
   scope?: 'live' | 'closed'
   revision?: number
 }
 
 export type CellTransactionResult = {
   major: string
-  sub: string
+  sub: string | null
   ym: string
   total: number
   items: Array<{
@@ -222,7 +223,8 @@ export function parseCellTransactionParams(
   const year = Number(searchParams.get('year'))
   const month = Number(searchParams.get('month'))
   const major = searchParams.get('major')?.trim() ?? ''
-  const sub = searchParams.get('sub')?.trim() ?? ''
+  const rawSub = searchParams.get('sub')?.trim() ?? ''
+  const sub = rawSub.length === 0 ? null : rawSub
 
   if (
     (flow !== 'expense' && flow !== 'income' && flow !== 'saving')
@@ -233,9 +235,8 @@ export function parseCellTransactionParams(
     || month < 1
     || month > 12
     || major.length === 0
-    || sub.length === 0
     || major.length > 100
-    || sub.length > 100
+    || (sub !== null && sub.length > 100)
   ) return null
 
   const scope = searchParams.get('scope')
@@ -302,7 +303,7 @@ async function readCellTransactions(reader: MonthReader, householdId: string, pa
         eq(transactions.householdId, householdId),
         eq(transactions.flow, params.flow),
         eq(categories.major, params.major),
-        eq(categories.sub, params.sub),
+        ...(params.sub === null ? [] : [eq(categories.sub, params.sub)]),
         gte(transactions.date, start),
         lt(transactions.date, end),
       ),

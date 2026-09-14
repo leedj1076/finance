@@ -85,3 +85,36 @@ test('closed tooltip scope requires a nonnegative safe integer revision and neve
     expect(parseCellTransactionParams(new URLSearchParams(`${base}&${suffix}`))).toBeNull()
   }
 })
+
+test('accepts a major-only query and reports the missing sub as null', () => {
+  expect(parseCellTransactionParams(new URLSearchParams({
+    flow: 'expense', year: '2026', month: '6', major: '식비',
+  }))).toEqual({ flow: 'expense', year: 2026, month: 6, major: '식비', sub: null })
+})
+
+test('treats a blank sub as absent', () => {
+  expect(parseCellTransactionParams(new URLSearchParams({
+    flow: 'expense', year: '2026', month: '6', major: '식비', sub: '   ',
+  }))?.sub).toBeNull()
+})
+
+test('still rejects a missing major', () => {
+  expect(parseCellTransactionParams(new URLSearchParams({
+    flow: 'expense', year: '2026', month: '6', sub: '장보기',
+  }))).toBeNull()
+})
+
+test('still rejects an over-long sub', () => {
+  expect(parseCellTransactionParams(new URLSearchParams({
+    flow: 'expense', year: '2026', month: '6', major: '식비', sub: 'x'.repeat(101),
+  }))).toBeNull()
+})
+
+test('keeps the closed scope contract on a major-only query', () => {
+  expect(parseCellTransactionParams(new URLSearchParams({
+    flow: 'expense', year: '2026', month: '6', major: '식비', scope: 'closed', revision: '3',
+  }))).toEqual({ flow: 'expense', year: 2026, month: 6, major: '식비', sub: null, scope: 'closed', revision: 3 })
+  expect(parseCellTransactionParams(new URLSearchParams({
+    flow: 'expense', year: '2026', month: '6', major: '식비', scope: 'closed',
+  }))).toBeNull()
+})
