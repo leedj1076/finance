@@ -29,6 +29,23 @@ describe('recurring calculations', () => {
     expect(detectRecurringCandidates(rows, ['넷플릭스'])).toEqual([])
   })
 
+  test('keeps once-a-month same-day bills, seasonal swing included, and drops scattered habits', () => {
+    const rows = [
+      { date: '2026-01-25', amount: 200_000, merchant: '관리비' },
+      { date: '2026-02-25', amount: 262_000, merchant: '관리비' },
+      { date: '2026-03-26', amount: 231_000, merchant: '관리비' },
+      { date: '2026-01-03', amount: 30_000, merchant: '버거킹 강남' },
+      { date: '2026-01-19', amount: 12_000, merchant: '버거킹 강남' },
+      { date: '2026-02-11', amount: 60_000, merchant: '버거킹 강남' },
+      { date: '2026-03-27', amount: 45_000, merchant: '버거킹 강남' },
+      { date: '2026-01-02', amount: 38_000, merchant: '헤어살롱' },
+      { date: '2026-02-21', amount: 38_000, merchant: '헤어살롱' },
+      { date: '2026-03-13', amount: 38_000, merchant: '헤어살롱' },
+    ]
+    expect(detectRecurringCandidates(rows).map((candidate) => candidate.name)).toEqual(['관리비'])
+    expect(detectRecurringCandidates(rows, [], 3, { maxDaySpread: 31, maxVariation: 2 }).map((candidate) => candidate.name)).toEqual(['관리비', '헤어살롱'])
+  })
+
   test('clamps a recurring day to the final day of the month', () => {
     expect(recurringPostingDate('2026-02', 31)).toBe('2026-02-28')
     expect(recurringPostingDate('2028-02', 31)).toBe('2028-02-29')
