@@ -19,8 +19,9 @@ import { toggleCategoryDetailCell } from './category-detail-calculations'
 import type { CategoryDetails, CellTransactionResult } from './category-detail'
 import { CellTransactionTooltip } from './cell-transaction-tooltip'
 import { compactWon } from './chart-theme'
-import { PROVISIONAL_DASH } from './chart-js'
+import { PROVISIONAL_DASH, resolveChartColor, useFinanceChartPalette } from './chart-js'
 import { ChartHoverTooltip } from './chart-hover-tooltip'
+import { ChartLegend } from './chart-legend'
 import type { ChartHoverAnchor } from './chart-tooltip-position'
 import { buildSeriesChartGeometry } from './series-chart-geometry'
 import { SeriesChart, type SeriesChartKind } from './series-chart'
@@ -143,6 +144,7 @@ export function StatsMonthlySection({
   initialChart?: SeriesChartKind
 }) {
   const router = useRouter()
+  const palette = useFinanceChartPalette()
   const [stale, setStale] = useState(false)
   const [flow, setFlow] = useState<StatsMonthlyFlow>(initialFlow)
   const [axis, setAxis] = useState<StatsMonthlyAxis>(initialFlow === 'expense' ? initialAxis : 'category')
@@ -448,18 +450,13 @@ export function StatsMonthlySection({
   const axisLabels = chart === 'area'
     ? ['100%', '50%', '0']
     : [compactWon(geometry.maxValue), compactWon(Math.round(geometry.maxValue / 2)), '0']
-  const chartHint = chart === 'stacked'
-    ? '막대 높이 = 월 합계, 색 = 항목 비중'
-    : chart === 'line'
-      ? '항목별 월 금액, 같은 축'
-      : '월 합계를 100%로 본 항목 비중'
 
   return (
     <section className="border-b border-finance-hairline py-6" id="category-detail">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="t-section text-finance-ink">달마다 어떻게 달랐나</h2>
-          <p className="mt-1 t-caption text-finance-faint">그래프의 항목을 클릭하면 아래에서 그 항목만 상세 확인 · 셀 클릭은 합계와 그래프에서 제외</p>
+          <p className="mt-1 t-caption text-finance-faint">그래프나 표의 항목을 클릭하면 상세 · 셀 클릭은 합계에서 제외</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <div aria-label="그래프 종류" className="inline-flex border border-finance-ink" role="group">
@@ -555,9 +552,8 @@ export function StatsMonthlySection({
                   </ChartHoverTooltip>
                 )}
               </div>
-              <div className="col-span-3 self-end pb-1 t-caption text-finance-muted">
-                <p>{chartHint}</p>
-                <p className="mt-1 font-semibold text-finance-ink">그래프를 클릭해 상세 항목 선택</p>
+              <div className="col-span-12 col-start-2 pt-2">
+                <ChartLegend items={model.series.map((item) => ({ name: item.label, color: resolveChartColor(item.color, palette) }))} />
               </div>
             </div>
 

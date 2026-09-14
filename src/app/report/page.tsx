@@ -108,6 +108,12 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
           <StatsYearSelector highlightedMajor={highlightedMajor} initialView={statsView} key={`${data.year}:${statsView.chart}:${statsView.flow}:${statsView.axis}`} nextYear={data.nextYear} previousYear={data.previousYear} year={data.year} />
         </div>
 
+        {hasAnyData && dataIsProvisional && (
+          <p className="mt-4 border-l-2 border-finance-amber py-2 pl-3 t-caption text-finance-muted">
+            마감된 달이 없어 이 페이지의 모든 값은 마감 전 내역을 포함한 <strong className="text-finance-ink">잠정</strong>입니다. 전년 비교만 따로 표시합니다.
+          </p>
+        )}
+
         <nav aria-label="통계 월 마감 현황" className="mt-5 grid grid-cols-4 gap-1 sm:grid-cols-6 xl:grid-cols-12">
           {stats.months.map((row, index) => <Link className={`border px-2 py-2 text-center t-caption ${stats.monthStates[index] === 'current' ? 'border-finance-ink text-finance-ink' : stats.monthStates[index] === 'future' ? 'border-finance-hairline text-finance-faint' : row.state === 'closed' ? 'border-finance-green text-finance-green' : row.state === 'needs_review' ? 'border-dashed border-finance-red text-finance-red' : 'border-dashed border-finance-amber text-finance-amber'}`} key={row.month} href={`/ledger?month=${row.month}`}>
             <span className="font-semibold">{Number(row.month.slice(5))}월</span><span className="mt-1 block t-label">{stats.monthStates[index] === 'current' ? '진행 중' : stats.monthStates[index] === 'future' ? '예정' : MONTH_STATE_LABELS[row.state]}</span>
@@ -131,7 +137,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
           <article className="flex items-center gap-5 py-5 pr-6">
             <SavingsProgressRing target={stats.savingsTarget} value={data.annual.savingsRate} provisional={dataIsProvisional} />
             <div className="min-w-0">
-              <p className="t-label text-finance-muted">올해 순저축률<StatusTag provisional={dataIsProvisional} reason={dataIsProvisional ? '마감 0개월' : undefined} /></p>
+              <p className="t-label text-finance-muted">올해 순저축률</p>
               <p className={`mt-2 t-body-strong ${bodyTone(data.annual.savingsRate >= stats.savingsTarget ? 'text-finance-green' : 'text-finance-ink')}`}>
                 목표 {formatRate(stats.savingsTarget)}% {data.annual.savingsRate >= stats.savingsTarget ? '달성' : '진행 중'} · {data.annual.savingsRate - stats.savingsTarget >= 0 ? '+' : ''}{formatRate(data.annual.savingsRate - stats.savingsTarget)}%p
               </p>
@@ -149,7 +155,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
             { label: '연 순저축', value: data.annual.netSaving, comparison: comparison.yoy.netSaving, tone: 'text-finance-green' },
           ] as const).map((item) => (
             <article className="px-0 py-6 lg:px-5" key={item.label}>
-              <p className="t-label text-finance-muted">{item.label}<StatusTag provisional={dataIsProvisional} reason={dataIsProvisional ? '마감 0개월' : undefined} /></p>
+              <p className="t-label text-finance-muted">{item.label}</p>
               <p className={`mt-2 t-kpi tabular-nums ${bodyTone(item.tone)}`}>{formatWon(item.value)}<span className={`ml-1 t-body font-medium ${bodyTone('text-finance-muted')}`}>원</span></p>
               <p className={`mt-2 t-caption ${comparisonTone('text-finance-ink')}`}>
                 {comparison.hasPrevious ? <>전년 대비 {yoyAmountText(item.comparison)}{comparisonIsProvisional && <StatusTag provisional reason={comparisonReason} />}</> : '–'}
@@ -174,8 +180,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
         <section className="grid gap-8 border-b border-finance-hairline py-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-12">
           <div className="min-w-0">
-            <h2 className="t-section text-finance-ink">어디에 썼나<StatusTag provisional={dataIsProvisional} reason="마감 0개월" /> <span className="ml-1 font-normal text-finance-muted">올해 지출 대분류 · 비중 · 전년 대비</span></h2>
-            {comparison.hasPrevious && comparisonIsProvisional && <StatusTag provisional reason={comparisonReason} />}
+            <h2 className="t-section text-finance-ink">어디에 썼나 <span className="ml-1 font-normal text-finance-muted">올해 지출 대분류 · 비중 · 전년 대비</span></h2>
             {data.topExpenses.length > 0 ? (
               <div className="mt-4 overflow-x-auto">
                 <div className="min-w-[520px] border-t border-finance-ink">
@@ -209,8 +214,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
             )}
           </div>
           <div className="min-w-0">
-            <h2 className="t-section text-finance-ink">가맹점 TOP<StatusTag provisional={dataIsProvisional} reason="마감 0개월" /> <span className="ml-1 font-normal text-finance-muted">같은 가맹점 이름을 정규화해 집계</span></h2>
-            {comparison.hasPrevious && comparisonIsProvisional && <StatusTag provisional reason={comparisonReason} />}
+            <h2 className="t-section text-finance-ink">가맹점 TOP <span className="ml-1 font-normal text-finance-muted">같은 가맹점 이름을 정규화해 집계</span></h2>
             <div className="mt-4 overflow-x-auto">
               <div className="min-w-[520px] border-t border-finance-ink">
               <div className="grid grid-cols-[30px_minmax(0,1fr)_70px_120px_90px] items-center border-b border-finance-hairline py-2 t-label text-finance-muted">
@@ -262,7 +266,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
             </div>
           </div>
           <div className="min-w-0">
-            <h2 className="t-section text-finance-ink">앞으로 6개월<StatusTag provisional={forecastIsProvisional} reason="마감 0개월" /> <span className="ml-1 font-normal text-finance-muted">{forecastIsProvisional ? '기록 있는 끝난 월' : '마감 월'} 평균 순흐름 누적 · 추정치</span></h2>
+            <h2 className="t-section text-finance-ink">앞으로 6개월 <span className="ml-1 font-normal text-finance-muted">{forecastIsProvisional ? '기록 있는 끝난 월' : '마감 월'} 평균 순흐름 누적 · 추정치</span></h2>
             <p className="mt-2 t-caption text-finance-muted">거래 기준 {monthList} · 잔액은 거래 마감과 별개{stats.assetBasisMonth && ` · 계좌별 최신 기록 (최근 ${stats.assetBasisMonth})`}</p>
             {stats.assetBasisMonth === null ? (
               <div className="mt-4 border-y border-finance-hairline py-10 text-center">

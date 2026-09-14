@@ -94,10 +94,13 @@ test.each([
     official: buildAnnualReport({ ...input, eligibleMonths: [1], previousComparable }),
     provisional: buildAnnualReport({ ...input, eligibleMonths: [1, 2], previousComparable: true }),
   }
-  const merchants = (await render(stats)).split('가맹점 TOP')[1].split('전년 같은 기간과 비교')[0]
+  const html = await render(stats)
+  const merchants = html.split('가맹점 TOP')[1].split('전년 같은 기간과 비교')[0]
   expect(merchants).toContain('Starbucks 123')
   expect(merchants).toContain(`class="text-right tabular-nums ${tone}">${delta}</span>`)
-  expect(merchants.includes('잠정 · 2025년 미마감')).toBe(!previousComparable)
+  // 잠정 배지는 전년 비교 제목 한 곳에만 남는다. 가맹점 칸은 색조로만 잠정을 말한다.
+  const yoy = html.split('전년 같은 기간과 비교')[1].split('앞으로 6개월')[0]
+  expect(yoy.includes('잠정 · 2025년 미마감')).toBe(!previousComparable)
 })
 
 test.each(['income', 'refund', 'offset'] as const)('current-only %s records stay visible with no annual contribution', async kind => {

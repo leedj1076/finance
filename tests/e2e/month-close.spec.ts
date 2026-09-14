@@ -371,7 +371,10 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(page.getByRole('link', { name: new RegExp(`${CLOSE_MONTH_NUMBER}월 마무리하기`) })).toHaveCount(0)
   await page.goto(`/report?year=${CLOSE_YEAR}`)
   await expect(page.getByText('마감 1개월 · 잠정 0개월')).toBeVisible()
-  await expect(page.getByText('확정').first()).toBeVisible()
+  // 페이지 기준 잠정 배지는 머리말 안내 한 줄로 합쳐졌다. 마감된 달이 생기면 그 안내가
+  // 사라지고 예측 기준도 마감 월로 바뀐다. 확정 상태를 말하는 자리가 이 둘이다.
+  await expect(page.getByText('마감된 달이 없어')).toHaveCount(0)
+  await expect(page.getByText('마감 월 평균 순흐름 누적')).toBeVisible()
   await expect(page.getByRole('navigation', { name: '통계 월 마감 현황' }).getByRole('link', { name: `${CLOSE_MONTH_NUMBER}월 마감`, exact: true })).toBeVisible()
   await expect(page.getByRole('img', { name: '월별 수입 지출 저축 막대 차트' })).toBeVisible()
   await page.goto(`/ledger?month=${CLOSE_MONTH}&q=마감커피`)
@@ -402,7 +405,8 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await closeVisibleMonth(page, CLOSE_MONTH)
   await page.goto(`/report?year=${CLOSE_YEAR}`)
   await expect(page.getByText('마감 1개월 · 잠정 0개월')).toBeVisible()
-  await expect(page.getByText('확정').first()).toBeVisible()
+  await expect(page.getByText('마감된 달이 없어')).toHaveCount(0)
+  await expect(page.getByText('마감 월 평균 순흐름 누적')).toBeVisible()
   await expect(page.getByRole('img', { name: '월별 수입 지출 저축 막대 차트' })).toBeVisible()
   await captureAnnualStatistics(page, info.outputPath('closed-statistics.png'), 600_000, [
     { month: CLOSE_MONTH_NUMBER, value: 500_000, color: 'blue' },
@@ -639,6 +643,8 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await expect(section.getByText('식비 · 항목 선택', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(origin)
 
+  // 앞선 hover가 표 위에 남긴 포인터로 스크롤이 다른 셀을 밀어 넣으면, 그 hover가 포커스의 예약 요청을 지운다.
+  await page.mouse.move(0, 0)
   await section.getByRole('button', { name: '선', exact: true }).focus()
   response = cellResponse(3)
   await section.getByRole('button', { name: '식비 카페 3월 250원, 합계에서 제외', exact: true }).focus()
