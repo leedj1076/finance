@@ -65,7 +65,7 @@ export function ActionButtons({ selectedCount, busy = false }: { selectedCount: 
   return (
     <div className="flex flex-wrap justify-end gap-2">
       <button
-        className="h-[34px] border border-finance-border bg-white px-4 text-[13px] font-medium text-finance-muted hover:border-finance-ink hover:text-finance-ink disabled:opacity-40"
+        className="h-[34px] border border-finance-border bg-white px-4 t-body-strong text-finance-muted hover:border-finance-ink hover:text-finance-ink disabled:opacity-40"
         disabled={pending || busy || selectedCount === 0}
         name="intent"
         type="submit"

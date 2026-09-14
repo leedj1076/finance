@@ -34,6 +34,7 @@ function UploadButton({ disabled = false, uploading }: { disabled?: boolean; upl
 
 function BanksaladForm({ controller }: { controller: ImportUploadController }) {
   const [fileNames, setFileNames] = useState<string[]>([])
+  const fileLabel = fileNames.join(', ')
   return (
     <form
       className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
@@ -51,10 +52,10 @@ function BanksaladForm({ controller }: { controller: ImportUploadController }) {
       <input name="asset_include" type="hidden" value="off" />
       <label className="grid gap-1.5 t-label uppercase text-finance-muted">
         DJ·YJ 뱅크샐러드 파일
-        <span className="flex h-[34px] items-stretch border border-dashed border-finance-border bg-white focus-within:border-finance-blue">
+        <span className="flex h-[34px] min-w-0 items-stretch border border-dashed border-finance-border bg-white focus-within:border-finance-blue has-[:disabled]:opacity-40">
           <span className="flex items-center bg-finance-track px-3 t-body font-semibold normal-case tracking-normal text-finance-ink">파일 선택</span>
           <span className="flex min-w-0 flex-1 items-center px-3 t-body font-normal normal-case tracking-normal text-finance-muted">
-            <span className="truncate">{fileNames.length > 0 ? fileNames.join(', ') : '선택된 파일 없음'}</span>
+            <span className="truncate" title={fileLabel || undefined}>{fileLabel || '선택된 파일 없음'}</span>
           </span>
           <input
             accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -91,6 +92,9 @@ function CardStatementForm({
   const initialIssuer = issuers[0]?.key ?? ''
   const [issuer, setIssuer] = useState(initialIssuer)
   const [fileName, setFileName] = useState('')
+  // Separate from fileName: the completed branch clears the display, but fileName
+  // has to survive to keep gating the 보안 명세서 비밀번호 field below.
+  const [displayName, setDisplayName] = useState('')
   const [owner, setOwner] = useState('DJ')
   const candidates = useMemo(
     () => eligibleCardAccounts(issuers, accounts, issuer, owner),
@@ -117,6 +121,7 @@ function CardStatementForm({
         if (outcome?.status === 'completed') {
           const file = form.elements.namedItem('file') as HTMLInputElement | null
           if (file) file.value = ''
+          setDisplayName('')
         }
       }}
     >
@@ -191,10 +196,10 @@ function CardStatementForm({
       </div>
       <label className="grid gap-1.5 t-label uppercase text-finance-muted">
         카드사 명세서
-        <span className="flex h-[34px] items-stretch border border-dashed border-finance-border bg-white focus-within:border-finance-blue">
+        <span className="flex h-[34px] min-w-0 items-stretch border border-dashed border-finance-border bg-white focus-within:border-finance-blue has-[:disabled]:opacity-40">
           <span className="flex items-center bg-finance-track px-3 t-body font-semibold normal-case tracking-normal text-finance-ink">파일 선택</span>
           <span className="flex min-w-0 flex-1 items-center px-3 t-body font-normal normal-case tracking-normal text-finance-muted">
-            <span className="truncate">{fileName || '선택된 파일 없음'}</span>
+            <span className="truncate" title={displayName || undefined}>{displayName || '선택된 파일 없음'}</span>
           </span>
           <input
             accept={`${issuer === 'hyundai' ? '.html,.htm,text/html,' : issuer === 'nonghyup' ? '.pdf,application/pdf,' : ''}.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`}
@@ -202,7 +207,9 @@ function CardStatementForm({
             disabled={controller.isProcessing}
             name="file"
             onChange={(event) => {
-              setFileName(event.target.files?.[0]?.name ?? '')
+              const picked = event.target.files?.[0]?.name ?? ''
+              setFileName(picked)
+              setDisplayName(picked)
               if (passwordInput.current) passwordInput.current.value = ''
             }}
             required

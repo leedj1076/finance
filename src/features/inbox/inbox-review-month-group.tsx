@@ -58,7 +58,7 @@ export function InboxMonthGroup({
                   {monthExpanded ? '▾' : '▸'}
                 </span>
                 <span className="t-body-strong text-finance-ink">{formatInboxMonth(monthGroup.month)}</span>
-                <span className="border border-finance-hairline px-2 py-0.5 t-label text-finance-muted">
+                <span className="border border-finance-hairline px-2 py-0.5 t-badge text-finance-muted">
                   {monthGroup.items.length}건
                 </span>
                 <span className="ml-auto t-caption font-normal text-finance-muted">
