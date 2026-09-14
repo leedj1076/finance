@@ -141,7 +141,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
             {tab !== 'list' && <Link className="h-[34px] bg-finance-blue px-4 py-2 t-body-strong text-white hover:opacity-80" href={`${ledgerUrl(shell.month, filters, { tab: 'list' })}#transaction-form`}>거래 추가</Link>}
             <MonthNav
               action="/ledger"
-              hidden={<>
+              hiddenFields={<>
                 <input name="tab" type="hidden" value={tab} />
                 {filters.sort && <input name="sort" type="hidden" value={filters.sort} />}
                 {filters.account && <input name="account" type="hidden" value={filters.account} />}

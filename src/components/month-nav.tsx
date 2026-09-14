@@ -10,7 +10,7 @@ type MonthNavProps = {
   previousHref: string
   nextHref: string
   max?: string
-  hidden?: ReactNode
+  hiddenFields?: ReactNode
 }
 
 /**
@@ -18,7 +18,7 @@ type MonthNavProps = {
  * 32px in a single ink-bordered block, assets and budgets at 34px as separate
  * hairline boxes. One segmented control at the 34px token height now.
  */
-export function MonthNav({ action, label, month, previousHref, nextHref, max, hidden }: MonthNavProps) {
+export function MonthNav({ action, label, month, previousHref, nextHref, max, hiddenFields }: MonthNavProps) {
   return (
     <div className="flex items-center border border-finance-ink">
       <Link
@@ -29,10 +29,10 @@ export function MonthNav({ action, label, month, previousHref, nextHref, max, hi
         ←
       </Link>
       <form action={action} className="flex h-[34px] items-center">
-        {hidden}
+        {hiddenFields}
         <input
           aria-label={label}
-          className="h-[34px] w-[124px] border-0 bg-white px-2 text-center t-body-strong text-finance-ink outline-none"
+          className="h-[34px] w-[124px] border-0 bg-white px-2 text-center t-body-strong text-finance-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-finance-blue"
           defaultValue={month}
           key={month}
           max={max}
@@ -40,7 +40,7 @@ export function MonthNav({ action, label, month, previousHref, nextHref, max, hi
           type="month"
         />
         <SubmitButton
-          className="h-[34px] border-l border-finance-ink bg-finance-ink px-3 t-body-strong text-white hover:bg-finance-blue"
+          className="h-[34px] border-l border-finance-ink bg-finance-ink px-3 t-body-strong text-white hover:bg-finance-blue disabled:opacity-40"
           pendingLabel="불러오는 중…"
           type="submit"
         >
