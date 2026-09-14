@@ -32,7 +32,7 @@ export function MonthNav({ action, label, month, previousHref, nextHref, max, hi
         {hiddenFields}
         <input
           aria-label={label}
-          className="h-[34px] w-[124px] border-0 bg-white px-2 text-center t-body-strong text-finance-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-finance-blue"
+          className="h-[34px] w-[124px] border-0 bg-white px-2 text-center t-body-strong text-finance-ink outline-none"
           defaultValue={month}
           key={month}
           max={max}
