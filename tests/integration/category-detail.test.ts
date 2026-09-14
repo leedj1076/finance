@@ -201,8 +201,11 @@ describe('cell transaction household scope', () => {
       flow: 'expense', year: 2026, month: 6, major: '식비', sub: null,
     })
     expect(majorOnly.sub).toBeNull()
-    expect(majorOnly.items.length).toBeGreaterThanOrEqual(withSub.items.length)
-    expect(majorOnly.total).toBeGreaterThanOrEqual(withSub.total)
+    // Both subs of 식비, not just the one the sub-scoped query returns.
+    expect(withSub.items.length).toBe(1)
+    expect(withSub.total).toBe(30_000)
+    expect(majorOnly.items.length).toBe(2)
+    expect(majorOnly.total).toBe(45_000)
     expect(majorOnly.items).toEqual([...majorOnly.items].sort((left, right) => right.amount - left.amount))
   })
 

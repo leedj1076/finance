@@ -330,11 +330,14 @@ test('hovering a trend cell opens its transactions and leaves the draft untouche
   await boot(page)
   const budget = page.getByLabel('식비 예산', { exact: true })
   await expect(budget).toHaveValue('300000')
+  await expect(reference(page, 'AI 추천')).toHaveAttribute('aria-pressed', 'true')
   await trendCell(page, '7월').hover()
   await expect(popover(page)).toBeVisible()
   await expect(popover(page)).toContainText('2건 · 811,161원')
   await expect(popover(page)).toContainText('코스트코코리아')
   await expect(budget).toHaveValue('300000')
+  await expect(reference(page, 'AI 추천')).toHaveAttribute('aria-pressed', 'true')
+  await expect(item(page).getByRole('button', { pressed: true })).toHaveCount(1)
 })
 
 test('the month that is also the previous-actual row is marked', async ({ page }) => {
@@ -366,12 +369,29 @@ test('keyboard focus opens the popover and Escape closes it', async ({ page }) =
   await expect(popover(page)).toBeHidden()
 })
 
-test('a stale closed month reports itself instead of showing old rows', async ({ page }) => {
+test('a stale closed month reports itself above the table and empties every row cache', async ({ page }) => {
   await boot(page)
-  cellStatus = 409
-  await trendCell(page, '7월').click()
-  await expect(page.getByText('마감 내역이 바뀌었습니다. 새로고침해 주세요.')).toBeVisible()
+  await trendCell(page, '7월').hover()
+  await expect(popover(page)).toBeVisible()
+  await page.mouse.move(0, 0)
   await expect(popover(page)).toBeHidden()
+  expect(cellRequests).toHaveLength(1)
+
+  cellStatus = 409
+  await trendCell(page, '7월', '교통').click()
+  const alert = page.getByRole('alert')
+  await expect(alert).toContainText('마감 내역이 바뀌었습니다. 새로고침해 주세요.')
+  await expect(alert.getByRole('button', { name: '최신 내역 확인', exact: true })).toBeVisible()
+  await expect(popover(page)).toBeHidden()
+  const notice = (await alert.boundingBox())!
+  const header = (await page.locator('.plan-list__header').boundingBox())!
+  expect(notice.y).toBeLessThan(header.y)
+
+  // The 409 landed on 교통, and 식비's warm July entry has to go with it.
+  cellStatus = 200
+  await trendCell(page, '7월').hover()
+  await expect(popover(page)).toBeVisible()
+  expect(cellRequests).toHaveLength(3)
 })
 
 test('a trend cell is tappable at 390px', async ({ page }) => {
@@ -379,4 +399,85 @@ test('a trend cell is tappable at 390px', async ({ page }) => {
   await boot(page)
   await trendCell(page, '7월').tap()
   await expect(popover(page)).toBeVisible()
+})
+
+test('a popover anchored low in the viewport flips above the cell instead of running off it', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 520 })
+  await boot(page)
+  const cell = trendCell(page, '8월', '여행 · 경조사')
+  await cell.evaluate(element => element.scrollIntoView({ block: 'end' }))
+  const box = (await cell.boundingBox())!
+  const viewport = page.viewportSize()!
+  expect(box.y + box.height).toBeGreaterThan(viewport.height - 120)
+
+  await page.mouse.move(box.x + (box.width / 2), box.y + box.height - 2)
+  await expect(popover(page)).toBeVisible()
+  const card = (await popover(page).boundingBox())!
+  expect(card.y).toBeGreaterThanOrEqual(0)
+  expect(card.y + card.height).toBeLessThanOrEqual(viewport.height)
+  expect(card.x).toBeGreaterThanOrEqual(0)
+  expect(card.x + card.width).toBeLessThanOrEqual(viewport.width)
+  expect(card.y + card.height).toBeLessThanOrEqual(box.y + box.height)
+})
+
+test('the pointer can leave the cell for the popover and reach the ledger link', async ({ page }) => {
+  await boot(page)
+  await trendCell(page, '7월').hover()
+  await expect(popover(page)).toBeVisible()
+  const ledger = popover(page).getByRole('link', { name: '이 달 거래 보기 →' })
+  await ledger.hover()
+  await page.waitForTimeout(400)
+  await expect(popover(page)).toBeVisible()
+  await expect(ledger).toHaveAttribute('href', /^\/ledger\?month=2026-07&tab=list&flow=expense&major=/)
+})
+
+test('Tab from a focused trend cell lands on the ledger link', async ({ page }) => {
+  await boot(page)
+  await trendCell(page, '7월').focus()
+  await expect(popover(page)).toBeVisible()
+  await page.keyboard.press('Tab')
+  await expect(popover(page).getByRole('link', { name: '이 달 거래 보기 →' })).toBeFocused()
+  await expect(popover(page)).toBeVisible()
+})
+
+test('clicking a cell whose transactions are already cached leaves the popover open', async ({ page }) => {
+  await boot(page)
+  const cell = trendCell(page, '7월')
+  await cell.hover()
+  await expect(popover(page)).toBeVisible()
+  await page.mouse.move(0, 0)
+  await expect(popover(page)).toBeHidden()
+  await cell.hover()
+  await expect(popover(page)).toBeVisible()
+  await page.mouse.move(0, 0)
+  await expect(popover(page)).toBeHidden()
+  expect(cellRequests).toHaveLength(1)
+
+  await cell.click()
+  await page.waitForTimeout(400)
+  await expect(popover(page)).toBeVisible()
+  await expect(popover(page)).toContainText('코스트코코리아')
+})
+
+test('scrolling dismisses a popover the keyboard opened', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 520 })
+  await boot(page)
+  await trendCell(page, '7월').focus()
+  await expect(popover(page)).toBeVisible()
+  await page.evaluate(() => window.scrollBy(0, 200))
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+  await expect(popover(page)).toBeHidden()
+})
+
+test('추이 labels the mobile line and stays with the column header on desktop', async ({ page }) => {
+  await boot(page)
+  const line = item(page).locator('.plan-trend')
+  await expect(line.locator('.plan-trend__label')).toBeHidden()
+  await expect(line.locator('.plan-trend__separator').first()).toBeHidden()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(line.locator('.plan-trend__label')).toBeVisible()
+  await expect(line.locator('.plan-trend__label')).toHaveText('추이')
+  await expect(line.locator('.plan-trend__separator')).toHaveCount(2)
+  await expect(line.locator('.plan-trend__separator').first()).toBeVisible()
 })
