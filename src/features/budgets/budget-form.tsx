@@ -202,6 +202,7 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
           onEdit={recommendation.edit}
           onKeepEdited={() => void recommendation.confirmFill(true)}
           onOpenEvidence={() => {}}
+          onRefresh={() => router.refresh()}
           onUndo={recommendation.undo}
           period={period}
           recommendations={recommendation.recommendations}

@@ -54,6 +54,11 @@ export type PlanListProps = {
   onKeepEdited: (choices: BudgetDraftChoice[], overwritten: BudgetDraftRow[]) => void
   onCancelFill: () => void
   onUndo: () => void
+  /**
+   * Re-reads the server data, which is how the closed months in `rows` pick up a new revision.
+   * It must not tear the document down: the draft is client state and nothing here is saved.
+   */
+  onRefresh: () => void
 }
 
 function displayDraftAmount(value: string) {
@@ -82,6 +87,7 @@ export function PlanList({
   onKeepEdited,
   onCancelFill,
   onUndo,
+  onRefresh,
 }: PlanListProps) {
   const confirmationRef = useRef<HTMLDialogElement>(null)
   // One popover and one cache for the whole table: a 409 on any trend cell must clear every row,
@@ -105,7 +111,7 @@ export function PlanList({
       {trendPopover.cells.stale && (
         <p className="plan-list__stale t-caption" role="alert">
           <span>마감 내역이 바뀌었습니다. 새로고침해 주세요.</span>
-          <button onClick={() => window.location.reload()} type="button">최신 내역 확인</button>
+          <button onClick={() => { trendPopover.cells.reset(); onRefresh() }} type="button">최신 내역 확인</button>
         </p>
       )}
       <header className="plan-list__header">
