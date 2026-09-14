@@ -244,16 +244,16 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
   return (
     <section>
       {items.length > 0 && <>
-        <div className="mb-3">
+        <div className="mb-3 border-t border-finance-ink pt-4">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="t-section text-finance-ink">확인 대기 <span className="text-finance-red">{items.length}건</span></h3>
+            <h2 className="t-section text-finance-ink">확인 대기 <span className="text-finance-muted">{items.length}건</span></h2>
             {highConfidenceIds.length > 0 && (
               <span className="bg-finance-green-tint px-2 py-0.5 text-[10px] font-semibold text-finance-green">
                 자동 분류 {highConfidenceIds.length}건
               </span>
             )}
           </div>
-          <p className="mt-1 t-caption text-finance-muted">모든 거래를 바로 수정할 수 있습니다. 한 건씩 오른쪽에서 즉시 반영하거나, 체크박스로 여러 건을 선택해 한 번에 처리하세요.</p>
+          <p className="mt-1 t-caption text-finance-muted">자동 분류를 포함한 모든 거래를 수정할 수 있습니다. 한 건씩 반영하거나 그룹을 선택해 한 번에 처리하세요.</p>
         </div>
       </>}
       {actionMessage && (

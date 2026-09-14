@@ -34,7 +34,7 @@ export function InboxTabs({ requestedTab, defaultTab, pendingCount, unclassified
           href={`/inbox?tab=${item.key}`}
           key={item.key}
         >
-          {item.label}{item.count !== undefined && <span className="ml-1.5 bg-finance-track px-2 py-0.5 t-badge text-finance-muted">{item.count.toLocaleString('ko-KR')}</span>}
+          {item.key === 'unclassified' ? <><span className="sm:hidden">미분류</span><span className="hidden sm:inline">미분류 거래</span></> : item.label}{item.count !== undefined && <span className="ml-1.5 bg-finance-track px-2 py-0.5 t-badge text-finance-muted">{item.count.toLocaleString('ko-KR')}</span>}
         </Link>
       ))}
     </nav>

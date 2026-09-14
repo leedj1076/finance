@@ -195,7 +195,7 @@ export function InboxItemRow({ item, rowState }: { item: InboxItem; rowState: In
       <td className="px-2 py-3 text-right">
         <button
           aria-label={`${item.merchant || '거래'} 바로 반영`}
-          className="inline-flex h-[30px] w-full items-center justify-center gap-1 bg-finance-green px-2 t-body-strong text-white hover:bg-finance-ink disabled:cursor-wait disabled:opacity-50"
+          className="inline-flex h-[30px] w-full items-center justify-center gap-1 border border-finance-ink bg-white px-2 t-body-strong text-finance-ink hover:bg-finance-ink hover:text-white disabled:cursor-wait disabled:opacity-40"
           disabled={pending || applyingIds.size > 0}
           onClick={() => void applySingleItem(item)}
           title="현재 분류와 결제수단으로 바로 반영"
