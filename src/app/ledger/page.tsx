@@ -138,7 +138,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
             <p className="mt-2 t-caption text-finance-muted">{tab === 'ai' ? '한 달의 기록을 바탕으로 우리집의 돈 흐름을 살펴봅니다' : '필터를 한 번 잡고 합계에서 거래 행까지 내려봅니다'}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {tab !== 'list' && <Link className="h-[34px] bg-finance-blue px-4 py-2 t-body-strong text-white hover:opacity-80" href={`${ledgerUrl(shell.month, filters, { tab: 'list' })}#transaction-form`}>거래 추가</Link>}
+            {tab !== 'list' && <Link className="h-[34px] bg-finance-ink px-4 py-2 t-body-strong text-white hover:bg-finance-blue" href={`${ledgerUrl(shell.month, filters, { tab: 'list' })}#transaction-form`}>거래 추가</Link>}
             <MonthNav
               action="/ledger"
               hiddenFields={<>

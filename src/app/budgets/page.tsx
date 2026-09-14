@@ -87,7 +87,7 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {!viewingNextMonth && <Link
-              className="h-[34px] whitespace-nowrap border border-finance-green bg-finance-green px-3 py-2 t-body-strong text-white hover:opacity-80"
+              className="h-[34px] whitespace-nowrap bg-finance-ink px-3 py-2 t-body-strong text-white hover:bg-finance-blue"
               href={`/budgets?month=${data.nextMonth}`}
             >
               다음 달 예산 만들기 →

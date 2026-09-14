@@ -33,7 +33,7 @@ const editInput = 'h-[30px] w-full border border-finance-border bg-white px-2 t-
 
 function RowSaveButton() {
   const { pending } = useFormStatus()
-  return <button aria-label="거래 수정 저장" className="h-[30px] bg-finance-green px-2.5 t-body-strong text-white hover:bg-finance-ink disabled:opacity-50" disabled={pending} type="submit">{pending ? '…' : '✓'}</button>
+  return <button aria-label="거래 수정 저장" className="h-[30px] bg-finance-ink px-2.5 t-body-strong text-white hover:bg-finance-blue disabled:opacity-40" disabled={pending} type="submit">{pending ? '…' : '✓'}</button>
 }
 
 function EditableRow({ accounts, categories, filters, onCancel, onSaved, row }: {
