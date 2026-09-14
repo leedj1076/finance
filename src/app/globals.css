@@ -1080,6 +1080,30 @@ button.finance-nav-link { cursor: pointer; }
   padding: 14px;
   box-shadow: 0 8px 24px color-mix(in srgb, var(--finance-ink) 12%, transparent);
 }
+.overage-confirmation {
+  position: fixed;
+  inset: 0;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  box-sizing: border-box;
+  overflow: auto;
+  margin: auto;
+  border: 1px solid var(--finance-ink);
+  background: var(--background);
+  padding: 20px;
+  color: var(--finance-ink);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--finance-ink) 12%, transparent);
+}
+.overage-confirmation::backdrop { background: rgb(24 24 27 / 35%); }
+.overage-confirmation__detail { margin-top: 10px; color: var(--finance-muted); line-height: 1.7; }
+.overage-confirmation__detail strong { color: var(--finance-red); font-weight: 600; }
+.overage-confirmation__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.overage-confirmation__primary,
+.overage-confirmation__cancel { height: 32px; padding: 0 12px; font-weight: 600; }
+.overage-confirmation__primary { border: 0; background: var(--finance-ink); color: var(--background); }
+.overage-confirmation__cancel { border: 1px solid var(--finance-border); background: var(--background); }
+.overage-confirmation__cancel:hover { border-color: var(--finance-ink); }
+
 .plan-fill-confirmation::backdrop { background: color-mix(in srgb, var(--finance-ink) 16%, transparent); }
 .plan-fill-confirmation__rows { margin-top: 8px; color: var(--finance-muted); line-height: 1.8; }
 .plan-fill-confirmation__actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }

@@ -42,7 +42,7 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
   const [target, setTarget] = useState(savingsTarget)
   const targetBaselineRef = useRef(targetBaseline)
   const targetRef = useRef(target)
-  const [acknowledgeOverage, setAcknowledgeOverage] = useState(false)
+  const overageRef = useRef<HTMLDialogElement>(null)
   const compareRequested = useRef(false)
   const [compareWaiting, setCompareWaiting] = useState(false)
   const [state, setState] = useState<BudgetActionState>(initialState)
@@ -65,6 +65,8 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
     serverSpendCeiling: spendCeiling,
   })
   const allocationGap = totalBudget === null ? null : targetSpendCeiling - totalBudget
+  // The server counts unclassified and recurring spend too, so its overage is the honest figure.
+  const overage = state.saved?.overage ?? (allocationGap !== null && allocationGap < 0 ? -allocationGap : null)
   let changes: BudgetSaveRequest['changes'] = []
   let invalidDraft = false
   try { changes = draftBudgetChanges(draft) } catch { invalidDraft = true }
@@ -72,7 +74,7 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
     month,
     changes,
     targetChange: target === targetBaseline.savingsTarget ? null : { value: target, expectedVersion: targetBaseline.targetVersion },
-    acknowledgeOverage,
+    acknowledgeOverage: false,
   }
   const isDirty = invalidDraft || payload.targetChange !== null || changes.length > 0
   targetRef.current = target
@@ -86,7 +88,6 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
     targetDirty: payload.targetChange !== null,
     draft,
     dispatch,
-    onDraftChange: () => setAcknowledgeOverage(false),
   })
 
   useEffect(() => {
@@ -95,7 +96,6 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
     dispatch({ type: 'rebase', rows: baselines })
     if (targetRef.current === targetBaselineRef.current.savingsTarget) setTarget(savingsTarget)
     setTargetBaseline({ savingsTarget, targetVersion })
-    setAcknowledgeOverage(false)
     setCompareWaiting(false)
   }, [baselines, savingsTarget, targetVersion])
 
@@ -106,7 +106,20 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
   async function submitBudget(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (saveRequest.current || recommendation.applyBusy || compareWaiting || invalidDraft || !isDirty) return
-    const formData = new FormData(event.currentTarget)
+    await runSave(new FormData(event.currentTarget))
+  }
+
+  /** Consent is a decision, so it is taken in the dialog and sent with its own save. */
+  async function saveWithOverageConsent() {
+    overageRef.current?.close()
+    if (saveRequest.current) return
+    const consented = new FormData()
+    consented.set('payload', JSON.stringify({ ...payload, acknowledgeOverage: true }))
+    consented.set('month', month)
+    await runSave(consented)
+  }
+
+  async function runSave(formData: FormData) {
     const request = Symbol('budget-save')
     saveRequest.current = request
     setPending(true)
@@ -117,10 +130,10 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
         dispatch({ type: 'saved', rows: result.saved.rows })
         setTargetBaseline({ savingsTarget: result.saved.savingsTarget, targetVersion: result.saved.targetVersion })
         setTarget(result.saved.savingsTarget)
-        setAcknowledgeOverage(false)
       }
       setState(result)
-      if (!result.saved) showRefusal()
+      if (result.code === 'overage_confirmation_required') overageRef.current?.showModal()
+      else if (!result.saved) showRefusal()
     } catch {
       if (saveRequest.current !== request) return
       setState({ error: '저장 결과를 확인하지 못했습니다. 입력한 초안을 유지했으니 다시 저장해 주세요.' })
@@ -175,7 +188,7 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
           dirty={isDirty}
           disabled={invalidDraft || compareWaiting || recommendation.applyBusy}
           onShowRefusal={showRefusal}
-          onTargetChange={value => { setTarget(value); setAcknowledgeOverage(false) }}
+          onTargetChange={value => setTarget(value)}
           pending={pending}
           refusal={state.saved ? null : state.error ?? null}
           target={target}
@@ -221,10 +234,6 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
           savedRecommendations={recommendation.savedOrigins}
         />
         <div className="space-y-4" ref={refusalRef}>
-        {((allocationGap !== null && allocationGap < 0) || state.code === 'overage_confirmation_required') && <label className="flex items-center gap-2 t-body text-finance-red">
-          <input checked={acknowledgeOverage} onChange={event => setAcknowledgeOverage(event.target.checked)} type="checkbox" />
-          미분류·정기 지출을 포함한 전체 예산의 상한 초과를 확인하고 저장합니다.
-        </label>}
         {invalidDraft && <p className="t-body text-finance-red">원 단위의 0 이상 정수를 입력해 주세요.</p>}
         {state.saved && !isDirty && <p aria-live="polite" className="t-body text-finance-green">{state.saved.rows.some(row => row.recommendationJobId !== null) ? '적용됨' : '저장됨'}</p>}
         {state.code === 'budget_conflict' && <section aria-label="예산 충돌 비교" className="border-l-2 border-finance-amber bg-finance-amber-tint p-4">
@@ -241,6 +250,24 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
         </div>
       </fieldset>
     </form>
+    <dialog
+      aria-label="상한 초과 저장 확인"
+      className="overage-confirmation"
+      closedby="any"
+      ref={overageRef}
+    >
+      <h2 className="t-body-strong">목표 지출 상한을 넘습니다</h2>
+      <p className="overage-confirmation__detail t-caption">
+        {overage === null
+          ? '미분류 지출과 정기 지출을 포함한 전체 예산이 목표 지출 상한을 넘습니다.'
+          : <>분류별 예산 합계에 미분류 지출과 정기 지출을 더하면 목표 지출 상한 {formatWon(targetSpendCeiling)}원을 <strong>{formatWon(overage)}원</strong> 넘습니다.</>}
+      </p>
+      <p className="overage-confirmation__detail t-caption">이대로 저장하면 이번 달 목표 저축률을 지키지 못합니다.</p>
+      <div className="overage-confirmation__actions">
+        <button className="overage-confirmation__primary t-caption" onClick={() => void saveWithOverageConsent()} type="button">초과를 확인하고 저장</button>
+        <button className="overage-confirmation__cancel t-caption" onClick={() => overageRef.current?.close()} type="button">예산 고치기</button>
+      </div>
+    </dialog>
     <AiRequestDialog controller={recommendation.controller} onClose={recommendation.closeRequest} open={recommendation.requestOpen} />
   </>
 }

@@ -1,6 +1,6 @@
 import { buildBudgetBrowser, type BudgetBrowserBundle } from './fixtures/budget-editor-browser'
 
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { evaluateBudget } from '../../src/features/budget-recommendations/calculations'
 import { makeBudgetReport, makeBudgetSnapshot } from '../fixtures/budget-recommendation'
 import type {} from './fixtures/budget-save-lifecycle'
@@ -315,3 +315,55 @@ for (const change of ['month', 'unmount'] as const) {
   })
   }
 }
+
+const overageDialog = (page: Page) => page.getByRole('dialog', { name: '상한 초과 저장 확인', exact: true })
+
+test('a refused overage asks in a dialog instead of a checkbox below the table', async ({ page }) => {
+  await page.getByLabel('식비 예산', { exact: true }).fill('351000')
+  await page.getByRole('button', { name: '변경사항 저장', exact: true }).click()
+  await page.evaluate(() => window.budgetLifecycle.resolve(0, {
+    code: 'overage_confirmation_required',
+    error: '미분류 지출과 정기 지출을 포함한 전체 예산이 상한을 넘습니다. 초과 저장에 동의해 주세요.',
+  }))
+  // The save button sits in a sticky bar and the old consent checkbox rendered thousands of pixels
+  // below it, so the question has to come to the user rather than wait to be scrolled to.
+  await expect(overageDialog(page)).toBeVisible()
+  await expect(overageDialog(page)).toContainText('목표 지출 상한을 넘습니다')
+  const box = await overageDialog(page).boundingBox()
+  const viewport = page.viewportSize()!
+  expect(box!.y).toBeGreaterThanOrEqual(0)
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height)
+})
+
+test('declining the overage keeps the draft and sends nothing', async ({ page }) => {
+  await page.getByLabel('식비 예산', { exact: true }).fill('351000')
+  await page.getByRole('button', { name: '변경사항 저장', exact: true }).click()
+  await page.evaluate(() => window.budgetLifecycle.resolve(0, {
+    code: 'overage_confirmation_required',
+    error: '미분류 지출과 정기 지출을 포함한 전체 예산이 상한을 넘습니다. 초과 저장에 동의해 주세요.',
+  }))
+  await overageDialog(page).getByRole('button', { name: '예산 고치기', exact: true }).click()
+  await expect(overageDialog(page)).toBeHidden()
+  await expect(page.getByLabel('식비 예산', { exact: true })).toHaveValue('351000')
+  expect(await page.evaluate(() => window.budgetLifecycle.calls().length)).toBe(1)
+})
+
+test('consenting in the dialog resends the same draft with the overage acknowledged', async ({ page }) => {
+  await page.getByLabel('식비 예산', { exact: true }).fill('351000')
+  await page.getByRole('button', { name: '변경사항 저장', exact: true }).click()
+  await page.evaluate(() => window.budgetLifecycle.resolve(0, {
+    code: 'overage_confirmation_required',
+    error: '미분류 지출과 정기 지출을 포함한 전체 예산이 상한을 넘습니다. 초과 저장에 동의해 주세요.',
+  }))
+  await overageDialog(page).getByRole('button', { name: '초과를 확인하고 저장', exact: true }).click()
+  await expect(overageDialog(page)).toBeHidden()
+  await expect.poll(() => page.evaluate(() => window.budgetLifecycle.calls().length)).toBe(2)
+  const payloads = await page.evaluate(() => window.budgetLifecycle.calls().map(call => call.payload))
+  // The first attempt must never pre-consent, and the second must carry the same edit.
+  expect(payloads[0].acknowledgeOverage).toBe(false)
+  expect(payloads[1].acknowledgeOverage).toBe(true)
+  expect(payloads[1].changes).toEqual(payloads[0].changes)
+  expect(payloads[1].month).toBe(payloads[0].month)
+  await page.evaluate(() => window.budgetLifecycle.resolve(1))
+  await expect(page.getByRole('button', { name: '저장됨', exact: true })).toBeVisible()
+})

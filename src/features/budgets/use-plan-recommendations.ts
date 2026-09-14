@@ -78,7 +78,6 @@ export function usePlanRecommendations({
   targetDirty,
   draft,
   dispatch,
-  onDraftChange,
 }: {
   month: string
   rows: BudgetPlanRow[]
@@ -87,7 +86,6 @@ export function usePlanRecommendations({
   targetDirty: boolean
   draft: BudgetDraft
   dispatch: Dispatch<BudgetDraftAction>
-  onDraftChange: () => void
 }) {
   const draftRef = useRef(draft)
   const dataRef = useRef<BudgetRecommendationData | null>(null)
@@ -175,7 +173,6 @@ export function usePlanRecommendations({
     dispatch({ type: 'fill', choices })
     setFillConfirmation(null)
     setFillNotice({ source, count: choices.length })
-    onDraftChange()
   }
 
   function prepareFill(source: BudgetSource, choices: BudgetDraftChoice[]) {
@@ -206,7 +203,6 @@ export function usePlanRecommendations({
     if (!choice) return
     interacted.current.add(major)
     dispatch({ type: 'choose', ...choice })
-    onDraftChange()
   }
 
   async function confirmFill(keepEdited: boolean) {
@@ -281,12 +277,10 @@ export function usePlanRecommendations({
     choose(choice: BudgetDraftChoice) {
       interacted.current.add(choice.major)
       dispatch({ type: 'choose', ...choice })
-      onDraftChange()
     },
     edit(major: string, amount: string) {
       interacted.current.add(major)
       dispatch({ type: 'edit', major, amount })
-      onDraftChange()
     },
     applyAiChoice,
     requestFill,
@@ -301,7 +295,6 @@ export function usePlanRecommendations({
     undo() {
       dispatch({ type: 'undo' })
       setFillNotice(null)
-      onDraftChange()
     },
     openRequest() {
       controller.clearPrompt()

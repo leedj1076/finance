@@ -127,8 +127,10 @@ suite('budget money fields accept single won amounts, but not negatives or fract
     expect(await budget.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(false)
   }
   await budget.fill('723693')
-  await page.getByRole('checkbox', { name: '미분류·정기 지출을 포함한 전체 예산의 상한 초과를 확인하고 저장합니다.', exact: true }).check()
   await page.getByRole('button', { name: '변경사항 저장', exact: true }).click()
+  // Consent is asked for in a dialog now, after the server refuses, not pre-ticked below the table.
+  await page.getByRole('dialog', { name: '상한 초과 저장 확인', exact: true })
+    .getByRole('button', { name: '초과를 확인하고 저장', exact: true }).click()
   await expect(page.getByRole('button', { name: '저장됨', exact: true })).toBeVisible()
   const { data, error } = await adminClient().from('budgets').select('amount').eq('household_id', household).eq('month', '2026-07').eq('major', '식비').single()
   if (error) throw error

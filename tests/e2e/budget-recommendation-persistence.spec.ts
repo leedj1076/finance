@@ -220,13 +220,11 @@ suite('keeps manual saving available while a fixture worker is unsupported, abse
   const saveManual = async (amount: string) => {
     await page.getByLabel('식비 예산', { exact: true }).fill(amount)
     await expect(page.locator('.ceiling-bar__metric').filter({ hasText: '편집안 합계' })).toContainText(`${Number(amount).toLocaleString('ko-KR')}`)
-    const overageConsent = page.getByRole('checkbox', {
-      name: '미분류·정기 지출을 포함한 전체 예산의 상한 초과를 확인하고 저장합니다.',
-      exact: true,
-    })
-    await expect(overageConsent).toBeVisible()
-    await overageConsent.check()
     await page.getByRole('button', { name: '변경사항 저장', exact: true }).click()
+    // Consent is asked for in a dialog now, after the server refuses, not pre-ticked below the table.
+    const overageConsent = page.getByRole('dialog', { name: '상한 초과 저장 확인', exact: true })
+    await expect(overageConsent).toBeVisible()
+    await overageConsent.getByRole('button', { name: '초과를 확인하고 저장', exact: true }).click()
     await expect(page.getByRole('button', { name: '저장됨', exact: true })).toBeVisible({ timeout: 15_000 })
   }
 
