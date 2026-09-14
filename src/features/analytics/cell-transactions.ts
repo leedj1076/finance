@@ -20,9 +20,20 @@ const NO_SUB = String.fromCharCode(2)
 /**
  * Null sub and empty sub must never share a cache entry, a category name must not be able to
  * forge another key, and two flows (or years) for the same major/month must not collide either.
+ *
+ * The close state and its revision are part of the key as well. A cached entry is the answer the
+ * server gave for one pinned revision of a closed month, so reusing it after a reclose would show
+ * figures the close has already replaced.
  */
-export function cellCacheKey(cell: Pick<CellRequest, 'flow' | 'year' | 'month' | 'major' | 'sub'>) {
-  return [cell.flow, String(cell.year), String(cell.month), cell.major, cell.sub === null ? NO_SUB : cell.sub].join(SEPARATOR)
+export function cellCacheKey(cell: CellRequest) {
+  return [
+    cell.flow,
+    String(cell.year),
+    String(cell.month),
+    cell.major,
+    cell.sub === null ? NO_SUB : cell.sub,
+    cell.closed ? `closed:${cell.revision}` : 'live',
+  ].join(SEPARATOR)
 }
 
 export function useCellTransactions() {
@@ -110,3 +121,10 @@ export function useCellTransactions() {
 
   return { data, key, stale, open, close, reset }
 }
+
+/**
+ * One instance owns the cache and the stale flag for a whole table. Splitting it per row means a
+ * 409 clears only the row that received it, leaving a sibling to serve rows the close has already
+ * replaced; `cell-transaction-popover.tsx` binds one instance to one popover shell.
+ */
+export type CellTransactions = ReturnType<typeof useCellTransactions>
