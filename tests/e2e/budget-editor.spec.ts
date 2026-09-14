@@ -19,6 +19,7 @@ let afterGet: ((count: number) => Promise<BudgetRecommendationData>) | undefined
 let afterPost: (() => Promise<BudgetRecommendationData>) | undefined
 let cellRequests: string[] = []
 let cellStatus = 200
+let cellDelay = 0
 
 function completed(amount = 300_000, id = jobId): BudgetRecommendationData {
   const snapshot = makeBudgetSnapshot()
@@ -43,11 +44,12 @@ async function boot(page: Page, options: { delayed?: boolean; empty?: boolean; s
   if (options.empty) data = { ...data, latestJob: null, completed: null }
   if (options.stale) data.freshness = 'source_changed'
   gets = 0; posts = []; release = undefined; afterGet = undefined; afterPost = undefined
-  cellRequests = []; cellStatus = 200
+  cellRequests = []; cellStatus = 200; cellDelay = 0
   await page.route('http://localhost/**', async route => {
     const url = new URL(route.request().url())
     if (url.pathname === '/api/cell-tx') {
       cellRequests.push(url.search)
+      if (cellDelay > 0) await new Promise(resolve => setTimeout(resolve, cellDelay))
       if (cellStatus === 409) return route.fulfill({ status: 409, json: { error: '마감 내역이 바뀌었습니다.', refresh: true } })
       return route.fulfill({ json: {
         major: url.searchParams.get('major'),
@@ -480,4 +482,61 @@ test('추이 labels the mobile line and stays with the column header on desktop'
   await expect(line.locator('.plan-trend__label')).toHaveText('추이')
   await expect(line.locator('.plan-trend__separator')).toHaveCount(2)
   await expect(line.locator('.plan-trend__separator').first()).toBeVisible()
+})
+
+test('the stale banner refresh keeps every unsaved amount', async ({ page }) => {
+  await boot(page)
+  const budget = page.getByLabel('식비 예산', { exact: true })
+  await budget.fill('321000')
+  await page.getByLabel('교통 예산', { exact: true }).fill('95000')
+
+  cellStatus = 409
+  await trendCell(page, '7월').click()
+  const alert = page.getByRole('alert')
+  await expect(alert).toContainText('마감 내역이 바뀌었습니다. 새로고침해 주세요.')
+  expect(await page.evaluate(() => window.budgetLifecycle.refreshes())).toBe(0)
+
+  await alert.getByRole('button', { name: '최신 내역 확인', exact: true }).click()
+  expect(await page.evaluate(() => window.budgetLifecycle.refreshes())).toBe(1)
+  await expect(budget).toHaveValue('321000')
+  await expect(page.getByLabel('교통 예산', { exact: true })).toHaveValue('95000')
+  await expect(alert).toBeHidden()
+
+  // The cache went with the banner, so the next hover asks the server again.
+  cellStatus = 200
+  await trendCell(page, '7월').hover()
+  await expect(popover(page)).toBeVisible()
+  expect(cellRequests).toHaveLength(2)
+})
+
+test('Escape inside the popover closes it and puts focus back on the cell', async ({ page }) => {
+  await boot(page)
+  const cell = trendCell(page, '7월')
+  await cell.focus()
+  await expect(popover(page)).toBeVisible()
+  await page.keyboard.press('Tab')
+  await expect(popover(page).getByRole('link', { name: '이 달 거래 보기 →' })).toBeFocused()
+
+  await page.keyboard.press('Escape')
+  await expect(popover(page)).toBeHidden()
+  await expect(cell).toBeFocused()
+})
+
+test('the card never sits beside one cell showing another cell transactions', async ({ page }) => {
+  await boot(page)
+  await trendCell(page, '7월').hover()
+  await expect(popover(page)).toBeVisible()
+  await expect(popover(page)).toContainText('식비 · 7월')
+  const first = (await popover(page).boundingBox())!
+
+  // Slow the second request down so the in-between window is wide enough to observe.
+  cellDelay = 700
+  const second = trendCell(page, '7월', '교통')
+  await second.hover()
+  await page.waitForTimeout(350)
+  await expect(popover(page)).toContainText('식비 · 7월')
+  expect((await popover(page).boundingBox())!.y).toBe(first.y)
+
+  await expect(popover(page)).toContainText('교통 · 7월')
+  expect((await popover(page).boundingBox())!.y).not.toBe(first.y)
 })
