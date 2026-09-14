@@ -953,13 +953,6 @@ button.finance-nav-link { cursor: pointer; }
   padding: 14px 0 10px;
   color: var(--finance-muted);
 }
-.plan-list__header small {
-  display: block;
-  margin-top: 3px;
-  color: var(--finance-faint);
-  font-weight: 400;
-  letter-spacing: 0;
-}
 .plan-list__stale {
   display: flex;
   flex-wrap: wrap;
