@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 
+import { CellPopoverContext, useCellPopoverController } from '@/features/analytics/cell-transaction-popover'
 import { formatWon } from '@/lib/finance'
 
 import type { BudgetDraft, BudgetDraftChoice, BudgetDraftRow } from './draft'
@@ -83,6 +84,9 @@ export function PlanList({
   onUndo,
 }: PlanListProps) {
   const confirmationRef = useRef<HTMLDialogElement>(null)
+  // One popover and one cache for the whole table: a 409 on any trend cell must clear every row,
+  // and a row the pointer just left must not close the popover its neighbour has opened.
+  const trendPopover = useCellPopoverController()
   const draftByMajor = new Map(draft.rows.map(row => [row.major, row]))
   const choiceByMajor = new Map(fillConfirmation?.choices.map(choice => [choice.major, choice]) ?? [])
 
@@ -98,6 +102,12 @@ export function PlanList({
 
   return (
     <section className="plan-list" aria-label="예산 편집 목록">
+      {trendPopover.cells.stale && (
+        <p className="plan-list__stale t-caption" role="alert">
+          <span>마감 내역이 바뀌었습니다. 새로고침해 주세요.</span>
+          <button onClick={() => window.location.reload()} type="button">최신 내역 확인</button>
+        </p>
+      )}
       <header className="plan-list__header">
         <span className="t-label">항목</span>
         <span className="t-label">예산 (원)</span>
@@ -105,35 +115,37 @@ export function PlanList({
         <span className="t-label">추이 <small>최근 3개월 실제 지출 · 칸에 올리면 거래 목록</small></span>
       </header>
 
-      {GROUPS.map(group => (
-        <section className="plan-list__group" key={group.key}>
-          <header className="plan-list__group-heading">
-            <h2 className="t-body-strong">{group.label}</h2>
-            <p className="t-caption">{group.note}</p>
-          </header>
-          {rows.filter(row => row.group === group.key).map(row => {
-            const draftRow = draftByMajor.get(row.major)
-            if (!draftRow) return null
-            return (
-              <PlanItem
-                currentEvidence={evidence[row.major]}
-                currentRecommendation={recommendations[row.major] ?? null}
-                draft={draftRow}
-                key={row.major}
-                month={month}
-                onChoose={onChoose}
-                onChooseAi={onChooseAi}
-                onEdit={onEdit}
-                onOpenEvidence={onOpenEvidence}
-                period={period}
-                row={row}
-                savedEvidence={savedEvidence[row.major]}
-                savedRecommendation={savedRecommendations[row.major] ?? null}
-              />
-            )
-          })}
-        </section>
-      ))}
+      <CellPopoverContext.Provider value={trendPopover}>
+        {GROUPS.map(group => (
+          <section className="plan-list__group" key={group.key}>
+            <header className="plan-list__group-heading">
+              <h2 className="t-body-strong">{group.label}</h2>
+              <p className="t-caption">{group.note}</p>
+            </header>
+            {rows.filter(row => row.group === group.key).map(row => {
+              const draftRow = draftByMajor.get(row.major)
+              if (!draftRow) return null
+              return (
+                <PlanItem
+                  currentEvidence={evidence[row.major]}
+                  currentRecommendation={recommendations[row.major] ?? null}
+                  draft={draftRow}
+                  key={row.major}
+                  month={month}
+                  onChoose={onChoose}
+                  onChooseAi={onChooseAi}
+                  onEdit={onEdit}
+                  onOpenEvidence={onOpenEvidence}
+                  period={period}
+                  row={row}
+                  savedEvidence={savedEvidence[row.major]}
+                  savedRecommendation={savedRecommendations[row.major] ?? null}
+                />
+              )
+            })}
+          </section>
+        ))}
+      </CellPopoverContext.Provider>
 
       <dialog
         aria-label="전체 채우기 확인"

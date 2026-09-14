@@ -947,6 +947,17 @@ button.finance-nav-link { cursor: pointer; }
   font-weight: 400;
   letter-spacing: 0;
 }
+.plan-list__stale {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 12px;
+  border-left: 2px solid var(--finance-amber);
+  padding: 8px 12px;
+  color: var(--finance-amber);
+}
+.plan-list__stale button { color: inherit; font-weight: 600; text-decoration: underline; }
 .plan-list__group-heading { display: flex; align-items: baseline; gap: 8px; padding: 18px 0 6px; }
 .plan-list__group-heading p { color: var(--finance-faint); }
 .plan-item { align-items: start; grid-template-rows: min-content 1fr; row-gap: 0; border-bottom: 1px solid var(--finance-border); padding: 12px 0; }
@@ -976,15 +987,19 @@ button.finance-nav-link { cursor: pointer; }
 .plan-item__caption button { color: var(--finance-blue); font-weight: 600; }
 .plan-item__references { display: flex; min-width: 0; flex-direction: column; grid-column: 3; grid-row: 1 / span 2; }
 .plan-trend { display: flex; min-width: 0; flex-direction: column; grid-column: 4; grid-row: 1 / span 2; }
-.plan-trend__stale { margin-bottom: 4px; color: var(--finance-amber); }
 .plan-trend__empty { color: var(--finance-faint); }
+/* The desktop column header already says 추이; the mobile line has no header to rely on. */
+.plan-trend__label,
+.plan-trend__separator { display: none; }
 .plan-trend__cell {
   display: grid;
   height: 32px;
   cursor: pointer;
-  grid-template-columns: minmax(0, 1fr) auto;
+  /* Fixed tracks keep the month beside its amount instead of stranding them at opposite edges
+     of the 360px column, matching .plan-reference__option. */
+  grid-template-columns: 110px 110px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   margin: 0 -10px;
   border: 0;
   background: transparent;
@@ -1113,8 +1128,10 @@ button.finance-nav-link { cursor: pointer; }
   .plan-item__caption,
   .plan-item__references,
   .plan-trend { grid-column: 1; grid-row: auto; }
-  .plan-trend { flex-direction: row; flex-wrap: wrap; gap: 0 12px; margin-top: 4px; }
+  .plan-trend { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0 6px; margin-top: 4px; }
   .plan-trend__cell { height: 36px; grid-template-columns: auto auto; gap: 6px; margin: 0 -8px; padding: 0 8px; }
+  .plan-trend__label { display: inline; margin-right: 2px; color: var(--finance-muted); }
+  .plan-trend__separator { display: inline; color: var(--finance-faint); }
   .plan-reference__option { height: 36px; grid-template-columns: 84px 84px minmax(0, 1fr) 16px; gap: 8px; margin: 0 -8px; padding: 0 8px; }
   .plan-toolbar { align-items: flex-start; }
   .plan-toolbar__label,
