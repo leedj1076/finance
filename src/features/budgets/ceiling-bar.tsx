@@ -18,6 +18,10 @@ export type CeilingBarProps = {
   pending: boolean
   disabled: boolean
   onTargetChange: (target: number) => void
+  /** Why the last save was refused. The bar is sticky, so this is the only place the user is looking. */
+  refusal: string | null
+  /** Takes the user to the explanation and, for an overage, to the consent checkbox below the table. */
+  onShowRefusal: () => void
 }
 
 function compactWon(amount: number) {
@@ -37,6 +41,8 @@ export function CeilingBar({
   basis,
   total,
   ceiling,
+  refusal,
+  onShowRefusal,
   dirty,
   pending,
   disabled,
@@ -92,7 +98,9 @@ export function CeilingBar({
       </div>
 
       <div className="ceiling-bar__actions">
-        {dirty && <span className="ceiling-bar__dirty t-caption text-finance-amber">아직 저장하지 않은 편집안</span>}
+        {refusal
+          ? <button className="ceiling-bar__refusal t-caption" onClick={onShowRefusal} type="button">저장되지 않았습니다 · 확인하기</button>
+          : dirty && <span className="ceiling-bar__dirty t-caption text-finance-amber">아직 저장하지 않은 편집안</span>}
         <button aria-label={saveLabel} className={`ceiling-bar__save t-body-strong ${dirty ? 'is-dirty' : ''}`} disabled={pending || disabled || !dirty} type="submit">
           <span className="ceiling-bar__save-desktop">{saveLabel}</span>
           <span className="ceiling-bar__save-mobile">{mobileSaveLabel}</span>

@@ -21,6 +21,8 @@ function render(overrides: Partial<Parameters<typeof CeilingBar>[0]> = {}) {
     dirty: false,
     pending: false,
     disabled: false,
+    refusal: null,
+    onShowRefusal: vi.fn(),
     onTargetChange: vi.fn(),
     ...overrides,
   }))
@@ -159,11 +161,35 @@ describe('CeilingBar', () => {
       dirty: false,
       pending: false,
       disabled: false,
+      refusal: null,
+      onShowRefusal: vi.fn(),
       onTargetChange,
     }))
 
     slider?.props.onChange?.({ target: { value: '47' } })
 
     expect(onTargetChange).toHaveBeenCalledWith(47)
+  })
+})
+
+describe('CeilingBar refusal notice', () => {
+  test('says nothing about a refusal until a save is refused', () => {
+    const html = render({ dirty: true })
+    expect(html).toContain('아직 저장하지 않은 편집안')
+    expect(html).not.toContain('저장되지 않았습니다')
+  })
+
+  test('replaces the dirty hint with a refusal the user can act on', () => {
+    const html = render({ dirty: true, refusal: '미분류 지출과 정기 지출을 포함한 전체 예산이 상한을 넘습니다.' })
+    expect(html).toContain('저장되지 않았습니다')
+    // The bar is sticky and the explanation is thousands of pixels below it, so the notice has to
+    // be a control that takes the user there, not a passive line of text.
+    expect(html).toMatch(/<button[^>]*ceiling-bar__refusal/)
+    expect(html).not.toContain('아직 저장하지 않은 편집안')
+  })
+
+  test('keeps the save button usable so a corrected draft can be resubmitted', () => {
+    const html = render({ dirty: true, refusal: '상한을 넘습니다.' })
+    expect(html).not.toMatch(/<button[^>]*ceiling-bar__save[^>]*disabled/)
   })
 })

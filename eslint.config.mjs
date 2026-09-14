@@ -18,6 +18,7 @@ const eslintConfig = [
       "out/**",
       "build/**",
       ".worktrees/**",
+      ".vercel/**",
       "next-env.d.ts",
     ],
   },

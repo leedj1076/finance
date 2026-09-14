@@ -49,6 +49,9 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
   const [pending, setPending] = useState(false)
   const [summaryPromptJobId, setSummaryPromptJobId] = useState<string | null>(null)
   const saveRequest = useRef<symbol | null>(null)
+  // The save button lives in a sticky bar at the top; the refusal and its consent checkbox render
+  // below a table that runs past 3,000px, so a refused save has to bring the user to them.
+  const refusalRef = useRef<HTMLDivElement>(null)
   useEffect(() => () => { saveRequest.current = null }, [])
 
   const parsedDraftAmounts = useMemo(() => {
@@ -96,6 +99,10 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
     setCompareWaiting(false)
   }, [baselines, savingsTarget, targetVersion])
 
+  function showRefusal() {
+    refusalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
   async function submitBudget(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (saveRequest.current || recommendation.applyBusy || compareWaiting || invalidDraft || !isDirty) return
@@ -113,6 +120,7 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
         setAcknowledgeOverage(false)
       }
       setState(result)
+      if (!result.saved) showRefusal()
     } catch {
       if (saveRequest.current !== request) return
       setState({ error: '저장 결과를 확인하지 못했습니다. 입력한 초안을 유지했으니 다시 저장해 주세요.' })
@@ -166,8 +174,10 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
           ceiling={targetSpendCeiling}
           dirty={isDirty}
           disabled={invalidDraft || compareWaiting || recommendation.applyBusy}
+          onShowRefusal={showRefusal}
           onTargetChange={value => { setTarget(value); setAcknowledgeOverage(false) }}
           pending={pending}
+          refusal={state.saved ? null : state.error ?? null}
           target={target}
           total={totalBudget}
         />
@@ -210,6 +220,7 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
           savedEvidence={savedEvidence}
           savedRecommendations={recommendation.savedOrigins}
         />
+        <div className="space-y-4" ref={refusalRef}>
         {((allocationGap !== null && allocationGap < 0) || state.code === 'overage_confirmation_required') && <label className="flex items-center gap-2 t-body text-finance-red">
           <input checked={acknowledgeOverage} onChange={event => setAcknowledgeOverage(event.target.checked)} type="checkbox" />
           미분류·정기 지출을 포함한 전체 예산의 상한 초과를 확인하고 저장합니다.
@@ -226,7 +237,8 @@ function BudgetEditor({ baselines, month, planRows, savingsTarget, targetVersion
             {compareWaiting ? '최신 예산 불러오는 중…' : '최신 예산 불러와 비교'}
           </button>
         </section>}
-        {state.error && <p className="t-body text-finance-red">{state.error}</p>}
+        {state.error && <p className="t-body text-finance-red" role="alert">{state.error}</p>}
+        </div>
       </fieldset>
     </form>
     <AiRequestDialog controller={recommendation.controller} onClose={recommendation.closeRequest} open={recommendation.requestOpen} />

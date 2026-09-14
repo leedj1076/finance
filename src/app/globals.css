@@ -854,7 +854,17 @@ button.finance-nav-link { cursor: pointer; }
   .ceiling-bar__compact-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ceiling-bar__target--mobile { justify-self: start; }
   .ceiling-bar__dirty,
-  .ceiling-bar__save-desktop { display: none; }
+
+.ceiling-bar__refusal {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--finance-red);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ceiling-bar__refusal:hover { color: var(--finance-ink); }  .ceiling-bar__save-desktop { display: none; }
   .ceiling-bar__save-mobile { display: inline; }
   .ceiling-bar__save { height: 30px; padding: 0 12px; }
   .ceiling-bar__popover {
