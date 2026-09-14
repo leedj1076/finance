@@ -18,6 +18,7 @@ import {
   percentAxis,
   useFinanceChartPalette,
 } from './chart-js'
+import { ChartLegend } from './chart-legend'
 
 export function SavingsRateChart({ data, target }: {
   data: Array<{ month: string; savingsRate: number; active: boolean }>
@@ -73,8 +74,11 @@ export function SavingsRateChart({ data, target }: {
 
   if (activeCount === 0) return <p className="py-14 text-center t-caption text-finance-muted">올해 수입·지출 기록이 없습니다.</p>
   return (
-    <div className="relative w-full" style={{ height: CHART_HEIGHT }}>
-      <Line aria-label="올해 월별 순저축률" data={chartData} options={options} role="img" />
+    <div>
+      <ChartLegend items={[{ name: '순저축률', color: palette.ink }, { name: `목표 ${formatRate(target)}%`, color: alpha(palette.green, 0.7) }]} />
+      <div className="relative w-full" style={{ height: CHART_HEIGHT }}>
+        <Line aria-label="올해 월별 순저축률" data={chartData} options={options} role="img" />
+      </div>
     </div>
   )
 }

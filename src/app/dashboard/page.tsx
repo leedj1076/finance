@@ -204,15 +204,15 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        <section className="grid gap-10 py-7 xl:grid-cols-[minmax(0,1.35fr)_minmax(420px,0.8fr)]">
-          <article className="min-w-0">
+        <section className="grid gap-10 py-7 xl:grid-cols-2 xl:gap-x-0">
+          <article className="min-w-0 xl:pr-10">
             <div className="flex items-baseline justify-between"><div><h2 className="t-section text-finance-ink">월별 수입 · 지출</h2><p className="mt-1 t-caption text-finance-faint">{year}년 1~{Number(month.slice(5))}월 · 다른 해는 통계에서</p></div><Link className="t-caption font-semibold text-finance-blue" href="/report">통계 →</Link></div>
             <div className="mt-5 min-w-0"><MonthlyCashflowChart data={data.monthly} /></div>
             <p className="mt-2 t-caption text-finance-muted">올해 누적 · 수입 <strong className="text-finance-blue">{formatWon(data.annual.income)}</strong> · 지출 <strong className="text-finance-ink">{formatWon(data.annual.expense)}</strong> · 순저축 <strong className="text-finance-green">{formatWon(data.annual.netSaving)}</strong></p>
           </article>
           <article className="min-w-0 xl:border-l xl:border-finance-border xl:pl-10">
-            <div><h2 className="t-section text-finance-ink">월별 저축률</h2><p className="mt-1 t-caption text-finance-faint">점선 = 목표 {formatRate(data.savingsTarget)}% · 연 누적 {formatRate(data.annual.savingsRate)}%</p></div>
-            <div className="mt-4 min-w-0"><SavingsRateChart data={data.monthly} target={data.savingsTarget} /></div>
+            <div><h2 className="t-section text-finance-ink">월별 저축률</h2><p className="mt-1 t-caption text-finance-faint">연 누적 {formatRate(data.annual.savingsRate)}%</p></div>
+            <div className="mt-5 min-w-0"><SavingsRateChart data={data.monthly} target={data.savingsTarget} /></div>
             <p className="mt-2 t-caption text-finance-muted">목표 달성 <strong className="text-finance-green">{targetReached.length}개월</strong>{bestMonth && <> · 최고 {Number(bestMonth.month.slice(5))}월 {formatRate(bestMonth.savingsRate)}%</>}{worstMonth && <> · 최저 {Number(worstMonth.month.slice(5))}월 {formatRate(worstMonth.savingsRate)}%</>}</p>
           </article>
         </section>
