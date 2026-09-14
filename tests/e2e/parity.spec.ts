@@ -230,6 +230,7 @@ test('ledger inline save keeps the page, draft and scroll while refreshing filte
     await loginAs(page, email, password)
     const url = '/ledger?month=2026-08&tab=list&flow=expense'
     await page.goto(url)
+    await page.locator('#transaction-form summary').click()
     const draft = page.locator('#transaction-form input[name="memo"]')
     await draft.fill('저장하지 않은 새 거래')
     await page.getByRole('row').filter({ hasText: '수정할 거래' }).click()

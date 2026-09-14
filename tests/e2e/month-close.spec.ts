@@ -352,6 +352,7 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expectFitsViewport(page, page.getByRole('heading', { level: 1 }))
   await expectFitsViewport(page, page.getByRole('region', { name: `${CLOSE_MONTH_NUMBER}월 마무리` }))
   await page.goto(`/ledger?month=${CLOSE_MONTH}&q=마감커피`)
+  await page.locator('#transaction-form summary').click()
   const draft = page.locator('#transaction-form input[name="memo"]')
   await draft.fill('유지할 작성 중 입력')
   await page.getByRole('button', { name: `${CLOSE_MONTH} 월 마감`, exact: true }).click()
