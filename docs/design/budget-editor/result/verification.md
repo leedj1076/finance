@@ -88,3 +88,56 @@ Task 6의 반응형 단계에서는 focused 3/3, TypeScript·lint 및 당시 81 
 문서 로컬 링크 검사, 보호 경로 비교와 `git diff --check`는 통과했다. `c544621..a8dbe77` 전체 브랜치와 Task 9 문서의 최종 통합 리뷰에서 Critical/Important 애플리케이션 결함은 발견되지 않았다. 가구 범위 조회, 저장·CAS·늦은 응답 소유권, AI 재검증·출처·취소, 기존 회귀의 이관을 확인했다. Minor 한 건은 새로 추적된 Task 6 scratch report였으며, 로컬 파일을 보존한 채 추적을 해제했다. 이 마지막 정리는 문서·추적 상태뿐이며 검증된 애플리케이션과 테스트 소스는 그대로다.
 
 DB 통합·인증·persistence·저장 충돌·새로고침 검증을 실제로 실행했고 예산 개편 관련 회귀는 통과했다. 최종 전체 E2E의 두 간헐적 실패는 위 한계에 그대로 남긴다. `3341143..af63d9e` 후속 변경의 독립 scoped review는 스펙·품질 모두 승인했으며 Critical/Important 지적은 없었다. 저장된 출처 캡션의 최소 HTML 수정, 실제 hydration 회귀, 기존 E2E assertion 유지, 로컬 fixture 범위와 정리를 확인했다. 브랜치 `codex/budget-editor-redesign`과 worktree를 로컬에 보존하며 push, merge, 배포 또는 운영 작업을 하지 않았다.
+
+## 2026-09-14 추이 열 검증
+
+`docs/superpowers/specs/2026-09-14-budget-trend-column-design.md` 구현 뒤 브랜치 `feat/budget-trend-column`, 커밋 `826dbf1`에서 실행한 결과다.
+
+시작 전 전달받은 전제는 "Docker Desktop이 수동으로 일시 정지돼 있어 로컬 Supabase(`127.0.0.1:54322`)에 접근할 수 없다"였다. 그런데 `NODE_OPTIONS= supabase status`를 실행하니 exit 0과 함께 DB `127.0.0.1:54322`, API `127.0.0.1:54321`가 정상 응답했다. imgproxy·edge_runtime·pooler 세 부가 컨테이너만 정지 상태였다. 출력에 포함된 키·비밀번호는 이 문서 어디에도 옮기지 않았다. 이 전제가 실제와 달랐기 때문에 이번 실행에서는 `pnpm test:db`와 `pnpm e2e`가 접속 실패 없이 실제로 로컬 DB에 붙어 돌았다. Docker를 켜거나 끄는 조작은 하지 않았고 이 상태 변화는 이 작업이 일으킨 것이 아니다.
+
+| 명령 | 결과 |
+|---|---|
+| `NODE_OPTIONS= supabase status` | exit 0. DB `127.0.0.1:54322`, API `127.0.0.1:54321` 응답. 부가 컨테이너 3개 정지. Docker 일시 정지 전제와 다름 |
+| `NODE_OPTIONS= pnpm exec tsc --noEmit` | exit 0, 오류 없음, 2.1초 |
+| `NODE_OPTIONS= pnpm lint` | exit 0, 오류 없음, 5.0초 |
+| `NODE_OPTIONS= pnpm test` | exit 0, 82 files / 717 tests 통과, 12.04초 |
+| `NODE_OPTIONS= pnpm exec playwright test --config=playwright.component.config.ts` | exit 0, 38 passed (38), 16.5초 |
+| `NODE_OPTIONS= pnpm test:db` | exit 0, 40 files / 319 tests 통과, 103.38초. 접속 실패로 예상했던 것과 달리 실제로 돌았다 |
+| `NODE_OPTIONS= pnpm e2e` | exit 1, 82개 중 81 passed / 1 failed, 약 1.7분 |
+| `NODE_OPTIONS= pnpm build` | exit 0. 정적 3개·동적 19개, 총 22개 라우트 생성. `/budgets` 24.6 kB / First Load JS 133 kB |
+
+### `pnpm test:db`로 처음 실행된 네 건
+
+Task 2·3에서 작성된 뒤 지금까지 한 번도 실행되지 못했다고 알려졌던 통합 테스트 네 건이, DB가 실제로 열려 있던 이번 실행에서 돌았고 전부 통과했다.
+
+- `tests/integration/budget-plan-sources.test.ts` → `trend carries the average months oldest first with their close state`
+- `tests/integration/budget-plan-sources.test.ts` → `trend never leaks another household`
+- `tests/integration/category-detail.test.ts` → `a major-only query sums every sub under that major`
+- `tests/integration/category-detail.test.ts` → `a major-only query stays inside the household`
+
+전체 집계(319개) 안에 섞인 결과를 그대로 믿지 않고 이 두 파일만 `--reporter=verbose`로 별도로 다시 돌려, 포함된 열 개 테스트 각각의 통과를 개별 확인했다(`Test Files 2 passed (2)`, `Tests 10 passed (10)`, 1.34초). 네 건 모두 **"unrun"이 아니라 실행되어 통과**로 기록한다. 이전 315개에 이 네 건이 더해져 319개가 된 것도 파일 수·테스트 수 델타(315→319, +4)와 정확히 일치한다.
+
+### `pnpm e2e`: 81/82, 단일 전체 통과 아님
+
+exit 1, 82개 중 81 passed / 1 failed였다. 실패한 한 건은 `tests/e2e/parity.spec.ts:258`의 인박스 제목 편집 시나리오로, 가져오기 작업 내비게이션에서 대기 2건을 기대했지만 3건이 보였다(`검토 대기3파일 업로드처리 기록미분류 거래0`). 2026-09-13 기록의 같은 시나리오 간헐적 실패(대기 2건 대신 3건)와 같은 패턴이다. 이 한 건만 단독으로 재실행하니 통과했다(`1 passed`, 28.0초). 브리프가 함께 지목했던 `month-close.spec.ts`의 모바일 마감 해제 케이스(734행, "current month is restricted and empty ended months require explicit consent in mobile dark mode")는 이번 전체 실행에서 처음부터 통과해 별도 재실행이 필요 없었다.
+
+추이 열 관련 E2E 일곱 건(호버, 지난달 표시, sub 없는 요청, 클릭 토글, 키보드 포커스·Escape, 마감된 stale 월, 390px 탭)과 synthetic 스크린샷 회귀 모두 통과했다. **82/82 단일 전체 통과는 아니다.** 실패한 기능이나 다른 코드를 임의로 고치지 않았다.
+
+### 합성 스크린샷 재생성
+
+standalone 실행이 `docs/design/budget-editor/result/`의 `synthetic-desktop-1440.png`, `synthetic-desktop-target-1440.png`, `synthetic-mobile-390.png`, `synthetic-mobile-menu-390.png`를 다시 썼다. 기존 파일은 추이 열 이전 화면이었다(Task 6가 테스트 커밋에서 바이너리 변경을 빼려고 되돌려 둔 상태). 네 파일을 직접 열어 확인했다.
+
+- 데스크톱 1440: 참고 열 오른쪽에 "추이" 열이 새로 보인다. "최근 3개월 실제 지출 · 칸에 올리면 거래 목록" 안내와 함께 각 행에 7월·8월·9월(지난달) 세 달 실적이 있다. 잘리거나 겹치는 요소 없음.
+- 데스크톱 저축 목표: 목표 저축률 트리거 바로 아래 native popover가 고정되고, 추이 열은 가려지지 않고 그대로 보인다.
+- 모바일 390: 카테고리마다 "7월 118,000  8월 122,000  9월·지난달 126,000" 형태의 한 줄 요약이 참고 블록 아래 표시된다. 가로 스크롤이나 잘림 없음.
+- 모바일 전체 채우기: 펼쳐진 메뉴가 390px 뷰포트 안에 완전히 들어간다.
+
+네 파일을 커밋한다. `local-desktop-1440.png`, `local-mobile-390.png`는 실제 로그인 세션과 라이브 DB로 캡처하는 파일로, `tests/e2e/budget-recommendation-persistence.spec.ts`가 `pnpm e2e` 실행 중 정상 테스트 절차의 일부로 두 파일에 스크린샷을 쓴다. 이번에는 Supabase가 실제로 응답했기 때문에 그 스펙이 끝까지 돌면서 두 파일도 추이 열이 보이는 최신 화면으로 덮어썼다. 하지만 이번 작업에 위임된 커밋 범위는 `synthetic-*.png` 네 개뿐이고 이 두 파일은 포함되지 않으므로, `git checkout`으로 커밋된 버전(추이 열 이전 화면)으로 되돌려 작업 트리에 남기지 않았다. 즉 최신 인증 화면을 가진 파일을 본 것은 맞지만 의도적으로 커밋하지 않았다. 저장소에 남은 `local-*.png` 두 파일은 여전히 추이 열 이전 화면이며 stale하다. 다시 캡처해 커밋할지는 컨트롤러가 별도로 정할 일로 남긴다.
+
+### standalone 브라우저 스위트가 기준선에서 red였던 이유
+
+추이 팝오버가 끌어들인 `next/link`가 모듈 스코프에서 `process.env.__NEXT_*` 라우터 플래그를 읽는데, standalone 번들러 설정(`tests/e2e/fixtures/budget-editor-browser.ts`)이 그 값을 정의하지 않아 실제 브라우저에서 번들이 "process is not defined"로 로드 시점에 터졌다. boot()의 첫 assertion에 닿기도 전에 스위트 전체가 실패하는 기준선이 있었고, Task 6가 그 파일에 필요한 플래그를 정의해 고쳤다. 이번 실행은 추이 관련 일곱 건이 더해진 38/38이다.
+
+### 보호 경계
+
+브랜치 병합 기준점 `9af8e2b`부터 `826dbf1`까지 바뀐 파일을 전부 나열해 확인했다. `save-contract.ts`, `save-service.ts`, `budget-recommendations/snapshot.ts`, `budget-recommendations/worker.ts`는 목록에 없다. DB 스키마·마이그레이션 변경도 없다. 바뀐 것은 `src/features/analytics/*`, `src/features/budgets/*`와 그 테스트들, `eslint.config.mjs`(Task 1, 중첩 워크트리를 lint ignore에 추가), `src/app/globals.css`뿐이다.

@@ -22,7 +22,11 @@ During review the desktop manual caption was 48.5px below its input. The scoped 
 
 These use the actual Next page, header, month controls, fonts and status chip with a signed-in **synthetic local household**, not production data. The completed recommendation is loaded and popovers are dismissed. The saved amount is 310,000 with the original 300,000 AI provenance. Full-page mobile capture includes the fixed bottom navigation partway down the image. Both captures were visually inspected; no horizontal overflow was observed.
 
-Latest verification: TypeScript/lint/build passed, 698 unit tests and 315 DB integration tests passed. Final full E2E: **73/75 passed**, including all budget-editor cases and the new SSR hydration regression. The two other failures passed once together in isolation (2/2), without changes. This is **not** a clean 75/75 full-suite result. See [verification.md](verification.md) for exact results and remaining limits.
+## Trend column recapture — September 14
+
+The four synthetic screenshots above were recaptured after the trend column landed, via `NODE_OPTIONS= pnpm exec playwright test --config=playwright.component.config.ts`. A new trend column now sits right of the reference column, showing the last three months of actual spending per row; hovering, clicking or focusing a month opens that month's transaction popover. The rest of the fixture (groups, long category name, missing/zero/provisional history, AI reason) is unchanged. `local-desktop-1440.png` and `local-mobile-390.png` were not recaptured this round and still show the pre-trend-column screen.
+
+Latest verification: TypeScript/lint/build passed, 717 unit tests and 319 DB integration tests passed. Full E2E: **81/82 passed** on a single run; the sole failure was the previously-documented intermittent inbox-title-edit case in `parity.spec.ts`, which passed alone on a rerun. This is **not** a clean 82/82 full-suite result. See [verification.md](verification.md) for exact results and remaining limits.
 
 Reproduce the fixture suite:
 
