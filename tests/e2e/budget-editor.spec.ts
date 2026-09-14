@@ -17,6 +17,8 @@ let posts: Record<string, unknown>[]
 let release: (() => void) | undefined
 let afterGet: ((count: number) => Promise<BudgetRecommendationData>) | undefined
 let afterPost: (() => Promise<BudgetRecommendationData>) | undefined
+let cellRequests: string[] = []
+let cellStatus = 200
 
 function completed(amount = 300_000, id = jobId): BudgetRecommendationData {
   const snapshot = makeBudgetSnapshot()
@@ -31,6 +33,9 @@ function completed(amount = 300_000, id = jobId): BudgetRecommendationData {
 function item(page: Page, major = '식비') {
   return page.getByRole('article').filter({ has: page.getByRole('heading', { name: major, exact: true }) })
 }
+const trendCell = (page: Page, month: string, major = '식비') =>
+  item(page, major).getByRole('button', { name: new RegExp(`^${major} ${month} `) })
+const popover = (page: Page) => page.getByRole('tooltip')
 const reference = (page: Page, label: string, major = '식비') => item(page, major).getByRole('button', { name: new RegExp('^' + label + ' ') })
 const requestDialog = (page: Page) => page.getByRole('dialog', { name: 'AI 예산 추천 요청', exact: true })
 async function boot(page: Page, options: { delayed?: boolean; empty?: boolean; stale?: boolean } = {}) {
@@ -38,8 +43,23 @@ async function boot(page: Page, options: { delayed?: boolean; empty?: boolean; s
   if (options.empty) data = { ...data, latestJob: null, completed: null }
   if (options.stale) data.freshness = 'source_changed'
   gets = 0; posts = []; release = undefined; afterGet = undefined; afterPost = undefined
+  cellRequests = []; cellStatus = 200
   await page.route('http://localhost/**', async route => {
     const url = new URL(route.request().url())
+    if (url.pathname === '/api/cell-tx') {
+      cellRequests.push(url.search)
+      if (cellStatus === 409) return route.fulfill({ status: 409, json: { error: '마감 내역이 바뀌었습니다.', refresh: true } })
+      return route.fulfill({ json: {
+        major: url.searchParams.get('major'),
+        sub: url.searchParams.get('sub'),
+        ym: `${url.searchParams.get('year')}-${String(url.searchParams.get('month')).padStart(2, '0')}`,
+        total: 811_161,
+        items: [
+          { date: '2026-06-21', name: '코스트코코리아', amount: 196_610, acct: 'DJ 현대' },
+          { date: '2026-06-11', name: '쿠팡', amount: 133_140, acct: 'DJ 국민' },
+        ],
+      } })
+    }
     if (url.pathname === '/api/budget-recommendations') {
       if (route.request().method() === 'POST') {
         const body = route.request().postDataJSON()
@@ -304,4 +324,59 @@ test('synthetic screenshots show source CSS, desktop target anchoring and 390 ta
   await page.screenshot({ animations: 'disabled', path: path.join(directory, 'synthetic-mobile-menu-390.png'), fullPage: true })
   await page.locator('.plan-toolbar__mobile-menu').getByRole('button', { name: '지난달 실적', exact: true }).click()
   await expect(page.getByRole('dialog', { name: '전체 채우기 확인', exact: true })).toBeVisible()
+})
+
+test('hovering a trend cell opens its transactions and leaves the draft untouched', async ({ page }) => {
+  await boot(page)
+  const budget = page.getByLabel('식비 예산', { exact: true })
+  await expect(budget).toHaveValue('300000')
+  await trendCell(page, '7월').hover()
+  await expect(popover(page)).toBeVisible()
+  await expect(popover(page)).toContainText('2건 · 811,161원')
+  await expect(popover(page)).toContainText('코스트코코리아')
+  await expect(budget).toHaveValue('300000')
+})
+
+test('the month that is also the previous-actual row is marked', async ({ page }) => {
+  await boot(page)
+  await expect(trendCell(page, '9월')).toContainText('9월 · 지난달')
+  await expect(trendCell(page, '7월')).not.toContainText('지난달')
+})
+
+test('the trend request asks for the major without a sub', async ({ page }) => {
+  await boot(page)
+  await trendCell(page, '7월').hover()
+  await expect(popover(page)).toBeVisible()
+  expect(cellRequests.some(search => search.includes('major=') && !search.includes('sub='))).toBe(true)
+})
+
+test('clicking a trend cell opens it and clicking again closes it', async ({ page }) => {
+  await boot(page)
+  await trendCell(page, '7월').click()
+  await expect(popover(page)).toBeVisible()
+  await trendCell(page, '7월').click()
+  await expect(popover(page)).toBeHidden()
+})
+
+test('keyboard focus opens the popover and Escape closes it', async ({ page }) => {
+  await boot(page)
+  await trendCell(page, '7월').focus()
+  await expect(popover(page)).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(popover(page)).toBeHidden()
+})
+
+test('a stale closed month reports itself instead of showing old rows', async ({ page }) => {
+  await boot(page)
+  cellStatus = 409
+  await trendCell(page, '7월').click()
+  await expect(page.getByText('마감 내역이 바뀌었습니다. 새로고침해 주세요.')).toBeVisible()
+  await expect(popover(page)).toBeHidden()
+})
+
+test('a trend cell is tappable at 390px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await boot(page)
+  await trendCell(page, '7월').tap()
+  await expect(popover(page)).toBeVisible()
 })

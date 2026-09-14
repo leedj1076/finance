@@ -42,7 +42,12 @@ export async function buildBudgetBrowser(): Promise<BudgetBrowserBundle> {
         if (resource.context === path.join(root, 'src/features/budgets')) {
           resource.request = path.join(root, 'tests/e2e/fixtures/budget-save-lifecycle-boundaries.ts')
         }
-      })],
+      }),
+      // next/link (pulled in by the trend popover's ledger link) reads process.env.__NEXT_* router
+      // flags at module scope. The real Next.js build defines these; this bare webpack config
+      // doesn't, so the bundle throws "process is not defined" the instant it loads in a browser.
+      // All reads here are guarded with || / && / if, so an empty object is a safe stand-in.
+      new webpack.DefinePlugin({ 'process.env': '({})' })],
   })
   await compile({
     mode: 'development', devtool: false, target: 'node',
