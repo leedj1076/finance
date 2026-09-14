@@ -19,9 +19,8 @@ import { toggleCategoryDetailCell } from './category-detail-calculations'
 import type { CategoryDetails, CellTransactionResult } from './category-detail'
 import { CellTransactionTooltip } from './cell-transaction-tooltip'
 import { compactWon } from './chart-theme'
-import { PROVISIONAL_DASH, resolveChartColor, useFinanceChartPalette } from './chart-js'
+import { PROVISIONAL_DASH } from './chart-js'
 import { ChartHoverTooltip } from './chart-hover-tooltip'
-import { ChartLegend } from './chart-legend'
 import type { ChartHoverAnchor } from './chart-tooltip-position'
 import { buildSeriesChartGeometry } from './series-chart-geometry'
 import { SeriesChart, type SeriesChartKind } from './series-chart'
@@ -144,7 +143,6 @@ export function StatsMonthlySection({
   initialChart?: SeriesChartKind
 }) {
   const router = useRouter()
-  const palette = useFinanceChartPalette()
   const [stale, setStale] = useState(false)
   const [flow, setFlow] = useState<StatsMonthlyFlow>(initialFlow)
   const [axis, setAxis] = useState<StatsMonthlyAxis>(initialFlow === 'expense' ? initialAxis : 'category')
@@ -456,7 +454,7 @@ export function StatsMonthlySection({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="t-section text-finance-ink">달마다 어떻게 달랐나</h2>
-          <p className="mt-1 t-caption text-finance-faint">그래프나 표의 항목을 클릭하면 상세 · 셀 클릭은 합계에서 제외</p>
+          <p className="mt-1 t-caption text-finance-faint">그래프나 표의 항목을 클릭하면 상세 · 셀 클릭은 합계와 그래프에서 제외</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <div aria-label="그래프 종류" className="inline-flex border border-finance-ink" role="group">
@@ -551,9 +549,6 @@ export function StatsMonthlySection({
                       </p>
                   </ChartHoverTooltip>
                 )}
-              </div>
-              <div className="col-span-12 col-start-2 pt-2">
-                <ChartLegend items={model.series.map((item) => ({ name: item.label, color: resolveChartColor(item.color, palette) }))} />
               </div>
             </div>
 

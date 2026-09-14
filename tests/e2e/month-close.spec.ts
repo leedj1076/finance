@@ -323,7 +323,9 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(page.getByRole('heading', { name: '마감한 월이 없습니다', exact: true })).toHaveCount(0)
   await expect(page.getByText(`마감 0개월 · 잠정 1개월 (${CLOSE_MONTH_NUMBER}월)`)).toBeVisible()
   await expect(page.getByRole('navigation', { name: '통계 월 마감 현황' }).getByRole('link', { name: `${CLOSE_MONTH_NUMBER}월 미마감`, exact: true })).toBeVisible()
-  await expect(page.getByText('잠정 · 마감 0개월').first()).toBeVisible()
+  // 페이지 전체가 잠정이면 배지는 모두 빠지고 머리말 안내 한 줄만 남는다.
+  await expect(page.getByText('마감된 달이 없어')).toBeVisible()
+  await expect(page.getByText('잠정 · 마감 0개월')).toHaveCount(0)
   await expect(page.getByText('미마감 · 잠정', { exact: true })).toBeVisible()
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -390,7 +392,8 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(page.getByRole('heading', { name: '마감한 월이 없습니다', exact: true })).toHaveCount(0)
   await expect(page.getByText(`마감 0개월 · 잠정 1개월 (${CLOSE_MONTH_NUMBER}월)`)).toBeVisible()
   await expect(page.getByRole('navigation', { name: '통계 월 마감 현황' }).getByRole('link', { name: `${CLOSE_MONTH_NUMBER}월 재확인 필요`, exact: true })).toBeVisible()
-  await expect(page.getByText('잠정 · 마감 0개월').first()).toBeVisible()
+  await expect(page.getByText('마감된 달이 없어')).toBeVisible()
+  await expect(page.getByText('잠정 · 마감 0개월')).toHaveCount(0)
   await expect(page.getByText('미마감 · 잠정', { exact: true })).toBeVisible()
   const provisionalSection = page.locator('#category-detail')
   await provisionalSection.getByLabel('상세 항목 선택').selectOption({ label: '식비' })

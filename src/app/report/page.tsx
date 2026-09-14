@@ -110,7 +110,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
         {hasAnyData && dataIsProvisional && (
           <p className="mt-4 border-l-2 border-finance-amber py-2 pl-3 t-caption text-finance-muted">
-            마감된 달이 없어 이 페이지의 모든 값은 마감 전 내역을 포함한 <strong className="text-finance-ink">잠정</strong>입니다. 전년 비교만 따로 표시합니다.
+            마감된 달이 없어 이 페이지의 모든 값은 마감 전 내역을 포함한 <strong className="text-finance-ink">잠정</strong>입니다.
           </p>
         )}
 
@@ -142,7 +142,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
                 목표 {formatRate(stats.savingsTarget)}% {data.annual.savingsRate >= stats.savingsTarget ? '달성' : '진행 중'} · {data.annual.savingsRate - stats.savingsTarget >= 0 ? '+' : ''}{formatRate(data.annual.savingsRate - stats.savingsTarget)}%p
               </p>
               <p className={`mt-2 t-caption leading-relaxed ${bodyTone('text-finance-muted')}`}>
-                <span className={comparisonTone('text-finance-ink')}>{comparison.hasPrevious ? <>전년 {formatRate(comparison.previous.savingsRate)}% → <strong>{comparison.savingsRateDelta >= 0 ? '+' : ''}{formatRate(comparison.savingsRateDelta)}%p</strong>{comparisonIsProvisional && <StatusTag provisional reason={comparisonReason} />}</> : '–'}</span><br />
+                <span className={comparisonTone('text-finance-ink')}>{comparison.hasPrevious ? <>전년 {formatRate(comparison.previous.savingsRate)}% → <strong>{comparison.savingsRateDelta >= 0 ? '+' : ''}{formatRate(comparison.savingsRateDelta)}%p</strong>{!dataIsProvisional && comparisonIsProvisional && <StatusTag provisional reason={comparisonReason} />}</> : '–'}</span><br />
                 {dataIsProvisional ? `달성 ${stats.provisionalTargetHitMonths}/${stats.provisionalMonths.length}개월 (잠정)` : `달성 ${stats.targetHitMonths}/${completedMonths}개월`}
                 {data.bestMonth && ` · 최고 ${data.bestMonth.month}월 ${formatRate(data.bestMonth.savingsRate)}%`}
                 {data.worstMonth && ` · 최저 ${data.worstMonth.month}월 ${formatRate(data.worstMonth.savingsRate)}%`}
@@ -158,7 +158,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
               <p className="t-label text-finance-muted">{item.label}</p>
               <p className={`mt-2 t-kpi tabular-nums ${bodyTone(item.tone)}`}>{formatWon(item.value)}<span className={`ml-1 t-body font-medium ${bodyTone('text-finance-muted')}`}>원</span></p>
               <p className={`mt-2 t-caption ${comparisonTone('text-finance-ink')}`}>
-                {comparison.hasPrevious ? <>전년 대비 {yoyAmountText(item.comparison)}{comparisonIsProvisional && <StatusTag provisional reason={comparisonReason} />}</> : '–'}
+                {comparison.hasPrevious ? <>전년 대비 {yoyAmountText(item.comparison)}{!dataIsProvisional && comparisonIsProvisional && <StatusTag provisional reason={comparisonReason} />}</> : '–'}
                 {item.label === '연 순저축' && ` · 저축 납입 ${formatWon(data.annual.saving)}원`}
               </p>
             </article>
@@ -241,7 +241,7 @@ export default async function ReportPage({ searchParams }: ReportPageProps) {
 
         <section className="grid gap-8 py-6 lg:grid-cols-2 lg:gap-12">
           <div className="min-w-0">
-            <h2 className="t-section text-finance-ink">전년 같은 기간과 비교<StatusTag provisional={comparisonIsProvisional} reason={comparisonReason} /> <span className="ml-1 font-normal text-finance-muted">{data.year} vs {data.previousYear}</span></h2>
+            <h2 className="t-section text-finance-ink">전년 같은 기간과 비교{!dataIsProvisional && <StatusTag provisional={comparisonIsProvisional} reason={comparisonReason} />} <span className="ml-1 font-normal text-finance-muted">{data.year} vs {data.previousYear}</span></h2>
             <p className="mt-2 t-caption text-finance-muted">{comparison.hasPrevious ? `양쪽 모두 ${comparisonMonthList} 기준` : '–'}</p>
             <div className="mt-4 overflow-x-auto">
               <div className="min-w-[520px] border-t border-finance-ink">

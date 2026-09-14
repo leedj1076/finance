@@ -56,7 +56,9 @@ test('no closed months shows provisional KPI bodies and forecast, excluding curr
   expect(html).toMatch(/t-kpi tabular-nums text-finance-faint">3,000/)
   expect(html).toMatch(/t-kpi-sm text-finance-faint">\+1,200원/)
   expect(html).toContain('달성 2/2개월 (잠정)')
-  expect(html).toContain('잠정 · 마감 0개월')
+  // 페이지 전체가 잠정이면 배지 대신 머리말 안내 한 줄만 그 사실을 말한다.
+  expect(html).toContain('마감된 달이 없어')
+  expect(html).not.toContain('잠정 · 마감 0개월')
   expect(html).toMatch(/t-caption font-semibold tabular-nums text-finance-faint">11,200/)
 })
 
@@ -116,6 +118,8 @@ test.each(['income', 'refund', 'offset'] as const)('current-only %s records stay
 test('only a truly empty year uses the empty view, but an explicit closed zero keeps statistics', async () => {
   const empty = await render(fixture({ closed: [], records: [], previous: false }))
   expect(empty).toContain('이 연도에는 거래가 없습니다')
+  // 값이 하나도 없는 해에는 잠정 안내가 수식할 값이 없다.
+  expect(empty).not.toContain('마감된 달이 없어')
   expect(empty).not.toContain('내역에서 월 마감')
   const closedZero = await render(fixture({ closed: [1], records: [], previous: false }))
   expect(closedZero).toContain('달마다 어떻게 달랐나')
