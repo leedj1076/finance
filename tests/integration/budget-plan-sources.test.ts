@@ -90,5 +90,28 @@ test('planning rows use three ended record months, close status, baseline versio
       spendMonths: ['2026-08', '2026-06'],
       provisional: true,
     },
+    trend: [
+      { month: '2026-06', amount: 200, closed: true, revision: expect.any(Number) },
+      { month: '2026-07', amount: 0, closed: true, revision: expect.any(Number) },
+      { month: '2026-08', amount: 300, closed: false, revision: expect.any(Number) },
+    ],
   })
+})
+
+test('trend carries the average months oldest first with their close state', async () => {
+  const data = await getBudgetPlanningData(own, '2026-10')
+  const food = data.planRows.find(row => row.major === '식비')
+  expect(food).toBeDefined()
+  expect(food!.trend.map(month => month.month)).toEqual([...food!.average3.months].sort())
+  expect(food!.trend.map(month => month.month)).toEqual([...food!.trend.map(month => month.month)].sort())
+  for (const month of food!.trend) {
+    expect(Number.isSafeInteger(month.amount)).toBe(true)
+    expect(Number.isSafeInteger(month.revision)).toBe(true)
+  }
+})
+
+test('trend never leaks another household', async () => {
+  const data = await getBudgetPlanningData(own, '2026-10')
+  const total = data.planRows.flatMap(row => row.trend).reduce((sum, month) => sum + month.amount, 0)
+  expect(total).toBeLessThan(9_999_999)
 })

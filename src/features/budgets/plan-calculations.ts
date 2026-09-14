@@ -25,6 +25,30 @@ export type Average3Input = {
   monthStatuses: { month: string; state: 'open' | 'closed' | 'needs_review' }[]
 }
 
+export type TrendInput = Average3Input & {
+  monthRevisions: { month: string; revision: number }[]
+}
+
+/** The trend columns are the breakdown of the 3-month average, so they share its months exactly. */
+export function buildTrend(input: TrendInput): BudgetPlanRow['trend'] {
+  const transactionMonths = new Set(input.transactionMonths)
+  const months = input.candidateMonths.filter(month => transactionMonths.has(month))
+  const amountByMonth = new Map<string, number>()
+  for (const row of input.majorMonthlyAmounts) {
+    if (!months.includes(row.month)) continue
+    amountByMonth.set(row.month, (amountByMonth.get(row.month) ?? 0) + row.amount)
+  }
+  const stateByMonth = new Map(input.monthStatuses.map(status => [status.month, status.state]))
+  const revisionByMonth = new Map(input.monthRevisions.map(row => [row.month, row.revision]))
+
+  return [...months].sort().map(month => ({
+    month,
+    amount: amountByMonth.get(month) ?? 0,
+    closed: stateByMonth.get(month) === 'closed',
+    revision: revisionByMonth.get(month) ?? 0,
+  }))
+}
+
 export function calculateAverage3(input: Average3Input): BudgetPlanRow['average3'] {
   const transactionMonths = new Set(input.transactionMonths)
   const months = input.candidateMonths.filter(month => transactionMonths.has(month))

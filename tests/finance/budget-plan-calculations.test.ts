@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 
-import { calculateAverage3, differenceCaption, initialSource } from '@/features/budgets/plan-calculations'
+import { buildTrend, calculateAverage3, differenceCaption, initialSource } from '@/features/budgets/plan-calculations'
 import type { BudgetPlanRow } from '@/features/budgets/plan-sources'
 
 const saved = { amount: 240_000, recommendationJobId: null, version: 'version' }
@@ -12,6 +12,7 @@ const row = (overrides: Partial<BudgetPlanRow> = {}): BudgetPlanRow => ({
   previousBudget: 220_000,
   previousActual: { amount: 230_000, month: '2026-09', partial: null },
   average3: { amount: 210_000, months: ['2026-08', '2026-07', '2026-06'], monthsWithSpend: 3, provisional: false },
+  trend: [],
   ...overrides,
 })
 
@@ -126,4 +127,49 @@ test('differenceCaption distinguishes over, equal, and under budget', () => {
   expect(differenceCaption(131_700, 120_000)).toBe('+11,700 초과')
   expect(differenceCaption(380_000, 380_000)).toBe('예산과 같음')
   expect(differenceCaption(56_300, 120_000)).toBe('−63,700')
+})
+
+describe('buildTrend', () => {
+  const input = {
+    candidateMonths: ['2026-08', '2026-07', '2026-06'],
+    transactionMonths: ['2026-08', '2026-07', '2026-06'],
+    majorMonthlyAmounts: [
+      { month: '2026-08', amount: 1_257_831 },
+      { month: '2026-07', amount: 1_253_700 },
+      { month: '2026-06', amount: 1_298_653 },
+    ],
+    monthStatuses: [
+      { month: '2026-08', state: 'open' as const },
+      { month: '2026-07', state: 'closed' as const },
+      { month: '2026-06', state: 'closed' as const },
+    ],
+    monthRevisions: [
+      { month: '2026-08', revision: 4 },
+      { month: '2026-07', revision: 2 },
+      { month: '2026-06', revision: 7 },
+    ],
+  }
+
+  test('returns the average months oldest first with closed state and revision', () => {
+    expect(buildTrend(input)).toEqual([
+      { month: '2026-06', amount: 1_298_653, closed: true, revision: 7 },
+      { month: '2026-07', amount: 1_253_700, closed: true, revision: 2 },
+      { month: '2026-08', amount: 1_257_831, closed: false, revision: 4 },
+    ])
+  })
+
+  test('matches calculateAverage3 months exactly when a month has no household records', () => {
+    const narrowed = { ...input, transactionMonths: ['2026-08', '2026-06'] }
+    expect(buildTrend(narrowed).map(month => month.month))
+      .toEqual([...calculateAverage3(narrowed).months].sort())
+  })
+
+  test('keeps a month the major did not spend in as zero', () => {
+    const missing = { ...input, majorMonthlyAmounts: [{ month: '2026-06', amount: 1_298_653 }] }
+    expect(buildTrend(missing).map(month => month.amount)).toEqual([1_298_653, 0, 0])
+  })
+
+  test('returns an empty list when no candidate month has records', () => {
+    expect(buildTrend({ ...input, transactionMonths: [] })).toEqual([])
+  })
 })

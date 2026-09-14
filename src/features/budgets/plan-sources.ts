@@ -4,7 +4,7 @@ import { categories, transactions } from '@/db/schema'
 import { readMonthStatuses } from '@/features/month-close/queries'
 import { currentMonthInKorea, shiftMonth } from '@/lib/finance'
 
-import { calculateAverage3 } from './plan-calculations'
+import { buildTrend, calculateAverage3 } from './plan-calculations'
 import { todayInKorea } from './pace'
 import type { BudgetReader } from './queries'
 
@@ -28,6 +28,12 @@ export type BudgetPlanRow = {
     spendMonths?: string[]
     provisional: boolean
   }
+  trend: {
+    month: string
+    amount: number
+    closed: boolean
+    revision: number
+  }[]
 }
 
 type BudgetPlanInput = {
@@ -90,6 +96,10 @@ export async function readBudgetPlanRows(
     if (row.group !== 'fixed' && row.group !== 'variable' && row.group !== 'irregular') {
       throw new Error(`Invalid budget group for ${row.major}`)
     }
+    const majorMonthlyAmounts = monthlyRows
+      .filter(month => month.major === row.major)
+      .map(month => ({ month: month.month, amount: Number(month.amount) }))
+    const shared = { candidateMonths, transactionMonths, majorMonthlyAmounts, monthStatuses }
     return {
       major: row.major,
       group: row.group,
@@ -105,13 +115,10 @@ export async function readBudgetPlanRows(
         month: previousMonth,
         partial,
       },
-      average3: calculateAverage3({
-        candidateMonths,
-        transactionMonths,
-        majorMonthlyAmounts: monthlyRows
-          .filter(month => month.major === row.major)
-          .map(month => ({ month: month.month, amount: Number(month.amount) })),
-        monthStatuses,
+      average3: calculateAverage3(shared),
+      trend: buildTrend({
+        ...shared,
+        monthRevisions: monthStatuses.map(status => ({ month: status.month, revision: status.revision })),
       }),
     }
   })
