@@ -29,10 +29,18 @@ export type TrendInput = Average3Input & {
   monthRevisions: { month: string; revision: number }[]
 }
 
+/**
+ * The months both the trend column and the 3-month average cover. Spec section 5.1 requires the
+ * two sets be exactly equal, so they read it from here rather than each recomputing it.
+ */
+export function selectedMonths(input: Pick<Average3Input, 'candidateMonths' | 'transactionMonths'>) {
+  const transactionMonths = new Set(input.transactionMonths)
+  return input.candidateMonths.filter(month => transactionMonths.has(month))
+}
+
 /** The trend columns are the breakdown of the 3-month average, so they share its months exactly. */
 export function buildTrend(input: TrendInput): BudgetPlanRow['trend'] {
-  const transactionMonths = new Set(input.transactionMonths)
-  const months = input.candidateMonths.filter(month => transactionMonths.has(month))
+  const months = selectedMonths(input)
   const amountByMonth = new Map<string, number>()
   for (const row of input.majorMonthlyAmounts) {
     if (!months.includes(row.month)) continue
@@ -50,8 +58,7 @@ export function buildTrend(input: TrendInput): BudgetPlanRow['trend'] {
 }
 
 export function calculateAverage3(input: Average3Input): BudgetPlanRow['average3'] {
-  const transactionMonths = new Set(input.transactionMonths)
-  const months = input.candidateMonths.filter(month => transactionMonths.has(month))
+  const months = selectedMonths(input)
   const retained = new Set(months)
   const amountByMonth = new Map<string, number>()
   for (const row of input.majorMonthlyAmounts) {
