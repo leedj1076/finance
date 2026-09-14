@@ -931,7 +931,7 @@ button.finance-nav-link { cursor: pointer; }
 .plan-list__header,
 .plan-item {
   display: grid;
-  grid-template-columns: 200px 200px minmax(0, 1fr);
+  grid-template-columns: 200px 200px minmax(0, 1fr) 360px;
   gap: 16px;
 }
 .plan-list__header {
@@ -975,6 +975,34 @@ button.finance-nav-link { cursor: pointer; }
 .plan-item__caption--violet { color: var(--finance-violet); font-weight: 600; }
 .plan-item__caption button { color: var(--finance-blue); font-weight: 600; }
 .plan-item__references { display: flex; min-width: 0; flex-direction: column; grid-column: 3; grid-row: 1 / span 2; }
+.plan-trend { display: flex; min-width: 0; flex-direction: column; grid-column: 4; grid-row: 1 / span 2; }
+.plan-trend__stale { margin-bottom: 4px; color: var(--finance-amber); }
+.plan-trend__empty { color: var(--finance-faint); }
+.plan-trend__cell {
+  display: grid;
+  height: 32px;
+  cursor: pointer;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -10px;
+  border: 0;
+  background: transparent;
+  padding: 0 10px;
+  color: var(--finance-ink);
+  text-align: left;
+}
+.plan-trend__cell:hover { background: var(--finance-panel); }
+.plan-trend__month {
+  overflow: hidden;
+  color: var(--finance-muted);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plan-trend__amount { font-variant-numeric: tabular-nums; text-align: right; }
+.plan-trend__cell--provisional .plan-trend__amount { color: var(--finance-faint); }
 .plan-reference__option {
   display: grid;
   height: 32px;
@@ -1083,7 +1111,10 @@ button.finance-nav-link { cursor: pointer; }
   .plan-item__major { min-width: 0; }
   .plan-item__input-row { width: 150px; flex: none; }
   .plan-item__caption,
-  .plan-item__references { grid-column: 1; grid-row: auto; }
+  .plan-item__references,
+  .plan-trend { grid-column: 1; grid-row: auto; }
+  .plan-trend { flex-direction: row; flex-wrap: wrap; gap: 0 12px; margin-top: 4px; }
+  .plan-trend__cell { height: 36px; grid-template-columns: auto auto; gap: 6px; margin: 0 -8px; padding: 0 8px; }
   .plan-reference__option { height: 36px; grid-template-columns: 84px 84px minmax(0, 1fr) 16px; gap: 8px; margin: 0 -8px; padding: 0 8px; }
   .plan-toolbar { align-items: flex-start; }
   .plan-toolbar__label,

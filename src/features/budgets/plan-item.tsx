@@ -7,6 +7,7 @@ import { formatWon } from '@/lib/finance'
 import type { BudgetDraftRow } from './draft'
 import { differenceCaption } from './plan-calculations'
 import type { BudgetPlanRow, BudgetSource } from './plan-sources'
+import { PlanTrend } from './plan-trend'
 
 export type PlanRecommendation = {
   jobId: string
@@ -256,6 +257,11 @@ export function PlanItem({
           </div>
         )}
       </div>
+      <PlanTrend
+        major={row.major}
+        previousActualMonth={row.previousActual.month}
+        trend={row.trend}
+      />
     </article>
   )
 }
