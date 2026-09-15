@@ -33,7 +33,7 @@ export function AssetAccountsManager({ groups }: { groups: AssetGroup[] }) {
       <div className="grid gap-px bg-finance-hairline lg:grid-cols-2">
         {groups.map((group) => (
           <section className="bg-white p-5" key={`${group.kind}:${group.major}`}>
-            <div className="flex items-center justify-between"><h3 className="t-body-strong text-finance-ink">{group.major}</h3><button className="t-caption font-semibold text-finance-blue" onClick={() => { setNewRows((current) => [...current, { key: nextKey, major: group.major, kind: group.kind, name: '' }]); setNextKey((value) => value + 1) }} type="button">+ 계정 추가</button></div>
+            <div className="flex items-center justify-between"><h3 className="t-body-strong text-finance-ink">{group.major}</h3><button className="t-caption-strong text-finance-blue" onClick={() => { setNewRows((current) => [...current, { key: nextKey, major: group.major, kind: group.kind, name: '' }]); setNextKey((value) => value + 1) }} type="button">+ 계정 추가</button></div>
             <div className="mt-3 divide-y divide-finance-hairline">
               {group.rows.map((row) => {
                 const deleted = deletedIds.has(row.id)
@@ -41,15 +41,15 @@ export function AssetAccountsManager({ groups }: { groups: AssetGroup[] }) {
                   <div className={`grid grid-cols-[minmax(0,1fr)_auto] gap-2 py-2 ${deleted ? 'opacity-50' : ''}`} key={row.id}>
                     <input name="accountId" type="hidden" value={row.id} />
                     <input name={`deleted:${row.id}`} type="hidden" value={deleted ? 'on' : ''} />
-                    <input aria-label={`${row.name} 이름`} className={`h-[34px] border border-finance-hairline bg-white px-3 text-[13px] outline-none focus:border-finance-blue ${deleted ? 'line-through' : ''}`} name={`name:${row.id}`} onChange={(event) => setNames((current) => ({ ...current, [row.id]: event.target.value }))} value={names[row.id] ?? ''} />
-                    <button className={`w-16 t-caption font-semibold ${deleted ? 'text-finance-blue' : 'text-finance-red'}`} onClick={() => setDeletedIds((current) => { const next = new Set(current); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next })} type="button">{deleted ? '취소' : '보관'}</button>
+                    <input aria-label={`${row.name} 이름`} className={`h-[34px] border border-finance-hairline bg-white px-3 t-body outline-none focus:border-finance-blue ${deleted ? 'line-through' : ''}`} name={`name:${row.id}`} onChange={(event) => setNames((current) => ({ ...current, [row.id]: event.target.value }))} value={names[row.id] ?? ''} />
+                    <button className={`w-16 t-caption-strong ${deleted ? 'text-finance-blue' : 'text-finance-red'}`} onClick={() => setDeletedIds((current) => { const next = new Set(current); if (next.has(row.id)) next.delete(row.id); else next.add(row.id); return next })} type="button">{deleted ? '취소' : '보관'}</button>
                   </div>
                 )
               })}
               {newRows.filter((row) => row.major === group.major && row.kind === group.kind).map((row) => (
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 py-2" key={row.key}>
-                  <input aria-label={`${group.major} 새 계정 이름`} autoFocus className="h-[34px] border border-finance-green bg-white px-3 text-[13px] outline-none" onChange={(event) => setNewRows((current) => current.map((item) => item.key === row.key ? { ...item, name: event.target.value } : item))} placeholder="새 계정 이름" value={row.name} />
-                  <button className="w-16 t-caption font-semibold text-finance-red" onClick={() => setNewRows((current) => current.filter((item) => item.key !== row.key))} type="button">제거</button>
+                  <input aria-label={`${group.major} 새 계정 이름`} autoFocus className="h-[34px] border border-finance-green bg-white px-3 t-body outline-none" onChange={(event) => setNewRows((current) => current.map((item) => item.key === row.key ? { ...item, name: event.target.value } : item))} placeholder="새 계정 이름" value={row.name} />
+                  <button className="w-16 t-caption-strong text-finance-red" onClick={() => setNewRows((current) => current.filter((item) => item.key !== row.key))} type="button">제거</button>
                 </div>
               ))}
             </div>

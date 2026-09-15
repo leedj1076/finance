@@ -54,7 +54,7 @@ export function MonthCloseControl({ month, status, pendingCount = 0, allClear = 
     <section className="mt-4 border-b border-finance-hairline pb-4 print:hidden" aria-label="월 마감 상태">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <MonthStatusLabel status={status} />
-        <button type="button" className={allClear ? 'border border-finance-green bg-finance-green px-3 py-2 t-caption font-semibold text-white hover:opacity-80' : 'border border-finance-ink px-3 py-2 t-caption font-semibold text-finance-ink hover:bg-finance-panel'} onClick={open}>{month} {status.state === 'closed' ? '마감 확인 · 해제' : '월 마감'}</button>
+        <button type="button" className={allClear ? 'border border-finance-green bg-finance-green px-3 py-2 t-caption-strong text-white hover:opacity-80' : 'border border-finance-ink px-3 py-2 t-caption-strong text-finance-ink hover:bg-finance-panel'} onClick={open}>{month} {status.state === 'closed' ? '마감 확인 · 해제' : '월 마감'}</button>
       </div>
       {status.state === 'closed' && pendingCount > 0 && <p className="mt-2 t-caption text-finance-amber">이 달 가져오기 대기 {pendingCount}건이 있습니다. <Link className="underline" href="/inbox">가져오기에서 검토</Link> · 내역에 반영하면 마감이 해제됩니다.</p>}
       {notice && <p role="status" className="mt-2 t-caption text-finance-green">{notice}</p>}

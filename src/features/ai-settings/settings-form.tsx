@@ -123,7 +123,7 @@ export function AiSettingsForm({ initial }: { initial: AiSettingsPageData }) {
       <section className="border-t border-finance-ink pt-5" aria-labelledby="ai-worker-title">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><h2 className="t-section text-finance-ink" id="ai-worker-title">로컬 실행 상태</h2><p className="mt-2 t-caption leading-6 text-finance-muted">워커가 직접 보고한 읽기 전용 정보입니다. 모델과 실행 제한은 웹에서 바꿀 수 없습니다.</p></div>
-          <button className="h-[34px] border border-finance-hairline px-4 text-[12px] font-semibold text-finance-muted hover:border-finance-ink hover:text-finance-ink" disabled={refreshing} onClick={() => void refreshWorkers()} type="button">{refreshing ? '새로 확인 중…' : '실행 정보 새로고침'}</button>
+          <button className="h-[34px] border border-finance-hairline px-4 t-caption-strong text-finance-muted hover:border-finance-ink hover:text-finance-ink" disabled={refreshing} onClick={() => void refreshWorkers()} type="button">{refreshing ? '새로 확인 중…' : '실행 정보 새로고침'}</button>
         </div>
         {workers.length === 0 ? (
           <p className="mt-4 border-l-2 border-finance-amber bg-finance-amber-tint px-4 py-3 text-[12px] leading-6 text-finance-ink">연결된 Mac 워커가 없습니다. 설정은 저장하고 프롬프트는 미리 볼 수 있지만 실제 진단 전에 연결이 필요합니다.</p>
@@ -144,8 +144,8 @@ export function AiSettingsForm({ initial }: { initial: AiSettingsPageData }) {
           const displayed = raw ?? initial.defaults[field.key]
           return <section className="min-w-0 border-t border-finance-ink pt-5" key={field.key}>
             <div className="flex flex-wrap items-start justify-between gap-3"><div><label className="t-section text-finance-ink" htmlFor={`ai-${field.key}`}>{field.label}</label><p className="mt-2 t-caption leading-6 text-finance-muted">{field.description}</p></div><span className={`px-2 py-1 text-[10px] font-semibold ${raw === null ? 'bg-finance-blue-tint text-finance-blue' : 'bg-finance-violet-tint text-finance-violet'}`}>{raw === null ? '기본값 사용' : '사용자 지정'}</span></div>
-            <textarea className="mt-4 min-h-36 w-full resize-y border border-finance-hairline bg-background p-4 text-[13px] leading-7 text-finance-ink" id={`ai-${field.key}`} maxLength={field.maxLength} onChange={event => { setDraft(current => ({ ...current, [field.key]: event.target.value })); setMessage(null); setConflict(null) }} value={displayed} />
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-finance-muted"><span>{[...displayed].length.toLocaleString('ko-KR')} / {field.maxLength.toLocaleString('ko-KR')}자</span><button className="font-semibold text-finance-blue hover:underline" onClick={() => { setDraft(current => ({ ...current, [field.key]: null })); setMessage(null); setConflict(null) }} type="button">{field.label} 기본값 복원</button></div>
+            <textarea className="mt-4 min-h-36 w-full resize-y border border-finance-hairline bg-background p-4 t-body text-finance-ink" id={`ai-${field.key}`} maxLength={field.maxLength} onChange={event => { setDraft(current => ({ ...current, [field.key]: event.target.value })); setMessage(null); setConflict(null) }} value={displayed} />
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-finance-muted"><span>{[...displayed].length.toLocaleString('ko-KR')} / {field.maxLength.toLocaleString('ko-KR')}자</span><button className="t-caption-strong text-finance-blue hover:underline" onClick={() => { setDraft(current => ({ ...current, [field.key]: null })); setMessage(null); setConflict(null) }} type="button">{field.label} 기본값 복원</button></div>
           </section>
         })}
       </div>

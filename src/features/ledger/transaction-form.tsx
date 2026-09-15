@@ -108,7 +108,7 @@ export function TransactionForm({
         <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
           날짜
           <input
-            className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
+            className="h-[34px] border border-finance-border bg-white px-3 t-body-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             defaultValue={editing?.date ?? defaultDate}
             name="date"
             required
@@ -118,7 +118,7 @@ export function TransactionForm({
         <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
           유형
           <select
-            className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
+            className="h-[34px] border border-finance-border bg-white px-3 t-body-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             name="flow"
             onChange={(event) => {
               setFlow(event.target.value as TransactionFlow)
@@ -134,7 +134,7 @@ export function TransactionForm({
         <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted xl:col-span-2">
           분류
           <select
-            className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
+            className="h-[34px] border border-finance-border bg-white px-3 t-body-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             name="categoryId"
             onChange={(event) => setCategoryId(event.target.value)}
             value={categoryId}
@@ -150,7 +150,7 @@ export function TransactionForm({
         <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
           금액
           <input
-            className="h-[34px] border border-finance-border bg-white px-3 text-right text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
+            className="h-[34px] border border-finance-border bg-white px-3 text-right t-body-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             defaultValue={editing?.amount ?? ''}
             inputMode="numeric"
             name="amount"
@@ -161,7 +161,7 @@ export function TransactionForm({
         <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted">
           결제수단
           <select
-            className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
+            className="h-[34px] border border-finance-border bg-white px-3 t-body-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             defaultValue={editing?.accountId ?? ''}
             name="accountId"
           >
@@ -176,7 +176,7 @@ export function TransactionForm({
         <label className="grid gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-finance-muted md:col-span-2 xl:col-span-4">
           사용내역
           <input
-            className="h-[34px] border border-finance-border bg-white px-3 text-[13px] font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
+            className="h-[34px] border border-finance-border bg-white px-3 t-body-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             defaultValue={editing?.memo ?? ''}
             maxLength={200}
             name="memo"

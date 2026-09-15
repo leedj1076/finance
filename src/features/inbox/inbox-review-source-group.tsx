@@ -69,7 +69,7 @@ export function InboxSourceGroup({
                   중복 의심 {duplicateCount}건
                 </span>
               )}
-              <span className="ml-auto hidden whitespace-nowrap t-caption font-normal text-finance-muted xl:inline">
+              <span className="ml-auto hidden whitespace-nowrap t-caption text-finance-muted xl:inline">
                 선택 {selectedItems.length}/{group.items.length}건 · {selectedAmount >= 0 ? '+' : '−'}
                 {Math.abs(selectedAmount).toLocaleString('ko-KR')}원
               </span>
@@ -78,7 +78,7 @@ export function InboxSourceGroup({
               그룹 결제수단
               <select
                 aria-label={`${groupLabel} 그룹 결제수단`}
-                className="h-[30px] w-52 border border-finance-border bg-white px-2 t-caption font-normal text-finance-ink outline-none focus:border-finance-blue"
+                className="h-[30px] w-52 border border-finance-border bg-white px-2 t-caption text-finance-ink outline-none focus:border-finance-blue"
                 onChange={(event) => setSourceAccount(
                   group.items.map((item) => item.id),
                   event.target.value,

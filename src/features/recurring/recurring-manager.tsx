@@ -178,7 +178,7 @@ export function RecurringManager({
                 </div>
                 <button
                   aria-label={`${candidate.name} 규칙으로 추가`}
-                  className="mt-3 t-caption font-medium text-finance-green hover:text-finance-green"
+                  className="mt-3 t-caption text-finance-green hover:text-finance-green"
                   onClick={() => addRule(candidate)}
                   type="button"
                 >

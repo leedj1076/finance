@@ -103,7 +103,7 @@ function HistoryDetails({ entry }: { entry: InboxHistoryEntry }) {
             </button>
           ))}
         </div>
-        <button className="border border-finance-border px-3 py-2 t-caption font-semibold text-finance-blue disabled:opacity-40" disabled={disabled || selected.size === 0} onClick={() => restore([...selected])} type="button">
+        <button className="border border-finance-border px-3 py-2 t-caption-strong text-finance-blue disabled:opacity-40" disabled={disabled || selected.size === 0} onClick={() => restore([...selected])} type="button">
           선택 항목 검토 대기로 보내기
         </button>
       </div>
@@ -130,7 +130,7 @@ function HistoryDetails({ entry }: { entry: InboxHistoryEntry }) {
                   {item.dupNote && <p className="mt-1 break-words t-caption text-finance-amber">중복 의심: {item.dupNote}</p>}
                 </div>
                 <p className="col-start-2 t-body-strong tabular-nums text-finance-ink sm:col-start-auto sm:text-right"><span className="mr-1 t-caption font-normal text-finance-muted">{flowLabel[item.flow]}</span>{item.amount.toLocaleString('ko-KR')}원</p>
-                <span className={`col-start-2 t-caption font-semibold sm:col-start-auto sm:text-center ${statusClass[item.status]}`}>{statuses.find((status) => status.value === item.status)?.label}</span>
+                <span className={`col-start-2 t-caption-strong sm:col-start-auto sm:text-center ${statusClass[item.status]}`}>{statuses.find((status) => status.value === item.status)?.label}</span>
                 <div className="col-start-2 sm:col-start-auto sm:text-right">
                   {item.canRestore ? <button aria-label={`${item.merchant || '거래'} 검토 대기로 보내기`} className="border border-finance-border px-2 py-1.5 t-caption text-finance-blue disabled:opacity-40" disabled={disabled} onClick={() => restore([item.id])} type="button">검토 대기로 보내기</button>
                     : item.status === 'dismissed' && <span className="t-caption text-finance-muted">이미 원장에 반영됨</span>}
@@ -160,7 +160,7 @@ function HistoryRecord({ entry }: { entry: InboxHistoryEntry }) {
       <span>대기 <strong className="text-finance-amber">{entry.pending}건</strong></span>
       <span>반영 <strong className="text-finance-green">{entry.done}건</strong></span>
       <span>제외 <strong className="text-finance-muted">{entry.dismissed}건</strong></span>
-      <button aria-controls={detailsId} aria-expanded={open} className="justify-self-start t-caption font-semibold text-finance-blue" onClick={() => setOpen((current) => !current)} type="button">{open ? '거래 접기' : '거래 보기'}</button>
+      <button aria-controls={detailsId} aria-expanded={open} className="justify-self-start t-caption-strong text-finance-blue" onClick={() => setOpen((current) => !current)} type="button">{open ? '거래 접기' : '거래 보기'}</button>
     </div>
     <div id={detailsId}>{open && <HistoryDetails entry={entry} />}</div>
   </article>

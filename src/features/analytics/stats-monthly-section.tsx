@@ -484,7 +484,7 @@ export function StatsMonthlySection({
         </div>
       </div>
 
-      {stale && <p role="alert" className="mt-3 border-l-2 border-finance-amber px-3 py-2 t-caption text-finance-amber">마감 상태 또는 내역이 바뀌었습니다. <button type="button" className="font-semibold underline" onClick={() => router.refresh()}>최신 통계 확인</button></p>}
+      {stale && <p role="alert" className="mt-3 border-l-2 border-finance-amber px-3 py-2 t-caption text-finance-amber">마감 상태 또는 내역이 바뀌었습니다. <button type="button" className="t-caption-strong underline" onClick={() => router.refresh()}>최신 통계 확인</button></p>}
       {model.rows.length > 0 && <label className="mt-4 flex flex-wrap items-center gap-2 t-caption text-finance-muted">상세 항목
         <select aria-label="상세 항목 선택" className="max-w-full border border-finance-border bg-white px-2 py-1 text-finance-ink" value={encodeURIComponent(selectedSeries?.id ?? '')} onChange={event => {
           const id = decodeURIComponent(event.target.value)
@@ -564,7 +564,7 @@ export function StatsMonthlySection({
                   {selectedSeries && <span className="mr-2 inline-block h-[9px] w-[9px]" style={{ background: selectedSeries.color }} />}
                   {selectedSeries ? `${selectedSeries.label} · ${selection?.month !== null && selection?.month !== undefined ? `${selection.month + 1}월 선택` : '항목 선택'}` : '전체 항목'}
                 </p>
-                {selectedSeries && <button className="t-caption font-semibold text-finance-blue hover:text-finance-ink" onClick={() => setSelection(null)} type="button">선택 해제</button>}
+                {selectedSeries && <button className="t-caption-strong text-finance-blue hover:text-finance-ink" onClick={() => setSelection(null)} type="button">선택 해제</button>}
               </div>
               <div className="grid items-center gap-x-1.5 border-b border-finance-hairline py-[9px] t-label text-finance-muted" style={{ gridTemplateColumns: GRID_COLUMNS }}>
                 <div>{effectiveAxis === 'account' ? '결제수단' : '항목'}</div>

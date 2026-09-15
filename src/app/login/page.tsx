@@ -41,7 +41,7 @@ export default function LoginPage() {
           <label className="grid gap-1.5 t-body font-medium text-finance-ink">
             이메일
             <input
-              className="h-[34px] border border-finance-hairline bg-white px-3 text-[13px] outline-none focus:border-finance-blue"
+              className="h-[34px] border border-finance-hairline bg-white px-3 outline-none focus:border-finance-blue"
               type="email"
               placeholder="이메일"
               autoComplete="email"
@@ -53,7 +53,7 @@ export default function LoginPage() {
           <label className="grid gap-1.5 t-body font-medium text-finance-ink">
             비밀번호
             <input
-              className="h-[34px] border border-finance-hairline bg-white px-3 text-[13px] outline-none focus:border-finance-blue"
+              className="h-[34px] border border-finance-hairline bg-white px-3 outline-none focus:border-finance-blue"
               type="password"
               placeholder="비밀번호"
               autoComplete="current-password"
@@ -64,7 +64,7 @@ export default function LoginPage() {
             />
           </label>
           <button
-            className="mt-2 h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-2 h-[34px] bg-finance-ink px-4 t-body-strong text-white hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
             disabled={busy}
             type="submit"
           >

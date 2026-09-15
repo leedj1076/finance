@@ -419,7 +419,7 @@ function CategoryDetailHeader({
         {(Object.keys(FLOW_LABELS) as CategoryDetailFlow[]).map((option) => (
           <button
             aria-pressed={flow === option}
-            className={`h-[30px] border-l border-finance-border px-3.5 t-caption font-medium first:border-l-0 ${flow === option ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track hover:text-finance-ink'}`}
+            className={`h-[30px] border-l border-finance-border px-3.5 t-caption first:border-l-0 ${flow === option ? 'bg-finance-ink text-white' : 'text-finance-muted hover:bg-finance-track hover:text-finance-ink'}`}
             key={option}
             onClick={() => onSelectFlow(option)}
             type="button"
