@@ -58,7 +58,7 @@ type TooltipAnchor = {
   y: number
 }
 
-type FocusScrollState = {
+type OpenScrollState = {
   x: number
   y: number
   container: HTMLElement | null
@@ -163,7 +163,7 @@ export function StatsMonthlySection({
   const activeCell = useRef<string | null>(null)
   const activeAnchor = useRef<TooltipAnchor | null>(null)
   const activeRequest = useRef<AbortController | null>(null)
-  const focusScroll = useRef<FocusScrollState | null>(null)
+  const openedAt = useRef<OpenScrollState | null>(null)
   const pointer = usePointerTracker()
   // The cell whose hover a scroll invented, and where the pointer sat when it did, so that a
   // pointer which later really moves inside that same cell can still claim it.
@@ -204,7 +204,7 @@ export function StatsMonthlySection({
     activeCell.current = null
     activeRequest.current?.abort()
     activeRequest.current = null
-    focusScroll.current = null
+    openedAt.current = null
     setCellTooltip(null)
     setStale(false)
     return () => {
@@ -248,15 +248,19 @@ export function StatsMonthlySection({
   useEffect(() => {
     const hide = (event?: Event) => {
       if (event?.target instanceof Node && tooltipRef.current?.contains(event.target)) return
-      const focus = focusScroll.current
-      if (event?.type === 'scroll' && focus) {
+      // A scroll event reporting the position the tooltip opened at describes a scroll that had
+      // already happened, not one that moved the page out from under it: focusing a cell below the
+      // fold scrolls it into view, and so does hovering one the page had to scroll to reach. Only a
+      // scroll that moves the page from where the tooltip opened dismisses it.
+      const opened = openedAt.current
+      if (event?.type === 'scroll' && opened) {
         if (
-          window.scrollX === focus.x
-          && window.scrollY === focus.y
-          && (!focus.container || (focus.container.scrollLeft === focus.containerLeft && focus.container.scrollTop === focus.containerTop))
+          window.scrollX === opened.x
+          && window.scrollY === opened.y
+          && (!opened.container || (opened.container.scrollLeft === opened.containerLeft && opened.container.scrollTop === opened.containerTop))
         ) return
       }
-      focusScroll.current = null
+      openedAt.current = null
       if (showTimer.current) clearTimeout(showTimer.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
       activeRequest.current?.abort()
@@ -287,7 +291,7 @@ export function StatsMonthlySection({
     clearTimer(showTimer)
     clearTimer(hideTimer)
     abortCellRequest()
-    focusScroll.current = null
+    openedAt.current = null
     activeCell.current = null
     activeAnchor.current = null
     setCellTooltip(null)
@@ -307,12 +311,12 @@ export function StatsMonthlySection({
     month: number,
     delay: number,
     anchor: TooltipAnchor,
-    focusState?: FocusScrollState,
+    openState: OpenScrollState,
   ) {
     clearTimer(showTimer)
     clearTimer(hideTimer)
     abortCellRequest()
-    focusScroll.current = focusState ?? null
+    openedAt.current = openState
     if (!model.availableMonths[month - 1]) return
     const key = cellCacheKey(major, sub, month)
     activeCell.current = key
@@ -379,7 +383,7 @@ export function StatsMonthlySection({
     return { x: bounds.left + (bounds.width / 2), y: bounds.bottom }
   }
 
-  function focusScrollState(target: HTMLButtonElement): FocusScrollState {
+  function openScrollState(target: HTMLButtonElement): OpenScrollState {
     const container = target.closest<HTMLElement>('[aria-label="월별 그래프와 항목별 표"]')
     return {
       x: window.scrollX,
@@ -398,11 +402,11 @@ export function StatsMonthlySection({
       : current)
   }
 
-  function showSummaryTooltip(row: { id: string; label: string }, month: number, value: number, anchor: TooltipAnchor, focusState?: FocusScrollState) {
+  function showSummaryTooltip(row: { id: string; label: string }, month: number, value: number, anchor: TooltipAnchor, openState: OpenScrollState) {
     clearTimer(showTimer)
     clearTimer(hideTimer)
     abortCellRequest()
-    focusScroll.current = focusState ?? null
+    openedAt.current = openState
     activeCell.current = null
     activeAnchor.current = null
     setCellTooltip({ kind: 'summary', key: `summary:${row.id}:${month}`, major: row.label, month: month + 1, value, anchor })
@@ -630,14 +634,14 @@ export function StatsMonthlySection({
                             key={month}
                             onBlur={scheduleHide}
                             onClick={() => toggleCell(key)}
-                            onFocus={(event) => rawValue !== null && showSummaryTooltip(row, month, rawValue, cellAnchor(event.currentTarget), focusScrollState(event.currentTarget))}
+                            onFocus={(event) => rawValue !== null && showSummaryTooltip(row, month, rawValue, cellAnchor(event.currentTarget), openScrollState(event.currentTarget))}
                             onKeyDown={(event) => { if (event.key === 'Escape') closeCellTooltip() }}
                             onMouseEnter={(event) => {
                               const point = { x: event.clientX, y: event.clientY }
                               if (!pointer.current.movedTo(point)) { scrollHover.current = { key: summaryKey, point }; return }
                               scrollHover.current = null
                               updateHover(row.id, month)
-                              if (rawValue !== null) showSummaryTooltip(row, month, rawValue, point)
+                              if (rawValue !== null) showSummaryTooltip(row, month, rawValue, point, openScrollState(event.currentTarget))
                             }}
                             onMouseLeave={(event) => {
                               if (!pointer.current.movedTo({ x: event.clientX, y: event.clientY })) return
@@ -647,7 +651,7 @@ export function StatsMonthlySection({
                               const point = { x: event.clientX, y: event.clientY }
                               if (claimsScrollHover(summaryKey, point)) {
                                 updateHover(row.id, month)
-                                if (rawValue !== null) showSummaryTooltip(row, month, rawValue, point)
+                                if (rawValue !== null) showSummaryTooltip(row, month, rawValue, point, openScrollState(event.currentTarget))
                                 return
                               }
                               if (rawValue !== null) setCellTooltip((current) => (
@@ -693,14 +697,14 @@ export function StatsMonthlySection({
                               key={month}
                               onBlur={scheduleHide}
                               onClick={() => toggleCell(key)}
-                              onFocus={(event) => available && requestCellTransactions(sub.major, sub.sub, month + 1, 0, cellAnchor(event.currentTarget), focusScrollState(event.currentTarget))}
+                              onFocus={(event) => available && requestCellTransactions(sub.major, sub.sub, month + 1, 0, cellAnchor(event.currentTarget), openScrollState(event.currentTarget))}
                               onKeyDown={(event) => { if (event.key === 'Escape') closeCellTooltip() }}
                               onMouseEnter={(event) => {
                                 const point = { x: event.clientX, y: event.clientY }
                                 if (!pointer.current.movedTo(point)) { scrollHover.current = { key: tooltipKey, point }; return }
                                 scrollHover.current = null
                                 updateHover(row.id, month)
-                                if (available) requestCellTransactions(sub.major, sub.sub, month + 1, 180, point)
+                                if (available) requestCellTransactions(sub.major, sub.sub, month + 1, 180, point, openScrollState(event.currentTarget))
                               }}
                               onMouseLeave={(event) => {
                                 if (!pointer.current.movedTo({ x: event.clientX, y: event.clientY })) return
@@ -710,7 +714,7 @@ export function StatsMonthlySection({
                                 const point = { x: event.clientX, y: event.clientY }
                                 if (claimsScrollHover(tooltipKey, point)) {
                                   updateHover(row.id, month)
-                                  if (available) requestCellTransactions(sub.major, sub.sub, month + 1, 180, point)
+                                  if (available) requestCellTransactions(sub.major, sub.sub, month + 1, 180, point, openScrollState(event.currentTarget))
                                   return
                                 }
                                 updateDetailTooltipAnchor(tooltipKey, point)
