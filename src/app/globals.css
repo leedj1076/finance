@@ -1205,8 +1205,22 @@ button.finance-nav-link { cursor: pointer; }
 
    Both bands below narrow 참고's own tracks to the phone sizes. With the desktop 110/110/1fr/20 the
    caption track computes to 0 all the way up to 1206px, so `5월`, `−64,295` and `3·4·5월 · 잠정` are
-   simply invisible; 84/84/1fr/16 drops the row's floor to 208px and buys the caption real width. */
-@media (min-width: 641px) and (max-width: 1195px) {
+   simply invisible; 84/84/1fr/16 drops the row's floor to 208px and buys the caption real width.
+
+   1196 above is the OVERFLOW bound — the width where nothing paints outside 참고 any more. This
+   block's bound is a different question, READABILITY, and 1196 was the wrong number for it: the
+   desktop caption track is viewport − 1206, so it was 0px from 1196 to 1206 and painted nothing
+   at all (the caption is overflow:hidden + ellipsis, so a 0px track is not an ellipsis, it is
+   blank), then grew 1px per viewport pixel. Measured across all 72 reference rows on /budgets,
+   widest content per track: label `지난달 예산` 57px, amount `1,176,587` 62px, caption
+   `3·4·5월 · 3·4·5월 3회 · 잠정` 130px. So the desktop tracks only show every caption in full at
+   1336px, and that is where this band now ends.
+
+   Below it the narrow tracks are strictly better and cost nothing: they hand the caption
+   viewport − 1132 instead of viewport − 1206, a flat +74px at every width, while 84px still
+   clears the 57px label and the 62px amount with room to spare. Worst overflow of any option
+   child past its .plan-item__references box measured 0 at every width through 1400. */
+@media (min-width: 641px) and (max-width: 1335.98px) {
   .plan-reference__option { grid-template-columns: 84px 84px minmax(0, 1fr) 16px; gap: 8px; }
 }
 
