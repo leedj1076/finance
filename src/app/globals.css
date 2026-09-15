@@ -995,7 +995,11 @@ button.finance-nav-link { cursor: pointer; }
 .plan-list__header,
 .plan-item {
   display: grid;
-  grid-template-columns: 200px 200px minmax(0, 1fr) 360px;
+  /* 추이 is 248px because that is all .plan-trend__cell uses: 110px month + 110px amount + two
+     14px gaps. It was 360px, and the extra 112px went to a third track that is empty on desktop
+     (measured `110px 110px 92px`), while 참고 — which carries the widest content on the row, a
+     130px caption — was the column starved for it. The 112px now goes to 참고 instead. */
+  grid-template-columns: 200px 200px minmax(0, 1fr) 248px;
   gap: 16px;
 }
 .plan-list__header {
@@ -1053,7 +1057,9 @@ button.finance-nav-link { cursor: pointer; }
   height: 32px;
   cursor: pointer;
   /* Fixed tracks keep the month beside its amount instead of stranding them at opposite edges
-     of the 360px column, matching .plan-reference__option. */
+     of the column, matching .plan-reference__option. 110 + 110 + two 14px gaps is 248, which is
+     what the 추이 column is sized to; the third track carries the mobile label and separator and
+     collapses to 0 on desktop, where they are display:none. */
   grid-template-columns: 110px 110px minmax(0, 1fr);
   align-items: center;
   gap: 14px;
@@ -1200,39 +1206,31 @@ button.finance-nav-link { cursor: pointer; }
 .ai-request-dialog::backdrop { background: color-mix(in srgb, var(--finance-ink) 20%, transparent); }
 .ai-request-dialog__form { max-height: calc(100vh - 34px); overflow-y: auto; padding: 24px; }
 
-/* 200 + 200 + 360 fixed plus three 16px gaps means the four desktop columns need 808px of content
-   before 참고 gets a single pixel, and a selected 참고 row needs 292px of its own before it stops
-   painting on top of 추이 — the 110/110 label and amount, a 20px check track and three 14px gaps,
-   plus the row's 10px padding. Measured by walking every row at every viewport from 1024px up: the
-   first width where nothing paints outside the 참고 column is 1196px, so everything below that is
-   broken and this is where it gets fixed. (An earlier probe read 244px and put the edge near 1148px;
-   it had sampled only an unselected row, whose check track renders empty.)
+/* 참고's own tracks, narrowed to the phone sizes wherever the column is too tight for the desktop
+   110/110/1fr/20 to leave the caption a readable track.
 
-   Both bands below narrow 참고's own tracks to the phone sizes. With the desktop 110/110/1fr/20 the
-   caption track computes to 0 all the way up to 1206px, so `5월`, `−64,295` and `3·4·5월 · 잠정` are
-   simply invisible; 84/84/1fr/16 drops the row's floor to 208px and buys the caption real width.
+   Widest content per track, measured across all 72 reference rows and 54 trend cells on /budgets
+   with each element's own computed font: 참고 label `지난달 예산` 57px, 참고 amount `1,176,587`
+   62px, 참고 caption `3·4·5월 · 3·4·5월 3회 · 잠정` 130px, 추이 month `5월 · 지난달` 55px, 추이
+   amount `1,298,764` 62px, 항목 `생활용품` 58px.
 
-   1196 above is the OVERFLOW bound — the width where nothing paints outside 참고 any more. This
-   block's bound is a different question, READABILITY, and 1196 was the wrong number for it: the
-   desktop caption track is viewport − 1206, so it was 0px from 1196 to 1206 and painted nothing
-   at all (the caption is overflow:hidden + ellipsis, so a 0px track is not an ellipsis, it is
-   blank), then grew 1px per viewport pixel. Measured across all 72 reference rows on /budgets,
-   widest content per track: label `지난달 예산` 57px, amount `1,176,587` 62px, caption
-   `3·4·5월 · 3·4·5월 3회 · 잠정` 130px. So the desktop tracks only show every caption in full at
-   1336px, and that is where this band now ends.
+   With the base columns the 참고 column is viewport − 792, and the desktop option tracks leave the
+   caption 참고 − 302. So the caption reaches its 130px at 참고 = 432, which is viewport 1224 — and
+   that is where this band ends. The narrow tracks leave 참고 − 228, so below 1224 they are worth
+   74px of caption and cost nothing: 84px still clears the 57px label and the 62px amount.
 
-   Below it the narrow tracks are strictly better and cost nothing: they hand the caption
-   viewport − 1132 instead of viewport − 1206, a flat +74px at every width, while 84px still
-   clears the 57px label and the 62px amount with room to spare. Worst overflow of any option
-   child past its .plan-item__references box measured 0 at every width through 1400. */
-@media (min-width: 641px) and (max-width: 1335.98px) {
+   Measured after the base change at 1196/1210/1220/1223/1224/1225/1230/1250/1300/1440: the caption
+   track is never 0, nothing truncates in any track, and worst overflow of any option child past its
+   .plan-item__references box is 0 throughout. */
+@media (min-width: 641px) and (max-width: 1223.98px) {
   .plan-reference__option { grid-template-columns: 84px 84px minmax(0, 1fr) 16px; gap: 8px; }
 }
 
 /* 1024–1195: four columns still fit, so keep them — folding here would strand the check icon ~560px
-   from its caption and leave a category name alone in an 800px column. The 360px 추이 track is what
-   starves 참고, and 248px is all .plan-trend__cell's 110px month and 110px amount tracks need; 항목
-   gives up 40px it was not using (the 예산 column keeps 200px because the input is 190px wide). */
+   from its caption and leave a category name alone in an 800px column. 추이 now matches the base
+   248px, so the only thing this band still buys is 항목's 40px, and it is worth keeping: the
+   caption track measures 44px here against 4px without it at 1024, 120px against 80px at 1100 and
+   215px against 175px at 1195. The 예산 column keeps 200px because the input is 190px wide. */
 @media (min-width: 1024px) and (max-width: 1195px) {
   .plan-list__header,
   .plan-item { grid-template-columns: 160px 200px minmax(0, 1fr) 248px; }
