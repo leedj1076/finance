@@ -40,9 +40,9 @@ export function StatsYearSelector({
 
   return (
     <div className="flex w-fit self-start items-center border border-finance-ink">
-      <Link aria-label="이전 해" className="grid h-8 w-[34px] place-items-center border-r border-finance-ink text-finance-ink hover:bg-finance-panel" href={yearHref(previousYear)}>←</Link>
-      <span className="grid h-8 w-[88px] place-items-center t-body-strong text-finance-ink">{year}년</span>
-      <Link aria-label="다음 해" className="grid h-8 w-[34px] place-items-center border-l border-finance-ink text-finance-ink hover:bg-finance-panel" href={yearHref(nextYear)}>→</Link>
+      <Link aria-label="이전 해" className="grid h-[34px] w-[34px] place-items-center border-r border-finance-ink t-body text-finance-ink hover:bg-finance-track" href={yearHref(previousYear)}>←</Link>
+      <span className="grid h-[34px] w-[88px] place-items-center t-body-strong text-finance-ink">{year}년</span>
+      <Link aria-label="다음 해" className="grid h-[34px] w-[34px] place-items-center border-l border-finance-ink t-body text-finance-ink hover:bg-finance-track" href={yearHref(nextYear)}>→</Link>
     </div>
   )
 }
