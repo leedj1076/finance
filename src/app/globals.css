@@ -1149,6 +1149,29 @@ button.finance-nav-link { cursor: pointer; }
 .ai-request-dialog::backdrop { background: color-mix(in srgb, var(--finance-ink) 20%, transparent); }
 .ai-request-dialog__form { max-height: calc(100vh - 34px); overflow-y: auto; padding: 24px; }
 
+/* 200 + 200 + 360 fixed plus three 16px gaps means the four desktop columns need 808px of content
+   before 참고 gets a single pixel. Between the 640px phone layout and 1024px it gets 119px at best
+   and exactly 0 below 900px, so its rows overflowed and painted on top of 추이. Fold the four
+   columns into two: 항목/예산 on one row, 참고/추이 side by side on the next. Every child names its
+   column and lets its row auto-place — pinning rows here would drop 참고 and 추이 onto different
+   rows on the items that carry an 예산 caption. */
+@media (min-width: 641px) and (max-width: 1023px) {
+  /* 248px is the narrowest column that still lands .plan-trend__cell's 110px month and 110px
+     amount tracks inside it; measured at 240px the cell overflowed its own padding box by 4px. */
+  .plan-list__header,
+  .plan-item { grid-template-columns: minmax(0, 1fr) 248px; }
+  .plan-item { grid-template-rows: none; row-gap: 12px; }
+  .plan-item__major,
+  .plan-item__references { grid-column: 1; grid-row: auto; }
+  .plan-item__input-row,
+  .plan-item__caption,
+  .plan-trend { grid-column: 2; grid-row: auto; }
+  /* row-gap now carries the separation the desktop margin used to. */
+  .plan-item__caption { margin-top: 0; }
+  /* 참고 shares its row with 추이, so its own tracks take the phone sizes to leave the caption room. */
+  .plan-reference__option { grid-template-columns: 84px 84px minmax(0, 1fr) 16px; gap: 8px; }
+}
+
 @media (max-width: 640px) {
   .plan-list__header { display: none; }
   .plan-item { grid-template-columns: 1fr; grid-template-rows: none; gap: 6px; }
