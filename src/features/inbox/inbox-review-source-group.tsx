@@ -69,7 +69,9 @@ export function InboxSourceGroup({
                   중복 의심 {duplicateCount}건
                 </span>
               )}
-              <span className="ml-auto hidden whitespace-nowrap t-caption text-finance-muted xl:inline">
+              {/* font-normal is live here: this is a <span>, not a form control, and the
+                  <th> ancestor's UA bold reaches it through the button's font: inherit. */}
+              <span className="ml-auto hidden whitespace-nowrap t-caption font-normal text-finance-muted xl:inline">
                 선택 {selectedItems.length}/{group.items.length}건 · {selectedAmount >= 0 ? '+' : '−'}
                 {Math.abs(selectedAmount).toLocaleString('ko-KR')}원
               </span>
