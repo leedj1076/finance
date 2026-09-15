@@ -28,7 +28,16 @@ export function createPointerTracker() {
 
 export type PointerTracker = ReturnType<typeof createPointerTracker>
 
-/** One tracker per table, fed by every pointer move on the page and not only the ones over cells. */
+/**
+ * One tracker per hook call, fed by every pointer move on the page and not only the ones over
+ * cells. That is one per table where the caller is the table itself (stats-monthly-section), but
+ * PlanTrend calls it per row, so /budgets mounts 18 of these — measured 20 document mousemove
+ * listeners against 18 plan rows, with 2 belonging to the rest of the app.
+ *
+ * They are redundant rather than wrong: every tracker sees the same document-level stream and
+ * converges on the same `last`, so 17 of them only cost an allocation per move. Hoisting the
+ * shared one the way PlanTrend already shares its popover would collapse them.
+ */
 export function usePointerTracker() {
   const tracker = useRef(createPointerTracker())
   useEffect(() => {
