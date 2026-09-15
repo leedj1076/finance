@@ -56,7 +56,9 @@ test('no closed months shows provisional KPI bodies and forecast, excluding curr
   expect(html).toMatch(/t-kpi tabular-nums text-finance-faint">3,000/)
   expect(html).toMatch(/t-kpi-sm text-finance-faint">\+1,200원/)
   expect(html).toContain('달성 2/2개월 (잠정)')
-  expect(html).toContain('잠정 · 마감 0개월')
+  // 페이지 전체가 잠정이면 배지 대신 머리말 안내 한 줄만 그 사실을 말한다.
+  expect(html).toContain('마감된 달이 없어')
+  expect(html).not.toContain('잠정 · 마감 0개월')
   expect(html).toMatch(/t-caption font-semibold tabular-nums text-finance-faint">11,200/)
 })
 
@@ -94,10 +96,13 @@ test.each([
     official: buildAnnualReport({ ...input, eligibleMonths: [1], previousComparable }),
     provisional: buildAnnualReport({ ...input, eligibleMonths: [1, 2], previousComparable: true }),
   }
-  const merchants = (await render(stats)).split('가맹점 TOP')[1].split('전년 같은 기간과 비교')[0]
+  const html = await render(stats)
+  const merchants = html.split('가맹점 TOP')[1].split('전년 같은 기간과 비교')[0]
   expect(merchants).toContain('Starbucks 123')
   expect(merchants).toContain(`class="text-right tabular-nums ${tone}">${delta}</span>`)
-  expect(merchants.includes('잠정 · 2025년 미마감')).toBe(!previousComparable)
+  // 잠정 배지는 전년 비교 제목 한 곳에만 남는다. 가맹점 칸은 색조로만 잠정을 말한다.
+  const yoy = html.split('전년 같은 기간과 비교')[1].split('앞으로 6개월')[0]
+  expect(yoy.includes('잠정 · 2025년 미마감')).toBe(!previousComparable)
 })
 
 test.each(['income', 'refund', 'offset'] as const)('current-only %s records stay visible with no annual contribution', async kind => {
@@ -113,6 +118,8 @@ test.each(['income', 'refund', 'offset'] as const)('current-only %s records stay
 test('only a truly empty year uses the empty view, but an explicit closed zero keeps statistics', async () => {
   const empty = await render(fixture({ closed: [], records: [], previous: false }))
   expect(empty).toContain('이 연도에는 거래가 없습니다')
+  // 값이 하나도 없는 해에는 잠정 안내가 수식할 값이 없다.
+  expect(empty).not.toContain('마감된 달이 없어')
   expect(empty).not.toContain('내역에서 월 마감')
   const closedZero = await render(fixture({ closed: [1], records: [], previous: false }))
   expect(closedZero).toContain('달마다 어떻게 달랐나')

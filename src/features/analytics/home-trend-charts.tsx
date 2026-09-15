@@ -8,6 +8,7 @@ import { formatRate } from '@/lib/finance'
 
 import {
   CHART_ANIMATION,
+  CHART_ANIMATIONS,
   CHART_HEIGHT,
   CHART_LINE_WIDTH,
   CHART_POINT_RADIUS,
@@ -18,6 +19,16 @@ import {
   percentAxis,
   useFinanceChartPalette,
 } from './chart-js'
+import { ChartLegend } from './chart-legend'
+import { ROLE } from './chart-theme'
+
+// Task 12's ruling: a legend swatch takes a raw token, never a palette value.
+// useFinanceChartPalette initialises to the light FALLBACK_PALETTE and only
+// corrects on the effect tick, so a dark first paint would draw the near-black
+// light ink on a near-black ground. The target line is stroked at 70% green,
+// so the swatch mixes the same 70% over the same ground and composites to it.
+const TARGET_OPACITY_PERCENT = 70
+const TARGET_SWATCH = `color-mix(in srgb, ${ROLE.saving} ${TARGET_OPACITY_PERCENT}%, var(--background))`
 
 export function SavingsRateChart({ data, target }: {
   data: Array<{ month: string; savingsRate: number; active: boolean }>
@@ -45,8 +56,8 @@ export function SavingsRateChart({ data, target }: {
       {
         label: `목표 ${formatRate(target)}%`,
         data: data.map((row) => row.active ? target : null),
-        borderColor: alpha(palette.green, 0.7),
-        backgroundColor: alpha(palette.green, 0.7),
+        borderColor: alpha(palette.green, TARGET_OPACITY_PERCENT / 100),
+        backgroundColor: alpha(palette.green, TARGET_OPACITY_PERCENT / 100),
         borderDash: [5, 4],
         borderWidth: 1.25,
         pointRadius: 0,
@@ -59,6 +70,7 @@ export function SavingsRateChart({ data, target }: {
     responsive: true,
     maintainAspectRatio: false,
     animation: CHART_ANIMATION,
+    animations: CHART_ANIMATIONS,
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { display: false },
@@ -73,8 +85,11 @@ export function SavingsRateChart({ data, target }: {
 
   if (activeCount === 0) return <p className="py-14 text-center t-caption text-finance-muted">올해 수입·지출 기록이 없습니다.</p>
   return (
-    <div className="relative w-full" style={{ height: CHART_HEIGHT }}>
-      <Line aria-label="올해 월별 순저축률" data={chartData} options={options} role="img" />
+    <div>
+      <ChartLegend items={[{ name: '순저축률', color: ROLE.ink }, { name: `목표 ${formatRate(target)}%`, color: TARGET_SWATCH }]} />
+      <div className="relative w-full" style={{ height: CHART_HEIGHT }}>
+        <Line aria-label="올해 월별 순저축률" data={chartData} options={options} role="img" />
+      </div>
     </div>
   )
 }

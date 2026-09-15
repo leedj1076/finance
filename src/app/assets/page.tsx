@@ -2,9 +2,10 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
-import { SubmitButton } from '@/components/submit-button'
+import { MonthNav } from '@/components/month-nav'
 import { getFinancialHealthData } from '@/features/analytics/financial-health'
 import { AssetForm } from '@/features/assets/asset-form'
+import { compositionShares } from '@/features/assets/composition'
 import { NetWorthChart } from '@/features/assets/net-worth-chart'
 import { getAssetData } from '@/features/assets/queries'
 import { formatWon } from '@/lib/finance'
@@ -50,7 +51,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   const deltaLabel = data.netWorthDelta === 0
     ? '전월과 동일'
     : `전월보다 ${formatWon(Math.abs(data.netWorthDelta))}원 ${data.netWorthDelta > 0 ? '증가' : '감소'}`
-  const maxComposition = data.composition[0]?.amount ?? 1
+  const composition = compositionShares(data.composition)
 
   return (
     <div className="min-h-screen bg-white">
@@ -64,12 +65,13 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link className="h-[34px] border border-finance-hairline px-3 py-2 t-body-strong text-finance-muted hover:text-finance-blue" href="/settings?section=assets">자산 계정 설정</Link>
-            <Link aria-label="이전 달" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/assets?month=${data.previousMonth}`}>←</Link>
-            <form action="/assets" className="flex items-center gap-2">
-              <input aria-label="자산 기준 월" className="h-[34px] border border-finance-hairline bg-white px-3 t-body text-finance-ink" defaultValue={data.month} key={data.month} name="month" type="month" />
-              <SubmitButton className="h-[34px] bg-finance-ink px-3 t-body-strong text-white hover:opacity-80 disabled:opacity-60" pendingLabel="불러오는 중…" type="submit">보기</SubmitButton>
-            </form>
-            <Link aria-label="다음 달" className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel" href={`/assets?month=${data.nextMonth}`}>→</Link>
+            <MonthNav
+              action="/assets"
+              label="자산 기준 월"
+              month={data.month}
+              nextHref={`/assets?month=${data.nextMonth}`}
+              previousHref={`/assets?month=${data.previousMonth}`}
+            />
           </div>
         </div>
 
@@ -86,7 +88,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
           <SummaryCard label="이번 달 입력" value={`${data.overview.enteredCount}/${data.overview.rows.length}개`} description="나머지는 직전 잔액 유지" />
         </section>
 
-        <section className="mt-6 grid gap-6 border-y border-finance-hairline py-5 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-6 grid gap-y-6 border-y border-finance-hairline py-5 sm:grid-cols-2 xl:grid-cols-4">
           {financialHealth.map((item) => {
             const tone = {
               good: 'border-finance-green',
@@ -95,7 +97,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
               none: 'border-finance-faint',
             }[item.status]
             return (
-              <article className={`border-l-2 pl-4 ${tone}`} key={item.key}>
+              <article className={`border-l-2 pl-4 pr-6 ${tone}`} key={item.key}>
                 <p className="t-label text-finance-muted">{item.key}</p>
                 <p className="mt-1.5 t-kpi-sm text-finance-ink">{item.value}</p>
                 <p className="mt-1 t-caption text-finance-faint">{item.hint}</p>
@@ -114,18 +116,18 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             <h2 className="t-section text-finance-ink">자산 배분</h2>
             <p className="mt-1 t-caption text-finance-muted">{data.month} 그룹별 비중</p>
             <div className="mt-5 space-y-4">
-              {data.composition.map((item) => (
+              {composition.map((item) => (
                 <div key={item.major}>
                   <div className="flex items-center justify-between gap-3 t-body">
                     <span className="text-finance-ink">{item.major}</span>
-                    <span className="font-medium text-finance-ink">{formatWon(item.amount)}원</span>
+                    <span className="font-medium text-finance-ink">{formatWon(item.amount)}원 <span className="text-finance-muted">{item.share.toFixed(1)}%</span></span>
                   </div>
                   <div className="mt-2 h-[5px] overflow-hidden bg-finance-track">
-                    <div className="h-full bg-finance-blue" style={{ width: `${(item.amount / maxComposition) * 100}%` }} />
+                    <div className="h-full bg-finance-blue" style={{ width: `${item.share}%` }} />
                   </div>
                 </div>
               ))}
-              {data.composition.length === 0 && <p className="py-12 text-center t-body text-finance-muted">입력된 자산이 없습니다.</p>}
+              {composition.length === 0 && <p className="py-12 text-center t-body text-finance-muted">입력된 자산이 없습니다.</p>}
             </div>
           </article>
         </section>

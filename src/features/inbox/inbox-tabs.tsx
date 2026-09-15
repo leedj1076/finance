@@ -30,11 +30,11 @@ export function InboxTabs({ requestedTab, defaultTab, pendingCount, unclassified
       {tabs.map((item) => (
         <Link
           aria-current={tab === item.key ? 'page' : undefined}
-          className={`shrink-0 border-b-2 px-4 py-3 t-body-strong ${tab === item.key ? 'border-finance-blue text-finance-blue' : 'border-transparent text-finance-muted hover:text-finance-ink'}`}
+          className={`shrink-0 border-b-2 app-tab t-body-strong ${tab === item.key ? 'border-finance-blue text-finance-blue' : 'border-transparent text-finance-muted hover:text-finance-ink'}`}
           href={`/inbox?tab=${item.key}`}
           key={item.key}
         >
-          {item.label}{item.count !== undefined && <span className="ml-1.5 bg-finance-track px-2 py-0.5 t-badge text-finance-muted">{item.count.toLocaleString('ko-KR')}</span>}
+          {item.key === 'unclassified' ? <><span className="sm:hidden">미분류</span><span className="hidden sm:inline">미분류 거래</span></> : item.label}{item.count !== undefined && <span className="ml-1.5 bg-finance-track px-2 py-0.5 t-badge text-finance-muted">{item.count.toLocaleString('ko-KR')}</span>}
         </Link>
       ))}
     </nav>

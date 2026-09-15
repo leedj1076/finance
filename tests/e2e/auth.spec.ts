@@ -158,6 +158,7 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page).toHaveURL('/dashboard')
     await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '내역', exact: true }).click()
     await expect(page).toHaveURL('/ledger')
+    await page.locator('#transaction-form summary').click()
     const transactionForm = page.locator('form').filter({
       has: page.getByRole('button', { name: '거래 추가' }),
     })

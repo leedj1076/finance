@@ -65,7 +65,7 @@ export function ActionButtons({ selectedCount, busy = false }: { selectedCount: 
   return (
     <div className="flex flex-wrap justify-end gap-2">
       <button
-        className="h-[34px] border border-finance-border bg-white px-4 text-[13px] font-medium text-finance-muted hover:border-finance-ink hover:text-finance-ink disabled:opacity-40"
+        className="h-[34px] border border-finance-border bg-white px-4 t-body-strong text-finance-muted hover:border-finance-ink hover:text-finance-ink disabled:opacity-40"
         disabled={pending || busy || selectedCount === 0}
         name="intent"
         type="submit"
@@ -74,7 +74,7 @@ export function ActionButtons({ selectedCount, busy = false }: { selectedCount: 
         {pending && data?.get('intent') === 'dismiss' ? '제외 중…' : '선택 제외'}
       </button>
       <button
-        className="h-[34px] bg-finance-green px-4 text-[13px] font-semibold text-white hover:bg-finance-ink disabled:opacity-40"
+        className="h-[34px] bg-finance-ink px-4 t-body-strong text-white hover:bg-finance-blue disabled:opacity-40"
         disabled={pending || busy || selectedCount === 0}
         name="intent"
         type="submit"

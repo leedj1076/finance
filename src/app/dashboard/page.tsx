@@ -45,12 +45,16 @@ function BudgetBullet({
     <div className="grid items-center gap-2 t-body sm:grid-cols-[110px_minmax(180px,1fr)_180px_100px] sm:gap-5">
       <strong className="truncate text-finance-ink">{major}</strong>
       <div className="relative h-[22px] bg-finance-panel">
-        <span className="absolute inset-y-0 left-0 bg-finance-track" style={{ width: `${paceWidth}%` }} />
-        <span className={`absolute left-0 top-[5px] h-3 ${exceeded ? 'bg-finance-red' : 'bg-finance-ink'}`} style={{ width: `${actualPercent}%` }} />
-        {budget > 0 && <span className="absolute -top-[3px] h-7 w-0.5 bg-finance-ink" style={{ left: `${budgetPercent}%` }} />}
+        {budget > 0 && (
+          <>
+            <span className="absolute inset-y-0 left-0 bg-finance-track" style={{ width: `${paceWidth}%` }} />
+            <span className={`absolute left-0 top-[5px] h-3 ${exceeded ? 'bg-finance-red' : 'bg-finance-ink'}`} style={{ width: `${actualPercent}%` }} />
+            <span className="absolute -top-[3px] h-7 w-0.5 bg-finance-ink" style={{ left: `${budgetPercent}%` }} />
+          </>
+        )}
       </div>
       <span className="text-right tabular-nums"><strong>{formatWon(actual)}</strong> <span className="text-finance-faint">/ {budget > 0 ? formatWon(budget) : '미설정'}</span></span>
-      <span className={`text-right font-semibold ${exceeded ? 'text-finance-red' : isFast ? 'text-finance-amber' : 'text-finance-green'}`}>
+      <span className={`text-right font-semibold ${usedPercent === null ? 'text-finance-muted' : exceeded ? 'text-finance-red' : isFast ? 'text-finance-amber' : 'text-finance-green'}`}>
         {usedPercent === null ? '예산 없음' : `${Math.round(usedPercent)}%${exceeded ? ' 초과' : isFast ? ' · 빠름' : ' · 여유'}`}
       </span>
     </div>
@@ -72,6 +76,9 @@ export default async function DashboardPage() {
   const budgetRows = data.budget.categories
     .filter((row) => row.budget > 0 || row.amount > 0)
     .slice(0, 6)
+  const noBudgetRows = budgetRows.length === 0
+  const monthUnspent = !noBudgetRows && budgetRows.every((row) => row.amount === 0)
+  const showBudgetBars = !noBudgetRows && !monthUnspent
   const fastMajors = new Set(data.budget.paceWarnings.map((warning) => warning.major))
   const monthIndex = Number(month.slice(5, 7)) - 1
   const trendStart = Math.max(0, monthIndex - 5)
@@ -155,15 +162,17 @@ export default async function DashboardPage() {
 
         <section className="border-b border-finance-border py-7">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-            <div><h2 className="t-section text-finance-ink">예산 대비 지출</h2><p className="mt-1 t-caption text-finance-faint">막대 = 실제 · 세로선 = 예산 · 옅은 구간 = 오늘까지 적정 페이스({Math.round(data.pace.percent)}%)</p></div>
+            <div><h2 className="t-section text-finance-ink">예산 대비 지출</h2>{showBudgetBars && <p className="mt-1 t-caption text-finance-faint">막대 = 실제 · 세로선 = 예산 · 옅은 구간 = 오늘까지 적정 페이스({Math.round(data.pace.percent)}%)</p>}</div>
             <p className="t-caption text-finance-muted">대분류 예산 합계 <strong className="text-finance-ink">{formatWon(data.budget.total)}원</strong> 중 <strong className="text-finance-ink">{formatWon(data.budget.actual)}원</strong> 사용 · <strong>{data.budget.percent === null ? '예산 미설정' : `${formatRate(data.budget.percent)}%`}</strong></p>
           </div>
-          {budgetRows.length > 0 ? (
+          {noBudgetRows ? (
+            <p className="mt-4 border-t border-finance-border py-5 t-body text-finance-muted">이번 달 예산이나 지출이 없습니다.</p>
+          ) : monthUnspent ? (
+            <p className="mt-4 border-t border-finance-border py-5 t-body text-finance-muted">이번 달 지출이 아직 없습니다.</p>
+          ) : (
             <div className="mt-5 space-y-4">
               {budgetRows.map((row) => <BudgetBullet actual={row.amount} budget={row.budget} isFast={fastMajors.has(row.major)} key={row.major} major={row.major} pacePercent={data.pace.percent} />)}
             </div>
-          ) : (
-            <p className="mt-5 grid min-h-24 place-items-center border-y border-finance-border t-body text-finance-muted">이번 달 예산이나 지출이 없습니다.</p>
           )}
         </section>
 
@@ -191,19 +200,19 @@ export default async function DashboardPage() {
               </table>
             </div>
           ) : (
-            <p className="mt-5 grid min-h-24 place-items-center border-y border-finance-border t-body text-finance-muted">이번 달 카테고리 지출이 없습니다.</p>
+            <p className="mt-4 border-t border-finance-border py-5 t-body text-finance-muted">이번 달 카테고리 지출이 없습니다.</p>
           )}
         </section>
 
-        <section className="grid gap-10 py-7 xl:grid-cols-[minmax(0,1.35fr)_minmax(420px,0.8fr)]">
-          <article className="min-w-0">
+        <section className="grid gap-10 py-7 xl:grid-cols-2 xl:gap-x-0">
+          <article className="min-w-0 xl:pr-10">
             <div className="flex items-baseline justify-between"><div><h2 className="t-section text-finance-ink">월별 수입 · 지출</h2><p className="mt-1 t-caption text-finance-faint">{year}년 1~{Number(month.slice(5))}월 · 다른 해는 통계에서</p></div><Link className="t-caption font-semibold text-finance-blue" href="/report">통계 →</Link></div>
             <div className="mt-5 min-w-0"><MonthlyCashflowChart data={data.monthly} /></div>
             <p className="mt-2 t-caption text-finance-muted">올해 누적 · 수입 <strong className="text-finance-blue">{formatWon(data.annual.income)}</strong> · 지출 <strong className="text-finance-ink">{formatWon(data.annual.expense)}</strong> · 순저축 <strong className="text-finance-green">{formatWon(data.annual.netSaving)}</strong></p>
           </article>
           <article className="min-w-0 xl:border-l xl:border-finance-border xl:pl-10">
-            <div><h2 className="t-section text-finance-ink">월별 저축률</h2><p className="mt-1 t-caption text-finance-faint">점선 = 목표 {formatRate(data.savingsTarget)}% · 연 누적 {formatRate(data.annual.savingsRate)}%</p></div>
-            <div className="mt-4 min-w-0"><SavingsRateChart data={data.monthly} target={data.savingsTarget} /></div>
+            <div><h2 className="t-section text-finance-ink">월별 저축률</h2><p className="mt-1 t-caption text-finance-faint">연 누적 {formatRate(data.annual.savingsRate)}%</p></div>
+            <div className="mt-5 min-w-0"><SavingsRateChart data={data.monthly} target={data.savingsTarget} /></div>
             <p className="mt-2 t-caption text-finance-muted">목표 달성 <strong className="text-finance-green">{targetReached.length}개월</strong>{bestMonth && <> · 최고 {Number(bestMonth.month.slice(5))}월 {formatRate(bestMonth.savingsRate)}%</>}{worstMonth && <> · 최저 {Number(worstMonth.month.slice(5))}월 {formatRate(worstMonth.savingsRate)}%</>}</p>
           </article>
         </section>

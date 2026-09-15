@@ -2,9 +2,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { MonthNav } from '@/components/month-nav'
 import { getMonthStatuses } from '@/features/month-close/queries'
 import { MonthStatusLabel } from '@/features/month-close/month-status-label'
-import { SubmitButton } from '@/components/submit-button'
 import { BudgetForm } from '@/features/budgets/budget-form'
 import { getBudgetPlanningData } from '@/features/budgets/planning-queries'
 import { currentMonthInKorea, formatRate, formatWon, shiftMonth } from '@/lib/finance'
@@ -87,42 +87,18 @@ export default async function BudgetsPage({ searchParams }: BudgetsPageProps) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {!viewingNextMonth && <Link
-              className="h-[34px] whitespace-nowrap border border-finance-green bg-finance-green px-3 py-2 t-body-strong text-white hover:opacity-80"
+              className="h-[34px] whitespace-nowrap bg-finance-ink px-3 py-2 t-body-strong text-white hover:bg-finance-blue"
               href={`/budgets?month=${data.nextMonth}`}
             >
               다음 달 예산 만들기 →
             </Link>}
-            <Link
-              aria-label="이전 달"
-              className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel"
-              href={`/budgets?month=${data.previousMonth}`}
-            >
-              ←
-            </Link>
-            <form action="/budgets" className="flex items-center gap-2">
-              <input
-                aria-label="예산 월"
-                className="h-[34px] border border-finance-hairline bg-white px-3 t-body text-finance-ink"
-                defaultValue={data.month}
-                key={data.month}
-                name="month"
-                type="month"
-              />
-              <SubmitButton
-                className="h-[34px] bg-finance-ink px-3 t-body-strong text-white hover:opacity-80"
-                pendingLabel="불러오는 중…"
-                type="submit"
-              >
-                보기
-              </SubmitButton>
-            </form>
-            <Link
-              aria-label="다음 달"
-              className="grid h-[34px] w-[34px] place-items-center border border-finance-hairline bg-white text-finance-ink hover:bg-finance-panel"
-              href={`/budgets?month=${data.nextMonth}`}
-            >
-              →
-            </Link>
+            <MonthNav
+              action="/budgets"
+              label="예산 월"
+              month={data.month}
+              nextHref={`/budgets?month=${data.nextMonth}`}
+              previousHref={`/budgets?month=${data.previousMonth}`}
+            />
           </div>
         </div>
 

@@ -156,9 +156,9 @@ export function AiSettingsForm({ initial }: { initial: AiSettingsPageData }) {
         <h2 className="t-section text-finance-ink" id="ai-preview-title">전달할 프롬프트 미리보기</h2>
         <p className="mt-2 t-caption leading-6 text-finance-muted">현재 편집안과 그 시점의 실제 가계부 자료를 서버의 실행 조합 함수로 읽기 전용 구성합니다.</p>
         <div className="mt-4 flex min-w-0 flex-wrap items-end gap-3">
-          <label className="grid gap-1 text-[11px] font-semibold text-finance-muted">진단 종류<select className="h-[38px] min-w-36 border border-finance-hairline bg-background px-3 text-[13px] text-finance-ink" onChange={event => { generation.current += 1; previewRequest.current?.controller.abort(); setPreviewing(false); setPreviewKind(event.target.value as AiKind) }} value={previewKind}><option value="ledger">내역 진단</option><option value="budget" disabled={!budgetPreviewAvailable}>예산 추천</option></select></label>
-          <label className="grid gap-1 text-[11px] font-semibold text-finance-muted">대상 월<input className="h-[38px] border border-finance-hairline bg-background px-3 text-[13px] text-finance-ink" onChange={event => { generation.current += 1; previewRequest.current?.controller.abort(); setPreviewing(false); setPreviewMonth(event.target.value) }} type="month" value={previewMonth} /></label>
-          <button className="h-[38px] bg-finance-ink px-5 text-[13px] font-semibold text-white disabled:opacity-50" disabled={previewing || (previewKind === 'budget' && !budgetPreviewAvailable)} onClick={() => void showPreview()} type="button">{previewing ? '미리보기 구성 중…' : '프롬프트 미리보기'}</button>
+          <label className="grid gap-1 text-[11px] font-semibold text-finance-muted">진단 종류<select className="h-[34px] min-w-36 border border-finance-hairline bg-background px-3 t-body text-finance-ink" onChange={event => { generation.current += 1; previewRequest.current?.controller.abort(); setPreviewing(false); setPreviewKind(event.target.value as AiKind) }} value={previewKind}><option value="ledger">내역 진단</option><option value="budget" disabled={!budgetPreviewAvailable}>예산 추천</option></select></label>
+          <label className="grid gap-1 text-[11px] font-semibold text-finance-muted">대상 월<input className="h-[34px] border border-finance-hairline bg-background px-3 t-body text-finance-ink" onChange={event => { generation.current += 1; previewRequest.current?.controller.abort(); setPreviewing(false); setPreviewMonth(event.target.value) }} type="month" value={previewMonth} /></label>
+          <button className="h-[34px] bg-finance-ink px-5 t-body-strong text-white hover:bg-finance-blue disabled:opacity-40" disabled={previewing || (previewKind === 'budget' && !budgetPreviewAvailable)} onClick={() => void showPreview()} type="button">{previewing ? '미리보기 구성 중…' : '프롬프트 미리보기'}</button>
         </div>
         {previewKind === 'budget' && <p className="mt-3 text-[11px] leading-6 text-finance-muted">설정 화면의 예산 미리보기에는 당월 특이사항, 예정 지출, 미저장 예산 초안이 비어 있습니다. 실제 요청의 입력은 해당 작업의 프롬프트에서 확인할 수 있습니다.</p>}
         <div aria-live="polite">{previewMessage && <p className="mt-4 border-l-2 border-finance-amber bg-finance-amber-tint px-4 py-3 text-[12px] text-finance-ink">{previewMessage}</p>}</div>
@@ -169,7 +169,7 @@ export function AiSettingsForm({ initial }: { initial: AiSettingsPageData }) {
 
       <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-y border-finance-hairline bg-background py-4">
         <div aria-live="polite"><p className="text-[12px] font-medium text-finance-ink">{message ?? `마지막 저장 ${updatedLabel(server.updatedAt)}`}</p><p className="mt-1 text-[10px] text-finance-muted">저장해도 진단을 자동 실행하거나 기존 결과를 바꾸지 않습니다.</p></div>
-        <button className="h-[38px] bg-finance-blue px-5 text-[13px] font-semibold text-white disabled:opacity-50" disabled={saving} type="submit">{saving ? '저장 중…' : 'AI 설정 저장'}</button>
+        <button className="h-[34px] bg-finance-ink px-5 t-body-strong text-white hover:bg-finance-blue disabled:opacity-40" disabled={saving} type="submit">{saving ? '저장 중…' : 'AI 설정 저장'}</button>
       </div>
     </form>
   )

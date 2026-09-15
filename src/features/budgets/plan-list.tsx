@@ -117,8 +117,8 @@ export function PlanList({
       <header className="plan-list__header">
         <span className="t-label">항목</span>
         <span className="t-label">예산 (원)</span>
-        <span className="t-label">참고 <small>줄을 누르면 그 금액이 예산에 들어갑니다 · 직접 고치면 선택이 풀립니다</small></span>
-        <span className="t-label">추이 <small>최근 3개월 실제 지출 · 칸에 올리면 거래 목록</small></span>
+        <span className="t-label">참고 <span className="block mt-[3px] font-normal normal-case tracking-normal text-finance-faint">줄을 누르면 그 금액이 예산에 들어갑니다 · 직접 고치면 선택이 풀립니다</span></span>
+        <span className="t-label">추이 <span className="block mt-[3px] font-normal normal-case tracking-normal text-finance-faint">최근 3개월 실제 지출 · 칸에 올리면 거래 목록</span></span>
       </header>
 
       <CellPopoverContext.Provider value={trendPopover}>

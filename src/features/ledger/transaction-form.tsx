@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useActionState, useState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import { saveTransaction, type TransactionActionState } from './actions'
@@ -46,7 +46,7 @@ function SubmitButton({ editing }: { editing: boolean }) {
   const { pending } = useFormStatus()
   return (
     <button
-      className="h-[34px] bg-finance-ink px-4 text-[13px] font-semibold text-white hover:bg-finance-blue disabled:cursor-not-allowed disabled:opacity-50"
+      className="h-[34px] bg-finance-ink px-4 t-body-strong text-white hover:bg-finance-blue disabled:cursor-not-allowed disabled:opacity-50"
       disabled={pending}
       type="submit"
     >
@@ -66,29 +66,37 @@ export function TransactionForm({
   const [state, action] = useActionState(saveTransaction, initialState)
   const [flow, setFlow] = useState<TransactionFlow>(editing?.flow ?? 'expense')
   const [categoryId, setCategoryId] = useState(editing?.categoryId?.toString() ?? '')
+  // The "거래 추가" link on the other tabs jumps to #transaction-form; a closed
+  // <details> would swallow it, so open on that hash.
+  const [hashRequestedOpen, setHashRequestedOpen] = useState(false)
+  useEffect(() => {
+    if (window.location.hash === '#transaction-form') setHashRequestedOpen(true)
+  }, [])
   const visibleCategories = categories.filter((category) => category.kind === flow)
 
   return (
-    <article
-      className={`mt-6 border-t ${
+    <details
+      className={`group mt-6 border-t ${
         editing ? 'border-finance-amber' : 'border-finance-ink'
       }`}
+      open={editing !== null || hashRequestedOpen}
     >
-      <div className="flex items-center justify-between border-b border-finance-border py-4">
-        <div>
-          <h2 className="t-section text-finance-ink">
+      <summary className="flex cursor-pointer list-none items-center justify-between border-b border-finance-border py-4">
+        <span className="block">
+          <span className="block t-section text-finance-ink">
             {editing ? '거래 수정' : '거래 직접 입력'}
-          </h2>
-          <p className="mt-1 t-caption text-finance-muted">
+          </span>
+          <span className="mt-1 block t-caption text-finance-muted">
             {editing ? '선택한 거래를 수정하고 있습니다.' : '은행 가져오기 외 거래를 직접 기록합니다.'}
-          </p>
+          </span>
+        </span>
+        <span aria-hidden className="t-caption text-finance-muted group-open:rotate-180">⌄</span>
+      </summary>
+      {editing && (
+        <div className="flex justify-end pt-3">
+          <Link className="t-caption font-semibold text-finance-blue hover:text-finance-ink" href={ledgerUrl(month, filters)}>수정 취소</Link>
         </div>
-        {editing && (
-          <Link className="t-caption font-semibold text-finance-blue hover:text-finance-ink" href={ledgerUrl(month, filters)}>
-            수정 취소
-          </Link>
-        )}
-      </div>
+      )}
 
       <form action={action} className="grid gap-3 border-b border-finance-border py-4 md:grid-cols-2 xl:grid-cols-6">
         <input name="transactionId" type="hidden" value={editing?.id ?? ''} />
@@ -190,6 +198,6 @@ export function TransactionForm({
           <p className="text-[13px] text-finance-red md:col-span-2 xl:col-span-6">{state.error}</p>
         )}
       </form>
-    </article>
+    </details>
   )
 }

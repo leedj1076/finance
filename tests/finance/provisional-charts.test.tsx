@@ -11,7 +11,6 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 
 import { AnnualFlowOverview, type AnnualFlowRow } from '@/features/analytics/annual-flow-overview'
 import { SeriesChart } from '@/features/analytics/series-chart'
-import * as chartStyles from '@/features/analytics/chart-js'
 import { SavingsProgressRing } from '@/features/analytics/home-dashboard-charts'
 import type { StatsMonthState } from '@/features/analytics/category-detail'
 import { StatsMonthlySection } from '@/features/analytics/stats-monthly-section'
@@ -55,7 +54,8 @@ test('annual chart keeps explicit closed zero, gaps absent open/current/future, 
   const html = renderToStaticMarkup(<AnnualFlowOverview monthly={monthly} annualRate={40} provisionalRate={35} savingsTarget={30} />)
   const bar = captured.bars[0].datasets[0]
   expect(bar.data).toEqual([100, 100, 100, 0, null, null, null, null, null, null, null, null])
-  expect(bar.backgroundColor).toEqual(['#2563eb', '#a1a1aa', '#a1a1aa', '#2563eb', '#a1a1aa', '#a1a1aa', '#a1a1aa', '#a1a1aa', '#a1a1aa', '#a1a1aa', '#a1a1aa', '#a1a1aa'])
+  const pending = 'rgba(37, 99, 235, 0.34)'
+  expect(bar.backgroundColor).toEqual(['#2563eb', pending, pending, '#2563eb', pending, pending, pending, pending, pending, pending, pending, pending])
   expect((bar.borderColor as string[])[1]).toBe('#a1a1aa')
   const line = captured.lines[0].datasets[0]
   expect(line.data).toEqual([40, 40, 40, 0, null, null, null, null, null, null, null, null])
@@ -78,7 +78,8 @@ test.each(['stacked', 'line', 'area'] as const)('series %s preserves nulls and a
   const dataset = data.datasets[0]
   expect(dataset.data.slice(3)).toEqual([0, null, kind === 'area' ? 100 : 10, null, null, null, null, null, null])
   if (kind === 'stacked') {
-    expect((dataset.backgroundColor as string[])[1]).toBe('#a1a1aa')
+    expect((dataset.backgroundColor as string[])[0]).toBe('rgba(37, 99, 235, 1)')
+    expect((dataset.backgroundColor as string[])[1]).toBe('rgba(37, 99, 235, 0.34)')
     expect((dataset.borderColor as string[])[1]).toBe('#a1a1aa')
   } else {
     const line = captured.lines[0].datasets[0]
@@ -116,22 +117,6 @@ test('annual savings-rate segments and hollow point outlines fade in unclosed mo
   expect(color({ p0DataIndex: 0, p1DataIndex: 3 })).toBe('#16a34a')
   expect(color({ p0DataIndex: 0, p1DataIndex: 1 })).toBe('rgba(22, 163, 74, 0.45)')
   expect((line.pointBorderColor as string[])[1]).toBe('rgba(22, 163, 74, 0.45)')
-})
-
-test('hatch has an SSR fallback and builds a faint diagonal repeating canvas pattern', () => {
-  const palette = { faint: '#aaa', background: '#fff' } as chartStyles.FinanceChartPalette
-  expect(chartStyles.provisionalPattern(palette)).toBe('#aaa')
-  const pattern = {} as CanvasPattern
-  const context = { fillStyle: '', strokeStyle: '', lineWidth: 0, fillRect: vi.fn(), beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), createPattern: vi.fn(() => pattern) }
-  const canvas = { width: 0, height: 0, getContext: () => context }
-  vi.stubGlobal('document', { createElement: () => canvas })
-  expect(chartStyles.provisionalPattern(palette)).toBe(pattern)
-  expect(context.strokeStyle).toBe('#aaa')
-  expect(context.moveTo).toHaveBeenCalledWith(-1, 7)
-  expect(context.lineTo).toHaveBeenCalledWith(7, -1)
-  expect(context.createPattern).toHaveBeenCalledWith(canvas, 'repeat')
-  vi.stubGlobal('document', { createElement: () => ({ getContext: () => null }) })
-  expect(chartStyles.provisionalPattern(palette)).toBe('#aaa')
 })
 
 test('provisional ring dims numeric text and marks without changing progress geometry or the default home ring', () => {

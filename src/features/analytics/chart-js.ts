@@ -43,6 +43,12 @@ export const CHART_POINT_RADIUS = 2.5
 export const CHART_POINT_RADIUS_ACTIVE = 4
 export const CHART_ANIMATION = { duration: 400 }
 
+/**
+ * Chart.js animates x, so an already-mounted chart slides its bars sideways
+ * when an update moves them. Bars and points should only move vertically.
+ */
+export const CHART_ANIMATIONS = { x: { duration: 0 } }
+
 /** Missing calendar slots must not snap the pointer to a neighbouring month. */
 export function monthlyEligibilityBoundary(): Plugin {
   return {
@@ -251,22 +257,3 @@ export function percentAxis(value: number) {
 }
 
 export const PROVISIONAL_DASH = [5, 4]
-
-/** A repeating diagonal hatch; server rendering and unavailable canvases use faint grey. */
-export function provisionalPattern(palette: FinanceChartPalette): CanvasPattern | string {
-  if (typeof document === 'undefined') return palette.faint
-  const tile = document.createElement('canvas')
-  tile.width = 6
-  tile.height = 6
-  const context = tile.getContext('2d')
-  if (!context) return palette.faint
-  context.fillStyle = palette.background
-  context.fillRect(0, 0, 6, 6)
-  context.strokeStyle = palette.faint
-  context.lineWidth = 1.5
-  context.beginPath()
-  context.moveTo(-1, 7)
-  context.lineTo(7, -1)
-  context.stroke()
-  return context.createPattern(tile, 'repeat') ?? palette.faint
-}

@@ -33,6 +33,8 @@ function UploadButton({ disabled = false, uploading }: { disabled?: boolean; upl
 }
 
 function BanksaladForm({ controller }: { controller: ImportUploadController }) {
+  const [fileNames, setFileNames] = useState<string[]>([])
+  const fileLabel = fileNames.join(', ')
   return (
     <form
       className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
@@ -43,21 +45,29 @@ function BanksaladForm({ controller }: { controller: ImportUploadController }) {
         if (outcome?.status === 'completed') {
           const files = form.elements.namedItem('files') as HTMLInputElement | null
           if (files) files.value = ''
+          setFileNames([])
         }
       }}
     >
       <input name="asset_include" type="hidden" value="off" />
       <label className="grid gap-1.5 t-label uppercase text-finance-muted">
         DJ·YJ 뱅크샐러드 파일
-        <input
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          className="h-[34px] border border-dashed border-finance-border bg-white px-2 py-1 t-body font-normal normal-case tracking-normal text-finance-muted file:mr-3 file:border-0 file:bg-finance-track file:px-3 file:py-1 file:font-semibold file:text-finance-ink hover:file:text-finance-blue"
-          disabled={controller.isProcessing}
-          multiple
-          name="files"
-          required
-          type="file"
-        />
+        <span className="flex h-[34px] min-w-0 items-stretch border border-dashed border-finance-border bg-white focus-within:border-finance-blue has-[:disabled]:opacity-40">
+          <span className="flex items-center bg-finance-track px-3 t-body font-semibold normal-case tracking-normal text-finance-ink">파일 선택</span>
+          <span className="flex min-w-0 flex-1 items-center px-3 t-body font-normal normal-case tracking-normal text-finance-muted">
+            <span className="truncate" title={fileLabel || undefined}>{fileLabel || '선택된 파일 없음'}</span>
+          </span>
+          <input
+            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            className="sr-only"
+            disabled={controller.isProcessing}
+            multiple
+            name="files"
+            onChange={(event) => setFileNames(Array.from(event.target.files ?? []).map((file) => file.name))}
+            required
+            type="file"
+          />
+        </span>
         <span className="font-normal normal-case tracking-normal text-finance-faint">.xlsx · 최대 2개 · 파일당 2MB</span>
       </label>
       <div className="sm:pt-[23px]"><UploadButton uploading={controller.isProcessing} /></div>
@@ -82,6 +92,9 @@ function CardStatementForm({
   const initialIssuer = issuers[0]?.key ?? ''
   const [issuer, setIssuer] = useState(initialIssuer)
   const [fileName, setFileName] = useState('')
+  // Separate from fileName: the completed branch clears the display, but fileName
+  // has to survive to keep gating the 보안 명세서 비밀번호 field below.
+  const [displayName, setDisplayName] = useState('')
   const [owner, setOwner] = useState('DJ')
   const candidates = useMemo(
     () => eligibleCardAccounts(issuers, accounts, issuer, owner),
@@ -108,6 +121,7 @@ function CardStatementForm({
         if (outcome?.status === 'completed') {
           const file = form.elements.namedItem('file') as HTMLInputElement | null
           if (file) file.value = ''
+          setDisplayName('')
         }
       }}
     >
@@ -182,18 +196,26 @@ function CardStatementForm({
       </div>
       <label className="grid gap-1.5 t-label uppercase text-finance-muted">
         카드사 명세서
-        <input
-          accept={`${issuer === 'hyundai' ? '.html,.htm,text/html,' : issuer === 'nonghyup' ? '.pdf,application/pdf,' : ''}.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`}
-          className="h-[34px] border border-dashed border-finance-border bg-white px-2 py-1 t-body font-normal normal-case tracking-normal text-finance-muted file:mr-3 file:border-0 file:bg-finance-track file:px-3 file:py-1 file:font-semibold file:text-finance-ink hover:file:text-finance-blue"
-          disabled={controller.isProcessing}
-          name="file"
-          onChange={(event) => {
-            setFileName(event.target.files?.[0]?.name ?? '')
-            if (passwordInput.current) passwordInput.current.value = ''
-          }}
-          required
-          type="file"
-        />
+        <span className="flex h-[34px] min-w-0 items-stretch border border-dashed border-finance-border bg-white focus-within:border-finance-blue has-[:disabled]:opacity-40">
+          <span className="flex items-center bg-finance-track px-3 t-body font-semibold normal-case tracking-normal text-finance-ink">파일 선택</span>
+          <span className="flex min-w-0 flex-1 items-center px-3 t-body font-normal normal-case tracking-normal text-finance-muted">
+            <span className="truncate" title={displayName || undefined}>{displayName || '선택된 파일 없음'}</span>
+          </span>
+          <input
+            accept={`${issuer === 'hyundai' ? '.html,.htm,text/html,' : issuer === 'nonghyup' ? '.pdf,application/pdf,' : ''}.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`}
+            className="sr-only"
+            disabled={controller.isProcessing}
+            name="file"
+            onChange={(event) => {
+              const picked = event.target.files?.[0]?.name ?? ''
+              setFileName(picked)
+              setDisplayName(picked)
+              if (passwordInput.current) passwordInput.current.value = ''
+            }}
+            required
+            type="file"
+          />
+        </span>
         <span className="font-normal normal-case tracking-normal text-finance-faint">
           {issuer === 'hyundai' ? '.xls · .xlsx · .html (보안 명세서 포함)' : issuer === 'nonghyup' ? '.xls · .xlsx · .pdf (암호화 명세서 포함)' : '.xls 또는 .xlsx'} · 2MB 이하
         </span>

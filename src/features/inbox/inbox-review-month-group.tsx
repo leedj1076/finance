@@ -39,9 +39,9 @@ export function InboxMonthGroup({
   return (
     <Fragment key={monthGroup.month}>
       <tbody className="border-t border-finance-ink first:border-t-0">
-        <tr className="bg-finance-ink text-white">
+        <tr className="bg-finance-panel">
           <th className="p-0" colSpan={8}>
-            <div className="flex min-h-14 items-center gap-3 px-4 py-3">
+            <div className="flex min-h-12 items-center gap-3 px-4 py-2.5">
               <GroupSelectionCheckbox
                 itemIds={monthGroup.items.map((item) => item.id)}
                 label={formatInboxMonth(monthGroup.month)}
@@ -50,18 +50,18 @@ export function InboxMonthGroup({
               />
               <button
                 aria-expanded={monthExpanded}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-finance-blue"
                 onClick={() => toggleMonth(monthGroup.month)}
                 type="button"
               >
-                <span aria-hidden="true" className="w-4 shrink-0 text-center t-body text-finance-faint">
+                <span aria-hidden="true" className="w-4 shrink-0 text-center t-body text-finance-muted">
                   {monthExpanded ? '▾' : '▸'}
                 </span>
-                <span className="font-bold">{formatInboxMonth(monthGroup.month)}</span>
-                <span className="bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-finance-faint">
+                <span className="t-body-strong text-finance-ink">{formatInboxMonth(monthGroup.month)}</span>
+                <span className="border border-finance-hairline px-2 py-0.5 t-badge text-finance-muted">
                   {monthGroup.items.length}건
                 </span>
-                <span className="ml-auto t-caption font-normal text-finance-faint">
+                <span className="ml-auto t-caption font-normal text-finance-muted">
                   사람 {monthGroup.owners.length}명 · 결제수단 {monthGroup.owners.reduce((total, owner) => total + owner.sources.length, 0)}개
                 </span>
               </button>

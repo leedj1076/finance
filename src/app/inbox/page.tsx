@@ -60,10 +60,6 @@ export default async function InboxPage({ searchParams }: InboxPageProps) {
         <InboxTabs defaultTab={fallbackTab} pendingCount={data.counts.pending} requestedTab={tab} unclassifiedCount={data.counts.unclassified}>
         <InboxTabPanel tab="review">
           <section className="mt-6">
-            <div className="mb-3 border-t border-finance-ink pt-4">
-              <h2 className="t-section text-finance-ink">분류 확인</h2>
-              <p className="mt-1 t-caption text-finance-muted">자동 분류를 포함한 모든 거래를 수정할 수 있습니다. 한 건씩 반영하거나 그룹을 선택해 한 번에 처리하세요.</p>
-            </div>
             {data.truncated && <p className="mb-3 border-l-2 border-finance-amber py-2 pl-3 t-body text-finance-muted">대기 거래가 많아 최근 500건만 표시합니다. 먼저 반영하거나 제외하면 나머지가 이어서 표시됩니다.</p>}
             <InboxReviewForm accounts={data.accounts} categories={data.categories} highItems={data.highItems} reviewItems={data.reviewItems} />
           </section>

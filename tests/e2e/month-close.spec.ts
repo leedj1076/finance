@@ -67,11 +67,19 @@ async function waitForCanvasAnimations(canvases: Locator) {
   }, { intervals: [100, 100, 100, 100, 100], timeout: 5_000 }).toBeGreaterThanOrEqual(2)
 }
 
+type ExpectedBar = { month: number; value: number; color: 'blue' | 'ink'; provisional?: boolean }
+
+// An unclosed month is no longer a grey hatch in --finance-faint; it is the
+// month's own series hue at low alpha, so it has no --finance-* token of its
+// own and has to be composited to be matched.
+const PROVISIONAL_FILL_OPACITY = 0.34
+const fillKey = (bar: ExpectedBar) => bar.provisional ? `${bar.color}:provisional` : bar.color
+
 async function captureAnnualStatistics(
   page: Page,
   path: string,
   axisMax: number,
-  expectedBars: Array<{ month: number; value: number; color: 'blue' | 'ink' | 'faint' }>,
+  expectedBars: ExpectedBar[],
 ) {
   const viewport = page.viewportSize()
   if (!viewport) throw new Error('Expected a fixed statistics viewport')
@@ -94,7 +102,7 @@ async function captureAnnualStatistics(
   const screenshot = await page.screenshot({ path, fullPage: true })
   await page.setViewportSize(viewport)
   // Verify the delivered PNG itself, independently of Chart.js element state.
-  const geometry = await page.evaluate(async ({ png, bounds, colors }) => {
+  const geometry = await page.evaluate(async ({ png, bounds, colors, opacity }) => {
     const image = new Image()
     image.src = `data:image/png;base64,${png}`
     await image.decode()
@@ -107,6 +115,16 @@ async function captureAnnualStatistics(
     const styles = getComputedStyle(document.documentElement)
     const rgb = (color: string) => {
       context.fillStyle = styles.getPropertyValue(`--finance-${color}`).trim()
+      context.fillRect(0, 0, 1, 1)
+      return Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3)
+    }
+    // Composite the hue over the chart ground exactly as the canvas does,
+    // rather than hard-coding the resulting hex, which differs per ground.
+    const provisionalRgb = (color: string) => {
+      const [r, g, b] = rgb(color)
+      context.fillStyle = styles.getPropertyValue('--background').trim()
+      context.fillRect(0, 0, 1, 1)
+      context.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`
       context.fillRect(0, 0, 1, 1)
       return Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3)
     }
@@ -128,7 +146,8 @@ async function captureAnnualStatistics(
     let plotLeft = 0
     while (plotLeft < canvas.width && !matches(plotLeft, top, track)) plotLeft += 1
     const bars = colors.map(color => {
-      const fill = rgb(color)
+      const [token, state] = color.split(':')
+      const fill = state === 'provisional' ? provisionalRgb(token) : rgb(token)
       const groups: Array<{ left: number; right: number; top: number; bottom: number }> = []
       for (let x = plotLeft; x < canvas.width; x += 1) {
         const ys: number[] = []
@@ -147,10 +166,10 @@ async function captureAnnualStatistics(
       return { color, groups }
     })
     return { width: canvas.width, plotLeft, plotHeight: bottom - top, bars }
-  }, { png: screenshot.toString('base64'), bounds, colors: [...new Set(expectedBars.map(bar => bar.color))] })
+  }, { png: screenshot.toString('base64'), bounds, colors: [...new Set(expectedBars.map(fillKey))], opacity: PROVISIONAL_FILL_OPACITY })
   expect(geometry.plotHeight).toBeGreaterThan(150)
   for (const { color, groups } of geometry.bars) {
-    const expected = expectedBars.filter(bar => bar.color === color)
+    const expected = expectedBars.filter(bar => fillKey(bar) === color)
     expect(groups, `${color} bar count in ${path}`).toHaveLength(expected.length)
     for (const [index, bar] of groups.entries()) {
       const fixture = expected[index]
@@ -323,7 +342,9 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(page.getByRole('heading', { name: '마감한 월이 없습니다', exact: true })).toHaveCount(0)
   await expect(page.getByText(`마감 0개월 · 잠정 1개월 (${CLOSE_MONTH_NUMBER}월)`)).toBeVisible()
   await expect(page.getByRole('navigation', { name: '통계 월 마감 현황' }).getByRole('link', { name: `${CLOSE_MONTH_NUMBER}월 미마감`, exact: true })).toBeVisible()
-  await expect(page.getByText('잠정 · 마감 0개월').first()).toBeVisible()
+  // 페이지 전체가 잠정이면 배지는 모두 빠지고 머리말 안내 한 줄만 남는다.
+  await expect(page.getByText('마감된 달이 없어')).toBeVisible()
+  await expect(page.getByText('잠정 · 마감 0개월')).toHaveCount(0)
   await expect(page.getByText('미마감 · 잠정', { exact: true })).toBeVisible()
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -352,6 +373,7 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expectFitsViewport(page, page.getByRole('heading', { level: 1 }))
   await expectFitsViewport(page, page.getByRole('region', { name: `${CLOSE_MONTH_NUMBER}월 마무리` }))
   await page.goto(`/ledger?month=${CLOSE_MONTH}&q=마감커피`)
+  await page.locator('#transaction-form summary').click()
   const draft = page.locator('#transaction-form input[name="memo"]')
   await draft.fill('유지할 작성 중 입력')
   await page.getByRole('button', { name: `${CLOSE_MONTH} 월 마감`, exact: true }).click()
@@ -370,7 +392,10 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(page.getByRole('link', { name: new RegExp(`${CLOSE_MONTH_NUMBER}월 마무리하기`) })).toHaveCount(0)
   await page.goto(`/report?year=${CLOSE_YEAR}`)
   await expect(page.getByText('마감 1개월 · 잠정 0개월')).toBeVisible()
-  await expect(page.getByText('확정').first()).toBeVisible()
+  // 페이지 기준 잠정 배지는 머리말 안내 한 줄로 합쳐졌다. 마감된 달이 생기면 그 안내가
+  // 사라지고 예측 기준도 마감 월로 바뀐다. 확정 상태를 말하는 자리가 이 둘이다.
+  await expect(page.getByText('마감된 달이 없어')).toHaveCount(0)
+  await expect(page.getByText('마감 월 평균 순흐름 누적')).toBeVisible()
   await expect(page.getByRole('navigation', { name: '통계 월 마감 현황' }).getByRole('link', { name: `${CLOSE_MONTH_NUMBER}월 마감`, exact: true })).toBeVisible()
   await expect(page.getByRole('img', { name: '월별 수입 지출 저축 막대 차트' })).toBeVisible()
   await page.goto(`/ledger?month=${CLOSE_MONTH}&q=마감커피`)
@@ -386,7 +411,8 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await expect(page.getByRole('heading', { name: '마감한 월이 없습니다', exact: true })).toHaveCount(0)
   await expect(page.getByText(`마감 0개월 · 잠정 1개월 (${CLOSE_MONTH_NUMBER}월)`)).toBeVisible()
   await expect(page.getByRole('navigation', { name: '통계 월 마감 현황' }).getByRole('link', { name: `${CLOSE_MONTH_NUMBER}월 재확인 필요`, exact: true })).toBeVisible()
-  await expect(page.getByText('잠정 · 마감 0개월').first()).toBeVisible()
+  await expect(page.getByText('마감된 달이 없어')).toBeVisible()
+  await expect(page.getByText('잠정 · 마감 0개월')).toHaveCount(0)
   await expect(page.getByText('미마감 · 잠정', { exact: true })).toBeVisible()
   const provisionalSection = page.locator('#category-detail')
   await provisionalSection.getByLabel('상세 항목 선택').selectOption({ label: '식비' })
@@ -401,7 +427,8 @@ suite('filtered ledger closes the whole month, inline edits invalidate it withou
   await closeVisibleMonth(page, CLOSE_MONTH)
   await page.goto(`/report?year=${CLOSE_YEAR}`)
   await expect(page.getByText('마감 1개월 · 잠정 0개월')).toBeVisible()
-  await expect(page.getByText('확정').first()).toBeVisible()
+  await expect(page.getByText('마감된 달이 없어')).toHaveCount(0)
+  await expect(page.getByText('마감 월 평균 순흐름 누적')).toBeVisible()
   await expect(page.getByRole('img', { name: '월별 수입 지출 저축 막대 차트' })).toBeVisible()
   await captureAnnualStatistics(page, info.outputPath('closed-statistics.png'), 600_000, [
     { month: CLOSE_MONTH_NUMBER, value: 500_000, color: 'blue' },
@@ -431,7 +458,39 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await expectFitsViewport(page, annualFlow.getByText(/마감 3개월/).last())
   const provisionalLegend = annualFlow.getByText('미마감 · 잠정', { exact: true })
   await expect(provisionalLegend).toBeVisible()
-  await expect(provisionalLegend.locator('i')).toHaveCSS('background-image', /repeating-linear-gradient/)
+  // The key must paint what an unclosed bar paints: the 지출 hue at the
+  // provisional alpha over the page ground. The chart stopped drawing a hatch,
+  // so a hatch here would key a mark that no longer exists anywhere.
+  const provisionalSwatch = provisionalLegend.locator('i')
+  await expect(provisionalSwatch).toHaveCSS('background-image', 'none')
+  const swatchPng = (await provisionalSwatch.screenshot()).toString('base64')
+  const legendFill = await page.evaluate(async ({ png, opacity }) => {
+    const image = new Image()
+    image.src = `data:image/png;base64,${png}`
+    await image.decode()
+    const canvas = document.createElement('canvas')
+    canvas.width = image.width
+    canvas.height = image.height
+    const context = canvas.getContext('2d')!
+    context.drawImage(image, 0, 0)
+    // The modal colour is the fill; the minority pixels are the faint border
+    // and the antialiased edge, which a fractional layout position can shift.
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
+    const counts = new Map<string, number>()
+    for (let offset = 0; offset < data.length; offset += 4) {
+      const key = `${data[offset]},${data[offset + 1]},${data[offset + 2]}`
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    const swatch = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+    const styles = getComputedStyle(document.documentElement)
+    const read = () => Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3).join(',')
+    const paint = (color: string) => { context.fillStyle = color; context.fillRect(0, 0, 1, 1); return read() }
+    const ink = paint(styles.getPropertyValue('--finance-ink').trim())
+    context.clearRect(0, 0, 1, 1)
+    paint(styles.getPropertyValue('--background').trim())
+    return { swatch, bar: paint(`rgba(${ink}, ${opacity})`) }
+  }, { png: swatchPng, opacity: PROVISIONAL_FILL_OPACITY })
+  expect(legendFill.swatch, 'legend swatch fill vs a provisional bar fill').toBe(legendFill.bar)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
 
   await page.setViewportSize({ width: 1280, height: 900 })
@@ -623,7 +682,7 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await captureAnnualStatistics(page, info.outputPath('sparse-closed-months.png'), 1_000, [
     { month: 1, value: 400, color: 'ink' },
     { month: 3, value: 200, color: 'ink' },
-    { month: 2, value: 999, color: 'faint' },
+    { month: 2, value: 999, color: 'ink', provisional: true },
   ])
 
   // Refresh this mounted chart, rather than navigating/remounting it: February
@@ -638,6 +697,8 @@ suite('sparse closed months keep gaps in every chart and tooltip, while closed z
   await expect(section.getByText('식비 · 항목 선택', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(origin)
 
+  // 앞선 hover가 표 위에 남긴 포인터로 스크롤이 다른 셀을 밀어 넣으면, 그 hover가 포커스의 예약 요청을 지운다.
+  await page.mouse.move(0, 0)
   await section.getByRole('button', { name: '선', exact: true }).focus()
   response = cellResponse(3)
   await section.getByRole('button', { name: '식비 카페 3월 250원, 합계에서 제외', exact: true }).focus()
