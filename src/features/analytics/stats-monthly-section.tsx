@@ -20,6 +20,7 @@ import type { CategoryDetails, CellTransactionResult } from './category-detail'
 import { CellTransactionTooltip } from './cell-transaction-tooltip'
 import { compactWon } from './chart-theme'
 import { PROVISIONAL_DASH } from './chart-js'
+import { ChartLegend } from './chart-legend'
 import { ChartHoverTooltip } from './chart-hover-tooltip'
 import type { ChartHoverAnchor } from './chart-tooltip-position'
 import { usePointerTracker, type PointerPoint } from './pointer-motion'
@@ -566,6 +567,9 @@ export function StatsMonthlySection({
                       </p>
                   </ChartHoverTooltip>
                 )}
+              </div>
+              <div className="col-span-12 col-start-2 pt-2">
+                <ChartLegend items={model.series.map((item) => ({ name: item.label, color: item.color }))} />
               </div>
             </div>
 
