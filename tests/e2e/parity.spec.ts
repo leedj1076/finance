@@ -973,6 +973,10 @@ test('annual chart hover and selection show values, and cell exclusion updates t
     const visibleSubCell = detailSection.getByRole('button', { name: '식비 카페 2월 300,000원, 합계에서 제외', exact: true })
     await visibleSubCell.scrollIntoViewIfNeeded()
     await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    // The 식비 tooltip is still open over the row below it -- 360px wide on a 390px screen, so it
+    // covers the detail cell this block aims at. Leave the table and let it close first.
+    await page.mouse.move(1, 1)
+    await expect(tableTooltip).not.toBeVisible()
     const subPointerBox = await visibleSubCell.boundingBox()
     if (!subPointerBox) throw new Error('Expected a visible detailed transaction cell')
     const transactionResponse = page.waitForResponse((response) => {
