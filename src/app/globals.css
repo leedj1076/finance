@@ -242,6 +242,10 @@ button {
   outline-offset: 2px;
 }
 
+/* Tailwind's focus-visible: utilities are layered and lose to the rule above, so a
+   dense table that needs its ring inside its own box has to ask for it here. */
+.focus-inset:focus-visible { outline-offset: -2px; }
+
 body > div > .min-h-screen.bg-zinc-50 { background: #fff; }
 main.max-w-7xl { max-width: 1120px; }
 .rounded-sm,

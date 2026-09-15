@@ -51,7 +51,7 @@ export function InboxSourceGroup({
             />
             <button
               aria-expanded={expanded}
-              className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-finance-blue"
+              className="flex min-w-0 flex-1 items-center gap-3 text-left"
               onClick={() => toggleSource(group.key)}
               type="button"
             >
