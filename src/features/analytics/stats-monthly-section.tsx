@@ -20,8 +20,10 @@ import type { CategoryDetails, CellTransactionResult } from './category-detail'
 import { CellTransactionTooltip } from './cell-transaction-tooltip'
 import { compactWon } from './chart-theme'
 import { PROVISIONAL_DASH } from './chart-js'
+import { ChartLegend } from './chart-legend'
 import { ChartHoverTooltip } from './chart-hover-tooltip'
 import type { ChartHoverAnchor } from './chart-tooltip-position'
+import { usePointerTracker, type PointerPoint } from './pointer-motion'
 import { buildSeriesChartGeometry } from './series-chart-geometry'
 import { SeriesChart, type SeriesChartKind } from './series-chart'
 import {
@@ -56,7 +58,7 @@ type TooltipAnchor = {
   y: number
 }
 
-type FocusScrollState = {
+type OpenScrollState = {
   x: number
   y: number
   container: HTMLElement | null
@@ -161,7 +163,11 @@ export function StatsMonthlySection({
   const activeCell = useRef<string | null>(null)
   const activeAnchor = useRef<TooltipAnchor | null>(null)
   const activeRequest = useRef<AbortController | null>(null)
-  const focusScroll = useRef<FocusScrollState | null>(null)
+  const openedAt = useRef<OpenScrollState | null>(null)
+  const pointer = usePointerTracker()
+  // The cell whose hover a scroll invented, and where the pointer sat when it did, so that a
+  // pointer which later really moves inside that same cell can still claim it.
+  const scrollHover = useRef<{ key: string; point: PointerPoint } | null>(null)
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -198,7 +204,7 @@ export function StatsMonthlySection({
     activeCell.current = null
     activeRequest.current?.abort()
     activeRequest.current = null
-    focusScroll.current = null
+    openedAt.current = null
     setCellTooltip(null)
     setStale(false)
     return () => {
@@ -242,15 +248,19 @@ export function StatsMonthlySection({
   useEffect(() => {
     const hide = (event?: Event) => {
       if (event?.target instanceof Node && tooltipRef.current?.contains(event.target)) return
-      const focus = focusScroll.current
-      if (event?.type === 'scroll' && focus) {
+      // A scroll event reporting the position the tooltip opened at describes a scroll that had
+      // already happened, not one that moved the page out from under it: focusing a cell below the
+      // fold scrolls it into view, and so does hovering one the page had to scroll to reach. Only a
+      // scroll that moves the page from where the tooltip opened dismisses it.
+      const opened = openedAt.current
+      if (event?.type === 'scroll' && opened) {
         if (
-          window.scrollX === focus.x
-          && window.scrollY === focus.y
-          && (!focus.container || (focus.container.scrollLeft === focus.containerLeft && focus.container.scrollTop === focus.containerTop))
+          window.scrollX === opened.x
+          && window.scrollY === opened.y
+          && (!opened.container || (opened.container.scrollLeft === opened.containerLeft && opened.container.scrollTop === opened.containerTop))
         ) return
       }
-      focusScroll.current = null
+      openedAt.current = null
       if (showTimer.current) clearTimeout(showTimer.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
       activeRequest.current?.abort()
@@ -281,7 +291,7 @@ export function StatsMonthlySection({
     clearTimer(showTimer)
     clearTimer(hideTimer)
     abortCellRequest()
-    focusScroll.current = null
+    openedAt.current = null
     activeCell.current = null
     activeAnchor.current = null
     setCellTooltip(null)
@@ -301,12 +311,12 @@ export function StatsMonthlySection({
     month: number,
     delay: number,
     anchor: TooltipAnchor,
-    focusState?: FocusScrollState,
+    openState: OpenScrollState,
   ) {
     clearTimer(showTimer)
     clearTimer(hideTimer)
     abortCellRequest()
-    focusScroll.current = focusState ?? null
+    openedAt.current = openState
     if (!model.availableMonths[month - 1]) return
     const key = cellCacheKey(major, sub, month)
     activeCell.current = key
@@ -356,12 +366,24 @@ export function StatsMonthlySection({
     showTimer.current = setTimeout(() => { void load() }, delay)
   }
 
+  /**
+   * A cell whose hover was discarded as scroll-induced takes it back once the pointer really moves
+   * inside it, without having to leave the cell and come back.
+   */
+  function claimsScrollHover(key: string, point: PointerPoint) {
+    const held = scrollHover.current
+    if (!held || held.key !== key) return false
+    if (held.point.x === point.x && held.point.y === point.y) return false
+    scrollHover.current = null
+    return true
+  }
+
   function cellAnchor(target: HTMLButtonElement) {
     const bounds = target.getBoundingClientRect()
     return { x: bounds.left + (bounds.width / 2), y: bounds.bottom }
   }
 
-  function focusScrollState(target: HTMLButtonElement): FocusScrollState {
+  function openScrollState(target: HTMLButtonElement): OpenScrollState {
     const container = target.closest<HTMLElement>('[aria-label="월별 그래프와 항목별 표"]')
     return {
       x: window.scrollX,
@@ -380,11 +402,11 @@ export function StatsMonthlySection({
       : current)
   }
 
-  function showSummaryTooltip(row: { id: string; label: string }, month: number, value: number, anchor: TooltipAnchor, focusState?: FocusScrollState) {
+  function showSummaryTooltip(row: { id: string; label: string }, month: number, value: number, anchor: TooltipAnchor, openState: OpenScrollState) {
     clearTimer(showTimer)
     clearTimer(hideTimer)
     abortCellRequest()
-    focusScroll.current = focusState ?? null
+    openedAt.current = openState
     activeCell.current = null
     activeAnchor.current = null
     setCellTooltip({ kind: 'summary', key: `summary:${row.id}:${month}`, major: row.label, month: month + 1, value, anchor })
@@ -484,7 +506,7 @@ export function StatsMonthlySection({
         </div>
       </div>
 
-      {stale && <p role="alert" className="mt-3 border-l-2 border-finance-amber px-3 py-2 t-caption text-finance-amber">마감 상태 또는 내역이 바뀌었습니다. <button type="button" className="font-semibold underline" onClick={() => router.refresh()}>최신 통계 확인</button></p>}
+      {stale && <p role="alert" className="mt-3 border-l-2 border-finance-amber px-3 py-2 t-caption text-finance-amber">마감 상태 또는 내역이 바뀌었습니다. <button type="button" className="t-caption-strong underline" onClick={() => router.refresh()}>최신 통계 확인</button></p>}
       {model.rows.length > 0 && <label className="mt-4 flex flex-wrap items-center gap-2 t-caption text-finance-muted">상세 항목
         <select aria-label="상세 항목 선택" className="max-w-full border border-finance-border bg-white px-2 py-1 text-finance-ink" value={encodeURIComponent(selectedSeries?.id ?? '')} onChange={event => {
           const id = decodeURIComponent(event.target.value)
@@ -550,6 +572,9 @@ export function StatsMonthlySection({
                   </ChartHoverTooltip>
                 )}
               </div>
+              <div className="col-span-12 col-start-2 pt-2">
+                <ChartLegend items={model.series.map((item) => ({ name: item.label, color: item.color }))} />
+              </div>
             </div>
 
             {selectedRows.length === 0 ? (
@@ -564,7 +589,7 @@ export function StatsMonthlySection({
                   {selectedSeries && <span className="mr-2 inline-block h-[9px] w-[9px]" style={{ background: selectedSeries.color }} />}
                   {selectedSeries ? `${selectedSeries.label} · ${selection?.month !== null && selection?.month !== undefined ? `${selection.month + 1}월 선택` : '항목 선택'}` : '전체 항목'}
                 </p>
-                {selectedSeries && <button className="t-caption font-semibold text-finance-blue hover:text-finance-ink" onClick={() => setSelection(null)} type="button">선택 해제</button>}
+                {selectedSeries && <button className="t-caption-strong text-finance-blue hover:text-finance-ink" onClick={() => setSelection(null)} type="button">선택 해제</button>}
               </div>
               <div className="grid items-center gap-x-1.5 border-b border-finance-hairline py-[9px] t-label text-finance-muted" style={{ gridTemplateColumns: GRID_COLUMNS }}>
                 <div>{effectiveAxis === 'account' ? '결제수단' : '항목'}</div>
@@ -598,28 +623,43 @@ export function StatsMonthlySection({
                         const key = statsCellKey({ axis: effectiveAxis, label: effectiveAxis === 'account' ? row.label.replace(/^그 외 \d+개 결제수단$/, '그 외') : row.label.replace(/^그 외 \d+개 대분류$/, '그 외'), month })
                         const rawValue = row.displayValues[month]
                         const isExcluded = excluded.has(key)
+                        const summaryKey = `summary:${row.id}:${month}`
                         return (
                           <button
-                            aria-describedby={cellTooltip?.kind === 'summary' && cellTooltip.key === `summary:${row.id}:${month}` ? tooltipId : undefined}
+                            aria-describedby={cellTooltip?.kind === 'summary' && cellTooltip.key === summaryKey ? tooltipId : undefined}
                             aria-label={rawValue === null ? `${row.label} ${month + 1}월 ${model.monthStates[month] === 'future' ? '예정' : '기록 없음'}` : `${row.label} ${month + 1}월 ${formatWon(rawValue)}원, ${isExcluded ? '합계에 다시 포함' : '합계에서 제외'}`}
                             aria-pressed={isExcluded}
-                            className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${month === model.currentMonthIndex ? 'italic' : ''} ${isExcluded ? 'text-finance-faint line-through' : rawValue === null ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
+                            className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${month === model.currentMonthIndex ? 't-italic' : ''} ${isExcluded ? 'text-finance-faint line-through' : rawValue === null ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
                             disabled={rawValue === null}
                             key={month}
                             onBlur={scheduleHide}
                             onClick={() => toggleCell(key)}
-                            onFocus={(event) => rawValue !== null && showSummaryTooltip(row, month, rawValue, cellAnchor(event.currentTarget), focusScrollState(event.currentTarget))}
+                            onFocus={(event) => rawValue !== null && showSummaryTooltip(row, month, rawValue, cellAnchor(event.currentTarget), openScrollState(event.currentTarget))}
                             onKeyDown={(event) => { if (event.key === 'Escape') closeCellTooltip() }}
                             onMouseEnter={(event) => {
+                              const point = { x: event.clientX, y: event.clientY }
+                              if (!pointer.current.movedTo(point)) { scrollHover.current = { key: summaryKey, point }; return }
+                              scrollHover.current = null
                               updateHover(row.id, month)
-                              if (rawValue !== null) showSummaryTooltip(row, month, rawValue, { x: event.clientX, y: event.clientY })
+                              if (rawValue !== null) showSummaryTooltip(row, month, rawValue, point, openScrollState(event.currentTarget))
                             }}
-                            onMouseLeave={scheduleHide}
-                            onMouseMove={(event) => rawValue !== null && setCellTooltip((current) => (
-                              current?.kind === 'summary' && current.key === `summary:${row.id}:${month}`
-                                ? { ...current, anchor: { x: event.clientX, y: event.clientY } }
-                                : current
-                            ))}
+                            onMouseLeave={(event) => {
+                              if (!pointer.current.movedTo({ x: event.clientX, y: event.clientY })) return
+                              scheduleHide()
+                            }}
+                            onMouseMove={(event) => {
+                              const point = { x: event.clientX, y: event.clientY }
+                              if (claimsScrollHover(summaryKey, point)) {
+                                updateHover(row.id, month)
+                                if (rawValue !== null) showSummaryTooltip(row, month, rawValue, point, openScrollState(event.currentTarget))
+                                return
+                              }
+                              if (rawValue !== null) setCellTooltip((current) => (
+                                current?.kind === 'summary' && current.key === summaryKey
+                                  ? { ...current, anchor: point }
+                                  : current
+                              ))
+                            }}
                             title={rawValue === null ? undefined : isExcluded ? '합계에 다시 포함' : '합계와 그래프에서 제외'}
                             type="button"
                           >
@@ -652,19 +692,33 @@ export function StatsMonthlySection({
                               aria-describedby={cellTooltip?.kind === 'detail' && cellTooltip.key === tooltipKey ? tooltipId : undefined}
                               aria-label={!available ? `${sub.major} ${sub.sub} ${month + 1}월 ${model.monthStates[month] === 'future' ? '예정' : '기록 없음'}` : `${sub.major} ${sub.sub} ${month + 1}월 ${formatWon(rawValue)}원, ${isExcluded ? '합계에 다시 포함' : '합계에서 제외'}`}
                               aria-pressed={isExcluded}
-                              className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${month === model.currentMonthIndex ? 'italic' : ''} ${isExcluded ? 'text-finance-faint line-through' : !available ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
+                              className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${month === model.currentMonthIndex ? 't-italic' : ''} ${isExcluded ? 'text-finance-faint line-through' : !available ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
                               disabled={!available}
                               key={month}
                               onBlur={scheduleHide}
                               onClick={() => toggleCell(key)}
-                              onFocus={(event) => available && requestCellTransactions(sub.major, sub.sub, month + 1, 0, cellAnchor(event.currentTarget), focusScrollState(event.currentTarget))}
+                              onFocus={(event) => available && requestCellTransactions(sub.major, sub.sub, month + 1, 0, cellAnchor(event.currentTarget), openScrollState(event.currentTarget))}
                               onKeyDown={(event) => { if (event.key === 'Escape') closeCellTooltip() }}
                               onMouseEnter={(event) => {
+                                const point = { x: event.clientX, y: event.clientY }
+                                if (!pointer.current.movedTo(point)) { scrollHover.current = { key: tooltipKey, point }; return }
+                                scrollHover.current = null
                                 updateHover(row.id, month)
-                                if (available) requestCellTransactions(sub.major, sub.sub, month + 1, 180, { x: event.clientX, y: event.clientY })
+                                if (available) requestCellTransactions(sub.major, sub.sub, month + 1, 180, point, openScrollState(event.currentTarget))
                               }}
-                              onMouseLeave={scheduleHide}
-                              onMouseMove={(event) => updateDetailTooltipAnchor(tooltipKey, { x: event.clientX, y: event.clientY })}
+                              onMouseLeave={(event) => {
+                                if (!pointer.current.movedTo({ x: event.clientX, y: event.clientY })) return
+                                scheduleHide()
+                              }}
+                              onMouseMove={(event) => {
+                                const point = { x: event.clientX, y: event.clientY }
+                                if (claimsScrollHover(tooltipKey, point)) {
+                                  updateHover(row.id, month)
+                                  if (available) requestCellTransactions(sub.major, sub.sub, month + 1, 180, point, openScrollState(event.currentTarget))
+                                  return
+                                }
+                                updateDetailTooltipAnchor(tooltipKey, point)
+                              }}
                               title={!available ? model.monthStates[month] === 'future' ? '아직 오지 않은 달입니다' : '거래 기록이 없습니다' : isExcluded ? '합계에 다시 포함' : '합계와 그래프에서 제외'}
                               type="button"
                             >

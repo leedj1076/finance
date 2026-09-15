@@ -54,7 +54,7 @@ function BanksaladForm({ controller }: { controller: ImportUploadController }) {
         DJ·YJ 뱅크샐러드 파일
         <span className="flex h-[34px] min-w-0 items-stretch border border-dashed border-finance-border bg-white focus-within:border-finance-blue has-[:disabled]:opacity-40">
           <span className="flex items-center bg-finance-track px-3 t-body font-semibold normal-case tracking-normal text-finance-ink">파일 선택</span>
-          <span className="flex min-w-0 flex-1 items-center px-3 t-body font-normal normal-case tracking-normal text-finance-muted">
+          <span className="flex min-w-0 flex-1 items-center px-3 t-body-normal normal-case tracking-normal text-finance-muted">
             <span className="truncate" title={fileLabel || undefined}>{fileLabel || '선택된 파일 없음'}</span>
           </span>
           <input
@@ -128,7 +128,7 @@ function CardStatementForm({
       <label className="grid gap-1.5 t-label uppercase text-finance-muted">
         카드사
         <select
-          className="h-[34px] border border-finance-border bg-white px-3 t-body font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
+          className="h-[34px] border border-finance-border bg-white px-3 t-body-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
           disabled={controller.isProcessing}
           name="issuer"
           onChange={(event) => {
@@ -145,7 +145,7 @@ function CardStatementForm({
       <label className="grid gap-1.5 t-label uppercase text-finance-muted">
         소유자
         <select
-          className="h-[34px] border border-finance-border bg-white px-3 t-body font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
+          className="h-[34px] border border-finance-border bg-white px-3 t-body-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
           disabled={controller.isProcessing}
           name="owner"
           onChange={(event) => {
@@ -162,14 +162,14 @@ function CardStatementForm({
       <div className="grid gap-1.5 t-label uppercase text-finance-muted">
         <span>기본 카드</span>
         {candidates.length === 0 ? (
-          <div aria-live="polite" className="flex min-h-[34px] items-center justify-between gap-2 border border-finance-red px-3 t-body font-normal normal-case tracking-normal text-finance-red">
+          <div aria-live="polite" className="flex min-h-[34px] items-center justify-between gap-2 border border-finance-red px-3 t-body-normal normal-case tracking-normal text-finance-red">
             <span>일치하는 카드 없음</span>
             <Link className="shrink-0 font-semibold underline underline-offset-2" href="/manage?tab=accounts">결제수단 관리</Link>
           </div>
         ) : candidates.length === 1 ? (
           <>
             <input name="accountId" type="hidden" value={accountId} />
-            <div aria-label="자동 선택된 기본 카드" aria-live="polite" className="flex h-[34px] items-center justify-between gap-2 border border-finance-border bg-finance-panel px-3 t-body font-normal normal-case tracking-normal text-finance-ink" data-account-id={matchedAccount?.id}>
+            <div aria-label="자동 선택된 기본 카드" aria-live="polite" className="flex h-[34px] items-center justify-between gap-2 border border-finance-border bg-finance-panel px-3 t-body-normal normal-case tracking-normal text-finance-ink" data-account-id={matchedAccount?.id}>
               <span>{matchedAccount?.name}</span>
               <span className="shrink-0 t-badge text-finance-faint">자동 고정</span>
             </div>
@@ -177,7 +177,7 @@ function CardStatementForm({
         ) : (
           <select
             aria-label="기본 카드"
-            className="h-[34px] border border-finance-border bg-white px-3 t-body font-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
+            className="h-[34px] border border-finance-border bg-white px-3 t-body-normal normal-case tracking-normal text-finance-ink outline-none focus:border-finance-blue"
             disabled={controller.isProcessing}
             name="accountId"
             onChange={(event) => setSelectedAccountId(event.target.value)}
@@ -198,7 +198,7 @@ function CardStatementForm({
         카드사 명세서
         <span className="flex h-[34px] min-w-0 items-stretch border border-dashed border-finance-border bg-white focus-within:border-finance-blue has-[:disabled]:opacity-40">
           <span className="flex items-center bg-finance-track px-3 t-body font-semibold normal-case tracking-normal text-finance-ink">파일 선택</span>
-          <span className="flex min-w-0 flex-1 items-center px-3 t-body font-normal normal-case tracking-normal text-finance-muted">
+          <span className="flex min-w-0 flex-1 items-center px-3 t-body-normal normal-case tracking-normal text-finance-muted">
             <span className="truncate" title={displayName || undefined}>{displayName || '선택된 파일 없음'}</span>
           </span>
           <input
@@ -256,7 +256,7 @@ export function InboxUploadForm({
       <div aria-label="가져오기 파일 유형" className="mt-4 inline-flex border border-finance-ink" role="tablist">
         <button
           aria-selected={mode === 'banksalad'}
-          className={`h-8 px-4 t-caption font-medium disabled:cursor-not-allowed disabled:opacity-50 ${mode === 'banksalad' ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track'}`}
+          className={`h-8 px-4 t-caption disabled:cursor-not-allowed disabled:opacity-50 ${mode === 'banksalad' ? 'bg-finance-ink text-white' : 'text-finance-muted hover:bg-finance-track'}`}
           disabled={controller.isProcessing}
           onClick={() => setMode('banksalad')}
           role="tab"
@@ -266,7 +266,7 @@ export function InboxUploadForm({
         </button>
         <button
           aria-selected={mode === 'card'}
-          className={`h-8 border-l border-finance-ink px-4 t-caption font-medium disabled:cursor-not-allowed disabled:opacity-50 ${mode === 'card' ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track'}`}
+          className={`h-8 border-l border-finance-ink px-4 t-caption disabled:cursor-not-allowed disabled:opacity-50 ${mode === 'card' ? 'bg-finance-ink text-white' : 'text-finance-muted hover:bg-finance-track'}`}
           disabled={controller.isProcessing}
           onClick={() => setMode('card')}
           role="tab"

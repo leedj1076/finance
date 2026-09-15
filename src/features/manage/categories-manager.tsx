@@ -120,7 +120,7 @@ export function CategoriesManager({ initialRows }: { initialRows: CategoryRow[] 
                 <article className={`overflow-hidden border border-finance-hairline border-l-4 bg-white ${tones[kind]} ${draggingGroup === group.key ? 'opacity-40' : ''}`} key={group.key} onDragOver={(event) => event.preventDefault()} onDrop={() => dropGroup(group)}>
                   <div className="flex items-center gap-3 border-b border-finance-hairline bg-finance-panel px-3 py-2.5">
                     <span className="cursor-grab text-finance-faint" draggable onDragEnd={() => setDraggingGroup(null)} onDragStart={() => setDraggingGroup(group.key)} title="끌어서 대분류 순서 변경">⠿</span>
-                    <input aria-label={`${labels[kind]} 대분류 이름`} autoFocus={group.key.startsWith('new-group')} className={`${inputClass} max-w-xs font-semibold`} onChange={(event) => updateGroup(group.key, (current) => ({ ...current, major: event.target.value }))} placeholder="대분류 이름" required value={group.major} />
+                    <input aria-label={`${labels[kind]} 대분류 이름`} autoFocus={group.key.startsWith('new-group')} className={`${inputClass} max-w-xs t-body-strong`} onChange={(event) => updateGroup(group.key, (current) => ({ ...current, major: event.target.value }))} placeholder="대분류 이름" required value={group.major} />
                     <span className="t-caption text-finance-faint">소분류 {group.rows.length}개</span>
                     <button className="ml-auto rounded px-2 py-1 t-caption text-finance-muted hover:bg-finance-red-tint hover:text-finance-red" onClick={() => toggleGroupDeleted(group)} type="button">대분류 {group.rows.every((row) => row.deleted) ? '삭제 취소' : '삭제'}</button>
                   </div>

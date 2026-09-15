@@ -293,7 +293,7 @@ export function CategoryDetailTable({
                               aria-describedby={tooltip?.key === cell.key ? tooltipId : undefined}
                               aria-label={`${group.major} ${sub.sub} ${cell.month}월 ${formatWon(cell.amount)}원, ${cell.excluded ? '합계에 다시 포함' : '합계에서 제외'}`}
                               aria-pressed={cell.excluded}
-                              className={`w-full px-3 pt-2 text-right hover:bg-finance-blue-tint hover:text-finance-blue focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-finance-blue ${cell.excluded ? 'bg-finance-track text-finance-faint line-through' : cell.month === detail.currentMonth ? 'text-finance-muted' : 'text-finance-ink'}`}
+                              className={`focus-inset w-full px-3 pt-2 text-right hover:bg-finance-blue-tint hover:text-finance-blue ${cell.excluded ? 'bg-finance-track text-finance-faint line-through' : cell.month === detail.currentMonth ? 'text-finance-muted' : 'text-finance-ink'}`}
                               onBlur={blurCell}
                               onClick={() => toggleCell(cell.key)}
                               onFocus={(event) => focusCell(event.currentTarget, group.major, sub.sub, cell.month)}
@@ -312,7 +312,7 @@ export function CategoryDetailTable({
                               aria-describedby={tooltip?.key === cell.key ? tooltipId : undefined}
                               aria-expanded={tooltip?.key === cell.key}
                               aria-label={`${group.major} ${sub.sub} ${cell.month}월 거래 내역 ${tooltip?.key === cell.key ? '닫기' : '보기'}`}
-                              className="px-3 pb-1.5 pt-0.5 t-badge text-finance-faint hover:text-finance-blue focus-visible:outline-2 focus-visible:outline-finance-blue"
+                              className="px-3 pb-1.5 pt-0.5 t-badge text-finance-faint hover:text-finance-blue"
                               onBlur={() => { if (tooltip?.key === cell.key) scheduleHide(true) }}
                               onClick={(event) => toggleCellDetails(event.currentTarget, group.major, sub.sub, cell.month)}
                               onKeyDown={(event) => { if (event.key === 'Escape') closeTooltip() }}
@@ -419,7 +419,7 @@ function CategoryDetailHeader({
         {(Object.keys(FLOW_LABELS) as CategoryDetailFlow[]).map((option) => (
           <button
             aria-pressed={flow === option}
-            className={`h-[30px] border-l border-finance-border px-3.5 t-caption font-medium first:border-l-0 ${flow === option ? 'bg-finance-ink font-semibold text-white' : 'text-finance-muted hover:bg-finance-track hover:text-finance-ink'}`}
+            className={`h-[30px] border-l border-finance-border px-3.5 t-caption first:border-l-0 ${flow === option ? 'bg-finance-ink text-white' : 'text-finance-muted hover:bg-finance-track hover:text-finance-ink'}`}
             key={option}
             onClick={() => onSelectFlow(option)}
             type="button"

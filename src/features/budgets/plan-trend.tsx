@@ -5,6 +5,7 @@ import { Fragment, useRef } from 'react'
 import { CellPopoverPortal, useSharedCellPopover } from '@/features/analytics/cell-transaction-popover'
 import { CellTransactionTooltip } from '@/features/analytics/cell-transaction-tooltip'
 import { cellCacheKey, type CellRequest } from '@/features/analytics/cell-transactions'
+import { usePointerTracker, type PointerPoint } from '@/features/analytics/pointer-motion'
 import { formatWon } from '@/lib/finance'
 
 import type { BudgetPlanRow } from './plan-sources'
@@ -28,6 +29,22 @@ export function PlanTrend({
   const { data, key, open: load } = cells
   // A cell closed by click must not reopen while the pointer is still on it.
   const suppressed = useRef<string | null>(null)
+  const pointer = usePointerTracker()
+  // The cell whose hover a scroll invented, and where the pointer sat when it did, so that a
+  // pointer which later really moves inside that same cell can still claim it.
+  const scrollHover = useRef<{ key: string; point: PointerPoint } | null>(null)
+
+  /**
+   * A cell whose hover was discarded as scroll-induced takes it back once the pointer really moves
+   * inside it, without having to leave the cell and come back.
+   */
+  function claimsScrollHover(key: string, point: PointerPoint) {
+    const held = scrollHover.current
+    if (!held || held.key !== key) return false
+    if (held.point.x === point.x && held.point.y === point.y) return false
+    scrollHover.current = null
+    return true
+  }
 
   function cellRequest(entry: BudgetPlanRow['trend'][number]): CellRequest {
     return {
@@ -97,13 +114,30 @@ export function PlanTrend({
                 }
               }}
               onMouseEnter={event => {
+                const point = { x: event.clientX, y: event.clientY }
+                if (!pointer.current.movedTo(point)) { scrollHover.current = { key: cellKey, point }; return }
+                scrollHover.current = null
                 popover.cancelHide()
                 if (suppressed.current === cellKey) return
-                popover.open(cellKey, { x: event.clientX, y: event.clientY }, event.currentTarget)
+                popover.open(cellKey, point, event.currentTarget)
                 load(cellRequest(entry), HOVER_DELAY)
               }}
-              onMouseLeave={() => { suppressed.current = null; popover.scheduleHide() }}
-              onMouseMove={event => popover.move(cellKey, { x: event.clientX, y: event.clientY })}
+              onMouseLeave={event => {
+                if (!pointer.current.movedTo({ x: event.clientX, y: event.clientY })) return
+                suppressed.current = null
+                popover.scheduleHide()
+              }}
+              onMouseMove={event => {
+                const point = { x: event.clientX, y: event.clientY }
+                if (claimsScrollHover(cellKey, point)) {
+                  popover.cancelHide()
+                  if (suppressed.current === cellKey) return
+                  popover.open(cellKey, point, event.currentTarget)
+                  load(cellRequest(entry), HOVER_DELAY)
+                  return
+                }
+                popover.move(cellKey, point)
+              }}
               type="button"
             >
               <span className="plan-trend__month t-label">{label}</span>

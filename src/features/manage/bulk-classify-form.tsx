@@ -113,7 +113,7 @@ export function BulkClassifyForm({ categories, rows }: BulkClassifyFormProps) {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            className="t-caption font-medium text-finance-muted underline decoration-finance-border underline-offset-4"
+            className="t-caption text-finance-muted underline decoration-finance-border underline-offset-4"
             onClick={() => setSelected(new Set(selectableIds))}
             type="button"
           >

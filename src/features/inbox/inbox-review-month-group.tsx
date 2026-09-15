@@ -50,7 +50,7 @@ export function InboxMonthGroup({
               />
               <button
                 aria-expanded={monthExpanded}
-                className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-finance-blue"
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 onClick={() => toggleMonth(monthGroup.month)}
                 type="button"
               >

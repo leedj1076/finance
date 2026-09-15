@@ -29,7 +29,7 @@ function SummaryCard({ label, value, description, tone = 'default' }: {
         ? 'text-finance-green'
         : 'text-finance-ink'
   return (
-    <article className="px-4 py-5 first:pl-0 last:pr-0 sm:px-6">
+    <article className="py-5 sm:px-6">
       <p className="t-label uppercase text-finance-muted">{label}</p>
       <p className={`mt-2 t-kpi tabular-nums ${color}`}>{value}</p>
       {description && <p className="mt-2 t-caption text-finance-muted">{description}</p>}
@@ -81,7 +81,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
           </p>
         )}
 
-        <section className="mt-6 grid border-y border-finance-ink sm:grid-cols-2 sm:divide-x sm:divide-finance-hairline xl:grid-cols-4">
+        <section className="kpi-band mt-6 grid border-y border-finance-ink sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard label="총자산" tone="asset" value={`${formatWon(data.overview.assets)}원`} description={`현금성·투자 ${formatWon(data.overview.liquidAssets)}원`} />
           <SummaryCard label="부채" tone="debt" value={`${formatWon(data.overview.debt)}원`} description="대출 잔액 합계" />
           <SummaryCard label="순자산" tone="good" value={`${formatWon(data.overview.netWorth)}원`} description={deltaLabel} />

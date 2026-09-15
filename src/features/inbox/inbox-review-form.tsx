@@ -290,7 +290,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
       <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-wrap items-center gap-3 t-caption">
           <button
-            className="font-semibold text-finance-ink hover:text-finance-blue"
+            className="t-caption-strong text-finance-ink hover:text-finance-blue"
             onClick={() => setSelected(new Set(items.map((item) => item.id)))}
             type="button"
           >
@@ -305,7 +305,7 @@ export function InboxReviewForm({ highItems, reviewItems, categories, accounts }
           </button>
           {highConfidenceIds.length > 0 && (
             <button
-              className="font-semibold text-finance-green hover:text-finance-ink"
+              className="t-caption-strong text-finance-green hover:text-finance-ink"
               onClick={() => toggleItems(highConfidenceIds, true)}
               type="button"
             >

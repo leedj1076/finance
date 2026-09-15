@@ -173,7 +173,7 @@ export function AiRequestDialog({
           <div className="flex flex-wrap items-center gap-3">
             {controller.promptJobId && (
               <button
-                className="t-caption font-semibold text-finance-blue disabled:text-finance-faint"
+                className="t-caption-strong text-finance-blue disabled:text-finance-faint"
                 disabled={controller.promptLoading}
                 onClick={() => void controller.loadPrompt()}
                 type="button"

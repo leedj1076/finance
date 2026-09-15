@@ -242,6 +242,10 @@ button {
   outline-offset: 2px;
 }
 
+/* Tailwind's focus-visible: utilities are layered and lose to the rule above, so a
+   dense table that needs its ring inside its own box has to ask for it here. */
+.focus-inset:focus-visible { outline-offset: -2px; }
+
 body > div > .min-h-screen.bg-zinc-50 { background: #fff; }
 main.max-w-7xl { max-width: 1120px; }
 .rounded-sm,
@@ -747,12 +751,59 @@ button.finance-nav-link { cursor: pointer; }
 .t-section { font-size: 14px; font-weight: 700; line-height: 1.3; }
 .t-body { font-size: 13px; line-height: 1.5; }
 .t-body-strong { font-size: 13px; font-weight: 600; line-height: 1.5; }
+/* 13/400. t-body deliberately declares no weight so it composes with a font-*
+   utility on ordinary elements; on a form control that composition is dead and the
+   weight falls through from the parent instead. Controls sitting inside a bold
+   label (t-label, text-[11px] font-semibold) were inheriting 600 where the markup
+   asked for 400, so they name the weight here. */
+.t-body-normal { font-size: 13px; font-weight: 400; line-height: 1.5; }
+/* The current-month marker. `font` is a shorthand that carries font-style too, so the unlayered
+   control reset beats Tailwind's `italic` on a button exactly as it beats font-*: the marker
+   rendered on the summary rows, which are plain divs, and never on the cells, which are buttons.
+   Four assertions in month-close.spec.ts pinned the class and could not see that it did nothing. */
+.t-italic { font-style: italic; }
 .t-caption { font-size: 12px; line-height: 1.5; }
+/* 12/600. Form controls cannot get their weight from Tailwind's font-* utilities:
+   the unlayered `button,input,select,textarea { font: inherit }` above beats them,
+   and `font` is a shorthand that carries weight. A control that wants 12/600 has
+   to say so in one unlayered class, the way t-body-strong does for 13/600. */
+.t-caption-strong { font-size: 12px; font-weight: 600; line-height: 1.5; }
 .t-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; line-height: 1.3; }
 .t-badge { font-size: 10px; font-weight: 600; line-height: 1; white-space: nowrap; }
 
 /* Tab strips drifted to 41px, 44px and 46px on three screens. One height. */
 .app-tab { display: flex; align-items: center; height: 34px; padding: 0 16px; white-space: nowrap; }
+
+/* KPI band column rules. Tailwind's divide-x hangs its border on :not(:last-child),
+   which counts the list, not the row. In the two-column band that gave card 2 — the
+   end of row 1 — a hairline at the section's own outer edge while card 4, the end of
+   row 2, had none: borderInlineEndWidth measured ['1px','1px','1px','0px'] at both
+   768px and 1024px. Draw the rule on the inline start of every card that is not
+   first in its row instead, so it only ever lands between two cards. */
+@media (min-width: 640px) {
+  .kpi-band > :nth-child(even) { border-inline-start: 1px solid var(--finance-border); }
+}
+@media (min-width: 1280px) {
+  .kpi-band > * { border-inline-start: 1px solid var(--finance-border); }
+  .kpi-band > :first-child { border-inline-start: 0; }
+}
+
+/* The band's outer gutters belong to the row as well. Tailwind's first:/last: variants
+   count the same flattened list, so they flush only the first row's start and the last
+   row's end: content edges measured [20,36,36,36] at 390px and [48,72] at 768px, leaving
+   every row after the first indented by one gutter. Zero whichever gutter actually falls
+   on the band's edge at each column count, and leave the rest to px-4 / sm:px-6. */
+@media (max-width: 639.98px) {
+  .kpi-band > * { padding-inline: 0; }
+}
+@media (min-width: 640px) and (max-width: 1279.98px) {
+  .kpi-band > :nth-child(odd) { padding-inline-start: 0; }
+  .kpi-band > :nth-child(even) { padding-inline-end: 0; }
+}
+@media (min-width: 1280px) {
+  .kpi-band > :first-child { padding-inline-start: 0; }
+  .kpi-band > :last-child { padding-inline-end: 0; }
+}
 
 /* Budget editor ceiling bar */
 .ceiling-bar {
@@ -1148,6 +1199,60 @@ button.finance-nav-link { cursor: pointer; }
 }
 .ai-request-dialog::backdrop { background: color-mix(in srgb, var(--finance-ink) 20%, transparent); }
 .ai-request-dialog__form { max-height: calc(100vh - 34px); overflow-y: auto; padding: 24px; }
+
+/* 200 + 200 + 360 fixed plus three 16px gaps means the four desktop columns need 808px of content
+   before 참고 gets a single pixel, and a selected 참고 row needs 292px of its own before it stops
+   painting on top of 추이 — the 110/110 label and amount, a 20px check track and three 14px gaps,
+   plus the row's 10px padding. Measured by walking every row at every viewport from 1024px up: the
+   first width where nothing paints outside the 참고 column is 1196px, so everything below that is
+   broken and this is where it gets fixed. (An earlier probe read 244px and put the edge near 1148px;
+   it had sampled only an unselected row, whose check track renders empty.)
+
+   Both bands below narrow 참고's own tracks to the phone sizes. With the desktop 110/110/1fr/20 the
+   caption track computes to 0 all the way up to 1206px, so `5월`, `−64,295` and `3·4·5월 · 잠정` are
+   simply invisible; 84/84/1fr/16 drops the row's floor to 208px and buys the caption real width.
+
+   1196 above is the OVERFLOW bound — the width where nothing paints outside 참고 any more. This
+   block's bound is a different question, READABILITY, and 1196 was the wrong number for it: the
+   desktop caption track is viewport − 1206, so it was 0px from 1196 to 1206 and painted nothing
+   at all (the caption is overflow:hidden + ellipsis, so a 0px track is not an ellipsis, it is
+   blank), then grew 1px per viewport pixel. Measured across all 72 reference rows on /budgets,
+   widest content per track: label `지난달 예산` 57px, amount `1,176,587` 62px, caption
+   `3·4·5월 · 3·4·5월 3회 · 잠정` 130px. So the desktop tracks only show every caption in full at
+   1336px, and that is where this band now ends.
+
+   Below it the narrow tracks are strictly better and cost nothing: they hand the caption
+   viewport − 1132 instead of viewport − 1206, a flat +74px at every width, while 84px still
+   clears the 57px label and the 62px amount with room to spare. Worst overflow of any option
+   child past its .plan-item__references box measured 0 at every width through 1400. */
+@media (min-width: 641px) and (max-width: 1335.98px) {
+  .plan-reference__option { grid-template-columns: 84px 84px minmax(0, 1fr) 16px; gap: 8px; }
+}
+
+/* 1024–1195: four columns still fit, so keep them — folding here would strand the check icon ~560px
+   from its caption and leave a category name alone in an 800px column. The 360px 추이 track is what
+   starves 참고, and 248px is all .plan-trend__cell's 110px month and 110px amount tracks need; 항목
+   gives up 40px it was not using (the 예산 column keeps 200px because the input is 190px wide). */
+@media (min-width: 1024px) and (max-width: 1195px) {
+  .plan-list__header,
+  .plan-item { grid-template-columns: 160px 200px minmax(0, 1fr) 248px; }
+}
+
+/* 641–1023: four columns no longer fit, so fold them into two — 항목/예산 on one row, 참고/추이 side
+   by side on the next. Every child names its column and lets its row auto-place; pinning rows here
+   would drop 참고 and 추이 onto different rows on the items that carry an 예산 caption. */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .plan-list__header,
+  .plan-item { grid-template-columns: minmax(0, 1fr) 248px; }
+  .plan-item { grid-template-rows: none; row-gap: 12px; }
+  .plan-item__major,
+  .plan-item__references { grid-column: 1; grid-row: auto; }
+  .plan-item__input-row,
+  .plan-item__caption,
+  .plan-trend { grid-column: 2; grid-row: auto; }
+  /* row-gap now carries the separation the desktop margin used to. */
+  .plan-item__caption { margin-top: 0; }
+}
 
 @media (max-width: 640px) {
   .plan-list__header { display: none; }

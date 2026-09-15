@@ -39,8 +39,8 @@ export function LedgerFilterForm({ accounts, filters, majorOptions, month, tab }
         {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
       </select>
       <input aria-label="사용내역 검색" className={`${inputClass} ml-auto min-w-[220px]`} defaultValue={filters.q} name="q" placeholder="가맹점·메모 검색" type="search" />
-      <button className="h-[30px] bg-finance-ink px-3.5 t-caption font-semibold text-white hover:bg-finance-blue" type="submit">검색</button>
-      {anyFilter && <Link className="self-center text-center t-caption font-semibold text-finance-blue hover:text-finance-ink" href={ledgerUrl(month, { account: '', flow: '', major: '', q: '', sort: filters.sort }, { tab })}>초기화</Link>}
+      <button className="h-[30px] bg-finance-ink px-3.5 t-caption-strong text-white hover:bg-finance-blue" type="submit">검색</button>
+      {anyFilter && <Link className="self-center text-center t-caption-strong text-finance-blue hover:text-finance-ink" href={ledgerUrl(month, { account: '', flow: '', major: '', q: '', sort: filters.sort }, { tab })}>초기화</Link>}
     </form>
   )
 }

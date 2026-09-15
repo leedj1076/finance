@@ -61,7 +61,7 @@ function AnchoredPopover({ ariaLabel, children, size, open, onClose, trigger }: 
   return (
     <span className="inline-flex min-w-0 items-baseline">
       <button
-        className="t-caption font-semibold text-finance-blue"
+        className="t-caption-strong text-finance-blue"
         popoverTarget={popoverId}
         style={{ anchorName: anchor } as CSSProperties}
         type="button"
@@ -199,9 +199,9 @@ export function AiEvidencePopover({
         </section>
       )}
       <footer className="mt-5 flex items-center gap-2 border-t border-finance-hairline pt-3">
-        <button className="ml-auto px-3 t-caption font-semibold text-finance-muted" onClick={close} type="button">닫기</button>
+        <button className="ml-auto px-3 t-caption-strong text-finance-muted" onClick={close} type="button">닫기</button>
         <button
-          className="min-h-9 border border-finance-ink bg-finance-ink px-4 t-caption font-semibold text-white"
+          className="min-h-9 border border-finance-ink bg-finance-ink px-4 t-caption-strong text-white"
           onClick={() => void onApplyChecked({ major: row.major, jobId: context.jobId })}
           type="button"
         >{won(row.amount)} 넣기</button>
@@ -270,12 +270,12 @@ export function AiSummaryPopover({
       {promptView && <div className="mt-4"><AiPromptViewer view={promptView} /></div>}
       <footer className="mt-5 flex items-center gap-2 border-t border-finance-hairline pt-3">
         <button
-          className="t-caption font-semibold text-finance-blue disabled:text-finance-faint"
+          className="t-caption-strong text-finance-blue disabled:text-finance-faint"
           disabled={promptLoading}
           onClick={() => void onShowPrompt(completed.id)}
           type="button"
         >{promptLoading ? '프롬프트 확인 중…' : '사용한 프롬프트'}</button>
-        <button className="ml-auto px-3 t-caption font-semibold text-finance-muted" onClick={close} type="button">닫기</button>
+        <button className="ml-auto px-3 t-caption-strong text-finance-muted" onClick={close} type="button">닫기</button>
       </footer>
     </>}</AnchoredPopover>
   )
