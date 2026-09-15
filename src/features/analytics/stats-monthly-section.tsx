@@ -22,6 +22,7 @@ import { compactWon } from './chart-theme'
 import { PROVISIONAL_DASH } from './chart-js'
 import { ChartHoverTooltip } from './chart-hover-tooltip'
 import type { ChartHoverAnchor } from './chart-tooltip-position'
+import { usePointerTracker, type PointerPoint } from './pointer-motion'
 import { buildSeriesChartGeometry } from './series-chart-geometry'
 import { SeriesChart, type SeriesChartKind } from './series-chart'
 import {
@@ -162,6 +163,10 @@ export function StatsMonthlySection({
   const activeAnchor = useRef<TooltipAnchor | null>(null)
   const activeRequest = useRef<AbortController | null>(null)
   const focusScroll = useRef<FocusScrollState | null>(null)
+  const pointer = usePointerTracker()
+  // The cell whose hover a scroll invented, and where the pointer sat when it did, so that a
+  // pointer which later really moves inside that same cell can still claim it.
+  const scrollHover = useRef<{ key: string; point: PointerPoint } | null>(null)
   const showTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -354,6 +359,18 @@ export function StatsMonthlySection({
       return
     }
     showTimer.current = setTimeout(() => { void load() }, delay)
+  }
+
+  /**
+   * A cell whose hover was discarded as scroll-induced takes it back once the pointer really moves
+   * inside it, without having to leave the cell and come back.
+   */
+  function claimsScrollHover(key: string, point: PointerPoint) {
+    const held = scrollHover.current
+    if (!held || held.key !== key) return false
+    if (held.point.x === point.x && held.point.y === point.y) return false
+    scrollHover.current = null
+    return true
   }
 
   function cellAnchor(target: HTMLButtonElement) {
@@ -598,9 +615,10 @@ export function StatsMonthlySection({
                         const key = statsCellKey({ axis: effectiveAxis, label: effectiveAxis === 'account' ? row.label.replace(/^그 외 \d+개 결제수단$/, '그 외') : row.label.replace(/^그 외 \d+개 대분류$/, '그 외'), month })
                         const rawValue = row.displayValues[month]
                         const isExcluded = excluded.has(key)
+                        const summaryKey = `summary:${row.id}:${month}`
                         return (
                           <button
-                            aria-describedby={cellTooltip?.kind === 'summary' && cellTooltip.key === `summary:${row.id}:${month}` ? tooltipId : undefined}
+                            aria-describedby={cellTooltip?.kind === 'summary' && cellTooltip.key === summaryKey ? tooltipId : undefined}
                             aria-label={rawValue === null ? `${row.label} ${month + 1}월 ${model.monthStates[month] === 'future' ? '예정' : '기록 없음'}` : `${row.label} ${month + 1}월 ${formatWon(rawValue)}원, ${isExcluded ? '합계에 다시 포함' : '합계에서 제외'}`}
                             aria-pressed={isExcluded}
                             className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${month === model.currentMonthIndex ? 'italic' : ''} ${isExcluded ? 'text-finance-faint line-through' : rawValue === null ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
@@ -611,15 +629,29 @@ export function StatsMonthlySection({
                             onFocus={(event) => rawValue !== null && showSummaryTooltip(row, month, rawValue, cellAnchor(event.currentTarget), focusScrollState(event.currentTarget))}
                             onKeyDown={(event) => { if (event.key === 'Escape') closeCellTooltip() }}
                             onMouseEnter={(event) => {
+                              const point = { x: event.clientX, y: event.clientY }
+                              if (!pointer.current.movedTo(point)) { scrollHover.current = { key: summaryKey, point }; return }
+                              scrollHover.current = null
                               updateHover(row.id, month)
-                              if (rawValue !== null) showSummaryTooltip(row, month, rawValue, { x: event.clientX, y: event.clientY })
+                              if (rawValue !== null) showSummaryTooltip(row, month, rawValue, point)
                             }}
-                            onMouseLeave={scheduleHide}
-                            onMouseMove={(event) => rawValue !== null && setCellTooltip((current) => (
-                              current?.kind === 'summary' && current.key === `summary:${row.id}:${month}`
-                                ? { ...current, anchor: { x: event.clientX, y: event.clientY } }
-                                : current
-                            ))}
+                            onMouseLeave={(event) => {
+                              if (!pointer.current.movedTo({ x: event.clientX, y: event.clientY })) return
+                              scheduleHide()
+                            }}
+                            onMouseMove={(event) => {
+                              const point = { x: event.clientX, y: event.clientY }
+                              if (claimsScrollHover(summaryKey, point)) {
+                                updateHover(row.id, month)
+                                if (rawValue !== null) showSummaryTooltip(row, month, rawValue, point)
+                                return
+                              }
+                              if (rawValue !== null) setCellTooltip((current) => (
+                                current?.kind === 'summary' && current.key === summaryKey
+                                  ? { ...current, anchor: point }
+                                  : current
+                              ))
+                            }}
                             title={rawValue === null ? undefined : isExcluded ? '합계에 다시 포함' : '합계와 그래프에서 제외'}
                             type="button"
                           >
@@ -660,11 +692,25 @@ export function StatsMonthlySection({
                               onFocus={(event) => available && requestCellTransactions(sub.major, sub.sub, month + 1, 0, cellAnchor(event.currentTarget), focusScrollState(event.currentTarget))}
                               onKeyDown={(event) => { if (event.key === 'Escape') closeCellTooltip() }}
                               onMouseEnter={(event) => {
+                                const point = { x: event.clientX, y: event.clientY }
+                                if (!pointer.current.movedTo(point)) { scrollHover.current = { key: tooltipKey, point }; return }
+                                scrollHover.current = null
                                 updateHover(row.id, month)
-                                if (available) requestCellTransactions(sub.major, sub.sub, month + 1, 180, { x: event.clientX, y: event.clientY })
+                                if (available) requestCellTransactions(sub.major, sub.sub, month + 1, 180, point)
                               }}
-                              onMouseLeave={scheduleHide}
-                              onMouseMove={(event) => updateDetailTooltipAnchor(tooltipKey, { x: event.clientX, y: event.clientY })}
+                              onMouseLeave={(event) => {
+                                if (!pointer.current.movedTo({ x: event.clientX, y: event.clientY })) return
+                                scheduleHide()
+                              }}
+                              onMouseMove={(event) => {
+                                const point = { x: event.clientX, y: event.clientY }
+                                if (claimsScrollHover(tooltipKey, point)) {
+                                  updateHover(row.id, month)
+                                  if (available) requestCellTransactions(sub.major, sub.sub, month + 1, 180, point)
+                                  return
+                                }
+                                updateDetailTooltipAnchor(tooltipKey, point)
+                              }}
                               title={!available ? model.monthStates[month] === 'future' ? '아직 오지 않은 달입니다' : '거래 기록이 없습니다' : isExcluded ? '합계에 다시 포함' : '합계와 그래프에서 제외'}
                               type="button"
                             >
