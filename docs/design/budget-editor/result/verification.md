@@ -175,3 +175,13 @@ standalone 실행이 `docs/design/budget-editor/result/`의 `synthetic-desktop-1
 ### 이 변경과 무관한 관찰
 
 `month-nav.tsx`의 월 입력은 `w-[124px]` 고정에 `t-body-strong`(13px/600)이라, 웹폰트 `IBM Plex Sans KR`가 적용된 상태에서 `September 2026`이 `September 20…`으로 잘린다. 이 파일은 이 브랜치에서 건드리지 않았고 배포된 `main`과 바이트가 같으므로 기존 문제이며, 지금 라이브에서도 재현된다. 이번 변경 범위 밖이라 고치지 않고 기록만 남긴다.
+
+### 이 디렉터리의 stale 상태 — 발견 사실 기록
+
+위 작업 중 확인한 두 가지다. 고치자는 제안이 아니라 지금 상태를 찾을 수 있게 남기는 기록이다.
+
+1. **`synthetic-mobile-390.png`와 `synthetic-mobile-menu-390.png`는 `dirty` 상태 표시만큼 뒤처져 있다.** 지금 합성 fixture를 돌리면 상한 바에 `아직 저장하지 않은 편집안` 문구가 보이는데 커밋된 이미지에는 없다. 이 문구는 `ceiling-bar.tsx`가 `dirty`일 때 그리며, **그 파일은 `ui-alignment-followup`에서 한 줄도 바뀌지 않았다**(`git diff 229e28c..HEAD -- src/features/budgets/ceiling-bar.tsx`가 비어 있다). 즉 이 차이는 이번 열 너비 작업과 무관하고 그 이전부터 있던 drift다. 배포된 `56fdcd8`의 `globals.css`로 같은 테스트를 돌려도 두 모바일 이미지는 바이트가 같았으므로 CSS 쪽 원인도 아니다.
+
+2. **`local-mobile-390.png`는 여전히 추이 열 이전 화면이다.** 2026-09-14 기록이 "`local-*` 두 파일은 stale이며 다시 캡처할지는 컨트롤러가 정할 일"로 남겨 둔 상태 그대로다. 같은 항목의 `local-desktop-1440.png`는 이번 작업에서 갱신했으므로, 그 결정은 데스크톱 쪽만 해소되고 모바일 쪽은 남아 있다.
+
+두 항목 모두 이번 변경이 만든 것이 아니며, 이번 커밋에 섞어서 보이지 않게 만들지 않으려고 따로 적는다.
