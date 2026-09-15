@@ -25,7 +25,7 @@ function SummaryCard({ label, value, tone = 'default' }: {
         ? 'text-finance-green'
         : 'text-finance-ink'
   return (
-    <article className="px-4 py-5 sm:px-6">
+    <article className="py-5 sm:px-6">
       <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-finance-muted">{label}</p>
       <p className={`mt-2 text-[26px] font-semibold leading-none tabular-nums ${color}`}>{value}</p>
     </article>

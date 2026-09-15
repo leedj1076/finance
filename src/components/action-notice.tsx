@@ -48,7 +48,7 @@ export function ActionNotice({ notice, error }: { notice?: string; error?: strin
       <span>{message}</span>
       <button
         aria-label="알림 닫기"
-        className="shrink-0 p-1 leading-none opacity-60 hover:opacity-100"
+        className="shrink-0 p-1 opacity-60 hover:opacity-100"
         onClick={() => {
           setVisible(false)
           const params = new URLSearchParams(searchParams.toString())

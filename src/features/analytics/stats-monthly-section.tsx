@@ -629,7 +629,7 @@ export function StatsMonthlySection({
                             aria-describedby={cellTooltip?.kind === 'summary' && cellTooltip.key === summaryKey ? tooltipId : undefined}
                             aria-label={rawValue === null ? `${row.label} ${month + 1}월 ${model.monthStates[month] === 'future' ? '예정' : '기록 없음'}` : `${row.label} ${month + 1}월 ${formatWon(rawValue)}원, ${isExcluded ? '합계에 다시 포함' : '합계에서 제외'}`}
                             aria-pressed={isExcluded}
-                            className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${month === model.currentMonthIndex ? 'italic' : ''} ${isExcluded ? 'text-finance-faint line-through' : rawValue === null ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
+                            className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${isExcluded ? 'text-finance-faint line-through' : rawValue === null ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
                             disabled={rawValue === null}
                             key={month}
                             onBlur={scheduleHide}
@@ -692,7 +692,7 @@ export function StatsMonthlySection({
                               aria-describedby={cellTooltip?.kind === 'detail' && cellTooltip.key === tooltipKey ? tooltipId : undefined}
                               aria-label={!available ? `${sub.major} ${sub.sub} ${month + 1}월 ${model.monthStates[month] === 'future' ? '예정' : '기록 없음'}` : `${sub.major} ${sub.sub} ${month + 1}월 ${formatWon(rawValue)}원, ${isExcluded ? '합계에 다시 포함' : '합계에서 제외'}`}
                               aria-pressed={isExcluded}
-                              className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${month === model.currentMonthIndex ? 'italic' : ''} ${isExcluded ? 'text-finance-faint line-through' : !available ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
+                              className={`min-w-0 px-0.5 py-1 text-right tabular-nums ${isExcluded ? 'text-finance-faint line-through' : !available ? 'cursor-default text-finance-faint' : isProvisional(month) ? 'text-finance-faint hover:bg-finance-blue-tint' : 'text-finance-ink hover:bg-finance-blue-tint'}`}
                               disabled={!available}
                               key={month}
                               onBlur={scheduleHide}
