@@ -754,6 +754,20 @@ button.finance-nav-link { cursor: pointer; }
 /* Tab strips drifted to 41px, 44px and 46px on three screens. One height. */
 .app-tab { display: flex; align-items: center; height: 34px; padding: 0 16px; white-space: nowrap; }
 
+/* KPI band column rules. Tailwind's divide-x hangs its border on :not(:last-child),
+   which counts the list, not the row. In the two-column band that gave card 2 — the
+   end of row 1 — a hairline at the section's own outer edge while card 4, the end of
+   row 2, had none: borderInlineEndWidth measured ['1px','1px','1px','0px'] at both
+   768px and 1024px. Draw the rule on the inline start of every card that is not
+   first in its row instead, so it only ever lands between two cards. */
+@media (min-width: 640px) {
+  .kpi-band > :nth-child(even) { border-inline-start: 1px solid var(--finance-border); }
+}
+@media (min-width: 1280px) {
+  .kpi-band > * { border-inline-start: 1px solid var(--finance-border); }
+  .kpi-band > :first-child { border-inline-start: 0; }
+}
+
 /* Budget editor ceiling bar */
 .ceiling-bar {
   position: sticky;
