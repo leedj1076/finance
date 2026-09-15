@@ -757,6 +757,11 @@ button.finance-nav-link { cursor: pointer; }
    label (t-label, text-[11px] font-semibold) were inheriting 600 where the markup
    asked for 400, so they name the weight here. */
 .t-body-normal { font-size: 13px; font-weight: 400; line-height: 1.5; }
+/* The current-month marker. `font` is a shorthand that carries font-style too, so the unlayered
+   control reset beats Tailwind's `italic` on a button exactly as it beats font-*: the marker
+   rendered on the summary rows, which are plain divs, and never on the cells, which are buttons.
+   Four assertions in month-close.spec.ts pinned the class and could not see that it did nothing. */
+.t-italic { font-style: italic; }
 .t-caption { font-size: 12px; line-height: 1.5; }
 /* 12/600. Form controls cannot get their weight from Tailwind's font-* utilities:
    the unlayered `button,input,select,textarea { font: inherit }` above beats them,
