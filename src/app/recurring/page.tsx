@@ -25,7 +25,7 @@ function SummaryCard({ label, value, tone = 'default' }: {
         ? 'text-finance-green'
         : 'text-finance-ink'
   return (
-    <article className="px-4 py-5 first:pl-0 last:pr-0 sm:px-6">
+    <article className="px-4 py-5 sm:px-6">
       <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-finance-muted">{label}</p>
       <p className={`mt-2 text-[26px] font-semibold leading-none tabular-nums ${color}`}>{value}</p>
     </article>
@@ -56,7 +56,7 @@ export default async function RecurringPage({ searchParams }: RecurringPageProps
 
         {saved && <p className="mt-5 border-l-2 border-finance-green bg-finance-green-tint px-4 py-3 text-[13px] text-finance-green">정기거래 규칙을 저장했습니다.</p>}
 
-        <section className="mt-6 grid border-y border-finance-ink sm:grid-cols-2 sm:divide-x sm:divide-finance-hairline xl:grid-cols-4">
+        <section className="kpi-band mt-6 grid border-y border-finance-ink sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard label={`${data.month} 적용 규칙`} value={`${data.activeCount}개`} />
           <SummaryCard label="월 정기지출" tone="expense" value={`${formatWon(data.totals.expense)}원`} />
           <SummaryCard label="월 정기수입" tone="income" value={`${formatWon(data.totals.income)}원`} />

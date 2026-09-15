@@ -35,7 +35,7 @@ function SummaryCard({ label, value, note, tone = 'ink' }: {
     red: 'text-finance-red',
   }[tone]
   return (
-    <article className="px-4 py-5 first:pl-0 last:pr-0 sm:px-6">
+    <article className="px-4 py-5 sm:px-6">
       <p className="t-label uppercase text-finance-muted">{label}</p>
       <p className={`mt-2 t-kpi tabular-nums ${toneClass}`}>{value}</p>
       {note && <p className="mt-2 t-caption text-finance-muted">{note}</p>}
@@ -51,7 +51,7 @@ export function LedgerSummaryPanel({ data, monthTotals }: {
   const comparisonGood = data.delta !== 0 && (data.flow === 'expense' ? data.delta < 0 : data.delta > 0)
   return (
     <div className="mt-6">
-      <section className="grid border-y border-finance-ink sm:grid-cols-2 sm:divide-x sm:divide-finance-hairline xl:grid-cols-4">
+      <section className="kpi-band grid border-y border-finance-ink sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="월 수입" tone="blue" value={`${formatWon(monthTotals.income)}원`} />
         <SummaryCard label="월 지출" tone="red" value={`${formatWon(monthTotals.expense)}원`} />
         <SummaryCard label="순저축" tone="green" value={`${formatWon(monthTotals.netSaving)}원`} note={`순저축률 ${formatRate(monthTotals.savingsRate)}%`} />

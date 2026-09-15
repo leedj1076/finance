@@ -783,6 +783,23 @@ button.finance-nav-link { cursor: pointer; }
   .kpi-band > :first-child { border-inline-start: 0; }
 }
 
+/* The band's outer gutters belong to the row as well. Tailwind's first:/last: variants
+   count the same flattened list, so they flush only the first row's start and the last
+   row's end: content edges measured [20,36,36,36] at 390px and [48,72] at 768px, leaving
+   every row after the first indented by one gutter. Zero whichever gutter actually falls
+   on the band's edge at each column count, and leave the rest to px-4 / sm:px-6. */
+@media (max-width: 639.98px) {
+  .kpi-band > * { padding-inline: 0; }
+}
+@media (min-width: 640px) and (max-width: 1279.98px) {
+  .kpi-band > :nth-child(odd) { padding-inline-start: 0; }
+  .kpi-band > :nth-child(even) { padding-inline-end: 0; }
+}
+@media (min-width: 1280px) {
+  .kpi-band > :first-child { padding-inline-start: 0; }
+  .kpi-band > :last-child { padding-inline-end: 0; }
+}
+
 /* Budget editor ceiling bar */
 .ceiling-bar {
   position: sticky;
