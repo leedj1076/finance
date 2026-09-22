@@ -222,7 +222,7 @@ suite('budget money fields accept single won amounts, but not negatives or fract
 
 suite('ledger synchronizes month chips, picker and new-transaction date', async ({ page, household }) => {
   await seedBudget(household)
-  await page.goto('/ledger?month=2026-07&flow=expense')
+  await page.goto('/ledger?month=2026-07&tab=list&flow=expense')
   const month = page.getByLabel('조회 월')
   await month.fill('2026-01')
   await page.locator('#transaction-form summary').click()
@@ -356,7 +356,7 @@ suite('recurring schedule saves without preposting, renders occurrences, and sto
   const { data: before, error: beforeError } = await admin.from('transactions').select('id').eq('household_id', household)
   if (beforeError) throw beforeError
   expect(before).toEqual([])
-  await page.goto('/ledger?month=2026-09')
+  await page.goto('/ledger?month=2026-09&tab=list')
   await page.getByRole('button', { name: '미반영 1건 반영', exact: true }).click()
   const postingDialog = page.getByRole('dialog', { name: /정기거래 선택 반영/ })
   await postingDialog.getByRole('checkbox', { name: '부모급여 (17회)', exact: true }).check()
@@ -365,7 +365,7 @@ suite('recurring schedule saves without preposting, renders occurrences, and sto
   await postingDialog.getByRole('button', { name: '닫기', exact: true }).click()
   await expect(page.locator('table')).toContainText('부모급여 (17회)')
   await expect(page.locator('table')).toContainText('09-23')
-  await page.goto('/ledger?month=2027-04')
+  await page.goto('/ledger?month=2027-04&tab=list')
   await page.getByRole('button', { name: '미반영 1건 반영', exact: true }).click()
   await postingDialog.getByRole('checkbox', { name: '부모급여 (24회)', exact: true }).check()
   await postingDialog.getByRole('button', { name: '선택한 1건 반영', exact: true }).click()
@@ -411,7 +411,7 @@ suite('ledger sorts filtered transactions and retains order through navigation a
     { household_id: household, date: '2026-07-04', amount: 999999, memo: '숨겨진 수입', flow: 'income', source: 'e2e' },
   ])
   if (error) throw error
-  await page.goto('/ledger?month=2026-07&flow=expense&q=대상')
+  await page.goto('/ledger?month=2026-07&tab=list&flow=expense&q=대상')
   const sort = page.getByRole('combobox', { name: '거래 정렬' })
   await expect(sort).toHaveValue('date-desc')
   await expect(ledgerTitles(page)).toHaveText(['대상 환불', '대상 작은 금액', '대상 큰 금액'])

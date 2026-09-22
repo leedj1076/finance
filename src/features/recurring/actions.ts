@@ -161,7 +161,7 @@ export async function applyRecurringMonth(formData: FormData) {
   revalidateFinance('recurring', 'transactions')
   const requestedTab = formData.get('returnTab')
   const tab = typeof requestedTab === 'string' && ['summary', 'categories', 'merchants', 'list'].includes(requestedTab)
-    ? requestedTab : undefined
+    ? requestedTab : 'list'
   redirect(ledgerUrl(monthValue, ledgerFiltersFromFormData(formData), {
     tab, ...('error' in outcome ? { recurringError: outcome.error } : {
       recurringAdded: outcome.added, recurringSkipped: outcome.skipped,

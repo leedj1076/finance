@@ -339,6 +339,7 @@ test('inbox title edits survive review operations and save through single and bu
     await expectNoPageFlash(page)
     await page.getByRole('navigation', { name: '주 메뉴', exact: true })
       .getByRole('link', { name: '내역', exact: true }).click()
+    await page.getByRole('navigation', { name: '거래 보기' }).getByRole('link', { name: '목록', exact: true }).click()
     await expect(page.getByRole('row').filter({ hasText: '일괄 편집 거래명' })).toHaveCount(1)
     await expect(page.getByRole('row').filter({ hasText: '개별 편집 거래명' })).toHaveCount(1)
 
@@ -397,6 +398,7 @@ for (const applyPath of ['single', 'bulk'] as const) {
       await expect(page.getByText('모든 대기 거래를 처리했습니다.')).toBeVisible()
       await page.getByRole('navigation', { name: '주 메뉴', exact: true })
         .getByRole('link', { name: '내역', exact: true }).click()
+      await page.getByRole('navigation', { name: '거래 보기' }).getByRole('link', { name: '목록', exact: true }).click()
       await expect(page.getByRole('row').filter({ hasText: merchant })).toHaveCount(1)
 
       const { data: saved, error: savedError } = await createAdminClient()
@@ -602,6 +604,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await expect(page).toHaveURL('/inbox?tab=review')
     await expect(page.getByText(/1건을 가계부에 반영했습니다/)).toBeVisible()
     await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '내역', exact: true }).click()
+    await page.getByRole('navigation', { name: '거래 보기' }).getByRole('link', { name: '목록', exact: true }).click()
     const ledgerRow = page.getByRole('row').filter({ hasText: merchant })
     await expect(ledgerRow).toHaveCount(1)
     await expect(ledgerRow).toContainText('5,000원')
@@ -642,6 +645,7 @@ test('card statement upload reaches inbox, applies to ledger, and keeps card sou
     await expect(page.getByText('모든 대기 거래를 처리했습니다.')).toBeVisible()
 
     await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '내역', exact: true }).click()
+    await page.getByRole('navigation', { name: '거래 보기' }).getByRole('link', { name: '목록', exact: true }).click()
     await expect(page.getByRole('row').filter({ hasText: merchant })).toHaveCount(2)
   } finally {
     await deleteTestState(email, householdId)

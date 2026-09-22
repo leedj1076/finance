@@ -37,7 +37,7 @@ async function post(targetMonth: string, added: number, skipped: number) {
   const form = new FormData()
   form.set('month', targetMonth)
   await expect(applyRecurringMonth(form)).rejects.toThrow(
-    `REDIRECT:/ledger?month=${targetMonth}&recurringAdded=${added}&recurringSkipped=${skipped}`,
+    `REDIRECT:/ledger?month=${targetMonth}&tab=list&recurringAdded=${added}&recurringSkipped=${skipped}`,
   )
 }
 

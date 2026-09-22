@@ -94,7 +94,7 @@ export function TransactionForm({
       </summary>
       {editing && (
         <div className="flex justify-end pt-3">
-          <Link className="t-caption font-semibold text-finance-blue hover:text-finance-ink" href={ledgerUrl(month, filters)}>수정 취소</Link>
+          <Link className="t-caption font-semibold text-finance-blue hover:text-finance-ink" href={ledgerUrl(month, filters, { tab: 'list' })}>수정 취소</Link>
         </div>
       )}
 

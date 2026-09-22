@@ -116,13 +116,32 @@ describe('diagnosis ledger integration', () => {
     expect(html).toContain('1월 예산 만들기')
   })
 
-  test('orders tabs summary, list, diagnosis, categories, merchants and keeps default tab as list', async () => {
+  test('opens summary first and orders navigation from overview to transaction details', async () => {
     const html = renderToStaticMarkup(await LedgerPage({ searchParams: Promise.resolve({ month: '2026-07' }) }))
     const nav = html.match(/<nav aria-label="거래 보기"[^>]*>(.*?)<\/nav>/)?.[1] ?? ''
-    expect([...nav.matchAll(/>(요약|목록|AI 진단|카테고리|가맹점)<\/a>/g)].map((match) => match[1])).toEqual(['요약', '목록', 'AI 진단', '카테고리', '가맹점'])
-    expect(html).toContain('LEDGER_LIST')
+    expect([...nav.matchAll(/>(요약|목록|AI 진단|카테고리|가맹점)<\/a>/g)].map((match) => match[1])).toEqual(['요약', 'AI 진단', '카테고리', '가맹점', '목록'])
+    expect(nav).toMatch(/aria-current="page"[^>]*>요약<\/a>/)
+    expect(html).not.toContain('id="transaction-form"')
+    expect(html).toContain('tab=list#transaction-form')
     expect(html).toContain('LEDGER_FILTERS')
     expect(loaders.diagnosis).not.toHaveBeenCalled()
-    expect(loaders.list).toHaveBeenCalledOnce()
+    expect(loaders.list).not.toHaveBeenCalled()
+  })
+
+  test('an explicit list link still opens editable transactions with its filters', async () => {
+    const html = renderToStaticMarkup(await LedgerPage({ searchParams: Promise.resolve({
+      month: '2026-07', tab: 'list', major: '식비', q: '커피', sort: 'amount-asc',
+    }) }))
+    const nav = html.match(/<nav aria-label="거래 보기"[^>]*>(.*?)<\/nav>/)?.[1] ?? ''
+    expect(nav).toMatch(/aria-current="page"[^>]*>목록<\/a>/)
+    expect(html).toContain('id="transaction-form"')
+    expect(html).toContain('sort=amount-asc')
+    expect(html).toContain('q=%EC%BB%A4%ED%94%BC')
+  })
+
+  test('an unknown tab falls back to the summary instead of the edit list', async () => {
+    const html = renderToStaticMarkup(await LedgerPage({ searchParams: Promise.resolve({ month: '2026-07', tab: 'unknown' }) }))
+    expect(html).toMatch(/aria-current="page"[^>]*>요약<\/a>/)
+    expect(html).not.toContain('id="transaction-form"')
   })
 })

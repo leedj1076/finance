@@ -158,7 +158,13 @@ test('family user can manage a transaction and change their password', async ({ 
     await expect(page).toHaveURL('/dashboard')
     await page.getByRole('navigation', { name: '주 메뉴', exact: true }).getByRole('link', { name: '내역', exact: true }).click()
     await expect(page).toHaveURL('/ledger')
-    await page.locator('#transaction-form summary').click()
+    const ledgerTabs = page.getByRole('navigation', { name: '거래 보기' })
+    await expect(ledgerTabs.getByRole('link')).toHaveText(['요약', 'AI 진단', '카테고리', '가맹점', '목록'])
+    await expect(ledgerTabs.getByRole('link', { name: '요약', exact: true })).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('#transaction-form')).toHaveCount(0)
+    await page.getByRole('link', { name: '거래 추가', exact: true }).click()
+    await expect(ledgerTabs.getByRole('link', { name: '목록', exact: true })).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('#transaction-form details')).toHaveAttribute('open', '')
     const transactionForm = page.locator('form').filter({
       has: page.getByRole('button', { name: '거래 추가' }),
     })

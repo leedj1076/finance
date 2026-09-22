@@ -119,7 +119,7 @@ export async function saveTransaction(
       },
     }
   }
-  redirect(ledgerUrl(input.month, ledgerFiltersFromFormData(formData), notice ? { notice: `저장했습니다.${notice}` } : {}))
+  redirect(ledgerUrl(input.month, ledgerFiltersFromFormData(formData), { tab: 'list', ...(notice ? { notice: `저장했습니다.${notice}` } : {}) }))
 }
 
 export async function deleteTransaction(formData: FormData) {
@@ -148,6 +148,6 @@ export async function deleteTransaction(formData: FormData) {
     : undefined
   revalidateFinance('transactions')
   redirect(month
-    ? ledgerUrl(month, ledgerFiltersFromFormData(formData), notice ? { notice: `삭제했습니다.${notice}` } : {})
-    : `/ledger${notice ? `?notice=${encodeURIComponent(`삭제했습니다.${notice}`)}` : ''}`)
+    ? ledgerUrl(month, ledgerFiltersFromFormData(formData), { tab: 'list', ...(notice ? { notice: `삭제했습니다.${notice}` } : {}) })
+    : `/ledger?tab=list${notice ? `&notice=${encodeURIComponent(`삭제했습니다.${notice}`)}` : ''}`)
 }

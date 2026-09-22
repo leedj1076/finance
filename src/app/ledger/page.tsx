@@ -41,10 +41,10 @@ type LedgerPageProps = {
 
 const TABS: Array<{ key: LedgerTab; label: string }> = [
   { key: 'summary', label: '요약' },
-  { key: 'list', label: '목록' },
   { key: 'ai', label: 'AI 진단' },
   { key: 'categories', label: '카테고리' },
   { key: 'merchants', label: '가맹점' },
+  { key: 'list', label: '목록' },
 ]
 
 function firstParam(value: string | string[] | undefined) {
@@ -52,9 +52,9 @@ function firstParam(value: string | string[] | undefined) {
 }
 
 function parseTab(value: string | undefined): LedgerTab {
-  return value === 'summary' || value === 'ai' || value === 'categories' || value === 'merchants'
+  return value === 'list' || value === 'ai' || value === 'categories' || value === 'merchants'
     ? value
-    : 'list'
+    : 'summary'
 }
 
 export default async function LedgerPage({ searchParams }: LedgerPageProps) {
