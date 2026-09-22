@@ -242,6 +242,99 @@ function ledgerTitles(page: Page) {
   return page.locator('table tbody tr[title="클릭해서 수정"] td:nth-child(2)')
 }
 
+for (const [targetMonth, width] of [[currentMonthInKorea(), 1280], ['2026-07', 390]] as const) {
+  suite(`recurring selection popup posts only checked rows and remains open at ${width}px`, async ({ page, household }) => {
+    const admin = adminClient()
+    const { error } = await admin.from('recurring').insert([
+      { household_id: household, flow: 'expense', memo: '선택 테스트 월세', amount: 500000, day: 10 },
+      { household_id: household, flow: 'saving', memo: '선택 테스트 저축', amount: 100000, day: 20 },
+    ])
+    if (error) throw error
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto(`/ledger?month=${targetMonth}&tab=list&flow=expense&q=선택`)
+    const originalUrl = page.url()
+    await page.getByRole('button', { name: '미반영 2건 반영', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: `${targetMonth} 정기거래 선택 반영`, exact: true })
+    await expect(dialog).toBeVisible()
+    const rent = dialog.getByRole('checkbox', { name: '선택 테스트 월세', exact: true })
+    const saving = dialog.getByRole('checkbox', { name: '선택 테스트 저축', exact: true })
+    await expect(rent).not.toBeChecked()
+    await expect(saving).not.toBeChecked()
+    await expect(dialog.getByRole('button', { name: '선택한 0건 반영', exact: true })).toBeDisabled()
+    await dialog.getByRole('button', { name: '전체 선택', exact: true }).click()
+    await expect(rent).toBeChecked()
+    await expect(saving).toBeChecked()
+    await dialog.getByRole('button', { name: '전체 해제', exact: true }).click()
+    await rent.check()
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    await page.screenshot({ path: `test-results/recurring-selection-list-${width}.png`, fullPage: true })
+
+    // Pause the action transport, then fail it: no transaction reaches the server.
+    let failRequest!: () => void
+    const held = new Promise<void>(resolve => { failRequest = resolve })
+    await page.route('**/ledger?*', async route => {
+      if (route.request().method() !== 'POST') return route.continue()
+      await held
+      await route.abort('failed')
+    })
+    await dialog.getByRole('button', { name: '선택한 1건 반영', exact: true }).click()
+    await expect(dialog.getByRole('button', { name: '반영 중…', exact: true })).toBeDisabled()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeVisible()
+    failRequest()
+    await expect(dialog.getByRole('alert')).toBeVisible()
+    await expect(rent).toBeChecked()
+    await page.unroute('**/ledger?*')
+
+    await dialog.getByRole('button', { name: '선택한 1건 반영', exact: true }).click()
+    await expect(dialog.getByRole('status')).toContainText('1건 반영')
+    await expect(dialog.getByRole('status')).toContainText('미반영 1건')
+    await expect(dialog).toBeVisible()
+    await expect(rent).toHaveCount(0)
+    await expect(saving).not.toBeChecked()
+    const { data: posted } = await admin.from('transactions').select('memo').eq('household_id', household)
+    expect(posted).toEqual([{ memo: '선택 테스트 월세' }])
+    expect(page.url()).toBe(originalUrl)
+    await dialog.getByRole('button', { name: '닫기', exact: true }).click()
+    await page.getByRole('button', { name: '미반영 1건 반영', exact: true }).click()
+    await expect(saving).not.toBeChecked()
+    await saving.check()
+    await dialog.getByRole('button', { name: '선택한 1건 반영', exact: true }).click()
+    await expect(dialog.getByRole('status')).toContainText('미반영 0건')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByText('미반영 정기거래가 없습니다.', { exact: true })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: `test-results/recurring-selection-${width}.png`, fullPage: true })
+    await dialog.getByRole('button', { name: '닫기', exact: true }).click()
+    await expect(page.getByRole('button', { name: /미반영.*반영/ })).toHaveCount(0)
+  })
+}
+
+suite('AI wrap-up selection reconciles rules already posted in another tab', async ({ page, household }) => {
+  const admin = adminClient()
+  const { data: rules, error } = await admin.from('recurring').insert([
+    { household_id: household, flow: 'expense', memo: '이 창에서 반영', amount: 500000, day: 10 },
+    { household_id: household, flow: 'saving', memo: '다른 창에서 반영', amount: 100000, day: 20 },
+  ]).select('id, memo')
+  if (error) throw error
+  await page.goto('/ledger?month=2026-07&tab=ai')
+  await page.getByRole('button', { name: '미반영 2건 반영', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: '2026-07 정기거래 선택 반영', exact: true })
+  await expect(dialog.getByRole('checkbox')).toHaveCount(2)
+  const otherId = rules.find(rule => rule.memo === '다른 창에서 반영')!.id
+  const { error: postingError } = await admin.from('transactions').insert({
+    household_id: household, flow: 'saving', amount: 100000, date: '2026-07-20',
+    memo: '다른 창에서 반영', source: 'recurring', recurring_id: otherId, import_uid: `recurring:${otherId}:2026-07`,
+  })
+  if (postingError) throw postingError
+  await dialog.getByRole('checkbox', { name: '이 창에서 반영', exact: true }).check()
+  await dialog.getByRole('button', { name: '선택한 1건 반영', exact: true }).click()
+  await expect(dialog.getByRole('status')).toContainText('미반영 0건')
+  await expect(dialog.getByRole('checkbox')).toHaveCount(0)
+  await expect(dialog.getByText('미반영 정기거래가 없습니다.', { exact: true })).toBeVisible()
+  await expect(page).toHaveURL('/ledger?month=2026-07&tab=ai')
+})
+
 suite('recurring schedule saves without preposting, renders occurrences, and stops at the last month', async ({ page, household }) => {
   const admin = adminClient()
   await page.goto('/recurring?month=2026-09')
@@ -265,10 +358,19 @@ suite('recurring schedule saves without preposting, renders occurrences, and sto
   expect(before).toEqual([])
   await page.goto('/ledger?month=2026-09')
   await page.getByRole('button', { name: '미반영 1건 반영', exact: true }).click()
+  const postingDialog = page.getByRole('dialog', { name: /정기거래 선택 반영/ })
+  await postingDialog.getByRole('checkbox', { name: '부모급여 (17회)', exact: true }).check()
+  await postingDialog.getByRole('button', { name: '선택한 1건 반영', exact: true }).click()
+  await expect(postingDialog.getByRole('status')).toContainText('1건 반영')
+  await postingDialog.getByRole('button', { name: '닫기', exact: true }).click()
   await expect(page.locator('table')).toContainText('부모급여 (17회)')
   await expect(page.locator('table')).toContainText('09-23')
   await page.goto('/ledger?month=2027-04')
   await page.getByRole('button', { name: '미반영 1건 반영', exact: true }).click()
+  await postingDialog.getByRole('checkbox', { name: '부모급여 (24회)', exact: true }).check()
+  await postingDialog.getByRole('button', { name: '선택한 1건 반영', exact: true }).click()
+  await expect(postingDialog.getByRole('status')).toContainText('1건 반영')
+  await postingDialog.getByRole('button', { name: '닫기', exact: true }).click()
   await expect(page.locator('table')).toContainText('부모급여 (24회)')
   await expect(page.locator('table')).toContainText('04-23')
   await page.goto('/ledger?month=2027-05')

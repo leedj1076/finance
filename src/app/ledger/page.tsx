@@ -8,7 +8,6 @@ import { MonthCloseControl } from '@/features/month-close/month-close-control'
 import { MonthStatusLabel } from '@/features/month-close/month-status-label'
 import { MonthWrapUp } from '@/features/month-close/month-wrap-up'
 import { getMonthCloseSummary } from '@/features/month-close/queries'
-import { SubmitButton } from '@/components/submit-button'
 import { getCategoryPageData, parseCategoryPageParams } from '@/features/analytics/category-page'
 import { getAnalysisData } from '@/features/analytics/queries'
 import { DiagnosisPanel } from '@/features/diagnosis/diagnosis-panel'
@@ -29,7 +28,7 @@ import {
   getLedgerTransactions,
 } from '@/features/ledger/queries'
 import { TransactionForm } from '@/features/ledger/transaction-form'
-import { applyRecurringMonth } from '@/features/recurring/actions'
+import { RecurringPostingDialog } from '@/features/recurring/recurring-posting-dialog'
 import { getRecurringData } from '@/features/recurring/queries'
 import { currentMonthInKorea, formatWon } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
@@ -113,18 +112,9 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
   ])
   const recurringPending = monthClose.unpostedRecurringCount
   const showWrapUp = monthClose.state === 'open' && monthClose.closable
+  const recurringFormId = `recurring-posting-${shell.month}`
   const recurringApplyForm = recurringPending > 0 ? (
-    <form action={applyRecurringMonth}>
-      <input name="month" type="hidden" value={shell.month} />
-      <input name="returnAccount" type="hidden" value={filters.account} />
-      <input name="returnFlow" type="hidden" value={filters.flow} />
-      <input name="returnMajor" type="hidden" value={filters.major} />
-      <input name="returnSub" type="hidden" value={filters.sub ?? ''} />
-      <input name="returnQ" type="hidden" value={filters.q} />
-      <input name="returnSort" type="hidden" value={filters.sort ?? 'date-desc'} />
-      <input name="returnTab" type="hidden" value={tab} />
-      <SubmitButton className="h-[30px] bg-finance-ink px-3.5 t-body-strong text-white hover:bg-finance-blue" pendingLabel="반영 중…" type="submit">미반영 {recurringPending}건 반영</SubmitButton>
-    </form>
+    <button form={recurringFormId} aria-haspopup="dialog" aria-controls={`${recurringFormId}-dialog`} className="h-[30px] bg-finance-ink px-3.5 t-body-strong text-white hover:bg-finance-blue" type="submit">미반영 {recurringPending}건 반영</button>
   ) : null
 
   return (
@@ -165,6 +155,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         <MonthWrapUp recurringForm={recurringApplyForm ?? <span className="t-caption text-finance-faint">내역에서 반영</span>} summary={monthClose} />
         {/* Month-scoped siblings need distinct keys, including during action revalidation. */}
         <MonthCloseControl allClear={showWrapUp && !monthClose.requiresAcknowledgment} key={`month-close:${shell.month}`} month={shell.month} status={monthClose} pendingCount={monthClose.pendingCount} />
+        <RecurringPostingDialog key={recurringFormId} formId={recurringFormId} month={shell.month} />
         {firstParam(params.notice) && <ActionNotice notice={firstParam(params.notice)} />}
 
         <div className="mt-6 flex gap-1.5 overflow-x-auto border-b border-finance-border pb-4 print:hidden">

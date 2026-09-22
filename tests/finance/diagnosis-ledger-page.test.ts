@@ -94,6 +94,16 @@ describe('diagnosis ledger integration', () => {
     expect(html.match(/미반영 2건 반영/g) ?? []).toHaveLength(1)
   })
 
+  test('the AI tab wrap-up action has its selection form and dialog host', async () => {
+    closeSummary.unpostedRecurringCount = 2
+    closeSummary.requiresAcknowledgment = true
+    const html = renderToStaticMarkup(await LedgerPage({ searchParams: Promise.resolve({ month: '2026-07', tab: 'ai' }) }))
+    expect(html).toContain('form="recurring-posting-2026-07"')
+    expect(html).toContain('<form id="recurring-posting-2026-07"')
+    expect(html).toContain('<dialog id="recurring-posting-2026-07-dialog"')
+    expect(loaders.recurring).not.toHaveBeenCalled()
+  })
+
   test('the December wrap-up links to the following January budget', async () => {
     closeSummary.month = '2026-12'
     loaders.shell.mockResolvedValueOnce({

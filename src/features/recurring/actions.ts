@@ -1,22 +1,58 @@
 'use server'
 
-import { and, eq, max, sql } from 'drizzle-orm'
+import { and, eq, max } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 
 import { db } from '@/db/client'
-import { accounts, categories, recurring, transactions } from '@/db/schema'
+import { accounts, categories, recurring } from '@/db/schema'
 import { ledgerFiltersFromFormData, ledgerUrl } from '@/features/ledger/filters'
 import { isMonthKey } from '@/lib/finance'
 import { requireHousehold } from '@/lib/household'
 import { revalidateFinance } from '@/lib/revalidate'
-import { captureClosedMonths, reopenedMonthNotice } from '@/features/month-close/mutation-notice'
-
-import { recurringImportUid, recurringIsDue, recurringMemo, recurringPostingDate } from './calculations'
-import { previousKoreanBusinessDay } from './business-days'
 import { parseRecurringPayload } from './recurring-input'
-import { recurringPostingInMonth } from './posting-identity'
+import { getPendingRecurringPostings, postRecurringMonth, type PendingRecurringPosting } from './posting'
 
 export type RecurringActionState = { error?: string }
+
+export type RecurringSelectionResult = {
+  ok: boolean
+  error?: string
+  added?: number
+  skipped?: number
+  remaining?: number
+  handledIds?: number[]
+  pendingIds?: number[]
+  notice?: string
+}
+
+export async function loadPendingRecurringMonth(month: string): Promise<{ rows?: PendingRecurringPosting[]; error?: string }> {
+  const household = await requireHousehold()
+  if (!household) return { error: '로그인이 필요합니다. 다시 로그인해 주세요.' }
+  if (typeof month !== 'string' || !isMonthKey(month)) return { error: '조회 월을 확인해 주세요.' }
+  try {
+    return { rows: await getPendingRecurringPostings(household.householdId, month) }
+  } catch (error) {
+    return { error: error instanceof Error && error.message.includes('공휴일') ? error.message : '미반영 정기거래를 불러오지 못했습니다. 다시 시도해 주세요.' }
+  }
+}
+
+export async function applySelectedRecurringMonth(month: string, selectedIds: number[]): Promise<RecurringSelectionResult> {
+  const household = await requireHousehold()
+  if (!household) return { ok: false, error: '로그인이 필요합니다. 다시 로그인해 주세요.' }
+  if (typeof month !== 'string' || !isMonthKey(month)) return { ok: false, error: '조회 월을 확인해 주세요.' }
+  if (!Array.isArray(selectedIds) || selectedIds.length === 0 || selectedIds.length > 1000
+    || selectedIds.some(id => !Number.isSafeInteger(id) || id <= 0)) {
+    return { ok: false, error: '반영할 정기거래를 선택해 주세요.' }
+  }
+  try {
+    const result = await postRecurringMonth(household.householdId, month, [...new Set(selectedIds)])
+    if ('error' in result) return { ok: false, error: result.error }
+    revalidateFinance('recurring', 'transactions')
+    return { ok: true, ...result }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error && error.message.includes('공휴일') ? error.message : '반영 결과를 확인하지 못했습니다. 다시 시도해 주세요. 이미 반영된 항목은 중복 저장되지 않습니다.' }
+  }
+}
 
 export async function saveRecurringRules(
   _previousState: RecurringActionState,
@@ -117,79 +153,7 @@ export async function applyRecurringMonth(formData: FormData) {
   if (typeof monthValue !== 'string' || !isMonthKey(monthValue)) {
     redirect('/recurring?error=month')
   }
-  const outcome = await db.transaction(async (transaction) => {
-    await transaction.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${`recurring:${household.householdId}:${monthValue}`}))`,
-    )
-    const [rules, generatedRows] = await Promise.all([
-      transaction
-        .select({
-          id: recurring.id,
-          flow: recurring.flow,
-          fixed: recurring.fixed,
-          categoryId: categories.id,
-          memo: recurring.memo,
-          amount: recurring.amount,
-          accountId: accounts.id,
-          day: recurring.day,
-          active: recurring.active,
-          startMonth: recurring.startMonth,
-          endMonth: recurring.endMonth,
-          startOccurrence: recurring.startOccurrence,
-          adjustToBusinessDay: recurring.adjustToBusinessDay,
-        })
-        .from(recurring)
-        .leftJoin(
-          categories,
-          and(eq(categories.id, recurring.categoryId), eq(categories.householdId, household.householdId)),
-        )
-        .leftJoin(
-          accounts,
-          and(eq(accounts.id, recurring.accountId), eq(accounts.householdId, household.householdId)),
-        )
-        .where(and(eq(recurring.householdId, household.householdId), eq(recurring.active, true)))
-        .orderBy(recurring.sortOrder, recurring.id),
-      transaction
-        .select({ recurringId: transactions.recurringId })
-        .from(transactions)
-        .where(
-          and(
-            eq(transactions.householdId, household.householdId),
-            recurringPostingInMonth(monthValue),
-          ),
-        ),
-    ])
-    const generated = new Set(generatedRows.flatMap((row) => row.recurringId === null ? [] : [row.recurringId]))
-    const dueRules = rules.filter((rule) => recurringIsDue(rule, monthValue))
-    const pending = dueRules.filter((rule) => !generated.has(rule.id))
-    // Resolve every date before writing anything; missing calendar data is not a partial posting.
-    const values = await Promise.all(pending.map(async (rule) => {
-      const scheduledDate = recurringPostingDate(monthValue, rule.day)
-      return {
-        householdId: household.householdId,
-        date: rule.adjustToBusinessDay ? await previousKoreanBusinessDay(scheduledDate) : scheduledDate,
-        flow: rule.flow,
-        fixed: rule.fixed,
-        categoryId: rule.categoryId,
-        memo: recurringMemo(rule, monthValue),
-        amount: rule.amount,
-        accountId: rule.accountId,
-        source: 'recurring',
-        recurringId: rule.id,
-        importUid: recurringImportUid(rule.id, monthValue),
-      }
-    }))
-    // The unique index also guards concurrent writes to the same identity.
-    const closedBefore = await captureClosedMonths(household.householdId, values.map(row => row.date), transaction)
-    const created = pending.length === 0 ? [] : await transaction
-      .insert(transactions)
-      .values(values)
-      .onConflictDoNothing({
-        target: [transactions.householdId, transactions.importUid],
-      })
-      .returning({ id: transactions.id })
-    return { added: created.length, skipped: dueRules.length - created.length, notice: await reopenedMonthNotice(household.householdId, closedBefore, transaction) }
-  }).catch((error: unknown) => {
+  const outcome = await postRecurringMonth(household.householdId, monthValue).catch((error: unknown) => {
     if (error instanceof Error && error.message.includes('공휴일')) return { error: error.message }
     throw error
   })
