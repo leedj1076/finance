@@ -1,0 +1,58 @@
+import { expect, test } from '@playwright/test'
+import { buildLedgerCategoriesBrowser } from './fixtures/ledger-categories-bundle'
+
+let bundle: Awaited<ReturnType<typeof buildLedgerCategoriesBrowser>>
+test.beforeAll(async () => { bundle = await buildLedgerCategoriesBrowser() })
+test.afterAll(async () => { await bundle?.cleanup() })
+
+for (const width of [1440, 390]) {
+  test(`category selection, expansion and scoped reset at ${width}px`, async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', error => errors.push(error.message))
+    await page.setViewportSize({ width, height: 900 })
+    await page.route('http://localhost/**', route => route.fulfill({ contentType: 'text/html', body: '<html><body><div id="root"></div></body></html>' }))
+    await page.goto(`http://localhost/ledger?month=2026-07&tab=categories&account=12&flow=${width === 390 ? '' : 'expense'}&q=검색`)
+    await page.addStyleTag({ content: bundle.css })
+    await page.addScriptTag({ content: bundle.script })
+    const ranks = page.getByRole('heading', { name: '카테고리 순위', exact: true }).locator('..')
+    await expect(ranks.getByRole('link')).toHaveCount(8)
+    await ranks.getByRole('link', { name: '식비', exact: true }).click()
+    expect(new URL(page.url()).searchParams.get('flow')).toBe(width === 390 ? null : 'expense')
+    await expect(ranks.getByRole('link', { name: '식비', exact: true })).toHaveAttribute('aria-current', 'true')
+    await expect(ranks.getByRole('link', { name: '주거', exact: true })).toBeVisible()
+    await ranks.getByRole('button', { name: '전체 보기' }).click()
+    await expect(ranks.getByRole('link')).toHaveCount(9)
+    await ranks.getByRole('link', { name: '경조사', exact: true }).click()
+    await ranks.getByRole('button', { name: '접기', exact: true }).click()
+    await expect(ranks.getByRole('link', { name: '경조사', exact: true })).toBeVisible()
+    await ranks.getByRole('link', { name: '식비', exact: true }).click()
+    await expect(ranks.getByRole('link')).toHaveCount(8)
+    await page.getByRole('link', { name: '소분류 카페', exact: true }).click()
+    const rows = page.getByRole('region', { name: '카테고리 거래 내역' })
+    await expect(rows).toContainText('1건 · 12,000원')
+    await expect(rows.getByText('선택한 커피', { exact: true })).toBeVisible()
+    await expect(rows.getByText('다른 장보기', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: '소분류 장보기', exact: true })).toBeVisible()
+    const link = new URL(await page.getByRole('link', { name: '거래 보기 →' }).getAttribute('href') ?? '', 'http://localhost')
+    expect(Object.fromEntries(link.searchParams)).toMatchObject({ tab: 'list', major: '식비', sub: '카페', account: '12', q: '검색' })
+    expect(link.searchParams.get('flow')).toBe(width === 390 ? null : 'expense')
+    await page.screenshot({ path: `test-results/ledger-categories-${width}.png`, fullPage: true, animations: 'disabled' })
+    await page.getByRole('link', { name: '전체 소분류', exact: true }).click()
+    await expect(rows).toContainText('2건 · 46,000원')
+    await page.getByRole('link', { name: '소분류 장보기', exact: true }).click()
+    await page.getByRole('combobox', { name: '대분류 필터' }).selectOption('주거')
+    expect(new URL(page.url()).searchParams.get('sub')).toBe('')
+    await page.getByRole('link', { name: '카테고리 선택 해제', exact: true }).click()
+    const cleared = new URL(page.url()).searchParams
+    expect(cleared.get('major')).toBeNull()
+    expect(cleared.get('sub')).toBeNull()
+    expect(cleared.get('account')).toBe('12')
+    expect(cleared.get('q')).toBe('검색')
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+    await ranks.getByRole('link', { name: '식비', exact: true }).click()
+    await page.getByRole('link', { name: '소분류 카페', exact: true }).click()
+    await page.screenshot({ path: `test-results/ledger-categories-${width}-dark.png`, fullPage: true, animations: 'disabled' })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    expect(errors).toEqual([])
+  })
+}

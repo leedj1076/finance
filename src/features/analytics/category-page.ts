@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt, type SQL } from 'drizzle-orm'
+import { and, desc, eq, gte, lt, or, sql, type SQL } from 'drizzle-orm'
 
 import { db } from '@/db/client'
 import { accounts, categories, transactions } from '@/db/schema'
@@ -21,6 +21,7 @@ export type CategoryPageParams = {
   flow: AnalyticsFlow
   major: string
   accountId: number | null
+  q?: string
 }
 
 export type CategoryPageRow = {
@@ -84,6 +85,7 @@ export function parseCategoryPageParams(
       flow,
       major,
       accountId: parsePositiveSafeInteger(firstParam(searchParams.account)),
+      q: firstParam(searchParams.q)?.trim() ?? '',
     }
   }
 
@@ -99,6 +101,7 @@ export function parseCategoryPageParams(
     flow,
     major,
     accountId: parsePositiveSafeInteger(firstParam(searchParams.account)),
+    q: firstParam(searchParams.q)?.trim() ?? '',
   }
 }
 
@@ -174,6 +177,7 @@ export function buildCategoryPageData(
       fixed: row.fixed,
       sub: normalizedSub(row),
       memo: row.memo ?? '',
+      merchant: row.memo || row.rawMerchant || '',
       amount: row.amount,
       accountId: row.accountId,
       accountName: row.accountName ?? '',
@@ -212,6 +216,10 @@ export async function getCategoryPageData(
     lt(transactions.date, params.end),
   ]
   if (selectedAccount) filters.push(eq(transactions.accountId, selectedAccount.id))
+  if (params.q) filters.push(or(
+    sql`coalesce(${transactions.rawMerchant}, '') ilike ${`%${params.q}%`}`,
+    sql`coalesce(${transactions.memo}, '') ilike ${`%${params.q}%`}`,
+  )!)
 
   const rows = await db
     .select({

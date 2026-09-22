@@ -73,6 +73,53 @@ async function seedBudget(household: string) {
   if (txError) throw txError
 }
 
+suite('category selection keeps rankings visible and subcategories filter inline and list transactions', async ({ page, household }) => {
+  const admin = adminClient()
+  const majors = ['식비', '주거', '교통', '자녀', '보험', '통신', '문화', '여행', '경조사']
+  const { data: cats, error } = await admin.from('categories').insert([
+    ...majors.map(major => ({ household_id: household, kind: 'expense', major, sub: major === '식비' ? '카페' : '기본' })),
+    { household_id: household, kind: 'expense', major: '식비', sub: '장보기' },
+  ]).select('id, major, sub')
+  if (error) throw error
+  const { error: txError } = await admin.from('transactions').insert(cats!.map((cat, index) => ({
+    household_id: household, category_id: cat.id, date: '2026-07-10', flow: 'expense',
+    amount: cat.sub === '카페' ? 12000 : cat.sub === '장보기' ? 34000 : 9000 - index * 100,
+    memo: `분류테스트 ${cat.major} ${cat.sub}`, source: 'e2e',
+  })))
+  if (txError) throw txError
+  await page.goto('/ledger?month=2026-07&tab=categories&flow=expense&q=분류테스트')
+  const ranks = page.getByRole('heading', { name: '카테고리 순위', exact: true }).locator('..')
+  await ranks.getByRole('link', { name: '식비', exact: true }).click()
+  await expect(ranks.getByRole('link', { name: '주거', exact: true })).toBeVisible()
+  await expect(ranks.getByRole('link', { name: '식비', exact: true })).toHaveAttribute('aria-current', 'true')
+  await expect(ranks.getByRole('link', { name: '경조사', exact: true })).toHaveCount(0)
+  await ranks.getByRole('button', { name: '전체 보기' }).click()
+  await expect(ranks.getByRole('link', { name: '경조사', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: '소분류 카페', exact: true }).click()
+  const rows = page.getByRole('region', { name: '카테고리 거래 내역' })
+  await expect(rows.getByText('분류테스트 식비 카페', { exact: true })).toBeVisible()
+  await expect(rows.getByText('분류테스트 식비 장보기', { exact: true })).toHaveCount(0)
+  await expect(rows).toContainText('1건 · 12,000원')
+  await expect(page.getByRole('link', { name: '소분류 장보기', exact: true })).toBeVisible()
+  await page.screenshot({ path: 'test-results/category-selection-1440.png', fullPage: true })
+  await page.getByRole('link', { name: '거래 보기 →', exact: true }).click()
+  await expect(page).toHaveURL(/sub=/)
+  await expect(page.locator('tbody tr')).toHaveCount(1)
+  await expect(page.locator('tbody')).toContainText('분류테스트 식비 카페')
+  await page.getByRole('combobox', { name: '거래 정렬' }).selectOption('amount-desc')
+  await expect(page).toHaveURL(/sub=/)
+  await page.getByRole('navigation', { name: '거래 보기' }).getByRole('link', { name: '카테고리', exact: true }).click()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('link', { name: '전체 소분류', exact: true }).click()
+  await expect(rows.getByText('분류테스트 식비 장보기', { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: '카테고리 선택 해제', exact: true }).click()
+  await expect(page).not.toHaveURL(/major=|sub=/)
+  await expect(page.getByRole('searchbox', { name: '사용내역 검색' })).toHaveValue('분류테스트')
+  await expect(ranks.getByRole('link', { name: '주거', exact: true })).toBeVisible()
+  await page.screenshot({ path: 'test-results/category-selection-390.png', fullPage: true })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
 suite('budget month navigation replaces stale picker and month-specific amounts', async ({ page, household }) => {
   await seedBudget(household)
   await page.goto('/budgets?month=2026-07')
@@ -307,7 +354,7 @@ suite('ledger sorts filtered transactions and retains order through navigation a
   await expect(page).toHaveURL(/tab=list$/)
   await expect(ledgerTitles(page)).toHaveText(['대상 환불', '대상 큰 금액', '대상 작은 금액'])
   await expect(sort).toHaveValue('amount-asc')
-  await page.getByRole('link', { name: '초기화', exact: true }).click()
+  await page.getByRole('link', { name: '전체 필터 초기화', exact: true }).click()
   await expect(page).toHaveURL('/ledger?month=2026-07&sort=amount-asc&tab=list')
   await expect(sort).toHaveValue('amount-asc')
   await expect(page.getByLabel('사용내역 검색')).toHaveValue('')

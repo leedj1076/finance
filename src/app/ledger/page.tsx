@@ -94,7 +94,8 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         month: shell.month,
         flow: selectedFlow,
         accountId: parseLedgerAccountId(filters.account) ?? undefined,
-        major: filters.major,
+        major: tab === 'categories' ? '' : filters.major,
+        sub: tab === 'categories' ? '' : filters.sub,
         q: filters.q,
       }),
     tab === 'categories' && filters.major
@@ -104,6 +105,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         flow: selectedFlow,
         major: filters.major,
         account: filters.account,
+        q: filters.q,
       }))
       : null,
     tab === 'list' ? getLedgerTransactions(household.householdId, shell.month, filters) : null,
@@ -117,6 +119,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
       <input name="returnAccount" type="hidden" value={filters.account} />
       <input name="returnFlow" type="hidden" value={filters.flow} />
       <input name="returnMajor" type="hidden" value={filters.major} />
+      <input name="returnSub" type="hidden" value={filters.sub ?? ''} />
       <input name="returnQ" type="hidden" value={filters.q} />
       <input name="returnSort" type="hidden" value={filters.sort ?? 'date-desc'} />
       <input name="returnTab" type="hidden" value={tab} />
@@ -147,6 +150,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
                 {filters.account && <input name="account" type="hidden" value={filters.account} />}
                 {filters.flow && <input name="flow" type="hidden" value={filters.flow} />}
                 {filters.major && <input name="major" type="hidden" value={filters.major} />}
+                {filters.sub && <input name="sub" type="hidden" value={filters.sub} />}
                 {filters.q && <input name="q" type="hidden" value={filters.q} />}
               </>}
               label="조회 월"
@@ -191,7 +195,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
         </nav>
 
         {tab !== 'ai' && <>
-          <LedgerFilterForm accounts={formOptions.accounts} filters={filters} key={`${shell.month}:${filters.account}:${filters.flow}:${filters.major}:${filters.q}`} majorOptions={majorOptions} month={shell.month} tab={tab} />
+          <LedgerFilterForm accounts={formOptions.accounts} filters={filters} key={`${shell.month}:${filters.account}:${filters.flow}:${filters.major}:${filters.sub}:${filters.q}`} majorOptions={majorOptions} month={shell.month} tab={tab} />
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-finance-ink py-3 t-caption text-finance-muted">
           <strong className="text-finance-ink">{anyFilter ? '현재 필터' : '이 달 전체'} · {shell.filteredTotals.count}건</strong>
           <span>수입 <strong className="text-finance-blue">{formatWon(shell.filteredTotals.income)}원</strong></span>
@@ -214,7 +218,7 @@ export default async function LedgerPage({ searchParams }: LedgerPageProps) {
                   선택한 정렬 기준으로 앞 {LEDGER_ROW_LIMIT.toLocaleString('ko-KR')}건만 표시했습니다 · 위 합계는 필터에 걸린 {shell.filteredTotals.count}건 전체 기준입니다
                 </p>
               )}
-              <LedgerTransactionsTable accounts={formOptions.accounts} categories={formOptions.categories} filters={filters} key={`${shell.month}:${filters.account}:${filters.flow}:${filters.major}:${filters.q}`} month={shell.month} rows={listData.rows} />
+              <LedgerTransactionsTable accounts={formOptions.accounts} categories={formOptions.categories} filters={filters} key={`${shell.month}:${filters.account}:${filters.flow}:${filters.major}:${filters.sub}:${filters.q}`} month={shell.month} rows={listData.rows} />
             </section>
           </>
         )}

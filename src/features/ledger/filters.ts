@@ -5,6 +5,7 @@ export type LedgerFilters = {
   account: string
   flow: LedgerFlowFilter
   major: string
+  sub?: string
   q: string
   sort?: LedgerSort
 }
@@ -27,6 +28,7 @@ export function parseLedgerFilters(params: {
   fmajor?: SearchParamValue
   flow?: SearchParamValue
   major?: SearchParamValue
+  sub?: SearchParamValue
   q?: SearchParamValue
   sort?: SearchParamValue
 }): LedgerFilters {
@@ -35,11 +37,13 @@ export function parseLedgerFilters(params: {
   const account = firstString(params.account)
   const accountId = parseLedgerAccountId(account)
   const sort = firstString(params.sort)
+  const sub = firstString(params.sub)
 
   return {
     account: accountId === null ? '' : String(accountId),
     flow: flow === 'expense' || flow === 'income' || flow === 'saving' ? flow : '',
     major,
+    ...(major && sub && sub.length <= 100 ? { sub } : {}),
     q: firstString(params.q).trim(),
     ...(sort === 'date-asc' || sort === 'amount-desc' || sort === 'amount-asc' ? { sort } : {}),
   }
@@ -50,6 +54,7 @@ export function ledgerFiltersFromFormData(formData: FormData): LedgerFilters {
     account: String(formData.get('returnAccount') ?? ''),
     flow: String(formData.get('returnFlow') ?? ''),
     major: String(formData.get('returnMajor') ?? ''),
+    sub: String(formData.get('returnSub') ?? ''),
     q: String(formData.get('returnQ') ?? ''),
     sort: String(formData.get('returnSort') ?? ''),
   })
@@ -68,6 +73,7 @@ export function ledgerUrl(
   if (filters.account) params.set('account', filters.account)
   if (filters.flow) params.set('flow', filters.flow)
   if (filters.major) params.set('major', filters.major)
+  if (filters.major && filters.sub) params.set('sub', filters.sub)
   if (filters.q) params.set('q', filters.q)
   if (filters.sort && filters.sort !== 'date-desc') params.set('sort', filters.sort)
   Object.entries(extras).forEach(([key, value]) => {

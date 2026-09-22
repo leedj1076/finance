@@ -1,13 +1,11 @@
 import Link from 'next/link'
 
-import type { getCategoryPageData } from '@/features/analytics/category-page'
 import type { getAnalysisData } from '@/features/analytics/queries'
 import { formatRate, formatWon } from '@/lib/finance'
 
 import { ledgerUrl, type LedgerFilters } from './filters'
 
 type AnalysisData = Awaited<ReturnType<typeof getAnalysisData>>
-type CategoryData = Awaited<ReturnType<typeof getCategoryPageData>>
 type MonthTotals = {
   income: number
   expense: number
@@ -112,53 +110,7 @@ export function LedgerSummaryPanel({ data, monthTotals }: {
   )
 }
 
-export function LedgerCategoriesPanel({ data, detail, filters }: {
-  data: AnalysisData
-  detail: CategoryData | null
-  filters: LedgerFilters
-}) {
-  const maxRank = data.ranks[0]?.amount ?? 1
-  return (
-    <div className="mt-6 grid gap-8 xl:grid-cols-[minmax(300px,0.7fr)_minmax(0,1.3fr)]">
-      <section className="border-t border-finance-ink pt-4">
-        <h2 className="t-section text-finance-ink">카테고리 순위</h2>
-        <p className="mt-1 t-caption text-finance-muted">카테고리를 선택하면 이 화면에서 소분류와 가맹점을 펼칩니다.</p>
-        <div className="mt-5 space-y-4">
-          {data.ranks.map((rank, index) => (
-            <div key={rank.major}>
-              <div className="grid grid-cols-[24px_minmax(90px,1fr)_auto] items-center gap-2 t-body">
-                <span className="text-finance-faint">{index + 1}</span>
-                <Link className={`truncate font-medium ${filters.major === rank.major ? 'text-finance-blue' : 'text-finance-ink hover:text-finance-blue'}`} href={ledgerUrl(data.month, { ...filters, major: rank.major }, { tab: 'categories' })}>{rank.major}</Link>
-                <div className="text-right"><p className="font-semibold tabular-nums text-finance-ink">{formatWon(rank.amount)}원</p><p className={`mt-0.5 t-caption ${rank.delta > 0 ? 'text-finance-red' : rank.delta < 0 ? 'text-finance-green' : 'text-finance-faint'}`}>{rank.delta === 0 ? '–' : `${rank.delta > 0 ? '▲' : '▼'} ${formatWon(Math.abs(rank.delta))}원`}</p></div>
-              </div>
-              <div className="ml-8 mt-2 h-[5px] overflow-hidden bg-finance-track"><div className="h-full bg-finance-blue" style={{ width: `${(rank.amount / maxRank) * 100}%` }} /></div>
-            </div>
-          ))}
-          {data.ranks.length === 0 && <p className="py-10 text-center t-body text-finance-muted">이 필터에는 거래가 없습니다.</p>}
-        </div>
-      </section>
-
-      <section className="border-t border-finance-ink pt-4">
-        {!detail || !filters.major ? (
-          <div className="grid min-h-56 place-items-center border-y border-finance-hairline text-center">
-            <div><p className="t-body-strong text-finance-ink">왼쪽에서 카테고리를 선택하세요</p><p className="mt-1 t-caption text-finance-muted">소분류·가맹점 구성과 해당 거래를 한 번에 확인할 수 있습니다.</p></div>
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-finance-hairline pb-4">
-              <div><p className="t-caption text-finance-muted">선택 카테고리</p><h2 className="mt-1 t-section text-finance-ink">{filters.major}</h2><p className="mt-1 t-caption text-finance-muted">{detail.transactions.length}건 · 전체 대비 {formatRate(detail.percent)}%</p></div>
-              <Link className="h-[30px] bg-finance-ink px-3 py-1.5 t-body-strong text-white hover:bg-finance-blue" href={ledgerUrl(data.month, filters, { tab: 'list' })}>거래 보기 →</Link>
-            </div>
-            <div className="grid gap-6 pt-5 md:grid-cols-2">
-              <div><h3 className="t-label uppercase text-finance-muted">소분류</h3><div className="mt-2 divide-y divide-finance-hairline">{detail.subs.map((sub) => <div className="flex justify-between gap-3 py-3 t-body" key={sub.sub}><span>{sub.sub} <small className="text-finance-faint">{sub.count}건</small></span><strong className="tabular-nums">{formatWon(sub.amount)}원</strong></div>)}</div></div>
-              <div><h3 className="t-label uppercase text-finance-muted">가맹점</h3><div className="mt-2 divide-y divide-finance-hairline">{detail.merchants.map((merchant) => <div className="flex justify-between gap-3 py-3 t-body" key={merchant.name}><span className="truncate">{merchant.name} <small className="text-finance-faint">{merchant.count}건</small></span><strong className="shrink-0 tabular-nums">{formatWon(merchant.amount)}원</strong></div>)}</div></div>
-            </div>
-          </>
-        )}
-      </section>
-    </div>
-  )
-}
+export { LedgerCategoriesPanel } from './ledger-categories-panel'
 
 export function LedgerMerchantsPanel({ data, filters }: {
   data: AnalysisData

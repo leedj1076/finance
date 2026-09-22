@@ -8,6 +8,8 @@ import {
   parseLedgerFilters,
 } from '@/features/ledger/filters'
 import { LEDGER_ROW_LIMIT, getLedgerShellData, getLedgerTransactions } from '@/features/ledger/queries'
+import { getCategoryPageData, parseCategoryPageParams } from '@/features/analytics/category-page'
+import { getAnalysisData } from '@/features/analytics/queries'
 
 describe('ledger filters', () => {
   test('accepts the four supported filters and trims the query', () => {
@@ -66,6 +68,40 @@ describe('ledger filter database behavior', () => {
       await raw`delete from households where id in ${raw(householdIds)}`
     }
     await raw.end()
+  })
+
+  test('subcategory scopes rows and totals, while category detail keeps sibling subs and respects search', async () => {
+    const [household] = await raw`insert into households (name) values ('subcategory selection') returning id`
+    const [other] = await raw`insert into households (name) values ('foreign subcategory') returning id`
+    householdIds.push(household.id, other.id)
+    const [cafe, groceries] = await raw`insert into categories (household_id, kind, major, sub) values
+      (${household.id}, 'expense', '식비', '카페'), (${household.id}, 'expense', '식비', '장보기') returning id`
+    await raw`insert into transactions (household_id, date, flow, category_id, memo, raw_merchant, amount, source) values
+      (${household.id}, '2026-06-01', 'expense', ${cafe.id}, '선택 coffee', 'Original', 12000, 'test'),
+      (${household.id}, '2026-06-02', 'expense', ${groceries.id}, '선택 groceries', null, 34000, 'test'),
+      (${household.id}, '2026-06-03', 'expense', ${cafe.id}, '검색 제외', null, 99000, 'test'),
+      (${other.id}, '2026-06-01', 'expense', null, '선택 foreign', null, 999999, 'test')`
+    const filters = { account: '', flow: 'expense' as const, major: '식비', sub: '카페', q: '선택' }
+    const list = await getLedgerTransactions(household.id, '2026-06', filters)
+    expect(list.rows.map(row => row.memo)).toEqual(['선택 coffee'])
+    const shell = await getLedgerShellData(household.id, '2026-06', filters)
+    expect(shell.filteredTotals).toMatchObject({ count: 1, expense: 12000 })
+    const detail = await getCategoryPageData(household.id, parseCategoryPageParams({ month: '2026-06', major: '식비', q: '선택' }))
+    expect(detail.subs.map(row => row.sub)).toEqual(['장보기', '카페'])
+    expect(detail.transactions.map(row => row.memo)).toEqual(['선택 groceries', '선택 coffee'])
+    expect(detail.categoryTotal).toBe(46000)
+    const rankings = await getAnalysisData(household.id, { month: '2026-06', q: '선택' })
+    expect(rankings.total).toBe(46000)
+    const subAnalysis = await getAnalysisData(household.id, { month: '2026-06', q: '선택', major: '식비', sub: '카페' })
+    expect(subAnalysis.total).toBe(12000)
+    expect(subAnalysis.count).toBe(1)
+    await raw`insert into transactions (household_id, date, flow, memo, amount, source)
+      values (${household.id}, '2026-06-04', 'expense', '선택 unclassified', -3000, 'test')`
+    const unclassified = { ...filters, major: '미분류', sub: '미분류' }
+    const unclassifiedList = await getLedgerTransactions(household.id, '2026-06', unclassified)
+    expect(unclassifiedList.rows.map(row => row.memo)).toEqual(['선택 unclassified'])
+    const unclassifiedShell = await getLedgerShellData(household.id, '2026-06', unclassified)
+    expect(unclassifiedShell.filteredTotals).toMatchObject({ count: 1, expense: -3000 })
   })
 
   test('sorts the entire scoped match before the row cap, with deterministic ties and signed amounts', async () => {

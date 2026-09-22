@@ -58,6 +58,7 @@ async function loadRows(householdId: string, start: string, end: string): Promis
       major: sql<string>`coalesce(${categories.major}, '미분류')`,
       sub: sql<string>`coalesce(${categories.sub}, '미분류')`,
       merchant: sql<string>`coalesce(nullif(${transactions.rawMerchant}, ''), nullif(${transactions.memo}, ''), '')`,
+      memo: transactions.memo,
       accountId: transactions.accountId,
       accountName: sql<string>`coalesce(${accounts.name}, '')`,
     })
@@ -384,6 +385,7 @@ export type AnalysisRequest = {
   flow?: string
   accountId?: number
   major?: string
+  sub?: string
   q?: string
 }
 
@@ -419,10 +421,13 @@ export async function getAnalysisData(householdId: string, request: AnalysisRequ
     ? rows
     : rows.filter((row) => row.accountId === selectedAccount)
   const requestedMajor = request.major?.trim().slice(0, 100) ?? ''
+  const requestedSub = requestedMajor ? request.sub ?? '' : ''
   const requestedQuery = request.q?.trim().toLocaleLowerCase('ko-KR') ?? ''
   const scopedRows = filteredRows.filter((row) => (
     (!requestedMajor || row.major === requestedMajor)
-    && (!requestedQuery || row.merchant.toLocaleLowerCase('ko-KR').includes(requestedQuery))
+    && (!requestedSub || row.sub === requestedSub)
+    && (!requestedQuery || row.merchant.toLocaleLowerCase('ko-KR').includes(requestedQuery)
+      || (row.memo ?? '').toLocaleLowerCase('ko-KR').includes(requestedQuery))
   ))
   const yearRows = scopedRows.filter((row) => row.date >= yearStart && row.date < yearEnd)
   const currentRows = period === 'month'

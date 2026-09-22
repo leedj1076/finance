@@ -11,6 +11,7 @@ export type AnalyticsRow = {
   major: string
   sub: string
   merchant: string
+  memo?: string | null
   accountId: number | null
   accountName: string
 }

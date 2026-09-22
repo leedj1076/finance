@@ -39,6 +39,14 @@ beforeEach(() => {
 })
 
 describe('diagnosis ledger integration', () => {
+  test('category rankings ignore drill-down selection but detail and navigation retain scope', async () => {
+    const html = renderToStaticMarkup(await LedgerPage({ searchParams: Promise.resolve({
+      month: '2026-07', tab: 'categories', account: '32', flow: 'expense', major: '식비', sub: '카페', q: '커피',
+    }) }))
+    expect(loaders.analysis).toHaveBeenCalledWith('household-a', expect.objectContaining({ accountId: 32, q: '커피', major: '', sub: '' }))
+    expect(loaders.categories).toHaveBeenCalledWith('household-a', expect.objectContaining({ major: '식비', account: '32', q: '커피' }))
+    expect(html).toContain('sub=%EC%B9%B4%ED%8E%98')
+  })
   test('loads diagnosis for the whole selected month and skips filtered analysis, forms, and recurring loading', async () => {
     closeSummary.unpostedRecurringCount = 2
     closeSummary.requiresAcknowledgment = true

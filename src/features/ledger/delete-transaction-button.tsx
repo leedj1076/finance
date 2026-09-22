@@ -24,6 +24,7 @@ export function DeleteTransactionButton({
       <input name="returnAccount" type="hidden" value={filters.account} />
       <input name="returnFlow" type="hidden" value={filters.flow} />
       <input name="returnMajor" type="hidden" value={filters.major} />
+      <input name="returnSub" type="hidden" value={filters.sub ?? ''} />
       <input name="returnQ" type="hidden" value={filters.q} />
       <button className="t-caption text-finance-faint hover:text-finance-red" type="submit">
         삭제

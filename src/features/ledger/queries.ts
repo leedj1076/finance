@@ -78,7 +78,8 @@ async function filteredTotalsForMonth(
           ? accountId === null ? sql`false` : eq(transactions.accountId, accountId)
           : undefined,
         filters.flow ? eq(transactions.flow, filters.flow) : undefined,
-        filters.major ? eq(categories.major, filters.major) : undefined,
+        filters.major ? eq(sql`coalesce(${categories.major}, '미분류')`, filters.major) : undefined,
+        filters.major && filters.sub ? eq(sql`coalesce(${categories.sub}, '미분류')`, filters.sub) : undefined,
         filters.q ? ledgerSearchPredicate(filters.q) : undefined,
       ),
     )
@@ -188,7 +189,8 @@ export async function getLedgerTransactions(
           ? accountId === null ? sql`false` : eq(transactions.accountId, accountId)
           : undefined,
         filters.flow ? eq(transactions.flow, filters.flow) : undefined,
-        filters.major ? eq(categories.major, filters.major) : undefined,
+        filters.major ? eq(sql`coalesce(${categories.major}, '미분류')`, filters.major) : undefined,
+        filters.major && filters.sub ? eq(sql`coalesce(${categories.sub}, '미분류')`, filters.sub) : undefined,
         filters.q ? ledgerSearchPredicate(filters.q) : undefined,
       ),
     )
