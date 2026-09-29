@@ -5,6 +5,7 @@ export type RecurringSchedule = {
   endMonth?: string | null
   startOccurrence?: number | null
   adjustToBusinessDay?: boolean
+  businessDayDirection?: 'previous' | 'next'
 }
 
 export function recurringIsDue(rule: RecurringSchedule & { active: boolean }, month: string) {
