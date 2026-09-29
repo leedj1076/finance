@@ -1,0 +1,2 @@
+ALTER TABLE "recurring" ADD COLUMN "business_day_direction" text DEFAULT 'previous' NOT NULL;--> statement-breakpoint
+ALTER TABLE "recurring" ADD CONSTRAINT "recurring_business_day_direction" CHECK ("recurring"."business_day_direction" in ('previous', 'next'));

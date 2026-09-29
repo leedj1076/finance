@@ -71,6 +71,13 @@
       "when": 1789023327400,
       "tag": "0009_budget_recommendations",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790642619736,
+      "tag": "0010_recurring_business_day_direction",
+      "breakpoints": true
     }
   ]
 }

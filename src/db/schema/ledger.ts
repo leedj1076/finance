@@ -46,7 +46,9 @@ export const recurring = pgTable('recurring', {
   endMonth: text('end_month'),
   startOccurrence: integer('start_occurrence'),
   adjustToBusinessDay: boolean('adjust_to_business_day').notNull().default(false),
+  businessDayDirection: text('business_day_direction', { enum: ['previous', 'next'] }).notNull().default('previous'),
 }, (table) => [
+  check('recurring_business_day_direction', sql`${table.businessDayDirection} in ('previous', 'next')`),
   check('recurring_schedule_months', sql`(${table.startMonth} is null or ${table.startMonth} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$') and (${table.endMonth} is null or ${table.endMonth} ~ '^[0-9]{4}-(0[1-9]|1[0-2])$') and (${table.startMonth} is null or ${table.endMonth} is null or ${table.startMonth} <= ${table.endMonth})`),
   check('recurring_schedule_occurrence', sql`${table.startOccurrence} is null or (${table.startOccurrence} between 1 and 1000000 and ${table.startMonth} is not null and ${table.memo} is not null and ${table.memo} ~ 'X[[:space:]]*회')`),
 ])
