@@ -129,6 +129,16 @@ test('due expense obligations include overdue/final occurrence, business date an
   expect(next.recurring.some(row => row.id === finalRule)).toBe(false)
 })
 
+test('AI budget dates use next business days without moving the obligation out of its source month', async () => {
+  await db.update(recurring).set({ day: 31, adjustToBusinessDay: true, businessDayDirection: 'next',
+    startMonth: '2026-01', endMonth: '2026-01' })
+    .where(and(eq(recurring.householdId, own), eq(recurring.id, dueRule)))
+  const january = await snapshot({ ...input, month: '2026-01' })
+  expect(january.recurring.find(row => row.id === dueRule)).toMatchObject({ date: '2026-02-02', posted: false, amount: 40_000 })
+  const february = await snapshot({ ...input, month: '2026-02' })
+  expect(february.recurring.some(row => row.id === dueRule)).toBe(false)
+})
+
 test('hidden recurring subcategory sharing an active major reserves only unallocated funds until explicitly posted', async () => {
   const [hiddenFood] = await db.select().from(categories).where(and(
     eq(categories.householdId, own), eq(categories.major, '식비'), eq(categories.hidden, true),

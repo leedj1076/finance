@@ -123,10 +123,20 @@ describe('recurring input', () => {
     })
   })
 
+  test.each(['previous', 'next'])('preserves the submitted holiday direction %s', businessDayDirection => {
+    expect(parseRecurringPayload(JSON.stringify([{ ...scheduled, businessDayDirection }])).data?.[0])
+      .toMatchObject({ adjustToBusinessDay: true, businessDayDirection })
+  })
+
+  test('does not overwrite a stored direction when an older client omits it', () => {
+    expect(parseRecurringPayload(JSON.stringify([scheduled])).data?.[0]).not.toHaveProperty('businessDayDirection')
+  })
+
   test.each([
     { startMonth: '2026-13' }, { endMonth: '2026-08' }, { startMonth: '', startOccurrence: 17 },
     { startOccurrence: 0 }, { startOccurrence: 1.5 }, { startOccurrence: 'abc' },
     { memo: '부모급여', startOccurrence: 17 }, { adjustToBusinessDay: 'false' },
+    { businessDayDirection: 'nearest' }, { businessDayDirection: null }, { businessDayDirection: 1 },
   ])('rejects invalid schedule %j', (change) => {
     expect(parseRecurringPayload(JSON.stringify([{ ...scheduled, ...change }])).error).toBeTruthy()
   })

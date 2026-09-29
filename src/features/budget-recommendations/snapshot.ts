@@ -7,8 +7,8 @@ import { todayInKorea } from '@/features/budgets/pace'
 import { readBudgetData, type BudgetReader } from '@/features/budgets/queries'
 import { readBudgetReviewData } from '@/features/budgets/review-queries'
 import { readMonthStatuses } from '@/features/month-close/queries'
-import { previousKoreanBusinessDay } from '@/features/recurring/business-days'
-import { recurringIsDue, recurringMemo, recurringPostingDate } from '@/features/recurring/calculations'
+import { resolveRecurringPostingDate } from '@/features/recurring/business-days'
+import { recurringIsDue, recurringMemo } from '@/features/recurring/calculations'
 import { recurringPostingInMonth } from '@/features/recurring/posting-identity'
 import { currentMonthInKorea, monthBounds, shiftMonth } from '@/lib/finance'
 
@@ -173,8 +173,7 @@ export async function readBudgetSnapshot(
   const dueRules = rules.filter(rule => recurringIsDue(rule, month))
   const postedIds = new Set(postings.map(row => row.recurringId))
   const recurringRows = await Promise.all(dueRules.map(async rule => {
-    const dueDate = recurringPostingDate(input.month, rule.day)
-    const date = rule.adjustToBusinessDay ? await previousKoreanBusinessDay(dueDate) : dueDate
+    const date = await resolveRecurringPostingDate(rule, month)
     const category = rule.categoryId === null ? undefined : categoryById.get(rule.categoryId)
     return { id: rule.id, major: category?.kind === 'expense' && !category.hidden ? category.major : null,
       amount: rule.amount, date, posted: postedIds.has(rule.id), memo: recurringMemo(rule, month) ?? '' }

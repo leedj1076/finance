@@ -5,7 +5,7 @@ import { db } from '@/db/client'
 import { households, recurring, transactions } from '@/db/schema'
 import { getHomeTodos } from '@/features/analytics/home-todos'
 import { saveTransaction } from '@/features/ledger/actions'
-import { applyRecurringMonth, saveRecurringRules } from '@/features/recurring/actions'
+import { applyRecurringMonth, loadPendingRecurringMonth, saveRecurringRules } from '@/features/recurring/actions'
 import { getRecurringData } from '@/features/recurring/queries'
 import { currentMonthInKorea, shiftMonth } from '@/lib/finance'
 
@@ -190,6 +190,25 @@ test('month-start holiday adjustments keep the requested month identity', async 
   await post('2026-01', 0, 1)
 })
 
+test('next-business-day schedules persist and keep their final occurrence in the source month', async () => {
+  const form = new FormData()
+  form.set('rules', JSON.stringify([{ id: ruleId, flowToken: 'exp_fix', memo: '월말 납부 (X회)',
+    amount: 5000, day: 31, active: true, startMonth: '2026-01', endMonth: '2026-01',
+    startOccurrence: 24, adjustToBusinessDay: true, businessDayDirection: 'next' }]))
+  await expect(saveRecurringRules({}, form)).rejects.toThrow('REDIRECT:/recurring?saved=1')
+  expect((await getRecurringData(context.householdId, '2026-01')).rules[0]).toMatchObject({ businessDayDirection: 'next' })
+  expect((await loadPendingRecurringMonth('2026-01')).rows).toEqual([
+    expect.objectContaining({ date: '2026-02-02', memo: '월말 납부 (24회)' }),
+  ])
+  await post('2026-01', 1, 0)
+  await post('2026-01', 0, 1)
+  await post('2026-02', 0, 0)
+  expect(await postedRows()).toEqual([expect.objectContaining({
+    date: '2026-02-02', memo: '월말 납부 (24회)', importUid: `recurring:${ruleId}:2026-01`,
+  })])
+  expect((await loadPendingRecurringMonth('2026-01')).rows).toEqual([])
+})
+
 test('ended and not-yet-started rules do not appear in home todos', async () => {
   for (const range of [{ startMonth: nextMonth, endMonth: null }, { startMonth: null, endMonth: shiftMonth(month, -1) }]) {
     await db.update(recurring).set(range).where(and(eq(recurring.householdId, context.householdId), eq(recurring.id, ruleId)))
@@ -210,14 +229,14 @@ test('an unavailable calendar returns a visible error and inserts no rules for t
 })
 
 test('older clients cannot erase schedule settings or bypass combined validation', async () => {
-  await db.update(recurring).set({ memo: '테스트 (X회)', startMonth: '2026-09', endMonth: '2027-04', startOccurrence: 17, adjustToBusinessDay: true })
+  await db.update(recurring).set({ memo: '테스트 (X회)', startMonth: '2026-09', endMonth: '2027-04', startOccurrence: 17, adjustToBusinessDay: true, businessDayDirection: 'next' })
     .where(and(eq(recurring.householdId, context.householdId), eq(recurring.id, ruleId)))
   const form = new FormData()
   const oldInput = { id: ruleId, flowToken: 'exp_fix', memo: '테스트 (X회)', amount: 6000, day: 25 }
   form.set('rules', JSON.stringify([oldInput]))
   await expect(saveRecurringRules({}, form)).rejects.toThrow('REDIRECT:')
   expect((await getRecurringData(context.householdId, '2026-09')).rules[0]).toMatchObject({
-    startMonth: '2026-09', endMonth: '2027-04', startOccurrence: 17, adjustToBusinessDay: true, amount: 6000,
+    startMonth: '2026-09', endMonth: '2027-04', startOccurrence: 17, adjustToBusinessDay: true, businessDayDirection: 'next', amount: 6000,
   })
   form.set('rules', JSON.stringify([{ ...oldInput, memo: '회차 표시 없는 제목' }]))
   expect((await saveRecurringRules({}, form)).error).toBeTruthy()

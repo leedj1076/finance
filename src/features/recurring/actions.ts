@@ -65,7 +65,8 @@ export async function saveRecurringRules(
 
   const [storedRows, categoryRows, accountRows] = await Promise.all([
     db.select({ id: recurring.id, startMonth: recurring.startMonth, endMonth: recurring.endMonth,
-      startOccurrence: recurring.startOccurrence, adjustToBusinessDay: recurring.adjustToBusinessDay })
+      startOccurrence: recurring.startOccurrence, adjustToBusinessDay: recurring.adjustToBusinessDay,
+      businessDayDirection: recurring.businessDayDirection })
       .from(recurring).where(eq(recurring.householdId, household.householdId)),
     db
       .select({ id: categories.id, kind: categories.kind })
@@ -123,6 +124,7 @@ export async function saveRecurringRules(
         endMonth: row.endMonth,
         startOccurrence: row.startOccurrence,
         adjustToBusinessDay: row.adjustToBusinessDay,
+        businessDayDirection: row.businessDayDirection,
       }
       if (row.id === null) {
         sortOrder += 1

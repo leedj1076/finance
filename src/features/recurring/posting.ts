@@ -2,8 +2,8 @@ import { and, eq, sql } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { accounts, categories, recurring, transactions } from '@/db/schema'
 import { captureClosedMonths, reopenedMonthNotice } from '@/features/month-close/mutation-notice'
-import { recurringImportUid, recurringIsDue, recurringMemo, recurringPostingDate } from './calculations'
-import { previousKoreanBusinessDay } from './business-days'
+import { recurringImportUid, recurringIsDue, recurringMemo } from './calculations'
+import { resolveRecurringPostingDate } from './business-days'
 import { recurringPostingInMonth } from './posting-identity'
 
 export type PendingRecurringPosting = {
@@ -25,6 +25,7 @@ async function readPostingState(reader: Pick<typeof db, 'select'>, householdId: 
       day: recurring.day, active: recurring.active, startMonth: recurring.startMonth,
       endMonth: recurring.endMonth, startOccurrence: recurring.startOccurrence,
       adjustToBusinessDay: recurring.adjustToBusinessDay,
+      businessDayDirection: recurring.businessDayDirection,
     }).from(recurring)
       .leftJoin(categories, and(eq(categories.id, recurring.categoryId), eq(categories.householdId, householdId)))
       .leftJoin(accounts, and(eq(accounts.id, recurring.accountId), eq(accounts.householdId, householdId)))
@@ -38,15 +39,10 @@ async function readPostingState(reader: Pick<typeof db, 'select'>, householdId: 
   return { dueRules, pending: dueRules.filter(rule => !generated.has(rule.id)) }
 }
 
-async function postingDate(rule: { day: number; adjustToBusinessDay: boolean }, month: string) {
-  const scheduledDate = recurringPostingDate(month, rule.day)
-  return rule.adjustToBusinessDay ? previousKoreanBusinessDay(scheduledDate) : scheduledDate
-}
-
 export async function getPendingRecurringPostings(householdId: string, month: string): Promise<PendingRecurringPosting[]> {
   const { pending } = await readPostingState(db, householdId, month)
   return Promise.all(pending.map(async rule => ({
-    id: rule.id, date: await postingDate(rule, month), memo: recurringMemo(rule, month) ?? '',
+    id: rule.id, date: await resolveRecurringPostingDate(rule, month), memo: recurringMemo(rule, month) ?? '',
     flow: rule.flow, amount: rule.amount,
     category: [rule.major, rule.sub].filter(Boolean).join(' · ') || '미분류',
     account: rule.accountName || '결제수단 미지정',
@@ -65,7 +61,7 @@ export async function postRecurringMonth(householdId: string, month: string, sel
     const selectedPending = pending.filter(rule => !selected || selected.has(rule.id))
     // Resolve every date before writing anything; calendar errors cannot partially post a selection.
     const values = await Promise.all(selectedPending.map(async rule => ({
-      householdId, date: await postingDate(rule, month), flow: rule.flow, fixed: rule.fixed,
+      householdId, date: await resolveRecurringPostingDate(rule, month), flow: rule.flow, fixed: rule.fixed,
       categoryId: rule.categoryId, memo: recurringMemo(rule, month), amount: rule.amount,
       accountId: rule.accountId, source: 'recurring', recurringId: rule.id,
       importUid: recurringImportUid(rule.id, month),

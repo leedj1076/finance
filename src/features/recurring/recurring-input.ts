@@ -97,6 +97,12 @@ export function parseRecurringPayload(value: FormDataEntryValue | null): ParseRe
         if (typeof row.adjustToBusinessDay !== 'boolean') return { error: `${memo} 영업일 조정 설정이 올바르지 않습니다.` }
         schedule.adjustToBusinessDay = row.adjustToBusinessDay
       }
+      if (row.businessDayDirection !== undefined) {
+        if (row.businessDayDirection !== 'previous' && row.businessDayDirection !== 'next') {
+          return { error: `${memo} 영업일 조정 방향이 올바르지 않습니다.` }
+        }
+        schedule.businessDayDirection = row.businessDayDirection
+      }
 
       const flow = tokenToFlow(token as RecurringFlowToken)
       result.push({

@@ -33,6 +33,7 @@ export async function getRecurringData(householdId: string, requestedMonth?: str
         endMonth: recurring.endMonth,
         startOccurrence: recurring.startOccurrence,
         adjustToBusinessDay: recurring.adjustToBusinessDay,
+        businessDayDirection: recurring.businessDayDirection,
       })
       .from(recurring)
       .leftJoin(
