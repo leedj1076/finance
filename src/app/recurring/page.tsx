@@ -86,6 +86,7 @@ export default async function RecurringPage({ searchParams }: RecurringPageProps
             endMonth: rule.endMonth,
             startOccurrence: rule.startOccurrence,
             adjustToBusinessDay: rule.adjustToBusinessDay,
+            businessDayDirection: rule.businessDayDirection,
           }))}
           month={data.month}
           key={data.month}

@@ -335,7 +335,8 @@ suite('AI wrap-up selection reconciles rules already posted in another tab', asy
   await expect(page).toHaveURL('/ledger?month=2026-07&tab=ai')
 })
 
-suite('recurring schedule saves without preposting, renders occurrences, and stops at the last month', async ({ page, household }) => {
+for (const [direction, firstDate, finalDate] of [['previous', '09-23', '04-23'], ['next', '09-28', '04-26']] as const) {
+suite(`recurring schedule (${direction}) saves without preposting, renders occurrences, and stops at the last month`, async ({ page, household }) => {
   const admin = adminClient()
   await page.goto('/recurring?month=2026-09')
   await page.getByRole('button', { name: '+ 새 규칙', exact: true }).click()
@@ -347,12 +348,15 @@ suite('recurring schedule saves without preposting, renders occurrences, and sto
   await page.getByLabel('부모급여 (X회) 시작 월', { exact: true }).fill('2026-09')
   await page.getByLabel('부모급여 (X회) 종료 월', { exact: true }).fill('2027-04')
   await page.getByLabel('부모급여 (X회) 시작 회차', { exact: true }).fill('17')
-  await page.getByLabel('부모급여 (X회) 이전 영업일 조정', { exact: true }).check()
+  await expect(page.getByLabel('부모급여 (X회) 휴일 조정', { exact: true })).toHaveValue('none')
+  await page.getByLabel('부모급여 (X회) 휴일 조정', { exact: true }).selectOption(direction)
   await expect(page.getByText('마지막: 2027-04 · 부모급여 (24회)', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: '정기거래 저장', exact: true }).click()
   await expect(page).toHaveURL('/recurring?month=2026-09&saved=1')
   await page.reload()
   await expect(page.locator('summary').filter({ hasText: '기간·회차·휴일 설정' })).toContainText('시작 17회')
+  await page.locator('summary').filter({ hasText: '기간·회차·휴일 설정' }).click()
+  await expect(page.getByLabel('부모급여 (X회) 휴일 조정', { exact: true })).toHaveValue(direction)
   const { data: before, error: beforeError } = await admin.from('transactions').select('id').eq('household_id', household)
   if (beforeError) throw beforeError
   expect(before).toEqual([])
@@ -364,7 +368,7 @@ suite('recurring schedule saves without preposting, renders occurrences, and sto
   await expect(postingDialog.getByRole('status')).toContainText('1건 반영')
   await postingDialog.getByRole('button', { name: '닫기', exact: true }).click()
   await expect(page.locator('table')).toContainText('부모급여 (17회)')
-  await expect(page.locator('table')).toContainText('09-23')
+  await expect(page.locator('table')).toContainText(firstDate)
   await page.goto('/ledger?month=2027-04&tab=list')
   await page.getByRole('button', { name: '미반영 1건 반영', exact: true }).click()
   await postingDialog.getByRole('checkbox', { name: '부모급여 (24회)', exact: true }).check()
@@ -372,7 +376,7 @@ suite('recurring schedule saves without preposting, renders occurrences, and sto
   await expect(postingDialog.getByRole('status')).toContainText('1건 반영')
   await postingDialog.getByRole('button', { name: '닫기', exact: true }).click()
   await expect(page.locator('table')).toContainText('부모급여 (24회)')
-  await expect(page.locator('table')).toContainText('04-23')
+  await expect(page.locator('table')).toContainText(finalDate)
   await page.goto('/ledger?month=2027-05')
   await expect(page.getByRole('button', { name: /미반영.*반영/ })).toHaveCount(0)
   const { data: after, error: afterError } = await admin.from('transactions').select('id').eq('household_id', household)
@@ -383,7 +387,23 @@ suite('recurring schedule saves without preposting, renders occurrences, and sto
   await page.setViewportSize({ width: 390, height: 844 })
   await page.locator('summary').filter({ hasText: '기간·회차·휴일 설정' }).click()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  const holidaySelect = page.getByLabel('부모급여 (X회) 휴일 조정', { exact: true })
+  await expect(holidaySelect).toBeVisible()
+  const box = await holidaySelect.boundingBox()
+  expect(box!.x + box!.width).toBeLessThanOrEqual(390)
+  await page.screenshot({ path: `test-results/recurring-holiday-${direction}-mobile.png`, fullPage: true })
+  await holidaySelect.selectOption('none')
+  await page.getByRole('button', { name: '정기거래 저장', exact: true }).click()
+  await expect(page).toHaveURL('/recurring?month=2027-05&saved=1')
+  await page.reload()
+  await page.locator('summary').filter({ hasText: '기간·회차·휴일 설정' }).click()
+  await expect(page.getByLabel('부모급여 (X회) 휴일 조정', { exact: true })).toHaveValue('none')
+  // Updating the rule must not re-date transactions already posted.
+  const { data: dates, error: datesError } = await admin.from('transactions').select('date').eq('household_id', household).order('date')
+  if (datesError) throw datesError
+  expect(dates?.map(row => row.date)).toEqual([`2026-${firstDate}`, `2027-${finalDate}`])
 })
+}
 
 suite('report year navigation and browser history keep the displayed year and chart view aligned', async ({ page, household }) => {
   await seedBudget(household)

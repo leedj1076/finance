@@ -90,6 +90,7 @@ export function RecurringManager({
       endMonth: null,
       startOccurrence: null,
       adjustToBusinessDay: false,
+      businessDayDirection: 'previous',
     }])
   }
 
@@ -195,7 +196,7 @@ export function RecurringManager({
         <input
           name="rules"
           type="hidden"
-          value={JSON.stringify(rules.map(({ id, flowToken, categoryId, memo, amount, accountId, day, active, startMonth, endMonth, startOccurrence, adjustToBusinessDay }) => ({
+          value={JSON.stringify(rules.map(({ id, flowToken, categoryId, memo, amount, accountId, day, active, startMonth, endMonth, startOccurrence, adjustToBusinessDay, businessDayDirection }) => ({
             id,
             flowToken,
             categoryId,
@@ -208,6 +209,7 @@ export function RecurringManager({
             endMonth: endMonth ?? null,
             startOccurrence: startOccurrence ?? null,
             adjustToBusinessDay: adjustToBusinessDay ?? false,
+            businessDayDirection: businessDayDirection ?? 'previous',
           })))}
         />
         <section className="overflow-hidden border-t border-finance-ink">
@@ -352,7 +354,7 @@ export function RecurringManager({
                     <summary className="cursor-pointer t-caption text-finance-muted">
                       기간·회차·휴일 설정 · {rule.startMonth || '시작 제한 없음'} ~ {rule.endMonth || '종료 없음'}
                       {rule.startOccurrence != null && ` · 시작 ${rule.startOccurrence}회`}
-                      {rule.adjustToBusinessDay && ' · 휴일이면 이전 영업일'}
+                      {rule.adjustToBusinessDay && ` · 휴일이면 ${rule.businessDayDirection === 'next' ? '이후' : '이전'} 영업일`}
                     </summary>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       <label className="t-caption text-finance-muted">시작 월
@@ -370,16 +372,25 @@ export function RecurringManager({
                           onChange={(event) => updateRule(rule.key, { startOccurrence: event.target.value === '' ? null : Number(event.target.value) })}
                           className="mt-1 h-[34px] w-full border border-finance-hairline bg-white px-2 t-body text-finance-ink" />
                       </label>
-                      <label className="flex items-center gap-2 t-caption text-finance-ink">
-                        <input aria-label={`${rule.memo || '새 정기거래'} 이전 영업일 조정`} type="checkbox" checked={rule.adjustToBusinessDay ?? false}
-                          onChange={(event) => updateRule(rule.key, { adjustToBusinessDay: event.target.checked })} />
-                        주말·공휴일이면 이전 영업일
+                      <label className="t-caption text-finance-muted">주말·공휴일이면
+                        <select aria-label={`${rule.memo || '새 정기거래'} 휴일 조정`}
+                          value={rule.adjustToBusinessDay ? rule.businessDayDirection ?? 'previous' : 'none'}
+                          onChange={(event) => updateRule(rule.key, {
+                            adjustToBusinessDay: event.target.value !== 'none',
+                            businessDayDirection: event.target.value === 'next' ? 'next' : 'previous',
+                          })}
+                          className="mt-1 h-[34px] w-full min-w-0 border border-finance-hairline bg-white px-2 t-body text-finance-ink">
+                          <option value="none">조정 안 함</option>
+                          <option value="previous">이전 영업일</option>
+                          <option value="next">이후 영업일</option>
+                        </select>
                       </label>
                     </div>
                     <p className="mt-2 t-caption text-finance-muted">회차를 설정하면 제목의 X회를 시작 월 기준으로 바꿉니다. 종료 월을 비우면 계속 적용합니다.</p>
                     {rule.startOccurrence != null && rule.startMonth && recurringIsDue(rule, month) && <p className="mt-1 t-caption text-finance-blue">{month} 제목: {recurringMemo(rule, month)}</p>}
                     {rule.startOccurrence != null && rule.startMonth && rule.endMonth && rule.endMonth >= rule.startMonth && <p className="mt-1 t-caption text-finance-muted">마지막: {rule.endMonth} · {recurringMemo(rule, rule.endMonth)}</p>}
                     {rule.adjustToBusinessDay && <p className="mt-1 t-caption text-finance-muted">한국 공휴일·대체공휴일·근로자의 날 기준 (2018~2027). 이후 연도는 달력 업데이트 후 반영할 수 있습니다.</p>}
+                    {rule.adjustToBusinessDay && <p className="mt-1 t-caption text-finance-muted">날짜가 다른 달로 이동해도 회차·종료 월·반영 여부는 원래 예정 월을 기준으로 합니다.</p>}
                   </details>
                 </article>
               )
