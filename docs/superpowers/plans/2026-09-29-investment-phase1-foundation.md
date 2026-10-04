@@ -114,7 +114,7 @@
 **Interfaces:**
 - Produces: Drizzle 테이블 객체 `investmentAccounts`, `investmentSecurities`, `investmentTransactions`, `latestQuotes`, `priceSnapshots`, `fxRates`, `brokerPositions`, `investmentSettings`, `researchJobs`, `syncJobs`. 타입 `Market = 'KR' | 'US'`, `Currency = 'KRW' | 'USD'`, `TransactionKind = 'buy' | 'sell' | 'dividend' | 'deposit' | 'withdraw' | 'fee' | 'adjust'`, `TransactionSource = 'kiwoom' | 'manual'`, `WeightBasis = 'total_assets' | 'stock_accounts'`.
 
-- [ ] **Step 1: 실패하는 통합 테스트 작성**
+- [x] **Step 1: 실패하는 통합 테스트 작성**
 
 `tests/integration/investment-schema.test.ts`:
 
@@ -209,12 +209,12 @@ describe('investment schema constraints', () => {
 
 파일 상단에 `import { eq } from 'drizzle-orm'`를 추가한다.
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project integration tests/integration/investment-schema.test.ts`
 Expected: FAIL — `investmentAccounts` export 없음 (모듈 로드 실패).
 
-- [ ] **Step 3: 타입 파일 작성**
+- [x] **Step 3: 타입 파일 작성**
 
 `src/features/investment/types.ts`:
 
@@ -278,7 +278,7 @@ export type FxRow = { date: string; rate: number }
 export type BrokerPositionRow = { accountId: number; securityId: number; quantity: number; avgCost: number; syncedAt: string }
 ```
 
-- [ ] **Step 4: 스키마 파일 작성**
+- [x] **Step 4: 스키마 파일 작성**
 
 `src/db/schema/investment.ts`:
 
@@ -500,7 +500,7 @@ export const syncJobs = pgTable('sync_jobs', {
 
 `src/db/schema/index.ts` 끝에 `export * from './investment'` 추가.
 
-- [ ] **Step 5: 마이그레이션 생성 후 GRANT 추가**
+- [x] **Step 5: 마이그레이션 생성 후 GRANT 추가**
 
 Run: `NODE_OPTIONS= pnpm db:generate --name investment`
 Expected: `drizzle/0010_investment.sql`과 `drizzle/meta/0010_snapshot.json` 생성, `_journal.json`에 idx 10 추가.
@@ -517,12 +517,12 @@ GRANT SELECT ON TABLE public.investment_accounts, public.investment_securities, 
 Run: `NODE_OPTIONS= pnpm db:migrate`
 Expected: 오류 없이 적용.
 
-- [ ] **Step 6: 테스트 통과 확인**
+- [x] **Step 6: 테스트 통과 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project integration tests/integration/investment-schema.test.ts`
 Expected: 6 passed.
 
-- [ ] **Step 7: 게이트와 커밋**
+- [x] **Step 7: 게이트와 커밋**
 
 Run: `NODE_OPTIONS= pnpm exec tsc --noEmit && NODE_OPTIONS= pnpm lint`
 

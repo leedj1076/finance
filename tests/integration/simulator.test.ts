@@ -1,7 +1,8 @@
 import postgres from 'postgres'
 import { afterAll, describe, expect, test } from 'vitest'
 
-import { getBudgetData } from '@/features/budgets/queries'
+import { db } from '@/db/client'
+import { readBudgetData } from '@/features/budgets/queries'
 
 describe('variable-spend averages household scope', () => {
   const raw = postgres(process.env.DATABASE_URL!, { prepare: false })
@@ -60,7 +61,7 @@ describe('variable-spend averages household scope', () => {
       values (${householdB.id}, '식비', '2026-10', 1000000)
     `
 
-    const data = await getBudgetData(householdA.id, '2026-09')
+    const data = await readBudgetData(db, householdA.id, '2026-09', new Date('2026-09-15T00:00:00Z'))
 
     expect(data.averageIncome).toBe(3_000_001)
     expect(data.averageExpense).toBe(800_000)

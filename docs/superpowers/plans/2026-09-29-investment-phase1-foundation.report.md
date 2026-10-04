@@ -1,0 +1,41 @@
+# 투자 1단계 실행 보고서
+
+## 환경 확인
+- 시작: feat/investment-phase1 · b068da4. 추적 파일 변경 0. 무관한 미추적 파일 유지.
+- Supabase: status exit 0 · 로컬 DB 127.0.0.1:54322. DB 명령은 로컬 CLI 환경을 명시해 실행. 비밀값 저장 없음.
+- 기준 유닛: 85파일 · 756/756. 기존 Vite 설정 로더 경고 1종.
+- 실행: 지정 체크아웃에서 순차 구현. 마지막 별도 리뷰. push·배포 없음.
+
+## 태스크별
+### Task 1 — 완료
+- RED: 스키마 export 없음 → beforeAll 실패. 신규 테스트 실행 못 함(러너가 6 skipped로 표기; skip 코드는 없음).
+- 구현: 10개 테이블·RLS·SELECT GRANT, 0011 마이그레이션 로컬 적용.
+- investment-schema.test.ts: 최초 GREEN 시도 11통과/5실패(Drizzle 오류 래핑 단언 불일치) → 원인 단언 수정 후 16/16.
+- tsc: exit 0. lint: exit 0. 유닛: 85파일 · 756/756.
+- 전체 통합: 43파일 중 42통과/1실패 · 347건 중 346통과/1실패 · 48.67초.
+- 실패: tests/integration/simulator.test.ts > uses only completed-month transactions from the requested household. 평균 수입 예상 3,000,001, 실제 32,000,001.
+- 원인: 2026-09가 진행 중이라는 fixture 전제인데 getBudgetData의 기본 now=new Date()를 사용. 현재 10월이므로 9월 수입 90,000,000도 평균에 포함. 해당 테스트와 쿼리는 시작 커밋 대비 변경 0.
+- 사용자 계속 진행 승인 후 동일 조회 구현 readBudgetData(db, householdId, '2026-09', 2026-09-15) 사용. getBudgetData 래퍼는 now 인자를 노출하지 않음. import 2곳·호출 1곳 변경, 단언·운영 계산식 변경 없음.
+- 재검증: 통합 43파일 · 347/347 (50.05초), 유닛 85파일 · 756/756, tsc/lint exit 0.
+- 커밋: 이 태스크의 schema 커밋(해시는 다음 기록에서 갱신).
+
+## 계획과의 차이
+| 태스크 · 파일 | 무엇을 | 왜 |
+|---|---|---|
+| 1 · drizzle/0011_investment.sql | 0010 대신 0011 생성 | 0010은 정기거래 영업일 방향 마이그레이션이 사용 중 |
+| 1 · investment-schema.test.ts | 두 가구 구성, 10개 테이블의 RLS·권한 검증 | 비회원 조회 0건만으로 가구 격리를 증명할 수 없음 |
+| 1 · investment-schema.test.ts | rejects.toThrow에서 cause.constraint_name 검사로 변경 | 현재 Drizzle은 PostgreSQL 제약조건 오류를 cause로 감쌈. 제약조건 이름 검사는 유지 |
+| 실행 환경 | CLI에서 로컬 환경을 주입 | .env.local 기본값으로 운영 DB를 건드리는 경로 방지 |
+| 1 · tests/integration/simulator.test.ts | 테스트 기준 날짜 고정 | 10월 이후에도 9월 진행 중 fixture를 동일하게 검증. 사용자 계속 진행 승인 |
+
+## 화면 비교
+실행 전.
+
+## 최종 게이트 출력
+실행 전.
+
+## 못 한 것과 이유
+Task 2~10 진행 예정. push·배포·운영 DB 변경 없음.
+
+## 제안
+없음.
