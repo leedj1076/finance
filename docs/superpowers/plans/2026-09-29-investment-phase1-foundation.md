@@ -1572,7 +1572,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   - `addWatchSecurity(prev, formData)` — `market`, `symbol`, `name?`. symbol 대문자 정규화, `MARKET_CURRENCY[market]`, 이미 있으면 `watching=true`로 갱신.
   - `saveHoldingMemo(prev, formData)` — `securityId`, `thesis`, `horizonYears`, `fundsNeededAt`, `lossLimitPct`, `weightBasis`.
 
-- [ ] **Step 1: 실패하는 통합 테스트(쿼리)**
+- [x] **Step 1: 실패하는 통합 테스트(쿼리)**
 
 `tests/integration/investment-queries.test.ts`:
 
@@ -1686,7 +1686,7 @@ describe('getWatchData / getTrendData / getSecurityDetail', () => {
 })
 ```
 
-- [ ] **Step 2: 실패하는 통합 테스트(액션)**
+- [x] **Step 2: 실패하는 통합 테스트(액션)**
 
 `tests/integration/investment-actions.test.ts`:
 
@@ -1769,12 +1769,12 @@ describe('investment actions', () => {
 })
 ```
 
-- [ ] **Step 3: 실패 확인**
+- [x] **Step 3: 실패 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project integration tests/integration/investment-queries.test.ts tests/integration/investment-actions.test.ts`
 Expected: FAIL — 모듈 없음.
 
-- [ ] **Step 4: queries 구현**
+- [x] **Step 4: queries 구현**
 
 `src/features/investment/queries.ts`:
 
@@ -2036,7 +2036,7 @@ export async function getInvestmentSettingsData(householdId: string) {
 }
 ```
 
-- [ ] **Step 5: actions 구현**
+- [x] **Step 5: actions 구현**
 
 `src/features/investment/actions.ts`:
 
@@ -2187,12 +2187,12 @@ export async function saveHoldingMemo(_prev: ActionState, formData: FormData): P
 }
 ```
 
-- [ ] **Step 6: 통과 확인**
+- [x] **Step 6: 통과 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project integration tests/integration/investment-queries.test.ts tests/integration/investment-actions.test.ts`
 Expected: 10 passed.
 
-- [ ] **Step 7: 게이트와 커밋**
+- [x] **Step 7: 게이트와 커밋**
 
 Run: `NODE_OPTIONS= pnpm exec tsc --noEmit && NODE_OPTIONS= pnpm lint && NODE_OPTIONS= pnpm test`
 
