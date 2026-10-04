@@ -45,3 +45,4 @@ next-env.d.ts
 
 # isolated feature workspaces
 /.worktrees/
+.superpowers/

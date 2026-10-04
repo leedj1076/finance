@@ -1,0 +1,1108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>투자 · 우리집 가계부 · 설계 목업</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── 토큰: src/app/globals.css와 동일 ─────────────────────────────── */
+:root {
+  color-scheme: light;
+  --background:#ffffff; --foreground:#18181b;
+  --finance-ink:#18181b; --finance-muted:#71717a; --finance-faint:#a1a1aa;
+  --finance-border:#e4e4e7; --finance-track:#f4f4f5; --finance-panel:#fafafa;
+  --finance-blue:#2563eb; --finance-red:#dc2626; --finance-green:#16a34a; --finance-amber:#d97706; --finance-violet:#7c3aed;
+  --finance-blue-tint:#eff6ff; --finance-red-tint:#fef2f2; --finance-green-tint:#f0fdf4; --finance-amber-tint:#fffbeb;
+  --chart-1:#2563eb; --chart-2:#d97706; --chart-3:#0d9488; --chart-4:#be123c; --chart-other:#a1a1aa;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background:#09090b; --foreground:#f4f4f5;
+  --finance-ink:#f4f4f5; --finance-muted:#a1a1aa; --finance-faint:#71717a;
+  --finance-border:#3f3f46; --finance-track:#27272a; --finance-panel:#18181b;
+  --finance-blue:#60a5fa; --finance-red:#f87171; --finance-green:#4ade80; --finance-amber:#fbbf24; --finance-violet:#c4b5fd;
+  --finance-blue-tint:#172554; --finance-red-tint:#450a0a; --finance-green-tint:#052e16; --finance-amber-tint:#451a03;
+  --chart-1:#3b82f6; --chart-2:#d97706; --chart-3:#0d9488; --chart-4:#f43f5e; --chart-other:#71717a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background:#09090b; --foreground:#f4f4f5;
+    --finance-ink:#f4f4f5; --finance-muted:#a1a1aa; --finance-faint:#71717a;
+    --finance-border:#3f3f46; --finance-track:#27272a; --finance-panel:#18181b;
+    --finance-blue:#60a5fa; --finance-red:#f87171; --finance-green:#4ade80; --finance-amber:#fbbf24; --finance-violet:#c4b5fd;
+    --finance-blue-tint:#172554; --finance-red-tint:#450a0a; --finance-green-tint:#052e16; --finance-amber-tint:#451a03;
+    --chart-1:#3b82f6; --chart-2:#d97706; --chart-3:#0d9488; --chart-4:#f43f5e; --chart-other:#71717a;
+  }
+}
+
+/* ── 기본 ───────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+html, body { max-width: 100%; overflow-x: clip; }
+body { margin:0; background:var(--background); color:var(--foreground); font-family:'IBM Plex Sans KR','Apple SD Gothic Neo',sans-serif; -webkit-font-smoothing:antialiased; font-variant-numeric:tabular-nums; }
+button, input, select, textarea { font: inherit; max-width: 100%; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+a { color: inherit; text-decoration: none; }
+a, button { transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease, opacity 140ms ease; }
+h1, h2, h3, p { margin: 0; overflow-wrap: anywhere; word-break: keep-all; }
+table { border-collapse: collapse; width: 100%; }
+:focus-visible { outline: 2px solid var(--finance-blue); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+/* 타입 스케일: globals.css 그대로 */
+.t-page-title { font-size:30px; font-weight:700; letter-spacing:-0.03em; line-height:1; }
+.t-hero { font-size:34px; font-weight:700; letter-spacing:-0.03em; line-height:1; }
+.t-kpi { font-size:26px; font-weight:600; letter-spacing:-0.02em; line-height:1.1; }
+.t-kpi-sm { font-size:20px; font-weight:600; letter-spacing:-0.02em; line-height:1.1; }
+.t-section { font-size:14px; font-weight:700; line-height:1.3; }
+.t-body { font-size:13px; line-height:1.5; }
+.t-body-strong { font-size:13px; font-weight:600; line-height:1.5; }
+.t-caption { font-size:12px; line-height:1.5; }
+.t-caption-strong { font-size:12px; font-weight:600; line-height:1.5; }
+.t-label { font-size:11px; font-weight:600; letter-spacing:0.1em; line-height:1.3; text-transform:uppercase; }
+.t-badge { font-size:10px; font-weight:600; line-height:1; white-space:nowrap; }
+.ink { color: var(--finance-ink); } .muted { color: var(--finance-muted); } .faint { color: var(--finance-faint); }
+.blue { color: var(--finance-blue); } .red { color: var(--finance-red); } .green { color: var(--finance-green); } .amber { color: var(--finance-amber); }
+.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.won { margin-left: 2px; font-weight: 500; color: var(--finance-muted); }
+
+/* ── 프로토타입 바 ──────────────────────────────────────────────── */
+.prototype-bar { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px; min-height:30px; padding:5px 20px; border-bottom:1px solid var(--finance-border); background:var(--finance-track); color:var(--finance-muted); font-size:10px; }
+.prototype-bar strong { color: var(--finance-ink); }
+.prototype-bar button { border:1px solid var(--finance-border); padding:2px 8px; font-size:10px; }
+
+/* ── 헤더: .finance-header 계열 복제 ───────────────────────────── */
+.finance-header { position:sticky; z-index:50; top:0; height:56px; border-bottom:1px solid var(--finance-ink); background:color-mix(in srgb, var(--background) 98%, transparent); }
+.finance-header-inner { position:relative; display:flex; align-items:center; width:100%; height:100%; margin:0 auto; padding:0 48px; gap:40px; }
+.finance-brand { display:inline-flex; flex:none; align-items:center; gap:10px; color:var(--finance-ink); font-size:15px; font-weight:700; letter-spacing:-0.02em; }
+.finance-brand-mark { display:grid; width:24px; height:24px; place-items:center; background:var(--finance-ink); color:var(--background); font-size:13px; font-weight:700; }
+.finance-desktop-nav { display:flex; min-width:0; align-items:center; height:100%; gap:28px; }
+.finance-nav-link { display:inline-flex; height:100%; align-items:center; gap:6px; border-bottom:2px solid transparent; padding-top:2px; color:var(--finance-muted); font-size:13px; font-weight:500; line-height:1; white-space:nowrap; }
+.finance-nav-link:hover { color: var(--finance-blue); }
+.finance-nav-link.is-active { border-bottom-color:var(--finance-blue); color:var(--finance-ink); font-weight:700; }
+.finance-user-actions { display:flex; min-width:0; align-items:center; margin-left:auto; gap:10px; }
+.finance-theme-trigger, .finance-settings-button { display:grid; width:28px; height:28px; place-items:center; border:1px solid var(--finance-border); color:var(--finance-muted); font-size:13px; }
+.finance-theme-trigger:hover, .finance-settings-button:hover { border-color:var(--finance-blue); color:var(--finance-blue); }
+.finance-user-initial { display:grid; width:28px; height:28px; place-items:center; background:var(--finance-track); color:var(--finance-muted); font-size:10px; font-weight:700; }
+.finance-mobile-bottom-nav { display:none; }
+
+/* ── 페이지 골격 ───────────────────────────────────────────────── */
+main { margin:0 auto; width:100%; max-width:1440px; padding:36px 48px 56px; }
+.page-head { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:16px; }
+.page-head h1 { margin-top:8px; display:flex; flex-wrap:wrap; align-items:baseline; gap:12px; }
+.chips { display:flex; gap:0; border:1px solid var(--finance-border); }
+.chips button { height:30px; padding:0 14px; font-size:12px; font-weight:600; color:var(--finance-muted); border-right:1px solid var(--finance-border); white-space:nowrap; }
+.chips button:last-child { border-right:0; }
+.chips button[aria-pressed="true"] { background:var(--finance-ink); color:var(--background); }
+
+.kpi-band { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); margin-top:24px; border-top:1px solid var(--finance-ink); border-bottom:1px solid var(--finance-border); }
+.kpi-band > article { padding:20px 24px 20px 0; }
+.kpi-band > article + article { border-left:1px solid var(--finance-border); padding-left:24px; }
+.kpi-band .t-kpi { margin-top:8px; }
+.kpi-band .t-caption { margin-top:8px; }
+
+.status-line { display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; padding:12px 0; border-bottom:1px solid var(--finance-border); }
+.status-line .sep { color: var(--finance-faint); }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; height:30px; padding:0 12px; border:1px solid var(--finance-ink); font-size:12px; font-weight:600; white-space:nowrap; color:var(--finance-ink); background:var(--background); }
+.btn:hover { background: var(--finance-track); }
+.btn.primary { background:var(--finance-ink); color:var(--background); }
+.btn.primary:hover { opacity:.85; }
+.btn.quiet { border-color:var(--finance-border); color:var(--finance-muted); }
+.btn.sm { height:26px; padding:0 10px; font-size:11px; }
+.link { color:var(--finance-blue); font-weight:600; }
+.link:hover { text-decoration: underline; }
+
+/* 탭: ledger/page.tsx의 app-tab과 동일 */
+.tabs { display:flex; margin-top:24px; border-bottom:1px solid var(--finance-ink); overflow-x:auto; }
+.app-tab { display:flex; align-items:center; height:34px; padding:0 16px; white-space:nowrap; flex-shrink:0; border:1px solid var(--finance-border); border-bottom:0; margin-right:-1px; color:var(--finance-muted); font-size:13px; font-weight:600; background:var(--background); }
+.app-tab:hover { color: var(--finance-ink); }
+.app-tab[aria-selected="true"] { border-color:var(--finance-ink); background:var(--finance-ink); color:var(--background); z-index:1; }
+.panel { padding-top: 4px; }
+
+/* 섹션 */
+section.block { border-bottom:1px solid var(--finance-border); padding:28px 0; }
+section.block:last-child { border-bottom:0; }
+.block-head { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px 16px; }
+.block-head .t-caption { margin-top: 4px; }
+
+/* 주의 필요: dashboard todos 패턴 */
+.todos { border-bottom:1px solid var(--finance-border); }
+.todo { display:flex; min-height:48px; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--finance-track); font-size:13px; }
+.todo:last-child { border-bottom:0; }
+.dot { display:inline-block; width:7px; height:7px; flex:none; background:var(--finance-amber); }
+.dot.good { background:var(--finance-green); } .dot.neutral { background:var(--finance-faint); } .dot.warn { background:var(--finance-amber); } .dot.info { background:var(--finance-blue); } .dot.bad { background:var(--finance-red); }
+.todo .t-caption { color: var(--finance-muted); }
+.todo .link { margin-left:auto; flex:none; font-size:12px; }
+
+/* 테이블: dashboard 카테고리 표 패턴 */
+.table-wrap { overflow-x:auto; border-top:1px solid var(--finance-ink); }
+table.ledger { min-width:900px; font-size:13px; }
+table.ledger thead th { padding:10px 12px; border-bottom:1px solid var(--finance-border); font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--finance-muted); text-align:right; }
+table.ledger thead th:first-child, table.ledger tbody td:first-child { text-align:left; padding-left:0; }
+table.ledger thead th:last-child, table.ledger tbody td:last-child { padding-right:0; }
+table.ledger tbody td { padding:11px 12px; border-bottom:1px solid var(--finance-track); text-align:right; white-space:nowrap; }
+table.ledger tbody tr.group td { padding:9px 12px 7px 0; border-bottom:1px solid var(--finance-border); background:var(--finance-panel); text-align:left; font-weight:700; color:var(--finance-ink); }
+table.ledger tbody tr.group td span { color:var(--finance-muted); font-weight:500; margin-left:10px; }
+table.ledger tbody tr.group td { white-space:normal; }
+@media (min-width: 861px) { table.ledger.holdings { table-layout:fixed; } }
+table.ledger tbody tr.toggle { cursor:pointer; }
+table.ledger tbody tr.toggle:hover td { background:var(--finance-track); }
+table.ledger tbody tr.toggle td { position:relative; padding-right:28px; }
+table.ledger tbody tr.toggle .caret { position:absolute; right:4px; top:50%; transform:translateY(-50%); color:var(--finance-faint); font-size:14px; transition:transform 140ms ease; }
+table.ledger tbody tr.toggle[aria-expanded="false"] .caret { transform:translateY(-50%) rotate(-90deg); }
+table.ledger tbody tr.subgroup td { padding:6px 12px 6px 0; border-bottom:1px solid var(--finance-track); text-align:left; font-size:12px; color:var(--finance-muted); }
+.mk { display:inline-block; padding:0 6px; border:1px solid var(--finance-ink); color:var(--finance-ink); font-size:10px; font-weight:700; line-height:16px; letter-spacing:.06em; margin-right:6px; }
+.mk.us { border-color:var(--finance-blue); color:var(--finance-blue); }
+table.ledger tbody tr.row { cursor:pointer; }
+table.ledger tbody tr.row:hover td { background:var(--finance-track); }
+table.ledger tbody tr.sub td { padding:6px 12px 12px 0; background:var(--finance-panel); text-align:left; color:var(--finance-muted); font-size:12px; white-space:normal; }
+table.ledger .name { display:inline-flex; align-items:center; gap:8px; font-weight:600; color:var(--finance-ink); }
+table.ledger .code { color:var(--finance-faint); font-weight:400; font-size:11px; }
+.badge { display:inline-flex; align-items:center; height:18px; padding:0 6px; border:1px solid currentColor; font-size:10px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+.badge.buy { color:var(--finance-blue); } .badge.hold { color:var(--finance-muted); } .badge.sell { color:var(--finance-red); } .badge.watch { color:var(--finance-amber); }
+.badge.fill { border:0; padding:0 6px; }
+.badge.fill.buy { background:var(--finance-blue-tint); } .badge.fill.warn { background:var(--finance-amber-tint); color:var(--finance-amber); }
+.weight { display:inline-grid; grid-template-columns:44px 40px; align-items:center; gap:6px; }
+.weight i { display:block; height:5px; background:var(--finance-track); position:relative; }
+.weight i::after { content:''; position:absolute; inset:0 auto 0 0; width:var(--w); background:var(--finance-ink); }
+.tfoot td { padding:11px 12px; border-top:1px solid var(--finance-border); font-weight:600; text-align:right; }
+.tfoot td:first-child { text-align:left; padding-left:0; }
+
+/* 차트 */
+.chart { position:relative; width:100%; }
+.chart svg { display:block; width:100%; height:auto; overflow:visible; }
+.chart .grid line { stroke:var(--finance-border); stroke-width:1; }
+.chart .axis text { fill:var(--finance-muted); font-size:11px; }
+.chart .line { fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+.chart .ref { stroke:var(--finance-faint); stroke-width:1; stroke-dasharray:3 4; }
+.chart .ref-label { fill:var(--finance-muted); font-size:11px; }
+.chart .crosshair { stroke:var(--finance-ink); stroke-width:1; opacity:0; }
+.chart .marker { fill:var(--background); stroke-width:2; opacity:0; }
+.chart .tip { position:absolute; top:0; left:0; pointer-events:none; opacity:0; transform:translate(-50%, -8px); padding:6px 8px; border:1px solid var(--finance-ink); background:var(--background); font-size:11px; white-space:nowrap; z-index:2; }
+.chart .tip b { display:block; color:var(--finance-muted); font-weight:500; margin-bottom:2px; }
+.chart.is-hover .crosshair, .chart.is-hover .marker, .chart.is-hover .tip { opacity:1; }
+.legend { display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:12px; font-size:12px; color:var(--finance-muted); }
+.legend span { display:inline-flex; align-items:center; gap:6px; }
+.legend i { display:inline-block; width:14px; height:2px; }
+.legend i.dash { height:0; border-top:1px dashed var(--finance-faint); }
+.range { display:flex; border:1px solid var(--finance-border); }
+.range button { height:26px; padding:0 10px; font-size:11px; font-weight:600; color:var(--finance-muted); border-right:1px solid var(--finance-border); }
+.range button:last-child { border-right:0; }
+.range button[aria-pressed="true"] { color:var(--finance-ink); background:var(--finance-track); }
+.two-col { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:0 40px; }
+.two-col > * + * { border-left:1px solid var(--finance-border); padding-left:40px; }
+.bars { margin-top:16px; }
+.bar-row { display:grid; grid-template-columns:96px minmax(0,1fr) 64px; align-items:center; gap:12px; padding:7px 0; font-size:13px; }
+.bar-row .track { height:8px; background:var(--finance-track); }
+.bar-row .track i { display:block; height:100%; width:var(--w); background:var(--finance-ink); }
+.bar-row .track i.warn { background:var(--finance-amber); }
+.bar-row .num { color: var(--finance-ink); }
+select.sel { height:26px; border:1px solid var(--finance-border); background:var(--background); padding:0 8px; font-size:12px; }
+
+/* 월 이동: month-nav 유사 */
+.month-nav { display:inline-flex; align-items:center; border:1px solid var(--finance-border); }
+.month-nav button { width:30px; height:30px; color:var(--finance-muted); border-right:1px solid var(--finance-border); }
+.month-nav span { padding:0 14px; font-size:13px; font-weight:600; border-right:1px solid var(--finance-border); }
+.month-nav button:last-child { border-right:0; }
+
+/* 인라인 폼 (ledger 편집기 패턴) */
+.inline-form { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)) auto; gap:8px; align-items:end; padding:14px 0; border-bottom:1px solid var(--finance-border); background:var(--finance-panel); }
+.inline-form label { display:grid; gap:4px; font-size:11px; font-weight:600; color:var(--finance-muted); }
+.inline-form input, .inline-form select { height:30px; border:1px solid var(--finance-border); background:var(--background); padding:0 8px; font-size:13px; font-weight:400; }
+
+/* 어드바이저 */
+.verdict { margin-top:10px; font-size:22px; font-weight:700; letter-spacing:-0.02em; line-height:1.35; }
+.verdict strong { color: var(--finance-blue); }
+.prose { margin-top:10px; font-size:13px; line-height:1.8; color:var(--finance-muted); max-width:70ch; }
+.action { display:inline-flex; align-items:center; height:20px; padding:0 7px; font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; border:1px solid currentColor; }
+.action.reduce { color:var(--finance-red); } .action.increase { color:var(--finance-blue); } .action.hold { color:var(--finance-muted); } .action.exit { color:var(--finance-red); background:var(--finance-red-tint); }
+.field { display:grid; gap:6px; }
+.field textarea { min-height:72px; resize:vertical; border:1px solid var(--finance-border); background:var(--background); padding:8px 10px; font-size:13px; line-height:1.5; }
+.field input { height:32px; border:1px solid var(--finance-border); background:var(--background); padding:0 10px; font-size:13px; }
+.hist { border-top:1px solid var(--finance-border); }
+.hist > div { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--finance-track); font-size:13px; }
+.hist .t-caption { color: var(--finance-muted); }
+.disclaimer { margin-top:16px; padding-left:12px; border-left:2px solid var(--finance-border); font-size:11px; color:var(--finance-faint); }
+.discover { margin-top:32px; border-top:1px solid var(--finance-ink); padding-top:24px; }
+.checkbox { appearance:none; width:16px; height:16px; border:1px solid var(--finance-faint); background:var(--background); display:inline-grid; place-items:center; vertical-align:middle; cursor:pointer; }
+.checkbox:checked { background:var(--finance-blue); border-color:var(--finance-blue); }
+.checkbox:checked::after { content:'✓'; color:#fff; font-size:11px; }
+
+/* 종목 상세 */
+.crumb { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; font-size:12px; color:var(--finance-muted); }
+.crumb .nav { margin-left:auto; display:flex; gap:12px; }
+.detail-title { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px 24px; margin-top:12px; }
+.detail-title h1 { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.detail-title .price { text-align:right; }
+.checks { border-top:1px solid var(--finance-ink); margin-top:14px; }
+.check { border-bottom:1px solid var(--finance-track); }
+.check > summary { list-style:none; display:grid; grid-template-columns:24px 128px minmax(0,1fr) 96px 24px; align-items:center; gap:8px; min-height:46px; padding:8px 0; cursor:pointer; font-size:13px; }
+.check > summary::-webkit-details-marker { display:none; }
+.check > summary .name { font-weight:600; color:var(--finance-ink); }
+.check > summary .metric { color:var(--finance-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.check > summary .signal { text-align:right; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.check > summary .signal.good { color:var(--finance-green); } .check > summary .signal.neutral { color:var(--finance-faint); } .check > summary .signal.warn { color:var(--finance-amber); }
+.check > summary .caret { color:var(--finance-faint); text-align:right; }
+.check[open] > summary .caret { transform: rotate(180deg); }
+.check .body { padding:0 0 14px 32px; font-size:12px; line-height:1.7; color:var(--finance-muted); }
+.check .body ul { margin:6px 0 0; padding-left:0; list-style:none; }
+.check .body li { display:flex; flex-wrap:wrap; gap:4px 10px; padding:3px 0; border-bottom:1px solid var(--finance-track); }
+.check .body li b { color:var(--finance-ink); font-weight:600; }
+.check .body li a { color:var(--finance-blue); }
+.changes { margin-top:18px; }
+.changes > div { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:8px 0; border-bottom:1px solid var(--finance-track); font-size:13px; }
+.arrow { color:var(--finance-faint); }
+.news { border-top:1px solid var(--finance-border); }
+.news > div { display:grid; grid-template-columns:48px minmax(0,1fr) 56px; gap:12px; padding:10px 0; border-bottom:1px solid var(--finance-track); font-size:13px; align-items:baseline; }
+.news .d { color:var(--finance-faint); font-size:12px; }
+.news .why { display:block; margin-top:2px; color:var(--finance-muted); font-size:12px; }
+.news .tag { text-align:right; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+.side { border-left:1px solid var(--finance-border); padding-left:32px; }
+.side .block-head + * { margin-top:12px; }
+.run-status { display:flex; align-items:center; gap:10px; margin-top:10px; padding:10px 12px; border:1px solid var(--finance-border); font-size:12px; color:var(--finance-muted); }
+.run-status .spin { width:14px; height:14px; border:2px solid var(--finance-border); border-top-color:var(--finance-blue); border-radius:50%; animation:spin 800ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.detail-grid { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:0 32px; margin-top:28px; }
+
+/* 화면 전환 */
+.screen[hidden] { display: none; }
+
+/* ── 반응형 ───────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .two-col { grid-template-columns: 1fr; gap: 32px 0; }
+  .two-col > * + * { border-left: 0; padding-left: 0; border-top: 1px solid var(--finance-border); padding-top: 28px; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .side { border-left: 0; padding-left: 0; border-top: 1px solid var(--finance-border); padding-top: 24px; margin-top: 24px; }
+}
+@media (max-width: 860px) {
+  .finance-header-inner { padding: 0 20px; }
+  .finance-desktop-nav, .finance-user-actions { display: none; }
+  .finance-mobile-bottom-nav { position:fixed; z-index:60; right:0; bottom:0; left:0; display:grid; height:58px; grid-template-columns:repeat(5, minmax(0,1fr)); border-top:1px solid var(--finance-ink); background:var(--background); }
+  .finance-mobile-bottom-nav .finance-nav-link { position:relative; display:flex; height:100%; justify-content:center; border:0; border-top:2px solid transparent; padding:0; font-size:11px; }
+  .finance-mobile-bottom-nav .finance-nav-link.is-active { border-top-color:var(--finance-blue); }
+  main { padding: 24px 20px 90px; }
+  .t-page-title { font-size: 26px; }
+  .kpi-band { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .kpi-band > article { padding: 14px 12px 14px 0; }
+  .kpi-band > article + article { padding-left: 12px; }
+  .kpi-band > article:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .kpi-band > article:nth-child(n+3) { border-top: 1px solid var(--finance-border); }
+  .t-kpi { font-size: 20px; }
+  table.ledger { min-width: 0; }
+  table.ledger .m-hide { display: none; }
+  table.ledger tbody td:first-child { white-space: normal; }
+  table.ledger .name { flex-wrap: wrap; row-gap: 4px; }
+  table.ledger tbody tr.group td span { display:block; margin:2px 0 0; font-size:11px; }
+  .inline-form { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .check > summary { grid-template-columns: 20px minmax(0,1fr) auto 20px; }
+  .check > summary .metric { grid-column: 2 / span 3; grid-row: 2; font-size: 12px; }
+  .check > summary .name { grid-column: 2; }
+  .check > summary .signal { grid-column: 3; }
+  .check > summary .caret { grid-column: 4; }
+  .bar-row { grid-template-columns: 72px minmax(0,1fr) 52px; }
+}
+@media (prefers-reduced-motion: reduce) { .run-status .spin { animation: none; } * { transition: none !important; } }
+
+/* 공간 전환 (브랜드 팝오버) */
+.finance-popover-wrap { position:relative; height:100%; display:flex; align-items:center; }
+.finance-brand { cursor:pointer; }
+.finance-brand .sw { margin-left:4px; color:var(--finance-faint); font-size:11px; font-weight:400; }
+.finance-popover { position:absolute; top:calc(100% + 1px); left:0; width:225px; border:1px solid var(--finance-ink); background:var(--background); padding:4px; z-index:70; }
+.finance-popover-item { display:grid; gap:3px; padding:9px 10px; color:var(--finance-ink); font-size:13px; font-weight:600; cursor:pointer; }
+.finance-popover-item:hover { background:var(--finance-track); color:var(--finance-blue); }
+.finance-popover-item small { color:var(--finance-faint); font-size:11px; font-weight:400; }
+.finance-popover-item.is-current { border-left:2px solid var(--finance-blue); }
+.finance-nav-link[role="tab"] { background:none; }
+
+/* 3축 판정 */
+.verdicts { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); margin-top:24px; border-top:1px solid var(--finance-ink); border-bottom:1px solid var(--finance-border); }
+.verdicts > article { padding:18px 24px 18px 0; }
+.verdicts > article + article { border-left:1px solid var(--finance-border); padding-left:24px; }
+.verdicts .v { display:flex; align-items:center; gap:10px; margin-top:8px; font-size:22px; font-weight:700; letter-spacing:-0.02em; }
+.sig { display:inline-block; width:12px; height:12px; flex:none; }
+.sig.green { background:var(--finance-green); } .sig.yellow { background:var(--finance-amber); } .sig.red { background:var(--finance-red); } .sig.hold { background:var(--finance-faint); } .sig.na { background:transparent; border:1px solid var(--finance-faint); }
+.sig.sm { width:8px; height:8px; }
+.tri { display:inline-flex; gap:3px; vertical-align:middle; }
+.verdicts .why { margin-top:8px; font-size:12px; line-height:1.6; color:var(--finance-muted); }
+.sid { display:inline-block; padding:0 4px; border:1px solid var(--finance-border); color:var(--finance-muted); font-size:10px; font-weight:600; line-height:16px; vertical-align:middle; }
+.sid:hover { border-color:var(--finance-blue); color:var(--finance-blue); }
+.tag { display:inline-block; padding:0 5px; font-size:10px; font-weight:600; line-height:16px; vertical-align:middle; }
+.tag.fact { background:var(--finance-green-tint); color:var(--finance-green); } .tag.company { background:var(--finance-blue-tint); color:var(--finance-blue); } .tag.estimate { background:var(--finance-amber-tint); color:var(--finance-amber); } .tag.interp { background:var(--finance-track); color:var(--finance-muted); } .tag.missing { background:var(--finance-red-tint); color:var(--finance-red); }
+.meta-line { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:12px; font-size:12px; color:var(--finance-muted); }
+.meta-line b { color:var(--finance-ink); font-weight:600; }
+
+/* 논지 표 */
+table.thesis { margin-top:12px; border-top:1px solid var(--finance-ink); font-size:12px; }
+table.thesis th { padding:8px 10px 8px 0; border-bottom:1px solid var(--finance-border); text-align:left; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--finance-muted); }
+table.thesis td { padding:10px 10px 10px 0; border-bottom:1px solid var(--finance-track); vertical-align:top; line-height:1.6; }
+table.thesis td:first-child { font-weight:600; color:var(--finance-ink); width:26%; }
+table.thesis .vd { white-space:nowrap; font-weight:700; }
+.vd.keep { color:var(--finance-green); } .vd.weak { color:var(--finance-amber); } .vd.broken { color:var(--finance-red); } .vd.hold { color:var(--finance-faint); }
+
+/* 영역 목록 */
+.areas { border-top:1px solid var(--finance-ink); margin-top:12px; }
+.area { border-bottom:1px solid var(--finance-track); }
+.area > summary { list-style:none; display:grid; grid-template-columns:20px 168px minmax(0,1fr) 20px; align-items:center; gap:10px; min-height:48px; padding:8px 0; cursor:pointer; font-size:13px; }
+.area > summary::-webkit-details-marker { display:none; }
+.area > summary .name { font-weight:600; color:var(--finance-ink); }
+.area > summary .fact { color:var(--finance-muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.area > summary .caret { color:var(--finance-faint); text-align:right; }
+.area[open] > summary .caret { transform:rotate(180deg); }
+.area .body { padding:0 0 14px 30px; font-size:12px; line-height:1.7; color:var(--finance-muted); }
+.area .body .kf { display:flex; flex-wrap:wrap; gap:4px 10px; padding:4px 0; border-bottom:1px solid var(--finance-track); }
+.area .body .kf b { color:var(--finance-ink); font-weight:600; }
+.area .body .sub { display:flex; flex-wrap:wrap; gap:6px 10px; padding:6px 0; align-items:center; }
+.redflags { border-top:1px solid var(--finance-ink); margin-top:12px; }
+.redflags > div { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:10px 0; border-bottom:1px solid var(--finance-track); font-size:13px; }
+
+/* 밸류에이션 밴드 */
+.band { position:relative; height:10px; margin:14px 0 6px; background:var(--finance-track); }
+.band i { position:absolute; top:-3px; width:2px; height:16px; background:var(--finance-ink); left:var(--x); }
+.band .mid { position:absolute; top:0; bottom:0; left:50%; width:1px; background:var(--finance-faint); }
+.band-labels { display:flex; justify-content:space-between; font-size:11px; color:var(--finance-muted); }
+.callout { margin-top:16px; padding:14px 16px; border-left:2px solid var(--finance-ink); background:var(--finance-panel); font-size:14px; line-height:1.7; }
+.callout b { font-weight:700; }
+.peers { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:0; margin-top:14px; border-top:1px solid var(--finance-border); }
+.peers > div { padding:10px 12px 10px 0; border-bottom:1px solid var(--finance-track); font-size:12px; }
+.peers > div + div { border-left:1px solid var(--finance-track); padding-left:12px; }
+.peers b { display:block; font-size:16px; font-weight:600; color:var(--finance-ink); margin-top:2px; }
+.peers .me { background:var(--finance-panel); }
+
+/* 다음 점검 */
+.next { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0 32px; margin-top:12px; }
+.next > div + div { border-left:1px solid var(--finance-border); padding-left:32px; }
+.next ul { margin:8px 0 0; padding:0; list-style:none; }
+.next li { padding:7px 0; border-bottom:1px solid var(--finance-track); font-size:13px; line-height:1.6; }
+.next li .cond { font-weight:600; color:var(--finance-ink); }
+.next li .act { color:var(--finance-muted); }
+.gaps li { padding:7px 0; border-bottom:1px solid var(--finance-track); font-size:13px; }
+.gaps { margin:8px 0 0; padding:0; list-style:none; }
+table.src { margin-top:8px; border-top:1px solid var(--finance-border); font-size:12px; }
+table.src td { padding:7px 10px 7px 0; border-bottom:1px solid var(--finance-track); vertical-align:top; }
+table.src td:first-child { width:36px; }
+.memo { border:1px solid var(--finance-border); padding:12px; display:grid; gap:8px; font-size:12px; }
+.memo label { display:grid; grid-template-columns:96px minmax(0,1fr); gap:8px; align-items:center; color:var(--finance-muted); }
+.memo input, .memo select { height:28px; border:1px solid var(--finance-border); background:var(--background); padding:0 8px; font-size:12px; }
+.modes { display:flex; border:1px solid var(--finance-border); }
+.modes button { flex:1; height:30px; font-size:12px; font-weight:600; color:var(--finance-muted); border-right:1px solid var(--finance-border); }
+.modes button:last-child { border-right:0; }
+.modes button[aria-pressed="true"] { background:var(--finance-ink); color:var(--background); }
+@media (max-width: 860px) {
+  .verdicts { grid-template-columns:1fr; }
+  .verdicts > article { padding:12px 0; }
+  .verdicts > article + article { border-left:0; padding-left:0; border-top:1px solid var(--finance-border); }
+  .area > summary { grid-template-columns:20px minmax(0,1fr) 20px; }
+  .area > summary .fact { grid-column:2; grid-row:2; white-space:normal; }
+  .next { grid-template-columns:1fr; }
+  .next > div + div { border-left:0; padding-left:0; border-top:1px solid var(--finance-border); padding-top:16px; margin-top:16px; }
+  .peers { grid-template-columns:repeat(2, minmax(0,1fr)); }
+  table.thesis { display:block; overflow-x:auto; }
+  .finance-mobile-bottom-nav { display:grid; }
+}
+</style>
+</head>
+<body>
+
+<div class="prototype-bar">
+  <strong>투자 페이지 설계 목업 · 2026-09-28</strong>
+  <span>모든 숫자·종목·리포트는 예시입니다. 실제 키움·Codex 호출 없음.</span>
+  <span>·</span>
+  <button type="button" data-goto="list">목록 화면</button>
+  <button type="button" data-goto="detail">종목 상세 화면</button>
+  <button type="button" id="theme-toggle">라이트/다크</button>
+</div>
+
+<header class="finance-header">
+  <div class="finance-header-inner">
+    <div class="finance-popover-wrap">
+      <button class="finance-brand" type="button" id="space-switch" aria-haspopup="menu" aria-expanded="false"><span class="finance-brand-mark" aria-hidden="true">↗</span><span>우리집 투자</span><span class="sw" aria-hidden="true">⌄</span></button>
+      <div class="finance-popover" id="space-menu" role="menu" hidden>
+        <a class="finance-popover-item" href="#" role="menuitem">우리집 가계부<small>수입·지출·예산·자산</small></a>
+        <a class="finance-popover-item is-current" href="#" role="menuitem" aria-current="true">우리집 투자<small>보유·헬스체크·어드바이저</small></a>
+      </div>
+    </div>
+    <nav class="finance-desktop-nav" aria-label="투자 메뉴" role="tablist">
+      <button class="finance-nav-link is-active" role="tab" aria-selected="true" data-tab="holdings" type="button">보유</button>
+      <button class="finance-nav-link" role="tab" aria-selected="false" data-tab="trend" type="button">추이</button>
+      <button class="finance-nav-link" role="tab" aria-selected="false" data-tab="transactions" type="button">거래</button>
+      <button class="finance-nav-link" role="tab" aria-selected="false" data-tab="watch" type="button">관심</button>
+      <button class="finance-nav-link" role="tab" aria-selected="false" data-tab="advisor" type="button">어드바이저</button>
+    </nav>
+    <div class="finance-user-actions">
+      <button class="finance-theme-trigger" type="button" aria-label="테마" title="테마">◐</button>
+      <button class="finance-settings-button" type="button" aria-label="투자 설정"><span aria-hidden="true">⚙</span></button>
+      <span class="finance-user-initial" aria-label="leedj">LE</span>
+    </div>
+    <nav class="finance-mobile-bottom-nav" aria-label="모바일 투자 메뉴">
+      <button class="finance-nav-link is-active" type="button" data-tab="holdings"><span>보유</span></button>
+      <button class="finance-nav-link" type="button" data-tab="trend"><span>추이</span></button>
+      <button class="finance-nav-link" type="button" data-tab="transactions"><span>거래</span></button>
+      <button class="finance-nav-link" type="button" data-tab="watch"><span>관심</span></button>
+      <button class="finance-nav-link" type="button"><span>더보기</span></button>
+    </nav>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════════════
+     화면 1: /investment  (탭: 보유 · 추이 · 거래 · 관심 · 어드바이저)
+     ════════════════════════════════════════════════════════════════ -->
+<main class="screen" id="screen-list">
+  <div class="page-head">
+    <div>
+      <p class="t-label blue" id="page-eyebrow">Holdings</p>
+      <h1 class="t-page-title ink"><span id="page-title">보유</span> <span class="t-caption muted" id="page-sub" style="font-weight:500;letter-spacing:0">두 계좌 · 국내 5 · 해외 2 종목</span></h1>
+    </div>
+    <div class="chips" role="group" aria-label="소유자">
+      <button type="button" aria-pressed="true">전체</button>
+      <button type="button" aria-pressed="false">DJ</button>
+      <button type="button" aria-pressed="false">YJ</button>
+    </div>
+  </div>
+
+  <div class="status-line t-caption muted">
+    <span>시세 <strong class="ink">14:32</strong> 기준</span><span class="sep">·</span>
+    <span>USDKRW <strong class="ink">1,380.20</strong> (09-27)</span><span class="sep">·</span>
+    <span>마지막 동기화 <strong class="ink">어제 16:05</strong></span><span class="sep">·</span>
+    <span>로컬 워커 <span class="dot good" style="vertical-align:middle"></span> 연결됨</span>
+    <button class="btn sm" type="button" style="margin-left:auto">지금 동기화</button>
+  </div>
+
+  <!-- ── 보유 ─────────────────────────────────────────────────── -->
+  <div class="panel" role="tabpanel" data-panel="holdings">
+    <section class="kpi-band" aria-label="보유 요약">
+      <article><p class="t-label muted">국내 평가</p><p class="t-kpi ink">46,555,500<span class="won t-body">원</span></p><p class="t-caption muted">손익 <strong class="blue">+2,181,500 · +4.9%</strong> · 5종목</p></article>
+      <article><p class="t-label muted">해외 평가</p><p class="t-kpi ink">$8,409.75</p><p class="t-caption muted">손익 <strong class="blue">+$963.75 · +12.9%</strong> · ₩11,607,000 환산 · 2종목</p></article>
+      <article><p class="t-label muted">합계 (원화 환산)</p><p class="t-kpi ink">61,402,500<span class="won t-body">원</span></p><p class="t-caption muted">손익 <strong class="blue">+3,511,000 · +6.1%</strong> · 오늘 <span class="red">−312,000</span></p></article>
+      <article><p class="t-label muted">예수금</p><p class="t-kpi ink">₩1,860,000</p><p class="t-caption muted"><strong class="ink">$1,000.00</strong> · DJ ₩1,120,000 / $640 · YJ ₩740,000 / $360</p></article>
+    </section>
+
+    <section class="todos" aria-label="주의 필요">
+      <a class="todo" href="#" data-goto="detail"><span class="dot warn"></span><strong class="ink">SK하이닉스</strong><span class="t-caption">기업 상태 노랑 · 논지 1개 약화 · 재검토 트리거 "외국인 20일 순매도 지속" 발동</span><span class="link">보기 →</span></a>
+      <a class="todo" href="#"><span class="dot info"></span><strong class="ink">NVDA</strong><span class="t-caption">확정 촉매 D-6 · 실적 발표 10-04 · 다음 점검일 10-05 (분기 전체)</span><span class="link">보기 →</span></a>
+      <a class="todo" href="#"><span class="dot warn"></span><strong class="ink">삼성전자</strong><span class="t-caption">평균단가가 증권사 값과 3.4% 차이 · 정정 필요 여부 확인</span><span class="link">보기 →</span></a>
+      <a class="todo" href="#"><span class="dot bad"></span><strong class="ink">현대차</strong><span class="t-caption">월간 점검일 지남 (09-20) · 직전 판정 기업 노랑 · 보유 적합성 조정 검토</span><span class="link">점검 실행 →</span></a>
+    </section>
+
+    <section class="block">
+      <div class="block-head">
+        <div><h2 class="t-section ink">보유 종목</h2><p class="t-caption faint">계좌별 · 평가손익은 이동평균 단가 기준 · 색점 3개 = 기업 상태 · 가격 부담 · 보유 적합성 · D-n은 다음 점검일 · 행을 누르면 상세</p></div>
+        <p class="t-caption muted">국내 5 · 해외 2 · 비중은 종목 통화 기준 · 원화 환산은 합계에서만</p>
+      </div>
+      <div class="table-wrap" style="margin-top:16px">
+        <table class="ledger holdings">
+          <colgroup><col style="width:30%"><col style="width:8%"><col style="width:10%"><col style="width:10%"><col style="width:12%"><col style="width:11%"><col style="width:9%"><col style="width:10%"></colgroup>
+          <thead><tr>
+            <th>종목</th><th class="m-hide">수량</th><th class="m-hide">평균단가</th><th class="m-hide">현재가</th><th class="m-hide">평가금액</th><th>평가손익</th><th>수익률</th><th class="m-hide">비중</th>
+          </tr></thead>
+          <tbody>
+            <tr class="group toggle" data-key="a1" aria-expanded="true"><td colspan="8">DJ 키움 종합 <span>····1234 · 국내 28,643,000원 · 해외 $1,965.75 · 예수금 ₩1,120,000 / $640.00</span><span class="caret" aria-hidden="true">⌄</span></td></tr>
+            <tr class="subgroup toggle" data-key="a1-s1" data-of="a1" aria-expanded="true"><td colspan="8"><span class="mk">국내</span> 3종목 · 28,643,000원 · <span class="blue">+1,149,000 · +4.2%</span><span class="caret" aria-hidden="true">⌄</span></td></tr>
+            <tr class="row" data-of="a1-s1 a1" data-expand="r1"><td><span class="name">삼성전자 <span class="code">005930</span> <span class="tri" title="기업 green · 가격 yellow · 적합성 green"><span class="sig sm green"></span><span class="sig sm yellow"></span><span class="sig sm green"></span></span> <span class="code">D-31</span></span></td><td class="m-hide">120</td><td class="m-hide">71,200</td><td class="m-hide">78,400</td><td class="m-hide">9,408,000</td><td class="blue">+864,000</td><td class="blue">+10.1%</td><td class="m-hide"><span class="weight"><i style="--w:56%"></i><span class="num">15.3%</span></span></td></tr>
+            <tr class="sub" data-of="a1-s1 a1" id="r1" hidden><td colspan="8"><span class="dot warn" style="vertical-align:middle;margin-right:6px"></span>증권사 평균단가 <strong class="ink">73,640</strong> · 우리 계산 71,200 (3.4% 차이) · 7-30 매수 수수료 누락 가능 · <a class="link" href="#">거래 확인</a> · <a class="link" href="#">정정 추가</a></td></tr>
+            <tr class="row" data-of="a1-s1 a1" data-goto="detail"><td><span class="name">SK하이닉스 <span class="code">000660</span> <span class="tri" title="기업 yellow · 가격 yellow · 적합성 green"><span class="sig sm yellow"></span><span class="sig sm yellow"></span><span class="sig sm green"></span></span> <span class="code">D-26</span></span></td><td class="m-hide">40</td><td class="m-hide">182,000</td><td class="m-hide">171,500</td><td class="m-hide">6,860,000</td><td class="red">−420,000</td><td class="red">−5.8%</td><td class="m-hide"><span class="weight"><i style="--w:41%"></i><span class="num">11.2%</span></span></td></tr>
+            <tr class="row" data-of="a1-s1 a1"><td><span class="name">KODEX 200 <span class="code">069500</span> <span class="tri" title="기업 na · 가격 na · 적합성 green"><span class="sig sm na"></span><span class="sig sm na"></span><span class="sig sm green"></span></span> <span class="code faint">ETF</span></span></td><td class="m-hide">300</td><td class="m-hide">38,900</td><td class="m-hide">41,250</td><td class="m-hide">12,375,000</td><td class="blue">+705,000</td><td class="blue">+6.0%</td><td class="m-hide"><span class="weight"><i style="--w:74%"></i><span class="num">20.2%</span></span></td></tr>
+            <tr class="subgroup toggle" data-key="a1-s2" data-of="a1" aria-expanded="true"><td colspan="8"><span class="mk us">해외</span> 1종목 · $1,965.75 · <span class="blue">+$192.75 · +10.9%</span> · ₩2,713,000 환산<span class="caret" aria-hidden="true">⌄</span></td></tr>
+            <tr class="row" data-of="a1-s2 a1"><td><span class="name">NVDA <span class="code">NASDAQ</span> <span class="tri" title="기업 green · 가격 red · 적합성 green"><span class="sig sm green"></span><span class="sig sm red"></span><span class="sig sm green"></span></span> <span class="code">D-7</span></span></td><td class="m-hide">15</td><td class="m-hide">$118.20</td><td class="m-hide">$131.05</td><td class="m-hide">$1,965.75</td><td class="blue">+$192.75</td><td class="blue">+10.9%</td><td class="m-hide"><span class="weight"><i style="--w:16%"></i><span class="num">4.4%</span></span></td></tr>
+            <tr class="group toggle" data-key="a2" aria-expanded="true"><td colspan="8">YJ 키움 종합 <span>····5678 · 국내 17,912,500원 · 해외 $6,444.00 · 예수금 ₩740,000 / $360.00</span><span class="caret" aria-hidden="true">⌄</span></td></tr>
+            <tr class="subgroup toggle" data-key="a2-s3" data-of="a2" aria-expanded="true"><td colspan="8"><span class="mk">국내</span> 2종목 · 17,912,500원 · <span class="blue">+612,500 · +3.5%</span><span class="caret" aria-hidden="true">⌄</span></td></tr>
+            <tr class="row" data-of="a2-s3 a2"><td><span class="name">TIGER 미국S&amp;P500 <span class="code">360750</span> <span class="tri" title="기업 na · 가격 na · 적합성 green"><span class="sig sm na"></span><span class="sig sm na"></span><span class="sig sm green"></span></span> <span class="code faint">ETF</span></span></td><td class="m-hide">600</td><td class="m-hide">19,800</td><td class="m-hide">21,300</td><td class="m-hide">12,780,000</td><td class="blue">+900,000</td><td class="blue">+7.6%</td><td class="m-hide"><span class="weight"><i style="--w:76%"></i><span class="num">20.8%</span></span></td></tr>
+            <tr class="row" data-of="a2-s3 a2"><td><span class="name">현대차 <span class="code">005380</span> <span class="tri" title="기업 yellow · 가격 green · 적합성 yellow"><span class="sig sm yellow"></span><span class="sig sm green"></span><span class="sig sm yellow"></span></span> <span class="code red">D+8</span></span></td><td class="m-hide">25</td><td class="m-hide">248,000</td><td class="m-hide">236,500</td><td class="m-hide">5,912,500</td><td class="red">−287,500</td><td class="red">−4.6%</td><td class="m-hide"><span class="weight"><i style="--w:35%"></i><span class="num">9.6%</span></span></td></tr>
+            <tr class="subgroup toggle" data-key="a2-s4" data-of="a2" aria-expanded="true"><td colspan="8"><span class="mk us">해외</span> 1종목 · $6,444.00 · <span class="blue">+$771.00 · +13.6%</span> · ₩8,894,000 환산<span class="caret" aria-hidden="true">⌄</span></td></tr>
+            <tr class="row" data-of="a2-s4 a2"><td><span class="name">AAPL <span class="code">NASDAQ</span> <span class="tri" title="기업 green · 가격 yellow · 적합성 yellow"><span class="sig sm green"></span><span class="sig sm yellow"></span><span class="sig sm yellow"></span></span> <span class="code">D-33</span></span></td><td class="m-hide">30</td><td class="m-hide">$189.10</td><td class="m-hide">$214.80</td><td class="m-hide">$6,444.00</td><td class="blue">+$771.00</td><td class="blue">+13.6%</td><td class="m-hide"><span class="weight"><i style="--w:53%"></i><span class="num">14.5%</span></span></td></tr>
+          </tbody>
+          <tfoot class="tfoot">
+            <tr><td>국내 합계</td><td class="m-hide"></td><td class="m-hide"></td><td class="m-hide"></td><td class="m-hide">46,555,500</td><td class="blue">+2,181,500</td><td class="blue">+4.9%</td><td class="m-hide">75.8%</td></tr>
+            <tr><td>해외 합계 <span class="muted" style="font-weight:400">· ₩11,607,000 환산</span></td><td class="m-hide"></td><td class="m-hide"></td><td class="m-hide"></td><td class="m-hide">$8,409.75</td><td class="blue">+$963.75</td><td class="blue">+12.9%</td><td class="m-hide">18.9%</td></tr>
+            <tr><td>합계 (원화 환산) <span class="muted" style="font-weight:400">· 예수금 5.3% 포함</span></td><td class="m-hide"></td><td class="m-hide"></td><td class="m-hide"></td><td class="m-hide">61,402,500</td><td class="blue">+3,511,000</td><td class="blue">+6.1%</td><td class="m-hide">100%</td></tr>
+          </tfoot>
+        </table>
+      </div>
+      <p class="t-caption faint" style="margin-top:10px">국내는 원화, 해외는 달러로 따로 집계하고 합계 행에서만 USDKRW 1,380.20으로 환산합니다. 비중은 원화 환산 합계 기준. 증권사 평균단가와 3% 이상 차이 나는 행에 점을 표시합니다.</p>
+    </section>
+  </div>
+
+  <!-- ── 추이 ─────────────────────────────────────────────────── -->
+  <div class="panel" role="tabpanel" data-panel="trend" hidden>
+    <section class="kpi-band" aria-label="추이 요약">
+      <article><p class="t-label muted">3개월 변동 (원화)</p><p class="t-kpi blue">+5,930,000<span class="won t-body">원</span></p><p class="t-caption muted">투입 +4,200,000 · 순수익 +1,730,000</p></article>
+      <article><p class="t-label muted">국내</p><p class="t-kpi blue">+3,480,000<span class="won t-body">원</span></p><p class="t-caption muted">+8.1% · KOSPI +5.2%</p></article>
+      <article><p class="t-label muted">해외</p><p class="t-kpi blue">+$1,120</p><p class="t-caption muted">+15.4% · 원화 +2,450,000 (환율 효과 −140,000 분리)</p></article>
+      <article><p class="t-label muted">연환산 수익률</p><p class="t-kpi ink">+11.8%</p><p class="t-caption muted">시간가중 · 최고 09-12 · 최저 07-08</p></article>
+    </section>
+
+    <section class="block two-col">
+      <article>
+        <div class="block-head">
+          <div><h2 class="t-section ink">평가금액 추이</h2><p class="t-caption faint">일별 종가 스냅샷 · 원화 환산 합계 · 국내/해외 선택 가능</p></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><div class="range" role="group" aria-label="범위"><button type="button" aria-pressed="true">합계</button><button type="button" aria-pressed="false">국내</button><button type="button" aria-pressed="false">해외 $</button></div><div class="range" role="group" aria-label="기간"><button type="button" aria-pressed="false">1개월</button><button type="button" aria-pressed="true">3개월</button><button type="button" aria-pressed="false">1년</button><button type="button" aria-pressed="false">전체</button></div></div>
+        </div>
+        <div class="chart" id="trend-chart" style="margin-top:20px" aria-label="평가금액과 투입원금 추이 차트">
+          <svg viewBox="0 0 640 260" role="img"></svg>
+          <div class="tip"></div>
+        </div>
+        <div class="legend"><span><i style="background:var(--chart-1)"></i>평가금액</span><span><i style="background:var(--chart-2)"></i>투입원금</span></div>
+        <p class="t-caption muted" style="margin-top:10px">3개월 · 평가 <strong class="blue">+5,930,000원</strong> · 투입 +4,200,000원 · 최고 09-12 86.4M · 최저 07-08 74.1M</p>
+      </article>
+      <article>
+        <div class="block-head">
+          <div><h2 class="t-section ink">비중</h2><p class="t-caption faint">평가금액 기준</p></div>
+          <select class="sel" aria-label="비중 기준"><option>시장</option><option>섹터</option><option>소유자</option><option>계좌</option></select>
+        </div>
+        <div class="bars">
+          <div class="bar-row"><span class="muted">국내 주식</span><span class="track"><i style="--w:75.8%"></i></span><span class="num">75.8%</span></div>
+          <div class="bar-row"><span class="muted">해외 주식</span><span class="track"><i style="--w:18.9%"></i></span><span class="num">18.9%</span></div>
+          <div class="bar-row"><span class="muted">원화 예수금</span><span class="track"><i style="--w:3%"></i></span><span class="num">3.0%</span></div>
+          <div class="bar-row"><span class="muted">달러 예수금</span><span class="track"><i style="--w:2.3%"></i></span><span class="num">2.3%</span></div>
+        </div>
+        <p class="t-caption muted" style="margin-top:12px">국내 ETF 중 TIGER 미국S&amp;P500(20.8%)은 원화 상장이지만 달러 자산 노출입니다. 통화 노출 기준으로 보면 달러 40%.</p>
+        <p class="t-caption muted" style="margin-top:8px"><span class="dot warn" style="vertical-align:middle;margin-right:6px"></span>섹터 기준 반도체 34%는 어드바이저 집중 경고 기준(30%)을 넘습니다. <a class="link" href="#" data-tab-link="advisor">어드바이저 →</a></p>
+        <p class="t-caption faint" style="margin-top:14px">소유자 DJ 62% · YJ 38% &nbsp;·&nbsp; 계좌 2</p>
+      </article>
+    </section>
+  </div>
+
+  <!-- ── 거래 ─────────────────────────────────────────────────── -->
+  <div class="panel" role="tabpanel" data-panel="transactions" hidden>
+    <section class="kpi-band" aria-label="거래 요약">
+      <article><p class="t-label muted">9월 실현손익 · 국내</p><p class="t-kpi blue">+412,000<span class="won t-body">원</span></p><p class="t-caption muted">매도 2건 · 세금·수수료 21,300원 차감 후</p></article>
+      <article><p class="t-label muted">9월 실현손익 · 해외</p><p class="t-kpi ink">$0.00</p><p class="t-caption muted">매도 없음</p></article>
+      <article><p class="t-label muted">배당</p><p class="t-kpi ink">₩38,400</p><p class="t-caption muted"><strong class="ink">$6.63</strong> · 원천징수 후</p></article>
+      <article><p class="t-label muted">순입출금</p><p class="t-kpi ink">+3,000,000<span class="won t-body">원</span></p><p class="t-caption muted">입금 1건 · 출금 0건 · 환전 $0</p></article>
+    </section>
+
+    <section class="block">
+      <div class="block-head">
+        <div class="month-nav"><button type="button" aria-label="이전 달">‹</button><span>2026년 9월</span><button type="button" aria-label="다음 달">›</button></div>
+        <div class="range" role="group" aria-label="시장"><button type="button" aria-pressed="true">전체</button><button type="button" aria-pressed="false">국내</button><button type="button" aria-pressed="false">해외</button></div>
+        <button class="btn sm" type="button" id="add-adjust">정정 추가</button>
+      </div>
+      <form class="inline-form" id="adjust-form" hidden style="margin-top:16px">
+        <label>종류<select><option>정정 (수량·단가)</option><option>입금</option><option>출금</option></select></label>
+        <label>계좌<select><option>DJ 키움 종합</option><option>YJ 키움 종합</option></select></label>
+        <label>종목<input placeholder="005930"></label>
+        <label>날짜<input type="date" value="2026-09-28"></label>
+        <label>수량 (±)<input placeholder="0"></label>
+        <label>정정 후 단가<input placeholder="선택"></label>
+        <button class="btn primary" type="button">저장</button>
+      </form>
+      <div class="table-wrap" style="margin-top:16px">
+        <table class="ledger">
+          <thead><tr><th>날짜</th><th style="text-align:left">종류</th><th style="text-align:left">시장 · 종목</th><th class="m-hide" style="text-align:left">계좌</th><th class="m-hide">수량</th><th class="m-hide">단가</th><th>금액</th><th>실현손익</th><th class="m-hide" style="text-align:left">출처</th></tr></thead>
+          <tbody>
+            <tr><td>09-26</td><td style="text-align:left"><span class="badge fill buy">매수</span></td><td style="text-align:left"><span class="name"><span class="mk">국내</span>KODEX 200</span></td><td class="m-hide" style="text-align:left" class="muted">DJ 키움</td><td class="m-hide">100</td><td class="m-hide">41,100</td><td>−4,110,000</td><td class="faint">–</td><td class="m-hide muted" style="text-align:left">키움</td></tr>
+            <tr><td>09-19</td><td style="text-align:left"><span class="badge fill" style="background:var(--finance-red-tint);color:var(--finance-red)">매도</span></td><td style="text-align:left"><span class="name"><span class="mk">국내</span>현대차</span></td><td class="m-hide muted" style="text-align:left">YJ 키움</td><td class="m-hide">10</td><td class="m-hide">261,000</td><td>+2,608,700</td><td class="blue">+128,700</td><td class="m-hide muted" style="text-align:left">키움</td></tr>
+            <tr><td>09-15</td><td style="text-align:left"><span class="badge fill" style="background:var(--finance-green-tint);color:var(--finance-green)">배당</span></td><td style="text-align:left"><span class="name"><span class="mk us">해외</span>AAPL</span></td><td class="m-hide muted" style="text-align:left">YJ 키움</td><td class="m-hide">30</td><td class="m-hide">$0.26</td><td>+$6.63</td><td class="faint">–</td><td class="m-hide muted" style="text-align:left">키움</td></tr>
+            <tr><td>09-10</td><td style="text-align:left"><span class="badge fill" style="background:var(--finance-track);color:var(--finance-muted)">입금</span></td><td style="text-align:left"><span class="mk">국내</span><span class="faint">원화 예수금</span></td><td class="m-hide muted" style="text-align:left">DJ 키움</td><td class="m-hide">–</td><td class="m-hide">–</td><td>+3,000,000</td><td class="faint">–</td><td class="m-hide muted" style="text-align:left">수동</td></tr>
+            <tr><td>09-04</td><td style="text-align:left"><span class="badge fill" style="background:var(--finance-red-tint);color:var(--finance-red)">매도</span></td><td style="text-align:left"><span class="name"><span class="mk">국내</span>삼성전자</span></td><td class="m-hide muted" style="text-align:left">DJ 키움</td><td class="m-hide">30</td><td class="m-hide">80,700</td><td>+2,418,900</td><td class="blue">+283,300</td><td class="m-hide muted" style="text-align:left">키움</td></tr>
+            <tr><td>09-02</td><td style="text-align:left"><span class="badge fill" style="background:var(--finance-amber-tint);color:var(--finance-amber)">정정</span></td><td style="text-align:left"><span class="name"><span class="mk">국내</span>삼성전자</span></td><td class="m-hide muted" style="text-align:left">DJ 키움</td><td class="m-hide">0</td><td class="m-hide">73,640</td><td class="faint">–</td><td class="faint">–</td><td class="m-hide muted" style="text-align:left">수동 · 단가 정정</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="t-caption faint" style="margin-top:10px">키움에서 온 행은 메모만 수정할 수 있습니다. 예수금이 증권사와 다르면 입금·출금 행으로, 수량·단가가 다르면 정정 행으로 맞춥니다. 환전은 원화 출금 + 달러 입금 두 행으로 기록합니다.</p>
+    </section>
+  </div>
+
+  <!-- ── 관심 ─────────────────────────────────────────────────── -->
+  <div class="panel" role="tabpanel" data-panel="watch" hidden>
+    <section class="kpi-band" aria-label="관심 요약">
+      <article><p class="t-label muted">관심 종목</p><p class="t-kpi ink">3</p><p class="t-caption muted">국내 1 · 해외 2</p></article>
+      <article><p class="t-label muted">점검 예정 7일 내</p><p class="t-kpi ink">0</p><p class="t-caption muted">가장 가까운 한미반도체 D-16</p></article>
+      <article><p class="t-label muted">미실행</p><p class="t-kpi ink">1</p><p class="t-caption muted">MSFT · 헬스체크 없음</p></article>
+      <article><p class="t-label muted">발굴 후보 대기</p><p class="t-kpi ink">3</p><p class="t-caption muted">09-21 "반도체 장비" · 미추가 KLAC · LRCX · ONTO</p></article>
+    </section>
+
+    <section class="block">
+      <div class="block-head">
+        <div><h2 class="t-section ink">관심 종목</h2><p class="t-caption faint">미보유 · 헬스체크 실행 가능(보유 적합성은 해당 없음) · 발굴에서 추가된 종목은 출처 표시</p></div>
+        <form class="inline-form" style="grid-template-columns:auto auto auto;background:none;border:0;padding:0" onsubmit="return false">
+          <label>시장<select><option>KR</option><option>US</option></select></label>
+          <label>종목코드<input placeholder="AMAT" style="width:120px"></label>
+          <button class="btn sm" type="button">추가</button>
+        </form>
+      </div>
+      <div class="table-wrap" style="margin-top:16px">
+        <table class="ledger">
+          <thead><tr><th>종목</th><th class="m-hide">현재가</th><th>등락</th><th class="m-hide">최신 점검</th><th>판정</th><th class="m-hide">다음 점검</th><th class="m-hide" style="text-align:left">메모</th></tr></thead>
+          <tbody>
+            <tr class="row"><td><span class="name"><span class="mk us">해외</span>AMAT <span class="code">NASDAQ</span></span></td><td class="m-hide">$204.10</td><td class="blue">+1.8%</td><td class="m-hide muted">09-22</td><td><span class="tri" title="기업 green · 가격 yellow · 적합성 na"><span class="sig sm green"></span><span class="sig sm yellow"></span><span class="sig sm na"></span></span></td><td class="m-hide muted">D-28</td><td class="m-hide muted" style="text-align:left">발굴 09-21 "반도체 장비" ↗</td></tr>
+            <tr class="row"><td><span class="name"><span class="mk">국내</span>한미반도체 <span class="code">042700</span></span></td><td class="m-hide">98,400</td><td class="red">−2.1%</td><td class="m-hide muted">09-14</td><td><span class="tri" title="기업 green · 가격 red · 적합성 na"><span class="sig sm green"></span><span class="sig sm red"></span><span class="sig sm na"></span></span></td><td class="m-hide muted">D-16</td><td class="m-hide muted" style="text-align:left">HBM 장비 · 밸류 부담</td></tr>
+            <tr class="row"><td><span class="name"><span class="mk us">해외</span>MSFT <span class="code">NASDAQ</span></span></td><td class="m-hide">$428.30</td><td class="blue">+0.4%</td><td class="m-hide faint">–</td><td><span class="faint t-caption">미실행</span></td><td class="m-hide faint">–</td><td class="m-hide muted" style="text-align:left"></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <!-- ── 어드바이저 ─────────────────────────────────────────────── -->
+  <div class="panel" role="tabpanel" data-panel="advisor" hidden>
+    <section class="kpi-band" aria-label="어드바이저 요약">
+      <article><p class="t-label muted">최대 섹터 집중</p><p class="t-kpi amber">34.1%</p><p class="t-caption muted">반도체 · 경고 기준 30% 초과</p></article>
+      <article><p class="t-label muted">현금 비중</p><p class="t-kpi ink">3.8%</p><p class="t-caption muted">₩1,860,000 · $1,000 · 제안 10%</p></article>
+      <article><p class="t-label muted">국내 · 해외</p><p class="t-kpi ink">76 · 24<span class="won t-body">%</span></p><p class="t-caption muted">환 노출 $9,410 · 원화 강세 1,300 가정 −2.4%</p></article>
+      <article><p class="t-label muted">마지막 리포트</p><p class="t-kpi ink">09-21</p><p class="t-caption muted">7일 전 · 오늘 실행 2/10</p></article>
+    </section>
+
+    <section class="block two-col" style="grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)">
+      <article>
+        <div class="block-head">
+          <div><p class="t-label muted">포트폴리오 리포트</p><h2 class="t-section ink" style="margin-top:6px">09-21 · 직전 08-24 대비</h2></div>
+          <p class="t-caption muted">출처 6 · 소요 9분</p>
+        </div>
+        <p class="verdict ink">반도체 <strong>34%</strong>로 한 사이클에 묶여 있습니다.<br>실적 시즌 전 현금을 10%까지 확보하세요.</p>
+        <p class="prose">삼성전자·SK하이닉스·NVDA·한미반도체(관심)가 같은 메모리·AI 인프라 사이클에 노출되어 한 번의 업황 반전에 포트폴리오 전체가 같은 방향으로 움직입니다. AAPL은 헬스체크 가격 부담이 높음으로 올라갔고, 예수금 3.8%는 조정 시 대응 여력으로 부족합니다.</p>
+
+        <div class="block-head" style="margin-top:28px"><h3 class="t-section ink">집중도</h3><p class="t-caption faint">경고 기준 섹터 30% · 종목 20%</p></div>
+        <div class="bars">
+          <div class="bar-row"><span class="muted">반도체</span><span class="track"><i class="warn" style="--w:34%"></i></span><span class="num">34.1%</span></div>
+          <div class="bar-row"><span class="muted">지수 ETF</span><span class="track"><i style="--w:30%"></i></span><span class="num">29.9%</span></div>
+          <div class="bar-row"><span class="muted">IT 하드웨어</span><span class="track"><i style="--w:10.5%"></i></span><span class="num">10.5%</span></div>
+          <div class="bar-row"><span class="muted">현금</span><span class="track"><i style="--w:3.8%"></i></span><span class="num">3.8%</span></div>
+        </div>
+        <p class="t-caption faint" style="margin-top:6px">국내 76% · 해외 24% (통화 노출 기준 달러 40%) &nbsp;·&nbsp; 소유자 DJ 62% · YJ 38% &nbsp;·&nbsp; 최대 단일 종목 TIGER S&amp;P500 20.8%</p>
+
+        <div class="block-head" style="margin-top:28px"><h3 class="t-section ink">리밸런싱 제안</h3><p class="t-caption faint">보유·관심 종목 한정 · 새 종목은 아래 발굴에서</p></div>
+        <div class="table-wrap" style="margin-top:12px;border-top-color:var(--finance-border)">
+          <table class="ledger" style="min-width:0">
+            <thead><tr><th>종목</th><th>현재 비중</th><th>제안</th><th style="text-align:left">이유</th></tr></thead>
+            <tbody>
+              <tr><td><span class="name">AAPL</span></td><td>10.5%</td><td><span class="action reduce">reduce</span> <span class="muted">→ 7%</span></td><td style="text-align:left;white-space:normal" class="muted">가격 부담 높음(요구 성장 14% vs 컨센서스 8%) · 10-30 실적 후 재평가</td></tr>
+              <tr><td><span class="name">현대차</span></td><td>7.0%</td><td><span class="action exit">exit</span></td><td style="text-align:left;white-space:normal" class="muted">헬스체크 보유 적합성 "조정 검토" 2회 연속 · 논지 훼손 1</td></tr>
+              <tr><td><span class="name">SK하이닉스</span></td><td>8.2%</td><td><span class="action hold">hold</span></td><td style="text-align:left;white-space:normal" class="muted">기업 노랑이지만 가격 부담 중간 · 10-24 실적 후 재점검</td></tr>
+              <tr><td><span class="name">NVDA</span></td><td>3.2%</td><td><span class="action hold">hold</span></td><td style="text-align:left;white-space:normal" class="muted">확정 촉매 D-6 · 가격 부담 높음 · 이벤트 전 추가 없음</td></tr>
+              <tr><td><span class="name">현금</span></td><td>3.8%</td><td><span class="action increase">increase</span> <span class="muted">→ 10%</span></td><td style="text-align:left;white-space:normal" class="muted">AAPL 축소분 + 현대차 정리분으로 확보</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="block-head" style="margin-top:28px"><h3 class="t-section ink">리스크</h3></div>
+        <div class="todos" style="margin-top:8px;border-bottom:0">
+          <div class="todo"><span class="dot warn"></span><span class="ink">메모리 업황 반전 시 포트폴리오 −15% 시나리오</span><span class="t-caption">반도체 3종목 상관계수 0.8</span></div>
+          <div class="todo"><span class="dot warn"></span><span class="ink">원화 강세 시 달러 노출 40%에 환차손</span><span class="t-caption">해외 주식 + S&amp;P500 ETF · USDKRW 1,300 가정 −2.4%</span></div>
+          <div class="todo"><span class="dot neutral"></span><span class="ink">지수 ETF 30%와 개별 반도체가 중복 노출</span><span class="t-caption">KODEX 200 내 삼성전자 22%</span></div>
+        </div>
+      </article>
+
+      <article>
+        <div class="block-head"><h3 class="t-section ink">질문하고 새 리포트 받기</h3></div>
+        <div class="field" style="margin-top:12px">
+          <textarea placeholder="예: 1,000만원을 추가로 넣는다면 어디에, 얼마씩?"></textarea>
+          <div style="display:flex;align-items:center;gap:12px"><button class="btn primary" type="button">어드바이저 실행</button><span class="t-caption muted">오늘 2/10 · 워커 연결됨 · 보통 5~15분</span></div>
+        </div>
+        <div class="run-status" hidden><span class="spin"></span>포트폴리오 스냅샷을 만들고 Codex에 넘겼습니다 · 2분 경과</div>
+
+        <div class="block-head" style="margin-top:28px"><h3 class="t-section ink">답변 (이번 리포트)</h3></div>
+        <p class="prose" style="margin-top:8px">질문 없이 실행한 리포트입니다.</p>
+
+        <div class="block-head" style="margin-top:28px"><h3 class="t-section ink">리포트 이력</h3><span class="t-caption faint">포트폴리오 · 발굴</span></div>
+        <div class="hist" style="margin-top:8px">
+          <div><span><strong class="ink">09-21</strong> <span class="muted">포트폴리오</span> · 집중도 경고, 현금 10%</span><span class="t-caption">보는 중</span></div>
+          <div><span><strong class="ink">09-21</strong> <span class="muted">발굴</span> · "미국 반도체 장비, PER 25 이하"</span><a class="link t-caption" href="#">열기</a></div>
+          <div><span><strong class="ink">08-24</strong> <span class="muted">포트폴리오</span> · "추가 500만원" 질문</span><a class="link t-caption" href="#">열기</a></div>
+          <div><span><strong class="ink">07-30</strong> <span class="muted">포트폴리오</span> · 초기 진단</span><a class="link t-caption" href="#">열기</a></div>
+        </div>
+
+        <div class="block-head" style="margin-top:28px"><h3 class="t-section ink">출처 · 6</h3></div>
+        <div class="hist" style="margin-top:8px">
+          <div><a class="link" href="#">DART · SK하이닉스 반기보고서 ↗</a></div>
+          <div><a class="link" href="#">SEC · Apple 10-Q (Q3 FY26) ↗</a></div>
+          <div><a class="link" href="#">증권사 리포트 3건 (09-15~09-19) ↗</a></div>
+          <div><a class="link" href="#">Reuters · Memory pricing outlook ↗</a></div>
+        </div>
+        <p class="disclaimer">AI 의견이며 투자 판단의 책임은 본인에게 있습니다. 리포트는 웹 검색 기반이고 근거 URL이 없는 주장은 저장되지 않습니다.</p>
+      </article>
+    </section>
+
+    <section class="discover">
+      <div class="block-head">
+        <div><h2 class="t-section ink">종목 발굴</h2><p class="t-caption faint">조건을 적으면 후보 5~10개를 근거·리스크와 함께 찾습니다. 보유·관심 종목은 제외.</p></div>
+        <p class="t-caption muted">최근 실행 09-21</p>
+      </div>
+      <div class="field" style="margin-top:14px;grid-template-columns:minmax(0,1fr) auto;display:grid;align-items:center;gap:8px">
+        <input value="미국 반도체 장비, PER 25 이하, 배당 있음, 중국 매출 비중 30% 미만">
+        <button class="btn primary" type="button">발굴 실행</button>
+      </div>
+      <p class="t-caption muted" style="margin-top:10px">해석: 미국 상장 반도체 장비(SOX 편입 기준) · forward PER ≤ 25 · 배당 지급 · FY25 중국 매출 &lt; 30%</p>
+      <div class="table-wrap" style="margin-top:14px">
+        <table class="ledger">
+          <thead><tr><th style="width:32px"></th><th style="text-align:left">후보</th><th>현재가</th><th>PER</th><th>배당</th><th class="m-hide" style="text-align:left">근거</th><th class="m-hide" style="text-align:left">리스크</th></tr></thead>
+          <tbody>
+            <tr><td style="text-align:left"><input class="checkbox" type="checkbox" checked aria-label="AMAT 선택"></td><td style="text-align:left"><span class="name">AMAT</span> <span class="badge fill buy">추가됨</span></td><td>$204.10</td><td>22.1</td><td>0.9%</td><td class="m-hide muted" style="text-align:left;white-space:normal">HBM 장비 수요, 자사주 매입 확대 <a class="link" href="#">↗</a></td><td class="m-hide muted" style="text-align:left;white-space:normal">중국 매출 28%</td></tr>
+            <tr><td style="text-align:left"><input class="checkbox" type="checkbox" aria-label="KLAC 선택"></td><td style="text-align:left"><span class="name">KLAC</span></td><td>$812.40</td><td>24.6</td><td>0.8%</td><td class="m-hide muted" style="text-align:left;white-space:normal">검사 장비 점유율 1위 <a class="link" href="#">↗</a></td><td class="m-hide muted" style="text-align:left;white-space:normal">PER 상단 근접</td></tr>
+            <tr><td style="text-align:left"><input class="checkbox" type="checkbox" aria-label="LRCX 선택"></td><td style="text-align:left"><span class="name">LRCX</span></td><td>$96.20</td><td>23.9</td><td>1.0%</td><td class="m-hide muted" style="text-align:left;white-space:normal">식각 장비, NAND 회복 수혜 <a class="link" href="#">↗</a></td><td class="m-hide muted" style="text-align:left;white-space:normal">중국 매출 35% (조건 경계)</td></tr>
+            <tr><td style="text-align:left"><input class="checkbox" type="checkbox" aria-label="ONTO 선택"></td><td style="text-align:left"><span class="name">ONTO</span> <span class="badge fill warn">unverified</span></td><td class="faint">–</td><td>21.4</td><td class="faint">–</td><td class="m-hide muted" style="text-align:left;white-space:normal">계측 장비, 고성장 <a class="link" href="#">↗</a></td><td class="m-hide muted" style="text-align:left;white-space:normal">키움 종목 조회 실패 · 배당 없음 가능</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:14px">
+        <button class="btn" type="button">선택 1개 관심 종목에 추가</button>
+        <span class="t-caption muted">제외 2 · TSM(보유 중복 아님, 대만 상장) · ASML(PER 초과)</span>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ════════════════════════════════════════════════════════════════
+     화면 2: /investment/[securityId]  종목 상세
+     ════════════════════════════════════════════════════════════════ -->
+<main class="screen" id="screen-detail" hidden>
+  <div class="crumb">
+    <a href="#" data-goto="list">보유</a><span class="faint">›</span><span class="ink">SK하이닉스</span>
+    <span class="nav"><a class="link" href="#">‹ 삼성전자</a><a class="link" href="#">NVDA ›</a></span>
+  </div>
+  <div class="detail-title">
+    <div>
+      <p class="t-label blue">KR · 000660 · 경기민감·수주산업 (메모리)</p>
+      <h1 class="t-page-title ink">SK하이닉스 <span class="tri" style="gap:5px"><span class="sig yellow"></span><span class="sig yellow"></span><span class="sig green"></span></span></h1>
+      <div class="meta-line"><span>프롬프트 <b>v3</b></span><span>모드 <b>분기 전체</b></span><span>분석 기준일 <b>09-25</b></span><span>주가 시점 <b>09-25 15:30</b></span><span>최신 재무 <b>2026 2Q (연결)</b></span><span>주 지표 <b>EV/EBITDA</b></span><span>KPI <b>가동률 · 재고일수</b></span></div>
+    </div>
+    <div class="price">
+      <p class="t-kpi ink">171,500<span class="won t-body">원</span></p>
+      <p class="t-caption"><span class="red">−2,100 · −1.2%</span> <span class="muted">· 14:32 · 전일 173,600</span></p>
+    </div>
+  </div>
+
+  <section class="kpi-band" aria-label="포지션 요약">
+    <article><p class="t-label muted">보유</p><p class="t-kpi ink">40<span class="won t-body">주</span></p><p class="t-caption muted">DJ 40 · YJ 0 · 비중 8.2% (주식 계좌 기준)</p></article>
+    <article><p class="t-label muted">평균단가</p><p class="t-kpi ink">182,000<span class="won t-body">원</span></p><p class="t-caption muted">증권사 181,600 · 차이 0.2% · 최초 매수 07-30</p></article>
+    <article><p class="t-label muted">평가손익</p><p class="t-kpi red">−420,000<span class="won t-body">원</span></p><p class="t-caption muted">−5.8% · 평가 6,860,000원</p></article>
+    <article><p class="t-label muted">다음 점검</p><p class="t-kpi ink">D-26</p><p class="t-caption muted">10-24 실적 발표 직후 · 분기 전체</p></article>
+  </section>
+
+  <div class="detail-grid">
+    <article>
+      <section class="verdicts" aria-label="3축 판정">
+        <article>
+          <p class="t-label muted">1 · 기업 상태</p>
+          <p class="v ink"><span class="sig yellow"></span>노랑</p>
+          <p class="why">논지 ②(마진 확대) 약화 + 항목 노랑 3개(재고일수, 추정치 방향, 내부자). 빨강 사유 없음. <a class="sid" href="#src">S3</a> <a class="sid" href="#src">S7</a></p>
+        </article>
+        <article>
+          <p class="t-label muted">2 · 가격 부담</p>
+          <p class="v ink"><span class="sig yellow"></span>중간</p>
+          <p class="why">EV/EBITDA 5년 밴드 중간 복귀 가정 시 요구 EBITDA 성장 연 9% · 최근 3년 실적 22% · 컨센서스 7%. <a class="sid" href="#src">S5</a></p>
+        </article>
+        <article>
+          <p class="t-label muted">3 · 보유 적합성</p>
+          <p class="v ink"><span class="sig green"></span>적정</p>
+          <p class="why">8.2% × 40% 하락 = 전체 3.3% · 같은 논지(삼성전자·NVDA) 합산 22.6% × 40% = 9.0% · 한도 없음 · 기간 5년 안 감당 가능. <a class="sid" href="#src">S1</a></p>
+        </article>
+      </section>
+      <p class="t-caption faint" style="margin-top:10px">세 판정은 섞지 않습니다. 초록은 확인된 악화가 없다는 뜻이지 위험이 없다는 뜻이 아닙니다. 매수·매도 판단은 어드바이저에서 따로 합니다.</p>
+
+      <div class="block-head" style="margin-top:32px"><div><h2 class="t-section ink">2 · 매수 논지</h2><p class="t-caption faint">보유 메모의 논지를 명제 3개로 분해 · 직전 예상은 09-02 리포트</p></div><a class="link t-caption" href="#memo">논지 편집 →</a></div>
+      <table class="thesis">
+        <thead><tr><th>명제</th><th>판정</th><th>지지 증거</th><th>반대 증거</th><th>직전 예상 대비</th></tr></thead>
+        <tbody>
+          <tr><td>① AI 서버용 HBM 수요로 3년간 매출 20%+ 성장</td><td><span class="vd keep">유지</span></td><td>2Q HBM 매출 비중 41% (1Q 35%) <span class="tag fact">사실</span> <a class="sid" href="#src">S2</a></td><td>찾지 못함</td><td>예상 매출 22.1조 → 실제 23.4조 (+6%) <a class="sid" href="#src">S2</a></td></tr>
+          <tr><td>② HBM 비중 상승으로 영업이익률 확대</td><td><span class="vd weak">약화</span></td><td>2Q OPM 31% 유지 <span class="tag fact">사실</span> <a class="sid" href="#src">S2</a></td><td>3Q 컨센서스 OPM 29%, HBM4 단가 협상 지연 보도 <span class="tag estimate">추정</span> <a class="sid" href="#src">S5</a> <a class="sid" href="#src">S9</a></td><td>예상 OPM 33% → 실제 31% (−2%p)</td></tr>
+          <tr><td>③ 2027 M15X 가동으로 공급 병목 해소</td><td><span class="vd hold">판단 보류</span></td><td>장비 반입 시작 공시 <span class="tag fact">사실</span> <a class="sid" href="#src">S4</a></td><td>가동 시점 미확정 <span class="tag company">회사</span></td><td>기준선 (이번 회차 추가)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="block-head" style="margin-top:32px"><div><h2 class="t-section ink">3 · 기업 상태</h2><p class="t-caption faint">5영역 고정 · 초록이 아닌 세부 항목만 펼침에 표시 · 비교 기준은 연결·희석 EPS</p></div><a class="link t-caption" href="#">영역 설정 →</a></div>
+      <div class="redflags" aria-label="확인 전까지 빨강">
+        <div><span class="sig sm red"></span><strong class="ink">해당 없음</strong><span class="t-caption muted">영업현금흐름 2분기 연속 마이너스 · 희석성 조달 · 대주주 대량 매도 · 물적분할 · 감사의견 · 만기 초과 중 발동 없음</span><a class="sid" href="#src">S2</a> <a class="sid" href="#src">S6</a></div>
+      </div>
+      <div class="areas">
+        <details class="area">
+          <summary><span class="sig sm yellow"></span><span class="name">투자 논지 · 사업 경쟁력</span><span class="fact">명제 ② 약화 · HBM 점유율 1위 유지(52%)</span><span class="caret">⌄</span></summary>
+          <div class="body">
+            <div class="kf"><b>HBM 점유율</b> 52% (1Q 53%) <span class="tag estimate">추정</span> 2026 2Q · <a class="sid" href="#src">S8</a></div>
+            <div class="sub"><span class="sig sm yellow"></span>마진 확대 명제 약화 · 단가 협상 지연 <a class="sid" href="#src">S9</a></div>
+          </div>
+        </details>
+        <details class="area" open>
+          <summary><span class="sig sm yellow"></span><span class="name">실적 · 운영 KPI</span><span class="fact">매출 +38% · 영업이익 +112% YoY · 2Q beat +6% · 재고일수 상승</span><span class="caret">⌄</span></summary>
+          <div class="body">
+            <div class="kf"><b>매출 YoY</b> +38% <span class="tag fact">사실</span> 2026 2Q 연결 · <a class="sid" href="#src">S2</a></div>
+            <div class="kf"><b>희석 EPS YoY</b> +118% <span class="tag fact">사실</span> 2026 2Q · <a class="sid" href="#src">S2</a></div>
+            <div class="kf"><b>발표 전 컨센서스 대비</b> 영업이익 beat +6% <span class="tag estimate">추정</span> 7-24 기준 컨센서스 · <a class="sid" href="#src">S5</a></div>
+            <div class="kf"><b>KPI · 가동률</b> 98% <span class="tag company">회사</span> · <b>재고일수</b> 61일 (1Q 54일) <span class="tag fact">사실</span> · <a class="sid" href="#src">S2</a></div>
+            <div class="sub"><span class="sig sm yellow"></span>재고일수 상승이 매출 증가율(+38%)보다 빠름(+13%) · 수주산업 정상 범위 밖 · 원인: HBM4 선행 생산 <span class="tag interp">해석</span></div>
+          </div>
+        </details>
+        <details class="area">
+          <summary><span class="sig sm green"></span><span class="name">이익의 질 · 현금창출</span><span class="fact">영업CF/순이익 1.3 (4Q 누적) · FCF 4.1조 · 조정이익 없음</span><span class="caret">⌄</span></summary>
+          <div class="body">
+            <div class="kf"><b>영업현금흐름/순이익</b> 1.3 <span class="tag estimate">추정</span> 4분기 누적, 분기값은 누적 차감 · <a class="sid" href="#src">S2</a></div>
+            <div class="kf"><b>FCF</b> 4.1조 = 영업CF 12.8조 − CAPEX 8.7조(유형자산 취득) <span class="tag estimate">추정</span> · <a class="sid" href="#src">S2</a></div>
+            <div class="kf"><b>주주이익 근사</b> 8.2조 (유지보수 CAPEX = 감가상각 4.6조 하한) <span class="tag estimate">추정</span> · 자산 집약 업종이라 과소 추정 가능</div>
+          </div>
+        </details>
+        <details class="area">
+          <summary><span class="sig sm green"></span><span class="name">재무 안정성 · 유동성</span><span class="fact">순차입금 2.1조 · 순차입금/EBITDA 0.1배 · 12개월 재원 &gt; 지출</span><span class="caret">⌄</span></summary>
+          <div class="body">
+            <div class="kf"><b>순차입금/EBITDA</b> 0.1배 <span class="tag estimate">추정</span> TTM EBITDA · <a class="sid" href="#src">S2</a></div>
+            <div class="kf"><b>이자보상배율</b> 14배 · 이자지급은 영업활동으로 분류(K-IFRS) · 유동성 계산에서 다시 빼지 않음 <a class="sid" href="#src">S2</a></div>
+            <div class="kf"><b>12~24개월</b> 현금 9.8조 + 보수적 영업CF 10조 vs 만기 1.2조 + 필수 CAPEX 9조 + 리스·이자 0.4조 → 여유 9.2조 <span class="tag estimate">추정</span></div>
+            <div class="kf"><b>ROE 3년</b> −2% → 8% → 24% · 자본비용 추정 10% (반도체) · 차이 2%p 초과라 우열 근거로 사용</div>
+          </div>
+        </details>
+        <details class="area">
+          <summary><span class="sig sm yellow"></span><span class="name">자본 배분 · 거버넌스</span><span class="fact">자사주 소각 없음 · 임원 소량 매도 2건 · 감사인 유지</span><span class="caret">⌄</span></summary>
+          <div class="body">
+            <div class="kf"><b>자사주</b> 매입 0.3조, 소각 없음(미소각 자사주는 처분 가능) <span class="tag fact">사실</span> · <a class="sid" href="#src">S6</a></div>
+            <div class="sub"><span class="sig sm yellow"></span>임원 2인 매도 · 보유량 대비 4%·6% · 사전 계획 없음 · 사유 미공개 <a class="sid" href="#src">S6</a></div>
+            <div class="kf"><b>KRX 맥락</b> 외국인 20일 순매도 −1.2조 · 공매도 잔고 0.8% (판정 제외) <span class="tag fact">사실</span> KIWOOM-API 09-25</div>
+          </div>
+        </details>
+      </div>
+
+      <div class="block-head" style="margin-top:32px"><div><h2 class="t-section ink">4 · 밸류에이션 → 가격 부담</h2><p class="t-caption faint">주 지표 EV/EBITDA (경기민감 · 이익 정점에서 PER가 낮아 보이는 함정) · forward 기준</p></div></div>
+      <div class="peers">
+        <div class="me"><span class="muted">SK하이닉스 fwd</span><b>4.2배</b><span class="muted">TTM 3.6배</span></div>
+        <div><span class="muted">삼성전자</span><b>5.1배</b><span class="muted">국내 메모리</span></div>
+        <div><span class="muted">Micron</span><b>6.8배</b><span class="muted">HBM 경쟁</span></div>
+        <div><span class="muted">Samsung·Micron·Kioxia 중앙값</span><b>5.6배</b><span class="muted">동종 3사</span></div>
+      </div>
+      <div class="band" aria-label="5년 밴드 위치"><span class="mid"></span><i style="--x:31%"></i></div>
+      <div class="band-labels"><span>5년 하단 2.9배</span><span>중간 5.4배</span><span>상단 9.1배</span></div>
+      <p class="t-caption muted" style="margin-top:6px">밴드 위치 <strong class="ink">하단~중간</strong> · 최근 3개월 EBITDA 추정치 방향 <strong class="amber">하향</strong> (FY26 −3%) · 같은 대상 기간 기준 <a class="sid" href="#src">S5</a></p>
+      <div class="callout"><b>역산.</b> 멀티플이 5년 중간값 5.4배로 돌아간다고 가정하면 현재 주가를 정당화하려면 EBITDA가 향후 3년 <b>연 9%</b> 성장해야 합니다. 최근 3년 실적 <b>22%</b>, 컨센서스 <b>7%</b>. 요구치가 컨센서스보다 약간 높아 <b>가격 부담 중간</b>. <span class="tag estimate">추정</span> <a class="sid" href="#src">S5</a></div>
+
+      <div class="block-head" style="margin-top:32px"><div><h2 class="t-section ink">5 · 직전 대비 변화</h2><p class="t-caption faint">직전 09-02 (v3, 월간 라이트) · 판정이 바뀐 항목과 이유 · 프롬프트 버전 변경 없음</p></div></div>
+      <div class="changes">
+        <div><span class="sig sm yellow"></span><strong class="ink">기업 상태</strong><span class="muted">초록</span><span class="arrow">→</span><span class="amber" style="font-weight:600">노랑</span><span class="t-caption muted">논지 ② 약화 + 재고일수·내부자 노랑 추가</span></div>
+        <div><span class="sig sm yellow"></span><strong class="ink">논지 ② 마진 확대</strong><span class="muted">유지</span><span class="arrow">→</span><span class="amber" style="font-weight:600">약화</span><span class="t-caption muted">3Q OPM 컨센서스 하향, 단가 협상 지연</span></div>
+        <div><span class="sig sm green"></span><strong class="ink">가격 부담</strong><span class="muted">중간</span><span class="arrow">→</span><span class="ink" style="font-weight:600">중간</span><span class="t-caption muted">색 같음 · 요구 성장률 7% → 9% (추정치 하향 반영)</span></div>
+      </div>
+
+      <div class="block-head" style="margin-top:32px"><div><h2 class="t-section ink">6 · 다음 점검까지</h2><p class="t-caption faint">다음 점검일 <strong class="ink">10-25</strong> (3Q 실적 발표 직후) · 다음 분기 예상치는 다음 점검 때 대조용</p></div></div>
+      <div class="next">
+        <div>
+          <p class="t-caption-strong ink">지켜볼 것 3</p>
+          <ul>
+            <li>3Q HBM 매출 비중과 OPM (논지 ②)</li>
+            <li>재고일수가 60일 아래로 내려오는지</li>
+            <li>HBM4 단가 협상 결과 공식 발표 여부</li>
+          </ul>
+          <p class="t-caption-strong ink" style="margin-top:16px">다음 분기 예상치</p>
+          <ul>
+            <li><span class="cond">3Q 매출</span> <span class="act">24.8조 <span class="tag estimate">추정</span> 컨센서스 09-24</span></li>
+            <li><span class="cond">3Q OPM</span> <span class="act">29% <span class="tag estimate">추정</span></span></li>
+          </ul>
+        </div>
+        <div>
+          <p class="t-caption-strong ink">재검토 트리거</p>
+          <ul>
+            <li><span class="cond">3Q OPM이 27% 아래면</span> <span class="act">→ 논지 ②를 훼손으로 재판정하고 기업 상태 빨강 검토</span></li>
+            <li><span class="cond">외국인 순매도가 40일 이상 이어지면</span> <span class="act">→ 맥락 확인(판정 제외 유지)하고 사건 발생 모드 실행</span></li>
+            <li><span class="cond">HBM4 지연이 회사 공식 확인되면</span> <span class="act">→ 명제 ③ 재점검, 밸류에이션 역산 갱신</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="block-head" style="margin-top:32px"><div><h2 class="t-section ink">7 · 확인 부족</h2></div></div>
+      <ul class="gaps">
+        <li><span class="tag missing">판단 보류</span> 명제 ③ M15X 가동 시점 · 해제 자료: 3Q 실적 발표 자료의 CAPEX 일정, 공장 준공 공시</li>
+        <li><span class="tag estimate">추정</span> 유지보수 CAPEX · 회사 미공시라 감가상각비를 하한으로 사용 · 추가 조사: IR 문의 기록</li>
+        <li><span class="tag estimate">추정</span> 발표 전 컨센서스(7-24) · 2차 출처 · 원자료 확보 시 beat 폭 재확인</li>
+      </ul>
+
+      <div class="block-head" style="margin-top:32px" id="src"><div><h2 class="t-section ink">8 · 출처 목록 · 9</h2></div></div>
+      <table class="src">
+        <tbody>
+          <tr><td><span class="sid">S1</span></td><td>우리집 투자 · 포트폴리오 스냅샷 (비중·평균단가·논지)</td><td class="muted">내부</td><td class="muted">09-25</td></tr>
+          <tr><td><span class="sid">S2</span></td><td><a class="link" href="#">DART · 반기보고서 (2026.06) 연결 ↗</a></td><td class="muted">08-14</td><td class="muted">2026 2Q</td></tr>
+          <tr><td><span class="sid">S3</span></td><td><a class="link" href="#">2Q 실적 발표 자료 (IR) ↗</a></td><td class="muted">07-24</td><td class="muted">2026 2Q</td></tr>
+          <tr><td><span class="sid">S4</span></td><td><a class="link" href="#">KIND · M15X 장비 반입 관련 공시 ↗</a></td><td class="muted">09-15</td><td class="muted">–</td></tr>
+          <tr><td><span class="sid">S5</span></td><td><a class="link" href="#">컨센서스 (증권사 12곳 평균) ↗</a></td><td class="muted">09-24</td><td class="muted">FY26~FY27</td></tr>
+          <tr><td><span class="sid">S6</span></td><td><a class="link" href="#">DART · 임원·주요주주 소유상황 보고 ↗</a></td><td class="muted">09-10</td><td class="muted">–</td></tr>
+          <tr><td><span class="sid">S7</span></td><td>KIWOOM-API · 투자자별 매매동향, 공매도 잔고, 일봉</td><td class="muted">내부</td><td class="muted">09-25</td></tr>
+          <tr><td><span class="sid">S8</span></td><td><a class="link" href="#">TrendForce · HBM 점유율 2Q ↗</a></td><td class="muted">09-02</td><td class="muted">2026 2Q</td></tr>
+          <tr><td><span class="sid">S9</span></td><td><a class="link" href="#">단가 협상 지연 보도 (복수 매체, 하나의 증거로 계산) ↗</a></td><td class="muted">09-23</td><td class="muted">–</td></tr>
+        </tbody>
+      </table>
+      <p class="disclaimer">AI 의견이며 투자 판단의 책임은 본인에게 있습니다. 출처 ID가 없는 수치는 저장되지 않습니다.</p>
+    </article>
+
+    <aside class="side">
+      <div class="block-head"><h3 class="t-section ink">헬스체크 실행</h3><span class="t-caption faint">오늘 2/10</span></div>
+      <div class="field">
+        <div class="modes" role="group" aria-label="점검 모드"><button type="button" aria-pressed="false">분기 전체</button><button type="button" aria-pressed="true">월간 라이트</button><button type="button" aria-pressed="false">사건 발생</button></div>
+        <input placeholder="질문 또는 사건 한 줄 (선택)">
+        <div style="display:flex;align-items:center;gap:12px"><button class="btn primary" type="button" id="run-research">실행</button><span class="t-caption muted">워커 연결됨 · 라이트 5분 · 전체 15분</span></div>
+      </div>
+      <div class="run-status" id="research-status" hidden><span class="spin"></span>실행 중 · 입력 고정 → 키움 숫자 수집 → Codex 웹 검색 · 3분 경과</div>
+      <p class="t-caption faint" style="margin-top:8px">월간 라이트는 공시·뉴스와 논지 흔들림만 봅니다. 가격 부담·보유 적합성은 직전 값을 그대로 씁니다.</p>
+
+      <div class="block-head" style="margin-top:28px" id="memo"><h3 class="t-section ink">보유 메모</h3><span class="t-caption faint">v3 입력</span></div>
+      <div class="memo">
+        <label><span>매수 논지</span><input value="AI 서버용 HBM 수요로 3년간 매출 20%+ 성장, 마진 확대"></label>
+        <label><span>투자 기간</span><input value="5년"></label>
+        <label><span>자금 사용 시점</span><input value="2031 이후 · 정해진 용처 없음"></label>
+        <label><span>손실 한도</span><input placeholder="없음 (리포트가 임의로 만들지 않음)"></label>
+        <label><span>비중 분모</span><select><option>주식 계좌</option><option>전체 투자자산</option></select></label>
+        <div style="display:flex;justify-content:flex-end"><button class="btn sm" type="button">저장</button></div>
+      </div>
+
+      <div class="block-head" style="margin-top:28px"><h3 class="t-section ink">리포트 이력</h3></div>
+      <div class="hist">
+        <div><span><strong class="ink">09-25</strong> 분기 전체 · <span class="tri"><span class="sig sm yellow"></span><span class="sig sm yellow"></span><span class="sig sm green"></span></span></span><span class="t-caption">보는 중</span></div>
+        <div><span><strong class="ink">09-02</strong> 월간 라이트 · <span class="tri"><span class="sig sm green"></span><span class="sig sm yellow"></span><span class="sig sm green"></span></span></span><a class="link t-caption" href="#">열기</a></div>
+        <div><span><strong class="ink">08-10</strong> 사건 발생 · "2Q 실적" · <span class="tri"><span class="sig sm green"></span><span class="sig sm yellow"></span><span class="sig sm green"></span></span></span><a class="link t-caption" href="#">열기</a></div>
+        <div><span><strong class="ink">07-30</strong> 분기 전체 · 기준선 · <span class="tri"><span class="sig sm green"></span><span class="sig sm hold"></span><span class="sig sm green"></span></span></span><a class="link t-caption" href="#">열기</a></div>
+      </div>
+
+      <div class="block-head" style="margin-top:28px"><h3 class="t-section ink">이 종목 거래</h3><a class="link t-caption" href="#">거래 →</a></div>
+      <div class="hist">
+        <div><span><strong class="ink">08-12</strong> 매수 20주 @185,000</span><span class="t-caption">DJ 키움</span></div>
+        <div><span><strong class="ink">07-30</strong> 매수 20주 @179,000</span><span class="t-caption">DJ 키움</span></div>
+      </div>
+
+      <div class="block-head" style="margin-top:28px"><h3 class="t-section ink">가격 · 3개월</h3></div>
+      <div class="chart" id="price-chart" style="margin-top:8px" aria-label="SK하이닉스 가격 차트">
+        <svg viewBox="0 0 640 180" role="img"></svg>
+        <div class="tip"></div>
+      </div>
+      <div class="legend"><span><i style="background:var(--chart-1)"></i>종가</span><span><i class="dash"></i>평균단가 182,000</span></div>
+    </aside>
+  </div>
+</main>
+
+<script>
+(function () {
+  // 테마: 앱과 같은 data-theme 방식. 목업이라 localStorage에만 저장.
+  const root = document.documentElement;
+  try { const t = localStorage.getItem('mock-theme'); if (t) root.dataset.theme = t; } catch (e) {}
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    const dark = root.dataset.theme === 'dark' || (!root.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('mock-theme', root.dataset.theme); } catch (e) {}
+    drawCharts();
+  });
+
+  // 화면 전환 (목록 ↔ 종목 상세)
+  function goto(name) {
+    document.querySelectorAll('.screen').forEach((s) => { s.hidden = s.id !== 'screen-' + name; });
+    window.scrollTo({ top: 0 });
+    drawCharts();
+  }
+  document.querySelectorAll('[data-goto]').forEach((el) => {
+    el.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); goto(el.dataset.goto); });
+  });
+
+  // 탭
+  const PAGE = {
+    holdings: ['Holdings', '보유', '두 계좌 · 국내 5 · 해외 2 종목'],
+    trend: ['Trend', '추이', '평가금액 · 투입원금 · 비중'],
+    transactions: ['Transactions', '거래', '매수·매도·배당·입출금 · 실현손익'],
+    watch: ['Watchlist', '관심', '국내 1 · 해외 2 · 발굴 후보 포함'],
+    advisor: ['Advisor', '어드바이저', '포트폴리오 리포트 · 종목 발굴'],
+  };
+  function selectTab(name) {
+    const [eb, title, sub] = PAGE[name] || PAGE.holdings;
+    document.getElementById('page-eyebrow').textContent = eb;
+    document.getElementById('page-title').textContent = title;
+    document.getElementById('page-sub').textContent = sub;
+    document.title = title + ' · 우리집 투자 · 설계 목업';
+    document.querySelectorAll('[data-tab]').forEach((t) => { const on = t.dataset.tab === name; t.setAttribute('aria-selected', String(on)); t.classList.toggle('is-active', on); });
+    document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== name; });
+    drawCharts();
+  }
+  document.querySelectorAll('[data-tab]').forEach((t) => t.addEventListener('click', () => { goto('list'); selectTab(t.dataset.tab); }));
+  const sw = document.getElementById('space-switch'), sm = document.getElementById('space-menu');
+  sw.addEventListener('click', () => { sm.hidden = !sm.hidden; sw.setAttribute('aria-expanded', String(!sm.hidden)); });
+  document.addEventListener('pointerdown', (e) => { if (!sw.contains(e.target) && !sm.contains(e.target)) { sm.hidden = true; sw.setAttribute('aria-expanded', 'false'); } });
+  document.querySelectorAll('[data-tab-link]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); selectTab(a.dataset.tabLink); }));
+
+  // 계좌 / 국내·해외 소그룹 접기·펼치기 (상태는 브라우저에 기억)
+  let collapsed = new Set();
+  try { collapsed = new Set(JSON.parse(localStorage.getItem('mock-collapsed') || '[]')); } catch (e) {}
+  function applyCollapse() {
+    document.querySelectorAll('tr.toggle').forEach((t) => {
+      const open = !collapsed.has(t.dataset.key);
+      t.setAttribute('aria-expanded', String(open));
+    });
+    document.querySelectorAll('tr[data-of]').forEach((r) => {
+      const keys = r.dataset.of.split(' ');
+      const hiddenByParent = keys.some((k) => collapsed.has(k));
+      if (r.classList.contains('sub')) { if (hiddenByParent) r.hidden = true; return; }
+      r.hidden = hiddenByParent;
+    });
+  }
+  document.querySelectorAll('tr.toggle').forEach((t) => t.addEventListener('click', () => {
+    const k = t.dataset.key; collapsed.has(k) ? collapsed.delete(k) : collapsed.add(k);
+    try { localStorage.setItem('mock-collapsed', JSON.stringify([...collapsed])); } catch (e) {}
+    applyCollapse();
+  }));
+  applyCollapse();
+
+  // 보유 행 펼침
+  document.querySelectorAll('tr[data-expand]').forEach((tr) => tr.addEventListener('click', () => {
+    const sub = document.getElementById(tr.dataset.expand); sub.hidden = !sub.hidden;
+  }));
+
+  // 정정 폼, 리서치 실행 상태 시연
+  document.getElementById('add-adjust').addEventListener('click', () => { const f = document.getElementById('adjust-form'); f.hidden = !f.hidden; });
+  document.getElementById('run-research').addEventListener('click', () => { document.getElementById('research-status').hidden = false; });
+  document.querySelectorAll('.range button, .chips button, .modes button').forEach((b) => b.addEventListener('click', () => {
+    b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', 'false')); b.setAttribute('aria-pressed', 'true');
+  }));
+
+  // ── 차트: 인라인 SVG, 앱의 chart-js 팔레트 토큰과 같은 색 ──────────
+  function css(name) { return getComputedStyle(root).getPropertyValue(name).trim(); }
+  function series(n, start, drift, noise, seed) {
+    const out = []; let v = start; let s = seed;
+    for (let i = 0; i < n; i++) { s = (s * 9301 + 49297) % 233280; const r = s / 233280 - 0.5; v = v + drift + r * noise; out.push(v); }
+    return out;
+  }
+  function fmtWon(v) { return Math.round(v).toLocaleString('ko-KR'); }
+  function dateLabel(i, n) { const d = new Date(2026, 8, 28); d.setDate(d.getDate() - (n - 1 - i)); return (d.getMonth() + 1) + '-' + String(d.getDate()).padStart(2, '0'); }
+
+  function lineChart(el, opts) {
+    const svg = el.querySelector('svg'); const tip = el.querySelector('.tip');
+    const H = Number(svg.dataset.h || svg.getAttribute('viewBox').split(' ')[3]); svg.dataset.h = H;
+    const W = Math.max(320, Math.round(el.clientWidth || 640)); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); const P = { l: 52, r: 12, t: 12, b: 28 };
+    const all = opts.series.flatMap((s) => s.values).concat(opts.refs.map((r) => r.value));
+    let min = Math.min(...all), max = Math.max(...all); const pad = (max - min) * 0.08; min -= pad; max += pad;
+    const n = opts.series[0].values.length;
+    const x = (i) => P.l + (i / (n - 1)) * (W - P.l - P.r);
+    const y = (v) => P.t + (1 - (v - min) / (max - min)) * (H - P.t - P.b);
+    let g = '<g class="grid">';
+    const ticks = 4; let axis = '<g class="axis">';
+    for (let k = 0; k <= ticks; k++) { const v = min + (k / ticks) * (max - min); g += `<line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}"/>`; axis += `<text x="${P.l - 8}" y="${y(v) + 4}" text-anchor="end">${opts.fmtAxis(v)}</text>`; }
+    g += '</g>';
+    for (let k = 0; k < 4; k++) { const i = Math.round((k / 3) * (n - 1)); axis += `<text x="${x(i)}" y="${H - 8}" text-anchor="${k === 0 ? 'start' : k === 3 ? 'end' : 'middle'}">${dateLabel(i, n)}</text>`; }
+    axis += '</g>';
+    let refs = '';
+    opts.refs.forEach((r) => { refs += `<line class="ref" x1="${P.l}" x2="${W - P.r}" y1="${y(r.value)}" y2="${y(r.value)}"/><text class="ref-label" x="${W - P.r}" y="${y(r.value) - 4}" text-anchor="end">${r.label}</text>`; });
+    let lines = '';
+    opts.series.forEach((s) => { const d = s.values.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' '); lines += `<path class="line" d="${d}" stroke="${s.color}"/>`; });
+    let markers = `<line class="crosshair" y1="${P.t}" y2="${H - P.b}" x1="0" x2="0"/>`;
+    opts.series.forEach((s, k) => { markers += `<circle class="marker" r="4" stroke="${s.color}" data-k="${k}"/>`; });
+    svg.innerHTML = g + refs + lines + axis + markers;
+    const cross = svg.querySelector('.crosshair'); const dots = svg.querySelectorAll('.marker');
+    function move(ev) {
+      const rect = svg.getBoundingClientRect(); const px = (ev.clientX - rect.left) / rect.width * W;
+      const i = Math.max(0, Math.min(n - 1, Math.round((px - P.l) / (W - P.l - P.r) * (n - 1))));
+      cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i));
+      dots.forEach((d, k) => { d.setAttribute('cx', x(i)); d.setAttribute('cy', y(opts.series[k].values[i])); });
+      tip.innerHTML = `<b>${dateLabel(i, n)}</b>` + opts.series.map((s) => `<span style="color:${s.color}">●</span> ${s.name} <strong>${opts.fmtTip(s.values[i])}</strong>`).join('<br>');
+      tip.style.left = (x(i) / W * rect.width) + 'px'; tip.style.top = (y(opts.series[0].values[i]) / H * rect.height - 8) + 'px'; tip.style.transform = 'translate(-50%, -100%)';
+      el.classList.add('is-hover');
+    }
+    el.onpointermove = move; el.onpointerleave = () => el.classList.remove('is-hover');
+  }
+
+  function drawCharts() {
+    const trend = document.getElementById('trend-chart');
+    if (trend && !trend.closest('[hidden]')) {
+      const n = 64; const value = series(n, 78.2e6, 95000, 900000, 7); const cost = series(n, 73.5e6, 66000, 0, 1);
+      value[n - 1] = 84.12e6; cost[n - 1] = 77.71e6;
+      lineChart(trend, { series: [{ name: '평가금액', values: value, color: css('--chart-1') }, { name: '투입원금', values: cost, color: css('--chart-2') }], refs: [], fmtAxis: (v) => (v / 1e6).toFixed(0) + 'M', fmtTip: (v) => fmtWon(v) + '원' });
+    }
+    const price = document.getElementById('price-chart');
+    if (price && !price.closest('[hidden]')) {
+      const n = 64; const p = series(n, 176000, -30, 4200, 3); p[n - 1] = 171500;
+      lineChart(price, { series: [{ name: '종가', values: p, color: css('--chart-1') }], refs: [{ value: 182000, label: '평균단가 182,000' }], fmtAxis: (v) => (v / 1000).toFixed(0) + 'k', fmtTip: (v) => fmtWon(v) + '원' });
+    }
+  }
+  drawCharts();
+  window.addEventListener('resize', drawCharts);
+})();
+</script>
+</body>
+</html>
