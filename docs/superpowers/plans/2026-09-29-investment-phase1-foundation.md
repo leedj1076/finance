@@ -1019,7 +1019,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Produces: `type Space = 'ledger' | 'investment'`, `SPACE_COOKIE = 'finance-space'`, `parseSpace(value: string | undefined): Space` (기본 'ledger'). `HeaderSection`에 `'investment' | 'investment-trend' | 'investment-transactions' | 'investment-watch' | 'investment-advisor' | 'investment-settings'` 추가. `AppHeaderMenu`와 `AppHeader`에 `space?: Space` prop(기본 'ledger').
 - 투자 공간의 헤더: 브랜드 "↗ 우리집 투자", 주 메뉴 보유·추이·거래·관심·어드바이저, 톱니는 `/investment/settings`, 모바일 하단 바 보유·추이·거래·관심·더보기(더보기에 어드바이저·설정·"가계부로"). 가계부 공간의 헤더는 지금과 동일하고 브랜드 팝오버만 추가된다. 가계부 메뉴에 `투자` 항목은 넣지 않는다.
 
-- [ ] **Step 1: 실패하는 테스트**
+- [x] **Step 1: 실패하는 테스트**
 
 `tests/finance/app-header-space.test.tsx`:
 
@@ -1067,12 +1067,12 @@ describe('AppHeaderMenu spaces', () => {
 })
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/app-header-space.test.tsx`
 Expected: FAIL — `@/features/investment/space` 없음, `space` prop 타입 오류.
 
-- [ ] **Step 3: space 헬퍼**
+- [x] **Step 3: space 헬퍼**
 
 `src/features/investment/space.ts`:
 
@@ -1089,7 +1089,7 @@ export function parseSpace(value: string | undefined): Space {
 export const SPACE_HOME: Record<Space, string> = { ledger: '/dashboard', investment: '/investment' }
 ```
 
-- [ ] **Step 4: 헤더 메뉴 수정**
+- [x] **Step 4: 헤더 메뉴 수정**
 
 `src/components/app-header-menu.tsx`를 다음으로 바꾼다(기존 팝오버·모바일 로직 유지, 공간별 링크 목록 분리):
 
@@ -1331,7 +1331,7 @@ export default async function Home() {
 }
 ```
 
-- [ ] **Step 5: 통과 확인과 게이트**
+- [x] **Step 5: 통과 확인과 게이트**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/app-header-space.test.tsx`
 Expected: 4 passed.
@@ -1339,7 +1339,7 @@ Expected: 4 passed.
 Run: `NODE_OPTIONS= pnpm exec tsc --noEmit && NODE_OPTIONS= pnpm lint && NODE_OPTIONS= pnpm test`
 Expected: 기존 헤더 관련 테스트 포함 전부 통과. `HeaderSection` 유니온이 커졌으므로 `active`를 문자열 리터럴로 넘기는 기존 페이지는 그대로 컴파일된다.
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/features/investment/space.ts src/components/app-header-menu.tsx src/components/app-header.tsx src/app/page.tsx src/app/globals.css tests/finance/app-header-space.test.tsx
