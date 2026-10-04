@@ -54,7 +54,7 @@ test.describe('monthly diagnosis', () => {
         if (heartbeat.error) throw heartbeat.error
         expect(heartbeat.data).toBe(true)
         await page.goto('/ledger?month=2026-07&tab=ai&flow=expense&major=보험&q=unmatched')
-        await expect(page.getByRole('navigation', { name: '거래 보기' }).getByRole('link')).toHaveText(['요약', '목록', 'AI 진단', '카테고리', '가맹점'])
+        await expect(page.getByRole('navigation', { name: '거래 보기' }).getByRole('link')).toHaveText(['요약', 'AI 진단', '카테고리', '가맹점', '목록'])
         const panel = page.getByRole('region', { name: '7월 AI 진단', exact: true })
         await expect(panel.getByText('64.8', { exact: false }).first()).toBeVisible()
         await expect(panel.getByText('아직 7월 진단이 없어요')).toBeVisible()

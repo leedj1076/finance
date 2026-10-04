@@ -68,7 +68,14 @@
 - investment-queries.test.ts: 추가 RED 키체인 별칭·3개월 가격 누락 → 11/11 (기존 9 + 신규 2).
 - 게이트: tsc/lint exit 0. 유닛 92파일 · 828/828 (9.68초). 통합 45파일 · 372/372 (44.44초).
 - 브라우저: 계좌 → 입금·매수 → 보유/KPI → 메모 저장·새로고침 통과. 1440/390px 8장 + 실제 다크 테마 1장. 가로 넘침 0, 페이지 오류 0.
-- 합성 데이터만 ID/가구 조건으로 제거. dev 서버 종료. 커밋: 다음 기록에서 해시 갱신.
+- 합성 데이터만 ID/가구 조건으로 제거. dev 서버 종료. 커밋: 9755906.
+
+### Task 10 — 완료
+- investment.spec.ts: 최초 0/1. 가계부 전환 직후 `/`가 투자로 돌아가는 실제 쿠키 갱신 경합 확인.
+- 전환 링크 클릭에서 쿠키 즉시 기록, SpaceMemo도 같은 헬퍼 사용. 검사 동작 변경 없이 1/1 (34.2초, 테스트 5.0초).
+- 계좌/관심 추가·입금/매수·초과 매도 거부·평균단가/예수금·접힘 유지·보유 메모 reload·390px 펼침·가계부 복귀 증명.
+- 첫 전체 E2E: 113통과/6실패 (2.6분). 기존 auth/parity의 중복 텍스트 2건, diagnosis의 옛 탭 순서 2건은 셀렉터/문구만 수정. 투자/정기거래의 간헐적 React 418 2건은 dev 모드 반복 6/6에서 재현 안 됨; 오류 검사를 유지하고 전체 재검증.
+- 전체 재검증: 119/119 (2.4분), retry/skip 없음. 간헐적 오류가 고쳐졌다고 단정하지 않음. 커밋: 다음 기록에서 해시 갱신.
 
 ## 계획과의 차이
 | 태스크 · 파일 | 무엇을 | 왜 |
@@ -98,6 +105,9 @@
 | 9 · queries.ts, investment-queries.test.ts, detail/page, trend-chart | 가구별 3개월 가격 조회·종가/평균단가 차트, 설정의 키체인 별칭 반환 | 명세 4.6과 종목 상세 목업의 가격 비교는 AI 영역이 아님. 초안에서 누락되어 기존 조회 테스트에 2개 추가 |
 | 9 · detail/trend/advisor, allocation-bars | 단가·시세 미상은 대시, 환율 없으면 해외 비중 제외, 유한값/막대 폭 제한 | 알려지지 않은 비용·가격을 0으로 계산한 허위 손익·100% 예수금 표시 차단 |
 | 9 · account-form, holding-memo-form | 34px 컨트롤, 좁은 화면 그리드, v-regex의 하이픈 이스케이프 | 저장소 시각 규칙·브라우저 유효성 검사 준수. 비중 설명은 실제 계산 분모인 주식 계좌로 명시 |
+| 10 · investment.spec.ts | 실제 heading·summary·button 셀렉터; 예수금·메모 reload·모바일 검사 추가 | 계획의 tr 토글은 접근성 button으로 구현. 행동 단언은 유지/강화 |
+| 10 · app-header-menu, space, space-memo | 공간 링크에서 쿠키 즉시 저장 | E2E가 발견한 `/`의 이전 공간 복귀 버그. 렌더 후 effect만 기다리지 않음 |
+| 10 · tests/e2e/auth, diagnosis, parity | 저장/오류 표시를 실제 행·셀로 한정, 탭 순서를 실제 렌더로 정정 | 사용자 지침의 셀렉터·문구 수정 범위. 기존 행동 검사 유지 |
 
 ## 화면 비교
 - Task 7 · 헤더/상태/KPI/표: PNG 01·02·10과 비교. 48px/20px 여백, KPI 4열/2열, 표 8열/3열 확인. 차이는 합성 데이터·시세/리서치 연결 상태. `impl/task7-desktop.png`, `task7-mobile.png`, `task7-mobile-expanded.png`.
@@ -105,10 +115,21 @@
 - Task 9 · 추이/어드바이저/상세/설정: PNG 03·06·07·09·12·13과 비교. 데스크톱 좌우 영역·모바일 세로 배치·메모 폼·다크 토큰 확인. 시세·AI 없는 상태의 높이/내용 차이는 의도적. `impl/task9-{trend,advisor,detail,settings}-{desktop,mobile}.png`, `task9-detail-dark.png`.
 
 ## 최종 게이트 출력
-실행 전.
+Task 10 브랜치 끝에서 로컬 CLI 환경을 주입해 순서대로 실행:
+| 명령 | 결과 |
+|---|---|
+| NODE_OPTIONS= pnpm exec tsc --noEmit | exit 0 · 오류 0 |
+| NODE_OPTIONS= pnpm lint | exit 0 · 오류 0 |
+| NODE_OPTIONS= pnpm test | 92파일 · 828/828 · 12.55초 |
+| NODE_OPTIONS= pnpm test:db | 45파일 · 372/372 · 52.77초 |
+| NODE_OPTIONS= pnpm build | exit 0 · 정적 페이지 28/28 |
+| NODE_OPTIONS= pnpm e2e | 119/119 · 2.4분 |
+- 기존 경고: Vite CJS 설정 로더 1종, Playwright NO_COLOR/FORCE_COLOR 충돌. 실패 없음.
+- E2E 캡처: `test-results/investment-investment-spac-1b7e1-totals-collapse-detail-memo-chromium/investment-desktop.png`, `investment-mobile.png`.
+- 기존 예산 E2E가 다시 쓴 `docs/design/budget-editor/result/` PNG 6개는 스테이징하지 않음.
 
 ## 못 한 것과 이유
-Task 10·최종 리뷰 진행 예정. push·배포·운영 DB 변경 없음.
+최종 독립 리뷰 진행 예정. push·배포·운영 DB 변경 없음.
 
 ## 제안
 없음.

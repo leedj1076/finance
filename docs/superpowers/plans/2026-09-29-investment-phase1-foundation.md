@@ -3581,7 +3581,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Files:**
 - Create: `tests/e2e/investment.spec.ts`
 
-- [ ] **Step 1: E2E 작성**
+- [x] **Step 1: E2E 작성**
 
 `tests/e2e/investment.spec.ts`:
 
@@ -3701,12 +3701,12 @@ test('investment space: account, manual trades, holdings totals, collapse, detai
 
 시세가 없으면 평가금액 열은 `–`이고 국내 평가 KPI는 0이다. 위 단언은 그 상태를 검사한다(평균단가 열의 71,200과 "시세 없음" 표시).
 
-- [ ] **Step 2: E2E 실행**
+- [x] **Step 2: E2E 실행**
 
 Run: `NODE_OPTIONS= pnpm e2e tests/e2e/investment.spec.ts`
 Expected: 1 passed. 실패하면 실패 지점의 셀렉터·문구를 실제 렌더에 맞춰 고치되, 단언이 검사하는 동작 자체를 약화하지 않는다.
 
-- [ ] **Step 3: 최종 게이트**
+- [x] **Step 3: 최종 게이트**
 
 Run (순서대로, 결과를 실제 숫자로 기록):
 
@@ -3721,7 +3721,7 @@ NODE_OPTIONS= pnpm e2e
 
 Expected: 전부 통과. `pnpm e2e`가 `docs/design/budget-editor/result/`의 PNG를 다시 쓰면 그 파일들은 스테이징하지 않는다.
 
-- [ ] **Step 4: 커밋**
+- [x] **Step 4: 커밋**
 
 ```bash
 git add tests/e2e/investment.spec.ts

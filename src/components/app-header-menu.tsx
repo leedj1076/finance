@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 
-import { SPACE_HOME, type Space } from '@/features/investment/space'
+import { rememberSpace, SPACE_HOME, type Space } from '@/features/investment/space'
 
 import { ThemeSelector } from './theme-selector'
 
@@ -125,6 +125,7 @@ export function AppHeaderMenu({ active, email, pendingInboxCount, space = 'ledge
                   className={`finance-popover-item ${item.key === space ? 'is-current' : ''}`}
                   href={SPACE_HOME[item.key]}
                   key={item.key}
+                  onClick={() => rememberSpace(item.key)}
                   role="menuitem"
                 >
                   <span>{item.label}</span>
@@ -198,7 +199,7 @@ export function AppHeaderMenu({ active, email, pendingInboxCount, space = 'ledge
               <Link className={navClass(active === 'settings' || active === 'investment-settings')} href={link.href} key={link.href} role="menuitem">{link.label}</Link>
             ))}
             <p>공간</p>
-            <Link className="finance-nav-link" href={SPACE_HOME[other.key]} role="menuitem">{other.label}로 전환</Link>
+            <Link className="finance-nav-link" href={SPACE_HOME[other.key]} onClick={() => rememberSpace(other.key)} role="menuitem">{other.label}로 전환</Link>
             <p>테마</p>
             <ThemeSelector mobile />
             <div className="finance-mobile-account">

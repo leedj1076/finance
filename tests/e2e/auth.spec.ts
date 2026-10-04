@@ -189,7 +189,7 @@ test('family user can manage a transaction and change their password', async ({ 
     page.on('request', navigationCounter)
     await editingRow.getByRole('button', { name: '거래 수정 저장' }).click()
     await expect(page.getByRole('row', { name: /E2E 장보기/ })).toContainText('15,000원')
-    await expect(page.getByText('저장됨')).toBeVisible()
+    await expect(page.getByRole('row', { name: /E2E 장보기/ }).getByText('저장됨')).toBeVisible()
     page.off('request', navigationCounter)
     expect(await page.evaluate(() => performance.timeOrigin)).toBe(documentBeforeSave)
     expect(fullPageNavigations).toBe(0)

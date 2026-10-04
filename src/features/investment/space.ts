@@ -8,3 +8,7 @@ export function parseSpace(value: string | undefined): Space {
 }
 
 export const SPACE_HOME: Record<Space, string> = { ledger: '/dashboard', investment: '/investment' }
+
+export function rememberSpace(space: Space) {
+  document.cookie = `${SPACE_COOKIE}=${space}; path=/; max-age=${SPACE_COOKIE_MAX_AGE}; samesite=lax`
+}

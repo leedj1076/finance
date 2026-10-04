@@ -238,7 +238,7 @@ test('ledger inline save keeps the page, draft and scroll while refreshing filte
     await edit.getByRole('textbox', { name: '사용내역', exact: true }).fill('수정할 거래 변경')
     await edit.getByRole('textbox', { name: '금액', exact: true }).fill('0')
     await edit.getByRole('button', { name: '거래 수정 저장' }).click()
-    await expect(page.getByText('금액은 0이 아닌 정수로 입력해 주세요.')).toBeVisible()
+    await expect(page.getByRole('cell', { name: '금액은 0이 아닌 정수로 입력해 주세요.' })).toBeVisible()
     await expect(edit.getByRole('textbox', { name: '사용내역', exact: true })).toHaveValue('수정할 거래 변경')
     await expect(edit.getByRole('textbox', { name: '금액', exact: true })).toHaveValue('0')
     await edit.getByRole('textbox', { name: '금액', exact: true }).fill('7000')
