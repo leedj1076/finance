@@ -17,7 +17,12 @@
 - 원인: 2026-09가 진행 중이라는 fixture 전제인데 getBudgetData의 기본 now=new Date()를 사용. 현재 10월이므로 9월 수입 90,000,000도 평균에 포함. 해당 테스트와 쿼리는 시작 커밋 대비 변경 0.
 - 사용자 계속 진행 승인 후 동일 조회 구현 readBudgetData(db, householdId, '2026-09', 2026-09-15) 사용. getBudgetData 래퍼는 now 인자를 노출하지 않음. import 2곳·호출 1곳 변경, 단언·운영 계산식 변경 없음.
 - 재검증: 통합 43파일 · 347/347 (50.05초), 유닛 85파일 · 756/756, tsc/lint exit 0.
-- 커밋: 이 태스크의 schema 커밋(해시는 다음 기록에서 갱신).
+- 커밋: 904cb6f.
+
+### Task 2 — 완료
+- investment-format.test.ts: RED 모듈 없음 → GREEN 6/6 (기본 3 + 비유한값 3).
+- 게이트: tsc/lint exit 0. 유닛 86파일 · 762/762.
+- 커밋: 이 태스크의 formatter 커밋(해시는 다음 기록에서 갱신).
 
 ## 계획과의 차이
 | 태스크 · 파일 | 무엇을 | 왜 |
@@ -27,6 +32,7 @@
 | 1 · investment-schema.test.ts | rejects.toThrow에서 cause.constraint_name 검사로 변경 | 현재 Drizzle은 PostgreSQL 제약조건 오류를 cause로 감쌈. 제약조건 이름 검사는 유지 |
 | 실행 환경 | CLI에서 로컬 환경을 주입 | .env.local 기본값으로 운영 DB를 건드리는 경로 방지 |
 | 1 · tests/integration/simulator.test.ts | 테스트 기준 날짜 고정 | 10월 이후에도 9월 진행 중 fixture를 동일하게 검증. 사용자 계속 진행 승인 |
+| 2 · format.ts | 비유한값·표시 반올림 후 음의 0 차단, MINUS 내부 상수 | 사용자 금액 안전 규칙. 쓰이지 않는 export 방지 |
 
 ## 화면 비교
 실행 전.

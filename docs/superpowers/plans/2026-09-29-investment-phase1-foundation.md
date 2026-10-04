@@ -544,7 +544,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `formatMoney(value: number, currency: Currency): string` ('KRW' → `formatWon` + 없음, 'USD' → `$1,234.56`), `formatSigned(value: number, currency: Currency): string` (`+864,000` / `−$12.30`, 0은 `0`), `formatPct(value: number | null): string` (`+10.1%` / `−5.8%` / `–`), `MINUS = '−'` (U+2212).
 
-- [ ] **Step 1: 실패하는 테스트**
+- [x] **Step 1: 실패하는 테스트**
 
 `tests/finance/investment-format.test.ts`:
 
@@ -574,12 +574,12 @@ describe('investment formatters', () => {
 })
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-format.test.ts`
 Expected: FAIL — 모듈 없음.
 
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
 
 `src/features/investment/format.ts`:
 
@@ -612,12 +612,12 @@ export function formatPct(value: number | null) {
 }
 ```
 
-- [ ] **Step 4: 통과 확인**
+- [x] **Step 4: 통과 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-format.test.ts`
 Expected: 3 passed.
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/features/investment/format.ts tests/finance/investment-format.test.ts
