@@ -128,6 +128,31 @@ test('a month excludes the first day of the next month', async () => {
   } finally { await db.delete(investmentTransactions).where(eq(investmentTransactions.id, row.id)) }
 })
 
+test('deactivating an account excludes current holdings, detail and trend but retains transaction history', async () => {
+  const snapshots = await db.insert(priceSnapshots).values([
+    { householdId, securityId: samsung, date: '2026-09-28', close: '78400', currency: 'KRW', source: 'manual' },
+    { householdId, securityId: nvda, date: '2026-09-28', close: '131.05', currency: 'USD', source: 'manual' },
+  ]).returning()
+  await db.update(investmentAccounts).set({ active: false }).where(eq(investmentAccounts.id, yj))
+  await db.update(investmentSecurities).set({ watching: true }).where(eq(investmentSecurities.id, nvda))
+  try {
+    const holdings = await getHoldingsData(householdId)
+    expect(holdings.summary.US.value).toBe(0)
+    expect((await getSecurityDetail(householdId, nvda))?.positions).toEqual([])
+    expect((await getSecurityDetail(householdId, samsung))?.positions[0].weightPct).toBe(holdings.groups[0].markets[0].rows[0].weightPct)
+    const trend = await getTrendData(householdId, 'all', 'total')
+    expect(trend.allocation.filter(row => ['해외 주식', '달러 예수금'].includes(row.label)).map(row => row.pct)).toEqual([0, 0])
+    expect(trend.points).toEqual([{ date: '2026-09-28', value: holdings.summary.totalKRW, cost: 10000000 }])
+    expect((await getWatchData(householdId)).map(row => row.security.id)).toContain(nvda)
+    expect((await getTransactionsData(householdId, '2026-09', 'US')).rows).toHaveLength(2)
+    expect((await getSecurityDetail(householdId, nvda))?.transactions).toHaveLength(1)
+  } finally {
+    await db.update(investmentAccounts).set({ active: true }).where(eq(investmentAccounts.id, yj))
+    await db.update(investmentSecurities).set({ watching: false }).where(eq(investmentSecurities.id, nvda))
+    for (const row of snapshots) await db.delete(priceSnapshots).where(eq(priceSnapshots.id, row.id))
+  }
+})
+
 test('market subtotals do not invent gains on positions whose basis is unknown', async () => {
   const [security] = await db.insert(investmentSecurities).values({ householdId, market: 'KR', symbol: 'UNKNOWN', name: 'Unknown', currency: 'KRW', exposureCurrency: 'KRW' }).returning()
   const [transaction] = await db.insert(investmentTransactions).values({ householdId, accountId: dj, securityId: security.id, kind: 'adjust', tradeDate: '2026-09-01', quantity: '1', amount: '0', currency: 'KRW', source: 'manual' }).returning()

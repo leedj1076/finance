@@ -79,6 +79,10 @@ function status(inputs: PortfolioInputs): StatusLine {
   return { quotedAt: inputs.quotedAt, fx: inputs.fx, lastSyncedAt: inputs.lastSyncedAt, workerConnected: false }
 }
 
+function activeAccountIds(inputs: PortfolioInputs, owner?: string) {
+  return new Set(inputs.accounts.filter(a => a.active && (!owner || a.owner === owner)).map(a => a.id))
+}
+
 function marketGroups(rows: HoldingRow[], fx: FxRow | null): MarketGroup[] {
   return (['KR', 'US'] as Market[]).flatMap((market) => {
     const group = rows.filter((r) => r.market === market)
@@ -93,8 +97,8 @@ function marketGroups(rows: HoldingRow[], fx: FxRow | null): MarketGroup[] {
 
 export async function getHoldingsData(householdId: string, owner?: string): Promise<HoldingsData> {
   const inputs = await loadPortfolioInputs(householdId)
-  const accounts = inputs.accounts.filter((a) => a.active && (!owner || a.owner === owner))
-  const accountIds = new Set(accounts.map((a) => a.id))
+  const accountIds = activeAccountIds(inputs, owner)
+  const accounts = inputs.accounts.filter(a => accountIds.has(a.id))
   const transactions = inputs.transactions.filter((t) => accountIds.has(t.accountId))
   const positions = foldPositions(transactions)
   const valued = valuePositions(positions, inputs.securities, inputs.quotes, inputs.closes)
@@ -167,7 +171,8 @@ export async function getTransactionsData(householdId: string, month: string, ma
 
 export async function getWatchData(householdId: string): Promise<WatchRow[]> {
   const inputs = await loadPortfolioInputs(householdId)
-  const held = new Set(foldPositions(inputs.transactions).map((p) => p.securityId))
+  const accountIds = activeAccountIds(inputs)
+  const held = new Set(foldPositions(inputs.transactions.filter(t => accountIds.has(t.accountId))).map((p) => p.securityId))
   const quoteById = new Map(inputs.quotes.map((q) => [q.securityId, q]))
   return inputs.securities.filter((s) => s.watching && !held.has(s.id)).map((security) => ({
     security, price: quoteById.get(security.id)?.price ?? inputs.closes.get(security.id) ?? null, changeRate: quoteById.get(security.id)?.changeRate ?? null,
@@ -178,9 +183,11 @@ const RANGE_DAYS = { '1m': 31, '3m': 92, '1y': 366, all: 36500 } as const
 
 export async function getTrendData(householdId: string, range: keyof typeof RANGE_DAYS, scope: 'total' | Market): Promise<TrendData> {
   const inputs = await loadPortfolioInputs(householdId)
-  const positions = foldPositions(inputs.transactions)
+  const accountIds = activeAccountIds(inputs)
+  const transactions = inputs.transactions.filter(t => accountIds.has(t.accountId))
+  const positions = foldPositions(transactions)
   const valued = valuePositions(positions, inputs.securities, inputs.quotes, inputs.closes)
-  const cash = cashBalances(inputs.transactions)
+  const cash = cashBalances(transactions)
   const summary = aggregateByMarket(valued, cash, inputs.fx)
   const toKRW = (usd: number) => inputs.fx ? usd * inputs.fx.rate : 0
   const parts = [
@@ -201,7 +208,7 @@ export async function getTrendData(householdId: string, range: keyof typeof RANG
   const dates = [...new Set(snapshots.map((s) => s.date))].filter(date => date >= sinceKey)
   const points: TrendData['points'] = []
   for (const date of dates) {
-    const dayTransactions = inputs.transactions.filter(t => t.tradeDate <= date)
+    const dayTransactions = transactions.filter(t => t.tradeDate <= date)
     const dayPositions = foldPositions(dayTransactions).filter(p => scope === 'total' || secById.get(p.securityId)?.market === scope)
     const dayCash = cashBalances(dayTransactions).filter(c => scope === 'total' || c.currency === (scope === 'US' ? 'USD' : 'KRW'))
     const dayCloses = new Map<number, number>()
@@ -229,10 +236,12 @@ export async function getSecurityDetail(householdId: string, securityId: number)
   const [row] = await db.select().from(investmentSecurities).where(and(eq(investmentSecurities.id, securityId), eq(investmentSecurities.householdId, householdId))).limit(1)
   if (!row) return null
   const inputs = await loadPortfolioInputs(householdId)
-  const positions = foldPositions(inputs.transactions).filter((p) => p.securityId === securityId)
-  const allValued = valuePositions(foldPositions(inputs.transactions), inputs.securities, inputs.quotes, inputs.closes)
-  const weights = weightsKRW(allValued, cashBalances(inputs.transactions), inputs.fx)
-  const diffs = discrepancies(positions, inputs.broker.filter((b) => b.securityId === securityId))
+  const accountIds = activeAccountIds(inputs)
+  const transactions = inputs.transactions.filter(t => accountIds.has(t.accountId))
+  const positions = foldPositions(transactions).filter((p) => p.securityId === securityId)
+  const allValued = valuePositions(foldPositions(transactions), inputs.securities, inputs.quotes, inputs.closes)
+  const weights = weightsKRW(allValued, cashBalances(transactions), inputs.fx)
+  const diffs = discrepancies(positions, inputs.broker.filter((b) => accountIds.has(b.accountId) && b.securityId === securityId))
   const valued = valuePositions(positions, inputs.securities, inputs.quotes, inputs.closes)
   const security = inputs.securities.find((s) => s.id === securityId)!
   const raw = await db.select({ id: investmentTransactions.id, brokerRef: investmentTransactions.brokerRef, memo: investmentTransactions.memo })
