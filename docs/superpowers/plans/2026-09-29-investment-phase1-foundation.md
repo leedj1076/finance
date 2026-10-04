@@ -3147,7 +3147,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Produces: `TrendChart({ points, scope })`(client, Line 두 계열: 평가금액 `palette.series[0]`, 투입원금 `palette.series[1]`), `AllocationBars({ items })`, `HoldingMemoForm({ security })`(client, `saveHoldingMemo`), `AccountForm({ account? })`(client, `saveInvestmentAccount`).
 - 어드바이저·종목 상세의 AI 영역은 1단계에서 **빈 상태**만 그린다: "헬스체크는 3단계에서 연결됩니다" + 비활성 버튼. 3단계가 이 자리를 채운다.
 
-- [ ] **Step 1: 실패하는 테스트**
+- [x] **Step 1: 실패하는 테스트**
 
 `tests/finance/investment-detail.test.tsx`:
 
@@ -3192,12 +3192,12 @@ describe('AllocationBars', () => {
 })
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-detail.test.tsx`
 Expected: FAIL — 모듈 없음.
 
-- [ ] **Step 3: 차트·막대·폼 부품**
+- [x] **Step 3: 차트·막대·폼 부품**
 
 `src/features/investment/trend-chart.tsx`:
 
@@ -3339,7 +3339,7 @@ export function AccountForm({ account }: { account?: AccountRow & { credentialRe
 
 `getInvestmentSettingsData`가 `credentialRef`를 돌려주도록 Task 6의 함수를 고친다: `loadPortfolioInputs` 대신 `db.select().from(investmentAccounts).where(eq(investmentAccounts.householdId, householdId)).orderBy(asc(investmentAccounts.sortOrder), asc(investmentAccounts.id))`를 직접 읽어 `{ accounts: Array<AccountRow & { credentialRef: string }> }`를 반환한다. 키체인 항목 **이름**은 비밀이 아니다(시크릿 본문은 Mac 키체인에만 있다, 명세 4.4).
 
-- [ ] **Step 4: 페이지 네 개**
+- [x] **Step 4: 페이지 네 개**
 
 `src/app/investment/trend/page.tsx`:
 
@@ -3556,7 +3556,7 @@ export default async function InvestmentSettingsPage() {
 }
 ```
 
-- [ ] **Step 5: 통과 확인과 화면 확인**
+- [x] **Step 5: 통과 확인과 화면 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-detail.test.tsx`
 Expected: 3 passed.
@@ -3565,7 +3565,7 @@ Run: `NODE_OPTIONS= pnpm exec tsc --noEmit && NODE_OPTIONS= pnpm lint && NODE_OP
 
 `NODE_OPTIONS= pnpm dev`로 띄워 로그인 후: `/investment/settings`에서 계좌 추가 → `/investment/transactions`에서 입금·매수 입력 → `/investment`에 계좌 행·국내 소그룹·종목 행이 나오고 KPI가 맞는지 → 종목 행 클릭 → 상세에서 보유 메모 저장 → `/investment/trend`에 빈 상태와 비중 막대 → `/investment/advisor` 빈 상태. 1440px과 390px 폭에서 각각 확인하고 dev 서버를 종료한다.
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/app/investment/trend/page.tsx src/app/investment/advisor/page.tsx "src/app/investment/[securityId]/page.tsx" src/app/investment/settings/page.tsx src/features/investment/trend-chart.tsx src/features/investment/allocation-bars.tsx src/features/investment/holding-memo-form.tsx src/features/investment/account-form.tsx src/features/investment/queries.ts tests/finance/investment-detail.test.tsx

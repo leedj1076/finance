@@ -61,7 +61,14 @@
 - 게이트: tsc/lint exit 0. 유닛 91파일 · 822/822.
 - 로컬 빈 상태 3화면, 합성 계좌·거래로 1440/390px 6장. USD 선택 표시·공간 전환 통과. 페이지 가로 넘침 0.
 - 촬영 스크립트의 select 라벨 exact 판정 1회 timeout → 실제 name 속성으로 수정 후 통과. 합성 행만 ID/가구 조건으로 삭제, dev 종료.
-- 커밋: 보유·거래·관심 태스크 커밋(다음 기록에서 해시 갱신).
+- 커밋: cc163e8.
+
+### Task 9 — 완료
+- investment-detail.test.tsx: RED 모듈 없음 → 3/3. 추가 RED 단가 미상·미평가·컨트롤 높이 → 6/6.
+- investment-queries.test.ts: 추가 RED 키체인 별칭·3개월 가격 누락 → 11/11 (기존 9 + 신규 2).
+- 게이트: tsc/lint exit 0. 유닛 92파일 · 828/828 (9.68초). 통합 45파일 · 372/372 (44.44초).
+- 브라우저: 계좌 → 입금·매수 → 보유/KPI → 메모 저장·새로고침 통과. 1440/390px 8장 + 실제 다크 테마 1장. 가로 넘침 0, 페이지 오류 0.
+- 합성 데이터만 ID/가구 조건으로 제거. dev 서버 종료. 커밋: 다음 기록에서 해시 갱신.
 
 ## 계획과의 차이
 | 태스크 · 파일 | 무엇을 | 왜 |
@@ -88,16 +95,20 @@
 | 7 · 미리보기·스크린샷 | 임시 합성 미리보기 제거 후 impl PNG 3개 저장 | 공통 부품만 있는 Task 7에서도 화면 검증 요구를 이행 |
 | 8 · page.tsx | 시장 URL 토글과 가구별 HoldingsTable 연결, 미평가·단가 미상 KPI는 대시 | 명세 4.6 필터, 알려지지 않은 값을 0원으로 표시하지 않는 규칙 |
 | 8 · transaction-form/transactions/watch-form | 통화 동기화·활성 계좌 제한·34px 컨트롤·저장 상태·접히는 입력 폼 | 계획의 USD 표시 오류, 빈 계좌 제출, 성공 피드백 누락 보완. 목업의 인라인 펼침 유지 |
+| 9 · queries.ts, investment-queries.test.ts, detail/page, trend-chart | 가구별 3개월 가격 조회·종가/평균단가 차트, 설정의 키체인 별칭 반환 | 명세 4.6과 종목 상세 목업의 가격 비교는 AI 영역이 아님. 초안에서 누락되어 기존 조회 테스트에 2개 추가 |
+| 9 · detail/trend/advisor, allocation-bars | 단가·시세 미상은 대시, 환율 없으면 해외 비중 제외, 유한값/막대 폭 제한 | 알려지지 않은 비용·가격을 0으로 계산한 허위 손익·100% 예수금 표시 차단 |
+| 9 · account-form, holding-memo-form | 34px 컨트롤, 좁은 화면 그리드, v-regex의 하이픈 이스케이프 | 저장소 시각 규칙·브라우저 유효성 검사 준수. 비중 설명은 실제 계산 분모인 주식 계좌로 명시 |
 
 ## 화면 비교
 - Task 7 · 헤더/상태/KPI/표: PNG 01·02·10과 비교. 48px/20px 여백, KPI 4열/2열, 표 8열/3열 확인. 차이는 합성 데이터·시세/리서치 연결 상태. `impl/task7-desktop.png`, `task7-mobile.png`, `task7-mobile-expanded.png`.
 - Task 8 · 보유/거래/관심: PNG 01·04·05·10·11과 비교. 헤어라인·열 정렬·34px 컨트롤·모바일 2열 KPI 확인. 미실행 AI 열은 1단계 빈 상태. `impl/task8-{holdings,transactions,watch}-{desktop,mobile}.png`.
+- Task 9 · 추이/어드바이저/상세/설정: PNG 03·06·07·09·12·13과 비교. 데스크톱 좌우 영역·모바일 세로 배치·메모 폼·다크 토큰 확인. 시세·AI 없는 상태의 높이/내용 차이는 의도적. `impl/task9-{trend,advisor,detail,settings}-{desktop,mobile}.png`, `task9-detail-dark.png`.
 
 ## 최종 게이트 출력
 실행 전.
 
 ## 못 한 것과 이유
-Task 9~10 진행 예정. push·배포·운영 DB 변경 없음.
+Task 10·최종 리뷰 진행 예정. push·배포·운영 DB 변경 없음.
 
 ## 제안
 없음.

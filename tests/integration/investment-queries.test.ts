@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
 import { db } from '@/db/client'
 import { fxRates, households, investmentAccounts, investmentSecurities, investmentTransactions, latestQuotes, priceSnapshots } from '@/db/schema'
-import { getHoldingsData, getSecurityDetail, getTransactionsData, getTrendData, getWatchData } from '@/features/investment/queries'
+import { getHoldingsData, getInvestmentSettingsData, getSecurityDetail, getTransactionsData, getTrendData, getWatchData } from '@/features/investment/queries'
 
 let householdId = ''
 let otherHouseholdId = ''
@@ -44,6 +44,11 @@ afterAll(async () => {
 })
 
 describe('getHoldingsData', () => {
+  test('settings preserves keychain references and isolates households', async () => {
+    const data = await getInvestmentSettingsData(householdId)
+    expect(data.accounts).toEqual(expect.arrayContaining([expect.objectContaining({ id: dj, credentialRef: 'dj' }), expect.objectContaining({ id: yj, credentialRef: 'yj' })]))
+    expect((await getInvestmentSettingsData(otherHouseholdId)).accounts).toEqual([])
+  })
   test('groups by account then market, values in native currency, converts only totals', async () => {
     const data = await getHoldingsData(householdId)
     expect(data.groups.map((g) => g.account.name)).toEqual(['DJ 키움 종합', 'YJ 키움 종합'])
@@ -85,6 +90,15 @@ describe('getTransactionsData', () => {
 })
 
 describe('getWatchData / getTrendData / getSecurityDetail', () => {
+  test('detail reads only this security daily closes for the price chart', async () => {
+    const date = new Date().toISOString().slice(0, 10)
+    const [snapshot] = await db.insert(priceSnapshots).values({ householdId, securityId: samsung, date, close: '78000', currency: 'KRW', source: 'manual' }).returning()
+    try {
+      expect((await getSecurityDetail(householdId, samsung))?.priceHistory).toEqual([{ date, close: 78000 }])
+      expect((await getSecurityDetail(householdId, nvda))?.priceHistory).toEqual([])
+      expect(await getSecurityDetail(otherHouseholdId, samsung)).toBeNull()
+    } finally { await db.delete(priceSnapshots).where(eq(priceSnapshots.id, snapshot.id)) }
+  })
   test('watch lists watching securities without a position', async () => {
     const rows = await getWatchData(householdId)
     expect(rows.map((r) => r.security.symbol)).toEqual(['AMAT'])

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lt } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, lt, lte } from 'drizzle-orm'
 
 import { db } from '@/db/client'
 import { brokerPositions, fxRates, investmentAccounts, investmentSecurities, investmentTransactions, latestQuotes, priceSnapshots } from '@/db/schema'
@@ -30,6 +30,7 @@ export type SecurityDetail = {
   price: number | null
   changeRate: number | null
   transactions: TransactionListRow[]
+  priceHistory: Array<{ date: string; close: number }>
   neighbors: { prev: { id: number; name: string } | null; next: { id: number; name: string } | null }
 }
 export type PortfolioInputs = {
@@ -237,6 +238,11 @@ export async function getSecurityDetail(householdId: string, securityId: number)
   const raw = await db.select({ id: investmentTransactions.id, brokerRef: investmentTransactions.brokerRef, memo: investmentTransactions.memo })
     .from(investmentTransactions).where(and(eq(investmentTransactions.householdId, householdId), eq(investmentTransactions.securityId, securityId)))
   const quote = inputs.quotes.find((q) => q.securityId === securityId)
+  const today = new Date()
+  const since = new Date(today); since.setUTCMonth(since.getUTCMonth() - 3)
+  const prices = await db.select({ date: priceSnapshots.date, close: priceSnapshots.close }).from(priceSnapshots)
+    .where(and(eq(priceSnapshots.householdId, householdId), eq(priceSnapshots.securityId, securityId), gte(priceSnapshots.date, since.toISOString().slice(0, 10)), lte(priceSnapshots.date, today.toISOString().slice(0, 10))))
+    .orderBy(asc(priceSnapshots.date))
   const ordered = inputs.securities
   const index = ordered.findIndex((s) => s.id === securityId)
   return {
@@ -248,6 +254,7 @@ export async function getSecurityDetail(householdId: string, securityId: number)
     price: quote?.price ?? inputs.closes.get(securityId) ?? null,
     changeRate: quote?.changeRate ?? null,
     transactions: listRows(inputs, inputs.transactions.filter((t) => t.securityId === securityId), raw),
+    priceHistory: prices.map(p => ({ date: p.date, close: Number(p.close) })).filter(p => Number.isFinite(p.close) && p.close >= 0),
     neighbors: {
       prev: index > 0 ? { id: ordered[index - 1].id, name: ordered[index - 1].name } : null,
       next: index >= 0 && index < ordered.length - 1 ? { id: ordered[index + 1].id, name: ordered[index + 1].name } : null,
@@ -256,6 +263,7 @@ export async function getSecurityDetail(householdId: string, securityId: number)
 }
 
 export async function getInvestmentSettingsData(householdId: string) {
-  const { accounts } = await loadPortfolioInputs(householdId)
+  const rows = await db.select().from(investmentAccounts).where(eq(investmentAccounts.householdId, householdId)).orderBy(asc(investmentAccounts.sortOrder), asc(investmentAccounts.id))
+  const accounts: Array<AccountRow & { credentialRef: string }> = rows.map(a => ({ id: a.id, owner: a.owner, name: a.name, brokerAccountNo: a.brokerAccountNo, credentialRef: a.credentialRef, active: a.active, lastSyncedAt: iso(a.lastSyncedAt) }))
   return { accounts }
 }
