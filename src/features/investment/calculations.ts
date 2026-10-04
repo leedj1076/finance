@@ -146,9 +146,10 @@ export function aggregateByMarket(valued: ValuedPosition[], cash: CashBalance[],
 
 export function weightsKRW(valued: ValuedPosition[], cash: CashBalance[], fx: FxRow | null) {
   const summary = aggregateByMarket(valued, cash, fx)
+  const denominatorKnown = valued.filter(v => v.currency === 'KRW' || !summary.fxMissing).every(v => v.marketValue !== null)
   const out = new Map<number, number | null>()
   for (const v of valued) {
-    if (v.marketValue === null || summary.totalKRW <= 0) { out.set(v.securityId, null); continue }
+    if (!denominatorKnown || v.marketValue === null || summary.totalKRW <= 0) { out.set(v.securityId, null); continue }
     if (v.currency === 'USD' && summary.fxMissing) { out.set(v.securityId, null); continue }
     const krw = v.currency === 'USD' ? v.marketValue * (fx?.rate ?? 0) : v.marketValue
     const previous = out.get(v.securityId) ?? 0

@@ -156,6 +156,21 @@ describe('discrepancies', () => {
 })
 
 describe('missing data and position boundaries', () => {
+  it('leaves every weight unknown when the converted denominator has an unpriced position', () => {
+    const positions = foldPositions([
+      tx({ kind: 'adjust', tradeDate: '2026-09-01', quantity: 1 }),
+      tx({ kind: 'adjust', tradeDate: '2026-09-01', securityId: 2, currency: 'USD', quantity: 1 }),
+    ])
+    const valued = valuePositions(positions, sec, [], new Map([[1, 100]]))
+    const weights = weightsKRW(valued, [], { date: '2026-09-01', rate: 1000 })
+    expect(weights.get(1)).toBeNull()
+    expect(weights.get(2)).toBeNull()
+    // Missing FX explicitly excludes overseas, so the domestic denominator is known.
+    expect(weightsKRW(valued, [], null).get(1)).toBe(100)
+    expect(weightsKRW(valued, [], null).get(2)).toBeNull()
+    const missingDomestic = valuePositions(positions, sec, [], new Map([[2, 100]]))
+    expect([...weightsKRW(missingDomestic, [], { date: '2026-09-01', rate: 1000 }).values()]).toEqual([null, null])
+  })
   it('does not infer zero acquisition cost for an adjustment without price', () => {
     const rows = [tx({ kind: 'adjust', tradeDate: '2026-09-01', quantity: 2, price: null }),
       tx({ kind: 'buy', tradeDate: '2026-09-02', quantity: 1, price: 100, amount: -100 })]
