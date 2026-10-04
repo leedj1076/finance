@@ -1,6 +1,17 @@
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 
-import { routesToRevalidate } from '@/lib/revalidate'
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+import { revalidatePath } from 'next/cache'
+
+import { revalidateFinance, routesToRevalidate } from '@/lib/revalidate'
+
+test('investment changes refresh only investment routes including dynamic details', () => {
+  expect(routesToRevalidate(['investment']).sort()).toEqual([
+    '/investment', '/investment/advisor', '/investment/settings', '/investment/transactions', '/investment/trend', '/investment/watch',
+  ])
+  revalidateFinance('investment')
+  expect(revalidatePath).toHaveBeenCalledWith('/investment/[securityId]', 'page')
+})
 
 test('a transaction change refreshes every page that reports on transactions', () => {
   expect(routesToRevalidate(['transactions']).sort()).toEqual([

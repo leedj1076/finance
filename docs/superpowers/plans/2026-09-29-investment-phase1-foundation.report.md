@@ -33,7 +33,14 @@
 - app-header-space.test.tsx: RED 모듈 없음 → GREEN 4/4.
 - 게이트: tsc/lint exit 0. 유닛 88파일 · 787/787.
 - PNG 01·10 헤더 확인. 공간별 메뉴·모바일 메뉴·루트 쿠키 라우팅 구현.
-- 커밋: 헤더 태스크 커밋(다음 기록에서 해시 갱신).
+- 커밋: b2cfba1.
+
+### Task 5 — 완료
+- investment-transaction-input.test.ts: RED 모듈 없음 → GREEN 18/18.
+- revalidate.test.ts: RED 신규 도메인 없음 → GREEN 5/5.
+- 첫 tsc: it.each 추론의 optional undefined 오류 1 → Record<string, string> 명시. 단언 변경 없음.
+- 게이트: tsc/lint exit 0. 유닛 89파일 · 806/806.
+- 커밋: 입력 파서 태스크 커밋(다음 기록에서 해시 갱신).
 
 ## 계획과의 차이
 | 태스크 · 파일 | 무엇을 | 왜 |
@@ -49,6 +56,8 @@
 
 | 4 · app-header-menu.tsx | 투자 톱니는 설정 페이지 직접 링크 | Interfaces의 톱니 목적지 준수. 닫힌 팝오버를 SSR에서 검사하는 계획 충돌 해결; 가계부 팝오버 유지 |
 | 4 · app-header.tsx, globals.css | 투자에서는 인박스 조회 생략; 브랜드 수직 중앙 정렬 | 공간 독립성·참조 헤더 정렬 유지 |
+| 5 · transaction-input.ts | 실제 날짜·원문 소수 자리·안전한 수치 범위 검증, 현금 거래의 잔여 종목값 무시 | DB 자동 반올림·Infinity·잘못된 통화 추론 차단 |
+| 5 · revalidate.ts | 동적 종목 상세도 page 단위 갱신 | 6개 정적 경로만으로 상세 메모·보유 수치가 갱신되지 않음 |
 
 ## 화면 비교
 실행 전.
@@ -57,7 +66,7 @@
 실행 전.
 
 ## 못 한 것과 이유
-Task 2~10 진행 예정. push·배포·운영 DB 변경 없음.
+Task 6~10 진행 예정. push·배포·운영 DB 변경 없음.
 
 ## 제안
 없음.

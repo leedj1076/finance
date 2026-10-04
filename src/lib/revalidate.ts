@@ -17,6 +17,12 @@ const ROUTES = {
   recurring: '/recurring',
   manage: '/manage',
   settings: '/settings',
+  investment: '/investment',
+  investmentTrend: '/investment/trend',
+  investmentTransactions: '/investment/transactions',
+  investmentWatch: '/investment/watch',
+  investmentAdvisor: '/investment/advisor',
+  investmentSettings: '/investment/settings',
 } as const
 
 type Route = keyof typeof ROUTES
@@ -30,8 +36,10 @@ export type FinanceDomain =
   | 'recurring'
   | 'settings'
   | 'monthClose'
+  | 'investment'
 
 const READERS: Record<FinanceDomain, readonly Route[]> = {
+  investment: ['investment', 'investmentTrend', 'investmentTransactions', 'investmentWatch', 'investmentAdvisor', 'investmentSettings'],
   // History also reads ledger matches and their confirmed categories/accounts.
   transactions: ['home', 'ledger', 'stats', 'budgets', 'recurring', 'inbox'],
   budgets: ['home', 'ledger', 'budgets'],
@@ -56,4 +64,5 @@ export function routesToRevalidate(domains: readonly FinanceDomain[]) {
 
 export function revalidateFinance(...domains: FinanceDomain[]) {
   for (const route of routesToRevalidate(domains)) revalidatePath(route)
+  if (domains.includes('investment')) revalidatePath('/investment/[securityId]', 'page')
 }

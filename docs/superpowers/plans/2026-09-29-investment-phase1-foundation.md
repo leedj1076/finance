@@ -1361,7 +1361,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Produces: `FinanceDomain`에 `'investment'` 추가, `ROUTES`에 `investment: '/investment'`, `investmentTrend: '/investment/trend'`, `investmentTransactions: '/investment/transactions'`, `investmentWatch: '/investment/watch'`, `investmentAdvisor: '/investment/advisor'`, `investmentSettings: '/investment/settings'`. `READERS.investment`는 그 여섯 경로 전부.
 - Produces: `parseManualTransaction(formData: FormData, context: { accountIds: number[]; securities: Array<{ id: number; market: Market; currency: Currency }>; today: string }): { data: ManualTransactionInput } | { error: string }`. `ManualTransactionInput = { accountId, securityId: number | null, kind, tradeDate, quantity: number | null, price: number | null, fee: number, amount: number, currency, memo: string | null }`. amount는 파서가 계산한다: buy `-(qty×price+fee)`, sell `+(qty×price−fee)`, dividend/deposit `+|amount|`, withdraw/fee `-|amount|`, adjust `0`.
 
-- [ ] **Step 1: 실패하는 테스트**
+- [x] **Step 1: 실패하는 테스트**
 
 `tests/finance/investment-transaction-input.test.ts`:
 
@@ -1424,12 +1424,12 @@ describe('parseManualTransaction', () => {
 })
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-transaction-input.test.ts`
 Expected: FAIL — 모듈 없음.
 
-- [ ] **Step 3: 파서 구현**
+- [x] **Step 3: 파서 구현**
 
 `src/features/investment/transaction-input.ts`:
 
@@ -1528,16 +1528,16 @@ export function parseManualTransaction(data: FormData, context: Context): { data
 }
 ```
 
-- [ ] **Step 4: revalidate 확장**
+- [x] **Step 4: revalidate 확장**
 
 `src/lib/revalidate.ts`의 `ROUTES`에 여섯 경로, `FinanceDomain`에 `'investment'`, `READERS`에 `investment: ['investment', 'investmentTrend', 'investmentTransactions', 'investmentWatch', 'investmentAdvisor', 'investmentSettings']` 추가. 기존 `tests/finance/revalidate.test.ts`가 있으면 `routesToRevalidate(['investment'])`가 여섯 경로를 돌려주고 가계부 경로는 포함하지 않는다는 케이스를 추가한다(없으면 같은 내용의 `tests/finance/investment-revalidate.test.ts`).
 
-- [ ] **Step 5: 통과 확인**
+- [x] **Step 5: 통과 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-transaction-input.test.ts tests/finance/revalidate.test.ts`
 Expected: 전부 통과.
 
-- [ ] **Step 6: 커밋**
+- [x] **Step 6: 커밋**
 
 ```bash
 git add src/lib/revalidate.ts src/features/investment/transaction-input.ts tests/finance/investment-transaction-input.test.ts tests/finance/revalidate.test.ts
