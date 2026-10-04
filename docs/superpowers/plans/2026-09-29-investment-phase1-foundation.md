@@ -645,7 +645,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   - `discrepancies(positions, broker: BrokerPositionRow[], thresholdPct = 3): Discrepancy[]` — `{ accountId, securityId, ourQty, brokerQty, ourAvg, brokerAvg, qtyDiffers, avgDiffPct }`.
   - `round6(n: number): number`.
 
-- [ ] **Step 1: 실패하는 테스트**
+- [x] **Step 1: 실패하는 테스트**
 
 `tests/finance/investment-calculations.test.ts`:
 
@@ -808,12 +808,12 @@ describe('discrepancies', () => {
 })
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-calculations.test.ts`
 Expected: FAIL — 모듈 없음.
 
-- [ ] **Step 3: 구현**
+- [x] **Step 3: 구현**
 
 `src/features/investment/calculations.ts`:
 
@@ -991,12 +991,12 @@ export function discrepancies(positions: Position[], broker: BrokerPositionRow[]
 }
 ```
 
-- [ ] **Step 4: 통과 확인**
+- [x] **Step 4: 통과 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-calculations.test.ts`
 Expected: 12 passed.
 
-- [ ] **Step 5: 커밋**
+- [x] **Step 5: 커밋**
 
 ```bash
 git add src/features/investment/calculations.ts tests/finance/investment-calculations.test.ts

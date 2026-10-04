@@ -22,7 +22,12 @@
 ### Task 2 — 완료
 - investment-format.test.ts: RED 모듈 없음 → GREEN 6/6 (기본 3 + 비유한값 3).
 - 게이트: tsc/lint exit 0. 유닛 86파일 · 762/762.
-- 커밋: 이 태스크의 formatter 커밋(해시는 다음 기록에서 갱신).
+- 커밋: fa4f384.
+
+### Task 3 — 완료
+- investment-calculations.test.ts: RED 모듈 없음 → GREEN 21/21 (계획 코드 13 + 경계값 8).
+- 게이트: tsc/lint exit 0. 유닛 87파일 · 783/783.
+- 커밋: 계산 모듈 태스크 커밋(해시는 다음 기록에서 갱신).
 
 ## 계획과의 차이
 | 태스크 · 파일 | 무엇을 | 왜 |
@@ -33,6 +38,8 @@
 | 실행 환경 | CLI에서 로컬 환경을 주입 | .env.local 기본값으로 운영 DB를 건드리는 경로 방지 |
 | 1 · tests/integration/simulator.test.ts | 테스트 기준 날짜 고정 | 10월 이후에도 9월 진행 중 fixture를 동일하게 검증. 사용자 계속 진행 승인 |
 | 2 · format.ts | 비유한값·표시 반올림 후 음의 0 차단, MINUS 내부 상수 | 사용자 금액 안전 규칙. 쓰이지 않는 export 방지 |
+| 3 · investment-calculations.test.ts | 입금 fixture KRW 9,664,000 / USD 2,413 | 매수 이후 예수금 기대 1,120,000 / 640을 성립시킴. 기존 기대값 유지 |
+| 3 · calculations.ts | 단가 미상 손익 null, 청산 단가 초기화, 잘못된 시세·환율 배제, 평균단가 6자리 | 미상 단가를 0으로 간주한 허위 이익과 NaN 방지. 계산 명세 유지 |
 
 ## 화면 비교
 실행 전.
