@@ -178,3 +178,15 @@
 ## 제안
 - 3단계 작업 생성 경로를 연결하기 전에 보류한 mode 필수 제약과 거부 테스트를 먼저 추가.
 - React 418 재발 시 캡처된 페이지 경로·스택으로 원인 규명. 오류 검사 제거나 무조건 재시도로 숨기지 않음.
+
+## 후속 릴리스 — 2026-10-05
+- 사용자 승인: 다음 단계 중 1번(main 병합·운영 DB 반영·푸시·배포). 위의 배포 미실행 기록은 승인 전 개발 단계의 상태.
+- 원격 확인: origin/main fbe19aa, feature 2bbd0d5. 충돌 없이 fast-forward로 main 병합. 무관한 PNG 6개·미추적 파일·기존 stash 보존.
+- 병합 후 유닛: 92파일 · 830/830 · 9.65초. 애플리케이션 소스는 위 최종 6종 게이트 실행본과 동일.
+- 운영 DB: 서울 프로젝트의 기존 0000~0010 Drizzle 해시 11개가 저장소와 일치. 0011_investment 하나만 트랜잭션으로 적용, 이력 12개.
+- 마이그레이션 SHA-256: `2476dc8ce62730b216910bb0fe124eae5f4b6a31ea6d9b5eb63b6faaf9f0fdfe`.
+- 검증: 신규 테이블 10/10 RLS 활성·authenticated SELECT 허용·쓰기 불가·anon 접근 불가·가구 조회 정책 1개씩. 기존 테이블 21/21 건수와 거래 금액 합계 불변(거래 2,852건).
+- 백업: `~/.local/share/finance-web/backups/2026-10-05-investment-phase1.nGK0gV/`. public/drizzle 스키마 71,517바이트·데이터 2,149,404바이트. 0600 파일, 저장소 밖 보관. `before.json`, `after.json`, 트랜잭션 SQL도 보관.
+- 스키마 백업 SHA-256: `2c43928db4c8023d91040c45493cbd382958a40e7b9d9876830d7e65e031548a`. 데이터 백업 SHA-256: `1273cd3bcb5718045c9540a17c78730aeaaa061f4aa179588496fa6df2a1ea87`.
+- 배포 대상: Vercel finance / icn1 / `www.blissful.family`. 이전 Ready 배포 `dpl_6kho3oUDnxMxFo6rEzJdJggvuReA`를 롤백 기준으로 확인.
+- 이 기록의 시점은 DB 적용 완료·코드 푸시 전. 배포는 main 푸시 후 진행하고 Ready·운영 응답을 별도로 확인한다. 키움·AI 후속 단계는 실행하지 않는다.
