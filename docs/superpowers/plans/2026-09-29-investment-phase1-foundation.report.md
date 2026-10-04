@@ -54,7 +54,14 @@
 - dev 로그인·1440/390px 촬영. 모바일 scrollWidth 390/viewport 390; KPI 175px × 2; 행 펼치기·새로고침 후 계좌 접힘 유지 통과.
 - 재촬영 로그인 리디렉션 1회 timeout. 로그 확인 후 재시도 통과. 최종 E2E에서도 확인 예정.
 - 실제 페이지는 Task 8이므로 합성 fixture로 dashboard 임시 미리보기. 촬영 후 원본 복구, SpaceMemo 2줄만 남음. dev 서버 종료.
-- 커밋: 공통 화면 태스크 커밋(다음 기록에서 해시 갱신).
+- 커밋: 41bc35c.
+
+### Task 8 — 완료
+- investment-pages.test.tsx: RED 모듈 없음 → 4/4; 추가 RED 미평가 KPI·컨트롤 높이 → 6/6.
+- 게이트: tsc/lint exit 0. 유닛 91파일 · 822/822.
+- 로컬 빈 상태 3화면, 합성 계좌·거래로 1440/390px 6장. USD 선택 표시·공간 전환 통과. 페이지 가로 넘침 0.
+- 촬영 스크립트의 select 라벨 exact 판정 1회 timeout → 실제 name 속성으로 수정 후 통과. 합성 행만 ID/가구 조건으로 삭제, dev 종료.
+- 커밋: 보유·거래·관심 태스크 커밋(다음 기록에서 해시 갱신).
 
 ## 계획과의 차이
 | 태스크 · 파일 | 무엇을 | 왜 |
@@ -79,15 +86,18 @@
 | 7 · holdings-table.tsx | 가구별 저장 키·키보드 접기·모바일 행 펼치기·3개 합계·시장 필터 prop | 명세 4.6 필수 동작이 계획 코드에서 누락. 기존 단언 유지 |
 | 7 · globals.css, page-shell.tsx, status-line.tsx | KPI 모바일 2열·폰트 20·경계선, 모바일 소유자 줄, 상태 줄 간격 보정 | 기존 전역 KPI 규칙과 목업의 충돌 해소. 1440/390px로 비교 |
 | 7 · 미리보기·스크린샷 | 임시 합성 미리보기 제거 후 impl PNG 3개 저장 | 공통 부품만 있는 Task 7에서도 화면 검증 요구를 이행 |
+| 8 · page.tsx | 시장 URL 토글과 가구별 HoldingsTable 연결, 미평가·단가 미상 KPI는 대시 | 명세 4.6 필터, 알려지지 않은 값을 0원으로 표시하지 않는 규칙 |
+| 8 · transaction-form/transactions/watch-form | 통화 동기화·활성 계좌 제한·34px 컨트롤·저장 상태·접히는 입력 폼 | 계획의 USD 표시 오류, 빈 계좌 제출, 성공 피드백 누락 보완. 목업의 인라인 펼침 유지 |
 
 ## 화면 비교
 - Task 7 · 헤더/상태/KPI/표: PNG 01·02·10과 비교. 48px/20px 여백, KPI 4열/2열, 표 8열/3열 확인. 차이는 합성 데이터·시세/리서치 연결 상태. `impl/task7-desktop.png`, `task7-mobile.png`, `task7-mobile-expanded.png`.
+- Task 8 · 보유/거래/관심: PNG 01·04·05·10·11과 비교. 헤어라인·열 정렬·34px 컨트롤·모바일 2열 KPI 확인. 미실행 AI 열은 1단계 빈 상태. `impl/task8-{holdings,transactions,watch}-{desktop,mobile}.png`.
 
 ## 최종 게이트 출력
 실행 전.
 
 ## 못 한 것과 이유
-Task 8~10 진행 예정. push·배포·운영 DB 변경 없음.
+Task 9~10 진행 예정. push·배포·운영 DB 변경 없음.
 
 ## 제안
 없음.

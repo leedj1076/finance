@@ -2669,7 +2669,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: Task 6 queries·actions, Task 7 부품.
 - Produces: 세 페이지. `searchParams`: 보유 `?owner=DJ`, 거래 `?month=2026-09&market=all|KR|US&owner=`, 관심 없음. `ManualTransactionForm({ accounts, securities, today })`(client, `useActionState(saveManualTransaction)`), `WatchForm()`(client), `TransactionsTable({ rows })`(server, 메모 편집 링크 포함).
 
-- [ ] **Step 1: 실패하는 테스트**
+- [x] **Step 1: 실패하는 테스트**
 
 `tests/finance/investment-pages.test.tsx`:
 
@@ -2722,12 +2722,12 @@ describe('TransactionsTable', () => {
 })
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-pages.test.tsx`
 Expected: FAIL — 모듈 없음.
 
-- [ ] **Step 3: 폼 두 개**
+- [x] **Step 3: 폼 두 개**
 
 `src/features/investment/transaction-form.tsx`:
 
@@ -2816,7 +2816,7 @@ export function WatchForm() {
 }
 ```
 
-- [ ] **Step 4: 거래 표(server)와 메모·삭제 컨트롤(client)**
+- [x] **Step 4: 거래 표(server)와 메모·삭제 컨트롤(client)**
 
 `src/features/investment/transaction-row-controls.tsx`:
 
@@ -2912,7 +2912,7 @@ export function TransactionsTable({ rows }: { rows: TransactionListRow[] }) {
 }
 ```
 
-- [ ] **Step 5: 페이지 세 개**
+- [x] **Step 5: 페이지 세 개**
 
 `src/app/investment/page.tsx`:
 
@@ -3108,7 +3108,7 @@ export default async function InvestmentWatchPage() {
 }
 ```
 
-- [ ] **Step 6: 통과 확인, 실제 화면 확인**
+- [x] **Step 6: 통과 확인, 실제 화면 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-pages.test.tsx`
 Expected: 4 passed.
@@ -3117,7 +3117,7 @@ Run: `NODE_OPTIONS= pnpm exec tsc --noEmit && NODE_OPTIONS= pnpm lint && NODE_OP
 
 로컬 Supabase가 떠 있으면 `NODE_OPTIONS= pnpm dev`로 띄우고 `dev@finance.local` / `devdev1234`로 로그인해 `/investment`, `/investment/transactions`, `/investment/watch`가 빈 상태 문구와 함께 렌더되는지, 헤더 브랜드가 "우리집 투자"이고 팝오버로 가계부에 돌아가지는지 확인한다. 확인 후 dev 서버를 종료한다.
 
-- [ ] **Step 7: 커밋**
+- [x] **Step 7: 커밋**
 
 ```bash
 git add src/app/investment/page.tsx src/app/investment/transactions/page.tsx src/app/investment/watch/page.tsx src/features/investment/transaction-form.tsx src/features/investment/watch-form.tsx src/features/investment/transactions-table.tsx src/features/investment/transaction-row-controls.tsx tests/finance/investment-pages.test.tsx
