@@ -2228,7 +2228,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
   - `HoldingsTable({ groups, fx }: { groups: AccountGroup[]; fx: FxRow | null })` — client. 계좌 행·시장 소그룹 행 접기(localStorage 키 `investment-collapsed`), 열 너비 고정(`table-layout: fixed`), 모바일은 종목·평가손익·수익률만. 행 클릭 → `/investment/[securityId]`.
   - `MarketChip({ market })` — `.mk`/`.mk.us`.
 
-- [ ] **Step 1: 실패하는 테스트**
+- [x] **Step 1: 실패하는 테스트**
 
 `tests/finance/investment-components.test.tsx`:
 
@@ -2313,12 +2313,12 @@ describe('KpiBand', () => {
 })
 ```
 
-- [ ] **Step 2: 실패 확인**
+- [x] **Step 2: 실패 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-components.test.tsx`
 Expected: FAIL — 모듈 없음.
 
-- [ ] **Step 3: 레이아웃과 shell**
+- [x] **Step 3: 레이아웃과 shell**
 
 `src/app/investment/layout.tsx`:
 
@@ -2403,7 +2403,7 @@ export function SpaceMemo({ space = 'investment' }: { space?: Space }) {
 
 가계부 공간으로 돌아갈 때도 기억되어야 하므로 `src/app/dashboard/page.tsx`의 `<AppHeader ... />` 바로 아래에 `<SpaceMemo space="ledger" />`를 넣는다.
 
-- [ ] **Step 4: 상태 줄·KPI·칩·시장 칩**
+- [x] **Step 4: 상태 줄·KPI·칩·시장 칩**
 
 `src/features/investment/status-line.tsx`:
 
@@ -2498,7 +2498,7 @@ export function MarketChip({ market }: { market: Market }) {
 @media (min-width: 861px) { .investment-holdings { table-layout: fixed; } }
 ```
 
-- [ ] **Step 5: 보유 표(client)**
+- [x] **Step 5: 보유 표(client)**
 
 `src/features/investment/holdings-table.tsx`:
 
@@ -2635,12 +2635,12 @@ export function HoldingsTable({ groups, fx }: { groups: AccountGroup[]; fx: FxRo
 }
 ```
 
-- [ ] **Step 6: 통과 확인**
+- [x] **Step 6: 통과 확인**
 
 Run: `NODE_OPTIONS= pnpm exec vitest run --project unit tests/finance/investment-components.test.tsx`
 Expected: 7 passed. (`HoldingsTable`은 client 컴포넌트지만 `renderToStaticMarkup`으로 초기 HTML을 검사한다. `useEffect`는 서버 렌더에서 실행되지 않는다.)
 
-- [ ] **Step 7: 게이트와 커밋**
+- [x] **Step 7: 게이트와 커밋**
 
 Run: `NODE_OPTIONS= pnpm exec tsc --noEmit && NODE_OPTIONS= pnpm lint && NODE_OPTIONS= pnpm test`
 

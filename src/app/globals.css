@@ -1298,3 +1298,33 @@ button.finance-brand { cursor: pointer; background: none; border: 0; padding: 0;
 .chart-value-label { font-size: 11px; font-weight: 700; letter-spacing: -0.01em; }
 .chart-hero-value { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
 .chart-caption { font-size: 10px; font-weight: 500; }
+
+.mk { display: inline-block; margin-right: 6px; border: 1px solid var(--finance-ink); padding: 0 6px; color: var(--finance-ink); font-size: 10px; font-weight: 700; line-height: 16px; letter-spacing: .06em; vertical-align: middle; }
+.mk.us { border-color: var(--finance-blue); color: var(--finance-blue); }
+.investment-kpi-band > article { min-width: 0; padding-inline: 16px; border-inline-start: 0; }
+.investment-kpi-band { border-bottom-color: var(--finance-border); }
+.investment-kpi-band > article:nth-child(odd) { padding-inline-start: 0; }
+.investment-kpi-band > article:nth-child(even) { padding-inline-end: 0; border-inline-start: 1px solid var(--finance-border); }
+.investment-kpi-band > article:nth-child(n+3) { border-top: 1px solid var(--finance-border); }
+.investment-desktop-security { display: flex; }
+.investment-mobile-security, .investment-mobile-detail, .investment-mobile-cell { display: none; }
+@media (min-width: 861px) {
+  .investment-holdings { table-layout: fixed; }
+  .investment-kpi-band { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .investment-kpi-band > article { padding-inline: 24px; }
+  .investment-kpi-band > article:nth-child(n+3) { border-top: 0; }
+  .investment-kpi-band > article:nth-child(n+2) { border-inline-start: 1px solid var(--finance-border); padding-inline-start: 24px; }
+  .investment-kpi-band > article:first-child { padding-inline-start: 0; }
+  .investment-kpi-band > article:last-child { padding-inline-end: 0; }
+}
+@media (max-width: 860px) {
+  .investment-holdings colgroup, .investment-desktop-cell, .investment-desktop-security { display: none; }
+  .investment-mobile-security { display: flex; }
+  .investment-mobile-detail { display: table-row; }
+  .investment-mobile-cell { display: table-cell; }
+  .investment-holdings td, .investment-holdings th { padding-inline: 6px; }
+  .investment-holdings td:first-child, .investment-holdings th:first-child { padding-inline-start: 0; }
+  .investment-holdings td:last-child, .investment-holdings th:last-child { padding-inline-end: 0; }
+  .investment-holdings tfoot th { width: 40%; }
+  .investment-kpi-band .t-kpi { font-size: 20px; }
+}

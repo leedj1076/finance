@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { AppHeader } from '@/components/app-header'
+import { SpaceMemo } from '@/features/investment/space-memo'
 import { SavingsProgressRing, Sparkline } from '@/features/analytics/home-dashboard-charts'
 import { SavingsRateChart } from '@/features/analytics/home-trend-charts'
 import { getHomeTodos } from '@/features/analytics/home-todos'
@@ -100,6 +101,7 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen bg-white">
       <AppHeader active="dashboard" email={household.email} />
+      <SpaceMemo space="ledger" />
       <main className="mx-auto max-w-[1440px] px-5 pb-14 pt-9 sm:px-12">
         <header>
           <p className="t-label uppercase text-finance-blue">이번 달</p>
