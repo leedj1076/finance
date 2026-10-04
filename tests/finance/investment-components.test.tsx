@@ -105,3 +105,14 @@ it('keeps the known domestic total when unpriced overseas assets lack FX', () =>
   expect(html).toContain('10,528,000')
   expect(html).toContain('환율 없음 · 해외 미포함')
 })
+
+it('does not calculate footer percentages against a partially valued total', () => {
+  const missing = structuredClone(groups)
+  const overseas = missing[0].markets[1].rows[0]
+  overseas.marketValue = null; overseas.price = null; overseas.unrealized = null; overseas.returnPct = null
+  for (const market of missing[0].markets) for (const row of market.rows) row.weightPct = null
+  const html = renderToStaticMarkup(<HoldingsTable householdId="test-household" fx={{ date: '2026-09-27', rate: 1380.2 }} groups={missing} />)
+  const footer = html.slice(html.indexOf('<tfoot>'))
+  const weights = [...footer.matchAll(/<tr[^>]*>(.*?)<\/tr>/g)].map(match => [...match[1].matchAll(/<td[^>]*>(.*?)<\/td>/g)].at(-1)?.[1])
+  expect(weights).toEqual(['–', '–', '–'])
+})

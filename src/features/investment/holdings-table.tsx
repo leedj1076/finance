@@ -79,7 +79,7 @@ export function HoldingsTable({ groups, fx, householdId, market = 'all' }: { gro
     <td className={`${cell} ${hide}`}>{value === null ? '–' : formatMoney(value, currency)}</td>
     <td className={`${cell} ${tone(unrealized)}`}>{unrealized === null ? '–' : formatSigned(unrealized, currency)}</td>
     <td className={`${cell} ${tone(rate)}`}>{formatPct(rate)}</td>
-    <td className={`${cell} ${hide} pr-0`}>{value !== null && summary.totalKRW > 0 && (currency === 'KRW' || fx) ? `${((currency === 'USD' ? value * fx!.rate : value) / summary.totalKRW * 100).toFixed(1)}%` : '–'}</td>
+    <td className={`${cell} ${hide} pr-0`}>{priced(includedRows) && value !== null && summary.totalKRW > 0 && (currency === 'KRW' || fx) ? `${((currency === 'USD' ? value * fx!.rate : value) / summary.totalKRW * 100).toFixed(1)}%` : '–'}</td>
   </tr>
   return <div className="mt-4 border-t border-finance-ink">
     <table className="investment-holdings w-full t-body">
