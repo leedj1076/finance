@@ -57,7 +57,7 @@ function Row({ row }: { row: HoldingRow }) {
     </tr>
     {open && <tr className="investment-mobile-detail border-b border-finance-border bg-finance-panel"><td colSpan={8} className="py-3">
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 t-caption">
-        {[['수량', `${row.quantity}주`], ['비중', row.weightPct === null ? '–' : `${row.weightPct.toFixed(1)}%`], ['평균단가', money(row.avgCost)], ['현재가', money(row.price)], ['평가금액', money(row.marketValue)], ...(row.discrepancy ? [['증권사 수량', `${row.discrepancy.brokerQty}주`], ['증권사 평균단가', money(row.discrepancy.brokerAvg)]] : [])].map(([label, value]) => <div className="flex justify-between gap-2" key={label}><dt className="text-finance-muted">{label}</dt><dd className="tabular-nums">{value}</dd></div>)}
+        {[['수량', `${row.quantity}주`], ['종목 전체 비중', row.weightPct === null ? '–' : `${row.weightPct.toFixed(1)}%`], ['평균단가', money(row.avgCost)], ['현재가', money(row.price)], ['평가금액', money(row.marketValue)], ...(row.discrepancy ? [['증권사 수량', `${row.discrepancy.brokerQty}주`], ['증권사 평균단가', money(row.discrepancy.brokerAvg)]] : [])].map(([label, value]) => <div className="flex justify-between gap-2" key={label}><dt className="text-finance-muted">{label}</dt><dd className="tabular-nums">{value}</dd></div>)}
       </dl>
       <Link className="mt-3 inline-block t-caption-strong text-finance-blue" href={`/investment/${row.securityId}`}>종목 상세 →</Link>
     </td></tr>}
@@ -83,9 +83,10 @@ export function HoldingsTable({ groups, fx, householdId, market = 'all' }: { gro
   </tr>
   return <div className="mt-4 border-t border-finance-ink">
     <table className="investment-holdings w-full t-body">
+      <caption className="caption-bottom pt-2 text-left t-caption text-finance-muted">종목 전체 비중은 조회 중인 계좌의 같은 종목을 합산한 값입니다. 기준 총액에는 예수금이 포함되며, 합계 행은 해당 합계의 비중입니다.</caption>
       <colgroup>{['30%', '8%', '10%', '10%', '12%', '11%', '9%', '10%'].map((width, i) => <col className={i >= 1 && i <= 4 || i === 7 ? hide : ''} style={{ width }} key={i} />)}</colgroup>
       <thead className="border-b border-finance-border t-label uppercase text-finance-muted"><tr>
-        {['종목', '수량', '평균단가', '현재가', '평가금액', '평가손익', '수익률', '비중'].map((label, i) => <th className={`py-2.5 ${i === 0 ? 'text-left' : 'px-3 text-right'} ${i >= 1 && i <= 4 || i === 7 ? hide : ''}`} key={label}>{label}</th>)}
+        {['종목', '수량', '평균단가', '현재가', '평가금액', '평가손익', '수익률', '종목 전체 비중'].map((label, i) => <th className={`py-2.5 ${i === 0 ? 'text-left' : 'px-3 text-right'} ${i >= 1 && i <= 4 || i === 7 ? hide : ''}`} key={label}>{label}</th>)}
       </tr></thead>
       <tbody>{groups.map(group => {
         const accountKey = `a${group.account.id}`

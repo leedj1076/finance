@@ -45,6 +45,13 @@ describe('HoldingsTable', () => {
   it('labels the price source when it is a close, not a live quote', () => {
     expect(html).toContain('종가 기준')
   })
+  it('explains that security weights combine accounts while total rows describe their subtotal', () => {
+    expect(html).toMatch(/<th[^>]*>종목 전체 비중<\/th>/)
+    const caption = html.match(/<caption[^>]*>(.*?)<\/caption>/)?.[1]
+    expect(caption).toContain('같은 종목을 합산')
+    expect(caption).toContain('예수금')
+    expect(caption).toContain('합계 행')
+  })
 })
 
 describe('StatusLineView', () => {

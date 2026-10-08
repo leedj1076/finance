@@ -137,6 +137,8 @@ test('investment space: account, manual trades, holdings totals, collapse, detai
     await expect(table.getByRole('link', { name: /삼성전자/ })).toBeVisible()
     await expect(table.getByText('시세 없음').first()).toBeVisible()
     await expect(table.getByText('71,200', { exact: true })).toBeVisible()
+    await expect(table.getByRole('columnheader', { name: '종목 전체 비중', exact: true })).toBeVisible()
+    await expect(table.locator('caption')).toContainText('같은 종목을 합산')
     await expect(table.getByText(/예수금 ₩1,456,000/)).toBeVisible()
     await expect(page.locator('.kpi-band').getByText('–', { exact: true }).first()).toBeVisible()
     const subgroup = table.getByRole('button', { name: /^국내/ })
@@ -177,6 +179,7 @@ test('investment space: account, manual trades, holdings totals, collapse, detai
       if (width === 390) {
         await page.getByRole('button', { name: '삼성전자 보유 상세' }).click()
         await expect(page.getByRole('link', { name: '종목 상세 →' })).toHaveAttribute('href', new URL(detailUrl).pathname)
+        await expect(table.locator('dt').filter({ hasText: '종목 전체 비중' })).toBeVisible()
       }
       await page.evaluate(() => window.scrollTo(0, 0))
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
