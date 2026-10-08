@@ -6,7 +6,7 @@ import { SubmitButton } from '@/components/submit-button'
 
 import { deleteManualTransaction, updateTransactionMemo, type ActionState } from './actions'
 
-export function TransactionRowControls({ id, memo, editable }: { id: number; memo: string | null; editable: boolean }) {
+export function TransactionRowControls({ id, memo, editable, description }: { id: number; memo: string | null; editable: boolean; description: string }) {
   const [open, setOpen] = useState(false)
   const [draftMemo, setDraftMemo] = useState(memo ?? '')
   const [memoState, memoAction, pending] = useActionState<ActionState, FormData>(updateTransactionMemo, {})
@@ -16,7 +16,9 @@ export function TransactionRowControls({ id, memo, editable }: { id: number; mem
       <span className="inline-flex gap-2 whitespace-nowrap">
         <button className="min-h-[30px] t-caption-strong text-finance-blue" onClick={() => { setDraftMemo(memo ?? ''); setOpen(true) }} type="button">메모</button>
         {editable && (
-          <form action={deleteAction} className="inline">
+          <form action={deleteAction} className="inline" onSubmit={event => {
+            if (!window.confirm(`${description}\n이 거래를 삭제할까요? 삭제한 거래는 복구할 수 없습니다.`)) event.preventDefault()
+          }}>
             <input name="id" type="hidden" value={id} />
             <SubmitButton className="min-h-[30px] t-caption-strong text-finance-red" pendingLabel="삭제 중…">삭제</SubmitButton>
           </form>

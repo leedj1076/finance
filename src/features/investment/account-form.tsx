@@ -7,7 +7,7 @@ import { SubmitButton } from '@/components/submit-button'
 import { saveInvestmentAccount, type ActionState } from './actions'
 import type { AccountRow } from './types'
 
-const control = 'h-[34px] min-w-0 w-full border border-finance-border bg-white px-2 t-body-normal text-finance-ink'
+const control = 'h-[34px] min-w-0 w-full border border-finance-border bg-white px-2 t-body-normal tracking-normal text-finance-ink'
 const label = 'grid gap-1 t-label uppercase text-finance-muted'
 
 export function AccountForm({ account }: { account?: AccountRow & { credentialRef: string } }) {

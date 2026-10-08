@@ -7,7 +7,7 @@ import { SubmitButton } from '@/components/submit-button'
 import { saveManualTransaction, type ActionState } from './actions'
 import { CASH_KINDS, KIND_LABELS, TRANSACTION_KINDS, type AccountRow, type SecurityRow, type TransactionKind } from './types'
 
-const control = 'h-[34px] min-w-0 w-full border border-finance-border bg-white px-2 t-body-normal text-finance-ink'
+const control = 'h-[34px] min-w-0 w-full border border-finance-border bg-white px-2 t-body-normal tracking-normal text-finance-ink'
 const label = 'grid gap-1 t-label uppercase text-finance-muted'
 
 export function ManualTransactionForm({ accounts, securities, today }: { accounts: AccountRow[]; securities: SecurityRow[]; today: string }) {
@@ -21,7 +21,7 @@ export function ManualTransactionForm({ accounts, securities, today }: { account
   const [draft, setDraft] = useState(emptyDraft)
   const [state, action, pending] = useActionState<ActionState, FormData>(async (previous, form) => {
     const result = await saveManualTransaction(previous, form)
-    if (result.saved) setDraft(emptyDraft)
+    if (result.saved) setDraft(current => ({ ...emptyDraft, accountId: current.accountId, tradeDate: current.tradeDate }))
     return result
   }, {})
   const currency = isCash ? cashCurrency : securities.find(security => String(security.id) === securityId)?.currency ?? 'KRW'

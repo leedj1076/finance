@@ -6,7 +6,7 @@ import { SubmitButton } from '@/components/submit-button'
 
 import { addWatchSecurity, type ActionState } from './actions'
 
-const control = 'h-[34px] border border-finance-border bg-white px-2 t-body-normal text-finance-ink'
+const control = 'h-[34px] border border-finance-border bg-white px-2 t-body-normal tracking-normal text-finance-ink'
 
 export function WatchForm() {
   const [draft, setDraft] = useState({ market: 'KR', symbol: '', name: '' })

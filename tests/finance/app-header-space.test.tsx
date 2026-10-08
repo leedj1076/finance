@@ -22,7 +22,7 @@ describe('AppHeaderMenu spaces', () => {
     for (const label of ['보유', '추이', '거래', '관심', '어드바이저']) expect(html).toContain(`>${label}<`)
     expect(html).not.toContain('href="/ledger"')
     expect(html).not.toContain('href="/budgets"')
-    expect(html).toContain('href="/investment/settings"')
+    expect(html).toContain('aria-label="설정 메뉴"')
     expect(html).toMatch(/href="\/investment"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/investment"|is-active[^>]*href="\/investment"/)
   })
 

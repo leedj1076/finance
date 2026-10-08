@@ -146,9 +146,7 @@ export function AppHeaderMenu({ active, email, pendingInboxCount, space = 'ledge
 
         <div className="finance-user-actions">
           <div onClickCapture={() => setOpenMenu(null)}><ThemeSelector /></div>
-          {space === 'investment' ? (
-            <Link aria-label="투자 설정" className={`finance-settings-button ${active === 'investment-settings' ? 'is-active' : ''}`} href="/investment/settings"><span aria-hidden="true">⚙</span></Link>
-          ) : <div className="finance-popover-wrap">
+          <div className="finance-popover-wrap">
             <button
               aria-expanded={openMenu === 'settings'}
               aria-haspopup="menu"
@@ -173,7 +171,7 @@ export function AppHeaderMenu({ active, email, pendingInboxCount, space = 'ledge
                 </div>
               </div>
             )}
-          </div>}
+          </div>
           <span aria-label={email} className="finance-user-initial" title={email}>{initials}</span>
         </div>
 

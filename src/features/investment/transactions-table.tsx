@@ -37,7 +37,8 @@ export function TransactionsTable({ rows }: { rows: TransactionListRow[] }) {
                 <td className={`${cell} ${row.amount === 0 ? 'text-finance-faint' : 'text-finance-ink'}`}>{row.amount === 0 ? '–' : formatSigned(row.amount, row.currency)}</td>
                 <td className={`${cell} ${hide} ${row.realized === null ? 'text-finance-faint' : row.realized >= 0 ? 'text-finance-blue' : 'text-finance-red'}`}>{row.realized === null ? row.kind === 'sell' ? '단가 없음' : '–' : formatSigned(row.realized, row.currency)}</td>
                 <td className={`px-3 py-3 text-finance-muted ${hide}`}>{row.source === 'kiwoom' ? '키움' : '수동'}{row.memo && <span className="ml-2 text-finance-faint">· {row.memo}</span>}</td>
-                <td className="py-3 pl-3"><TransactionRowControls editable={row.editable} id={row.id} memo={row.memo} /></td>
+                <td className="py-3 pl-3"><TransactionRowControls editable={row.editable} id={row.id} memo={row.memo}
+                  description={`${row.tradeDate} · ${row.accountName} · ${row.security?.name ?? '예수금'} · ${KIND_LABELS[row.kind]}${row.quantity === null ? '' : ` ${row.quantity}주`} · ${formatSigned(row.amount, row.currency)} ${row.currency}`} /></td>
               </tr>
             )
           })}
