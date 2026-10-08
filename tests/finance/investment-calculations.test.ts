@@ -66,9 +66,47 @@ describe('foldPositions (moving average)', () => {
     const rows = [tx({ kind: 'buy', tradeDate: '2026-09-01', securityId: 2, currency: 'USD', quantity: 0.123456789, price: 100, amount: -12.35 })]
     expect(foldPositions(rows)[0].quantity).toBe(0.123457)
   })
+
+  it.each([
+    { quantity: 0.001, costBasis: 0.32684 },
+    { quantity: 0.000001, costBasis: 0.00032684 },
+  ])('preserves the same purchase price for repeated $quantity-share buys', ({ quantity, costBasis }) => {
+    const rows = [1, 2].map(() => tx({ kind: 'buy', tradeDate: '2026-09-01', securityId: 2, currency: 'USD', quantity, price: 163.42 }))
+    const [position] = foldPositions(rows)
+    expect(position.avgCost).toBe(163.42)
+    expect(position.costBasis).toBeCloseTo(costBasis, 12)
+    expect(position.costBasis / position.quantity).toBeCloseTo(163.42, 6)
+  })
+
+  it('retains fractional basis through a partial sale and a differently priced buy', () => {
+    const rows = [
+      tx({ kind: 'buy', tradeDate: '2026-09-01', securityId: 2, currency: 'USD', quantity: 0.002, price: 163.42 }),
+      tx({ kind: 'sell', tradeDate: '2026-09-02', securityId: 2, currency: 'USD', quantity: 0.001, price: 200 }),
+      tx({ kind: 'buy', tradeDate: '2026-09-03', securityId: 2, currency: 'USD', quantity: 0.001, price: 183.42 }),
+    ]
+    const [position] = foldPositions(rows)
+    expect(position.quantity).toBe(0.002)
+    expect(position.avgCost).toBe(173.42)
+    expect(position.costBasis).toBeCloseTo(0.34684, 12)
+  })
+
+  it('retains fractional basis after an adjustment sets the average', () => {
+    const rows = [
+      tx({ kind: 'adjust', tradeDate: '2026-09-01', securityId: 2, currency: 'USD', quantity: 0.001, price: 163.42 }),
+      tx({ kind: 'buy', tradeDate: '2026-09-02', securityId: 2, currency: 'USD', quantity: 0.001, price: 163.42 }),
+    ]
+    expect(foldPositions(rows)[0].avgCost).toBe(163.42)
+  })
 })
 
 describe('realizedByTransaction', () => {
+  it('uses the unchanged average after repeated fractional buys when realizing profit', () => {
+    const rows = Array.from({ length: 10 }, () => tx({ kind: 'buy', tradeDate: '2026-09-01', securityId: 2, currency: 'USD', quantity: 0.001, price: 163.42 }))
+    const sell = tx({ kind: 'sell', tradeDate: '2026-09-02', securityId: 2, currency: 'USD', quantity: 0.01, price: 200 })
+    expect(realizedByTransaction([...rows, sell]).get(sell.id)).toBe(0.37)
+    expect(foldPositions([...rows, sell])).toEqual([])
+  })
+
   it('is (price − avg) × qty − fee at the time of the sell', () => {
     const rows = [
       tx({ kind: 'buy', tradeDate: '2026-09-01', quantity: 30, price: 80000, fee: 0, amount: -2400000 }),
@@ -125,6 +163,29 @@ describe('valuePositions and aggregateByMarket', () => {
     expect(s.cashKRW).toBe(1120000); expect(s.cashUSD).toBe(640)
     expect(s.totalKRW).toBeCloseTo(9408000 + 1120000 + (1965.75 + 640) * 1380.2, 0)
     expect(s.fxMissing).toBe(false)
+  })
+
+  it('counts unique securities across accounts without dropping their valuations', () => {
+    const positions = foldPositions([
+      tx({ kind: 'buy', tradeDate: '2026-09-01', quantity: 1, price: 100 }),
+      tx({ kind: 'buy', tradeDate: '2026-09-01', accountId: 2, quantity: 1, price: 100 }),
+      tx({ kind: 'buy', tradeDate: '2026-09-01', securityId: 2, currency: 'USD', quantity: 1, price: 10 }),
+      tx({ kind: 'buy', tradeDate: '2026-09-01', accountId: 2, securityId: 2, currency: 'USD', quantity: 2, price: 10 }),
+    ])
+    const valued = valuePositions(positions, sec, [], new Map([[1, 100], [2, 10]]))
+    const summary = aggregateByMarket(valued, [], { date: '2026-09-01', rate: 1000 })
+    expect(summary.KR).toMatchObject({ count: 1, value: 200 })
+    expect(summary.US).toMatchObject({ count: 1, value: 30 })
+  })
+
+  it('keeps the market return denominator consistent with a fractional holding', () => {
+    const positions = foldPositions([tx({ kind: 'buy', tradeDate: '2026-09-01', securityId: 2, currency: 'USD', quantity: 0.001, price: 163.42 })])
+    const valued = valuePositions(positions, sec, [], new Map([[2, 200]]))
+    const summary = aggregateByMarket(valued, [], { date: '2026-09-01', rate: 1000 })
+    expect(summary.US.cost).toBeCloseTo(0.16342, 12)
+    expect(summary.US.unrealized).toBe(0.04)
+    expect(summary.US.returnPct).toBeCloseTo(24.477, 3)
+    expect(summary.US.returnPct).toBe(valued[0].returnPct)
   })
 
   it('without an fx row the total counts won only and flags fxMissing (no NaN)', () => {

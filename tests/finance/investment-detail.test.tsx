@@ -14,7 +14,8 @@ import SecurityPage from '@/app/investment/[securityId]/page'
 import TrendPage from '@/app/investment/trend/page'
 import AdvisorPage from '@/app/investment/advisor/page'
 import { getSecurityDetail, loadPortfolioInputs, getHoldingsData, getTrendData } from '@/features/investment/queries'
-import { aggregateByMarket } from '@/features/investment/calculations'
+import { aggregateByMarket, foldPositions, valuePositions } from '@/features/investment/calculations'
+import type { TransactionRow } from '@/features/investment/types'
 
 describe('HoldingMemoForm', () => {
   const html = renderToStaticMarkup(<HoldingMemoForm security={{ id: 1, thesis: 'HBM 수요', horizonYears: 5, fundsNeededAt: null, lossLimitPct: null, weightBasis: 'stock_accounts' }} />)
@@ -44,6 +45,25 @@ it('does not invent an average cost or profit for an unknown-cost position', asy
   expect(html).not.toContain('+200')
   const average = html.slice(html.indexOf('평균단가'), html.indexOf('평가손익'))
   expect(average).toMatch(/>–</)
+})
+
+it.each([
+  { price: null, profit: '–', returnText: '시세 없음' },
+  { price: 163.42, profit: '0', returnText: '0.0%' },
+  { price: 200, profit: '+$0.07', returnText: '+21.4%' },
+])('shows a consistent fractional average and profit at price $price on the detail page', async ({ price, profit, returnText }) => {
+  const security = { id: 1, name: '예시', symbol: 'EXAMPLE', market: 'US' as const, currency: 'USD' as const, exposureCurrency: 'USD' as const, sector: null, watching: true, thesis: null, horizonYears: null, fundsNeededAt: null, lossLimitPct: null, weightBasis: 'stock_accounts' as const, businessType: null, nextCheckDate: null }
+  const transactions: TransactionRow[] = [1, 2].map(id => ({ id, accountId: 1, securityId: 1, kind: 'buy', tradeDate: '2026-09-01', quantity: 0.001, price: 163.42, fee: 0, amount: -0.16, currency: 'USD', source: 'manual' }))
+  const positions = valuePositions(foldPositions(transactions), [security], [], price === null ? new Map() : new Map([[1, price]])).map(row => ({ ...row, security, weightPct: null, discrepancy: null }))
+  vi.mocked(loadPortfolioInputs).mockResolvedValue({ accounts: [], securities: [security], transactions, quotes: [], closes: new Map(), fx: null, broker: [], quotedAt: null, lastSyncedAt: null })
+  vi.mocked(getSecurityDetail).mockResolvedValue({ security, positions, price, changeRate: null, transactions: [], priceHistory: [], neighbors: { prev: null, next: null } })
+  const html = renderToStaticMarkup(await SecurityPage({ params: Promise.resolve({ securityId: '1' }) }))
+  const average = html.slice(html.indexOf('평균단가'), html.indexOf('평가손익'))
+  expect(average).toContain('$163.42')
+  expect(positions[0].avgCost).toBe(163.42)
+  const pnl = html.slice(html.indexOf('평가손익'), html.indexOf('다음 점검'))
+  expect(pnl).toContain(`>${profit}</p>`)
+  expect(pnl).toContain(returnText)
 })
 
 it('trend and advisor do not call missing quote values zero or cash 100 percent', async () => {

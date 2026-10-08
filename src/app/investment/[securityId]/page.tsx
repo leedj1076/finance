@@ -28,7 +28,7 @@ export default async function InvestmentSecurityPage({ params }: Props) {
   const costKnown = positions.every(p => p.avgCost !== null)
   const avg = quantity > 0 && costKnown ? cost / quantity : null
   const value = positions.every((p) => p.marketValue !== null) ? positions.reduce((s, p) => s + (p.marketValue ?? 0), 0) : null
-  const unrealized = value === null || !costKnown ? null : value - cost
+  const unrealized = value === null || !costKnown ? null : positions.reduce((sum, p) => sum + (p.unrealized ?? 0), 0)
   const weight = positions[0]?.weightPct ?? null
   const byOwner = positions.map((p) => `${inputs.accounts.find((a) => a.id === p.accountId)?.owner ?? '?'} ${p.quantity}`).join(' · ')
   const discrepancy = positions.find((p) => p.discrepancy)?.discrepancy ?? null

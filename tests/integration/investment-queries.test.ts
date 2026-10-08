@@ -71,6 +71,24 @@ describe('getHoldingsData', () => {
     const other = await getHoldingsData(otherHouseholdId)
     expect(other.groups).toEqual([])
   })
+  test('counts a shared security once and preserves its combined weight across owner filters', async () => {
+    const [transaction] = await db.insert(investmentTransactions).values({ householdId, accountId: yj, securityId: samsung, kind: 'adjust', tradeDate: '2026-09-01', quantity: '10', price: '71200', amount: '0', currency: 'KRW', source: 'manual' }).returning()
+    try {
+      for (const owner of [undefined, 'DJ', 'YJ']) {
+        const data = await getHoldingsData(householdId, owner)
+        expect(data.summary.KR.count).toBe(1)
+        expect(data.summary.KR.count).toBe(data.securitiesCount.KR)
+        const shared = data.groups.flatMap(group => group.markets.flatMap(market => market.rows)).filter(row => row.securityId === samsung)
+        expect(shared).toHaveLength(owner ? 1 : 2)
+        const expectedValue = owner === 'DJ' ? 7056000 : owner === 'YJ' ? 784000 : 7840000
+        expect(data.summary.KR.value).toBe(expectedValue)
+        for (const row of shared) expect(row.weightPct).toBeCloseTo(expectedValue / data.summary.totalKRW * 100, 6)
+      }
+      const detail = await getSecurityDetail(householdId, samsung)
+      expect(detail?.positions).toHaveLength(2)
+      expect(detail?.positions[0].weightPct).toBe(detail?.positions[1].weightPct)
+    } finally { await db.delete(investmentTransactions).where(eq(investmentTransactions.id, transaction.id)) }
+  })
 })
 
 describe('getTransactionsData', () => {

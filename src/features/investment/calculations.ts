@@ -55,19 +55,17 @@ function walk(rows: TransactionRow[], onSell?: (row: TransactionRow, avgBefore: 
       current.avgCost = newQty > 0 && (current.quantity === 0 || current.avgCost !== null)
         ? round6((current.costBasis + spent) / newQty) : null
       current.quantity = newQty
-      current.costBasis = current.avgCost === null ? 0 : current.avgCost * newQty
     } else if (row.kind === 'sell') {
       onSell?.(row, qty <= current.quantity ? current.avgCost : null)
       current.quantity = Math.max(0, current.quantity - qty)
-      current.costBasis = current.avgCost === null ? 0 : current.avgCost * current.quantity
     } else {
       current.quantity = Math.max(0, current.quantity + qty)
       if (row.price !== null) current.avgCost = row.price
-      current.costBasis = current.avgCost === null ? 0 : current.avgCost * current.quantity
     }
     current.quantity = round6(current.quantity)
     if (current.quantity === 0) current.avgCost = null
-    current.costBasis = round2(current.costBasis)
+    // Rounding the basis to cents changes the average on the next fractional buy.
+    current.costBasis = current.avgCost === null ? 0 : current.avgCost * current.quantity
     state.set(key, current)
   }
   return state
@@ -124,9 +122,9 @@ export function valuePositions(
 function totals(valued: ValuedPosition[], market: Market): MarketTotals {
   const rows = valued.filter((v) => v.market === market)
   const value = round2(rows.reduce((s, v) => s + (v.marketValue ?? 0), 0))
-  const cost = round2(rows.reduce((s, v) => s + (v.unrealized === null ? 0 : v.costBasis), 0))
+  const cost = rows.reduce((s, v) => s + (v.unrealized === null ? 0 : v.costBasis), 0)
   const unrealized = round2(rows.reduce((sum, row) => sum + (row.unrealized ?? 0), 0))
-  return { value, cost, unrealized, returnPct: cost === 0 ? null : unrealized / cost * 100, count: rows.length }
+  return { value, cost, unrealized, returnPct: cost === 0 ? null : unrealized / cost * 100, count: new Set(rows.map(row => row.securityId)).size }
 }
 
 export function aggregateByMarket(valued: ValuedPosition[], cash: CashBalance[], fx: FxRow | null): MarketSummary {
