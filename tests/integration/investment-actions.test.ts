@@ -145,6 +145,46 @@ test('backdated sells and negative adjustments cannot create a historical short 
   expect(await saveManualTransaction({}, trade(id, 'adjust', '-11', '2026-09-04'))).toHaveProperty('error')
 })
 
+test('backdated sells identify the later transaction they would invalidate', async () => {
+  const id = await isolatedSecurity('LATER')
+  await saveManualTransaction({}, trade(id, 'buy', '40', '2026-09-01'))
+  await saveManualTransaction({}, trade(id, 'sell', '30', '2026-09-10'))
+  const result = await saveManualTransaction({}, trade(id, 'sell', '20', '2026-09-05'))
+  expect(result.error).toContain('2026-09-10')
+  expect(result.error).toContain('보유 20주')
+  expect(result.error).toContain('매도 30주')
+  expect(result.saved).toBeUndefined()
+  const rows = await db.select().from(investmentTransactions).where(eq(investmentTransactions.securityId, Number(id)))
+  expect(rows).toHaveLength(2)
+})
+
+test('server actions reject currency mismatches for both domestic and overseas securities', async () => {
+  const us = await isolatedSecurity('CURRENCY')
+  for (const [id, currency, expected] of [[String(securityId), 'USD', 'KRW'], [us, 'KRW', 'USD']]) {
+    const data = trade(id, 'buy', '1')
+    data.set('currency', currency)
+    expect((await saveManualTransaction({}, data)).error).toContain(`통화는 ${expected}`)
+  }
+  expect(await db.select().from(investmentTransactions).where(eq(investmentTransactions.securityId, Number(us)))).toHaveLength(0)
+})
+
+test('server action today changes at Korean midnight, not UTC midnight', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  try {
+    const data = form({ accountId: String(accountId), kind: 'deposit', currency: 'KRW', amount: '100', tradeDate: '2026-09-29' })
+    vi.setSystemTime(new Date('2026-09-28T14:59:59Z'))
+    expect((await saveManualTransaction({}, data)).error).toMatch(/오늘까지만/)
+    vi.setSystemTime(new Date('2026-09-28T15:00:00Z'))
+    const accepted = await saveManualTransaction({}, data)
+    expect(accepted.error).toBeUndefined()
+    expect(accepted.saved).toBeDefined()
+    const [row] = await db.select().from(investmentTransactions).where(eq(investmentTransactions.id, accepted.saved!.id))
+    expect(row.tradeDate).toBe('2026-09-29')
+    data.set('tradeDate', '2026-09-30')
+    expect((await saveManualTransaction({}, data)).error).toMatch(/오늘까지만/)
+  } finally { vi.useRealTimers() }
+})
+
 test('deleting an early buy is rejected even if a later buy restores the final balance', async () => {
   const id = await isolatedSecurity('DELETE')
   const early = await saveManualTransaction({}, trade(id, 'buy', '10', '2026-09-01'))

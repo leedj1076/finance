@@ -84,7 +84,13 @@ export async function saveManualTransaction(_prev: ActionState, formData: FormDa
         eq(investmentTransactions.accountId, input.accountId), eq(investmentTransactions.securityId, input.securityId),
       ))
       const shortage = firstShortBalance([...history, { id: Number.MAX_SAFE_INTEGER, tradeDate: input.tradeDate, kind: input.kind, quantity: input.quantity === null ? null : String(input.quantity) }])
-      if (shortage !== null) return { error: input.kind === 'sell' ? `보유 ${shortage}주보다 많이 팔 수 없습니다.` : '정정하면 보유 수량이 음수가 됩니다.' }
+      if (shortage !== null) {
+        if (shortage.id !== Number.MAX_SAFE_INTEGER) {
+          const change = shortage.kind === 'sell' ? `매도 ${shortage.quantity}주` : `정정 ${shortage.quantity}주`
+          return { error: `입력하면 ${shortage.tradeDate}의 기존 ${change}를 처리할 수 없습니다(해당 거래 직전 보유 ${shortage.balance}주). 날짜와 수량을 확인하세요.` }
+        }
+        return { error: input.kind === 'sell' ? `보유 ${shortage.balance}주보다 많이 팔 수 없습니다.` : '정정하면 보유 수량이 음수가 됩니다.' }
+      }
     }
     const [row] = await tx.insert(investmentTransactions).values({
       householdId: household.householdId, accountId: input.accountId, securityId: input.securityId, kind: input.kind, tradeDate: input.tradeDate,
@@ -103,7 +109,7 @@ function firstShortBalance(rows: Array<Pick<typeof investmentTransactions.$infer
     const quantity = Number(row.quantity ?? 0)
     const delta = row.kind === 'sell' ? -quantity : row.kind === 'buy' || row.kind === 'adjust' ? quantity : 0
     const next = Math.round((balance + delta) * 1e6) / 1e6
-    if (next < 0) return balance
+    if (next < 0) return { id: row.id, tradeDate: row.tradeDate, kind: row.kind, quantity, balance }
     balance = next
   }
   return null

@@ -46,6 +46,7 @@ describe('parseManualTransaction', () => {
       [{ accountId: '1', kind: 'deposit', tradeDate: '2026-09-01', amount: '0', currency: 'KRW' }, /금액/],
       [{ accountId: '1', kind: 'deposit', tradeDate: '2026-09-01', amount: '100', currency: 'EUR' }, /통화/],
       [{ accountId: '1', securityId: '20', kind: 'buy', tradeDate: '2026-09-01', quantity: '1', price: '1', currency: 'KRW' }, /통화/],
+      [{ accountId: '1', securityId: '10', kind: 'buy', tradeDate: '2026-09-01', quantity: '1', price: '1', currency: 'USD' }, /통화/],
       [{ accountId: '1', securityId: '10', kind: 'buy', tradeDate: '2026-09-01', quantity: '1', price: '1', memo: 'x'.repeat(201) }, /메모/],
     ]
     for (const [entries, pattern] of cases) {
